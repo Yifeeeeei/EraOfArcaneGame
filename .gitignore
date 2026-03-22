@@ -1,0 +1,13 @@
+# Binaries
+server/arcane-server
+server/server
+*.exe
+*.db
+
+# OS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>奥术纪元 Era of Arcane</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/lobby.css">
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>奥术纪元 <small>Era of Arcane</small></h1>
+        </header>
+
+        <main>
+            <!-- Player Name -->
+            <section class="section">
+                <h2>玩家名称</h2>
+                <input type="text" v-model="playerName" placeholder="输入你的名称" class="input-field">
+            </section>
+
+            <!-- Deck Import -->
+            <section class="section">
+                <h2>卡组导入</h2>
+                <textarea v-model="deckCode" placeholder="粘贴卡组代码..." class="deck-input" rows="4"></textarea>
+                <button @click="validateDeck" class="btn btn-primary">验证卡组</button>
+                <div v-if="deckInfo" class="deck-info">
+                    <div class="deck-valid">卡组有效</div>
+                    <div>英雄: {{ deckInfo.hero_name }}</div>
+                    <div>主卡组: {{ deckInfo.main_count }}/30</div>
+                    <div>技能池: {{ deckInfo.skill_count }}/10</div>
+                    <div v-if="deckInfo.extra_count > 0">额外卡组: {{ deckInfo.extra_count }}</div>
+                </div>
+                <div v-if="deckError" class="deck-error">{{ deckError }}</div>
+            </section>
+
+            <!-- Room Actions -->
+            <section class="section" v-if="deckInfo">
+                <h2>游戏房间</h2>
+                <div class="room-actions">
+                    <button @click="createRoom" class="btn btn-success">创建房间</button>
+                    <div class="join-room">
+                        <input type="text" v-model="joinRoomID" placeholder="房间号" class="input-field input-small">
+                        <button @click="joinRoom" class="btn btn-info">加入房间</button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Room Status -->
+            <section class="section" v-if="currentRoom">
+                <h2>房间 #{{ currentRoom.id }}</h2>
+                <div class="room-status">
+                    <div v-for="p in currentRoom.players" :key="p.id" class="player-slot">
+                        玩家{{ p.slot + 1 }}: {{ p.name }}
+                    </div>
+                    <div v-if="currentRoom.players.length < 2" class="waiting">
+                        等待对手加入... 房间号: <strong>{{ currentRoom.id }}</strong>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Room List -->
+            <section class="section">
+                <h2>可用房间 <button @click="refreshRooms" class="btn btn-small">刷新</button></h2>
+                <div v-if="rooms.length === 0" class="no-rooms">暂无可用房间</div>
+                <div v-for="room in rooms" :key="room.id" class="room-item">
+                    <span>房间 #{{ room.id }}</span>
+                    <span>{{ room.players.length }}/2 玩家</span>
+                    <span v-if="room.is_started" class="tag tag-active">进行中</span>
+                    <span v-else class="tag tag-waiting">等待中</span>
+                    <button v-if="!room.is_started && room.players.length < 2"
+                            @click="joinRoomID = room.id; joinRoom()"
+                            class="btn btn-small btn-info">加入</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+    const { createApp, ref, onMounted } = Vue;
+
+    createApp({
+        setup() {
+            const playerName = ref('玩家' + Math.floor(Math.random() * 1000));
+            const playerID = ref('p_' + Date.now() + '_' + Math.floor(Math.random() * 10000));
+            const deckCode = ref('');
+            const deckInfo = ref(null);
+            const deckError = ref('');
+            const joinRoomID = ref('');
+            const currentRoom = ref(null);
+            const rooms = ref([]);
+
+            async function validateDeck() {
+                deckError.value = '';
+                deckInfo.value = null;
+                try {
+                    const resp = await fetch('/api/deck/validate', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ deck_code: deckCode.value })
+                    });
+                    const data = await resp.json();
+                    if (data.error) {
+                        deckError.value = data.error;
+                    } else {
+                        deckInfo.value = data;
+                    }
+                } catch (e) {
+                    deckError.value = '请求失败: ' + e.message;
+                }
+            }
+
+            async function createRoom() {
+                try {
+                    const resp = await fetch('/api/room/create', { method: 'POST' });
+                    const data = await resp.json();
+                    joinRoomID.value = data.room_id;
+                    joinRoom();
+                } catch (e) {
+                    alert('创建房间失败: ' + e.message);
+                }
+            }
+
+            function joinRoom() {
+                if (!joinRoomID.value) {
+                    alert('请输入房间号');
+                    return;
+                }
+                if (!deckInfo.value) {
+                    alert('请先验证卡组');
+                    return;
+                }
+
+                // Store info and navigate to game page
+                const params = new URLSearchParams({
+                    room: joinRoomID.value,
+                    player_id: playerID.value,
+                    player_name: playerName.value,
+                    deck_code: deckCode.value
+                });
+                window.location.href = '/game.html?' + params.toString();
+            }
+
+            async function refreshRooms() {
+                try {
+                    const resp = await fetch('/api/room/list');
+                    rooms.value = await resp.json();
+                } catch (e) {
+                    console.error('Failed to fetch rooms:', e);
+                }
+            }
+
+            onMounted(() => {
+                refreshRooms();
+            });
+
+            return {
+                playerName, deckCode, deckInfo, deckError,
+                joinRoomID, currentRoom, rooms,
+                validateDeck, createRoom, joinRoom, refreshRooms
+            };
+        }
+    }).mount('#app');
+    </script>
+</body>
+</html>

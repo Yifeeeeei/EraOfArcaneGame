@@ -1,0 +1,136 @@
+package api
+
+import (
+	"encoding/json"
+	"eraofarcane/cards"
+	"eraofarcane/game"
+	"eraofarcane/match"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/gorilla/websocket"
+)
+
+const testDeckCode = "4311003 // 1021001 1021001 1211203 1311202 1321002 1321002 1321010 1321012 1321013 1321013 1321105 1321204 1321204 1321205 1321205 1321207 1321207 1321210 1321210 1321212 2221205 2221205 2321006 2321006 2321201 2321202 2321207 2321207 2321208 2321211 // 3221209 3311201 3321002 3321007 3321015 3321106 3321206 3321207 3321208 3321209 // 2001201 2001202 2001203 2001204 2001205 2001206 2001207 2001208"
+
+func setupTestServer(t *testing.T) (*httptest.Server, *match.RoomManager) {
+	t.Helper()
+
+	if cards.CardDB == nil {
+		if err := cards.LoadCards("../../data/all_card_infos.json"); err != nil {
+			t.Fatalf("Failed to load cards: %v", err)
+		}
+		game.SetCardDB(cards.CardDB)
+	}
+
+	rm := match.NewRoomManager()
+	mux := http.NewServeMux()
+	SetupRoutes(mux, rm)
+
+	server := httptest.NewServer(mux)
+	return server, rm
+}
+
+func connectWS(t *testing.T, server *httptest.Server, roomID, playerID, playerName string) *websocket.Conn {
+	t.Helper()
+
+	import_net_url := func(s string) string {
+		return strings.ReplaceAll(strings.ReplaceAll(s, " ", "%20"), "/", "%2F")
+	}
+	_ = import_net_url
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") +
+		"/ws?room=" + roomID + "&player_id=" + playerID + "&player_name=" + playerName + "&deck_code=" + strings.ReplaceAll(testDeckCode, " ", "%20")
+
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("WebSocket dial failed: %v", err)
+	}
+	return conn
+}
+
+func readMessage(t *testing.T, conn *websocket.Conn) map[string]any {
+	t.Helper()
+	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
+	_, msg, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatalf("Failed to read message: %v", err)
+	}
+	var result map[string]any
+	json.Unmarshal(msg, &result)
+	return result
+}
+
+func sendAction(t *testing.T, conn *websocket.Conn, action string, data map[string]any) {
+	t.Helper()
+	msg := map[string]any{"action": action, "data": data}
+	if err := conn.WriteJSON(msg); err != nil {
+		t.Fatalf("Failed to send action: %v", err)
+	}
+}
+
+func drainMessages(conn *websocket.Conn, count int) {
+	for i := 0; i < count; i++ {
+		conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+		conn.ReadMessage()
+	}
+}
+
+func TestWebSocketGameFlow(t *testing.T) {
+	server, rm := setupTestServer(t)
+	defer server.Close()
+
+	// Create a room
+	room := rm.CreateRoom()
+	roomID := room.ID
+	t.Logf("Created room: %s", roomID)
+
+	// Player 1 connects
+	conn1 := connectWS(t, server, roomID, "p1", "Player1")
+	defer conn1.Close()
+
+	msg1 := readMessage(t, conn1) // "joined" message
+	t.Logf("P1 joined: %v", msg1["type"])
+	if msg1["type"] != "joined" {
+		t.Fatalf("Expected 'joined', got %v", msg1["type"])
+	}
+
+	// Player 2 connects (triggers game start)
+	conn2 := connectWS(t, server, roomID, "p2", "Player2")
+	defer conn2.Close()
+
+	msg2 := readMessage(t, conn2) // "joined" message
+	t.Logf("P2 joined: %v", msg2["type"])
+
+	// Both should receive game events (initial_draw, phase_change, state_sync)
+	// Drain the initial events
+	drainMessages(conn1, 10)
+	drainMessages(conn2, 10)
+
+	// Both players mulligan (keep)
+	sendAction(t, conn1, "mulligan", map[string]any{"keep": true})
+	time.Sleep(100 * time.Millisecond)
+	drainMessages(conn1, 5)
+
+	sendAction(t, conn2, "mulligan", map[string]any{"keep": true})
+	time.Sleep(100 * time.Millisecond)
+
+	// Drain game_start and turn_start events
+	drainMessages(conn1, 10)
+	drainMessages(conn2, 10)
+
+	// Player 0 ends turn
+	sendAction(t, conn1, "end_turn", map[string]any{})
+	time.Sleep(100 * time.Millisecond)
+	drainMessages(conn1, 10)
+	drainMessages(conn2, 10)
+
+	// Player 1 ends turn
+	sendAction(t, conn2, "end_turn", map[string]any{})
+	time.Sleep(100 * time.Millisecond)
+
+	t.Log("Full WebSocket game flow test passed!")
+}

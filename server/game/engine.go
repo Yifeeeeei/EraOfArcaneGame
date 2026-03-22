@@ -1,0 +1,1524 @@
+package game
+
+import (
+	"eraofarcane/model"
+	"fmt"
+	"log"
+	"math/rand"
+	"sync"
+)
+
+// GameEvent represents something that happened in the game
+type GameEvent struct {
+	Type   string         `json:"type"`
+	Data   map[string]any `json:"data"`
+	Player int            `json:"player"` // which player this is relevant to, -1 for both
+}
+
+// ActionMessage is a player action received via WebSocket
+type ActionMessage struct {
+	Action string         `json:"action"`
+	Data   map[string]any `json:"data"`
+}
+
+// EventCallback is called when events occur (to send to clients)
+type EventCallback func(event GameEvent, targetPlayer int) // targetPlayer: 0, 1, or -1 for both
+
+// Engine manages a single game instance
+type Engine struct {
+	State    *GameState
+	mu       sync.Mutex
+	callback EventCallback
+	log      []GameEvent
+}
+
+// NewEngine creates a new game engine
+func NewEngine(gameID string, callback EventCallback) *Engine {
+	return &Engine{
+		State:    NewGameState(gameID),
+		callback: callback,
+		log:      make([]GameEvent, 0),
+	}
+}
+
+// emit sends an event to clients and records it
+func (e *Engine) emit(event GameEvent) {
+	e.log = append(e.log, event)
+	if e.callback != nil {
+		e.callback(event, event.Player)
+	}
+}
+
+// SetupGame initializes both players and starts the game
+func (e *Engine) SetupGame(p1Name string, p1Deck *model.Deck, p2Name string, p2Deck *model.Deck) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	// Create player states
+	e.State.Players[0] = NewPlayerState(0, p1Name, p1Deck)
+	e.State.Players[1] = NewPlayerState(1, p2Name, p2Deck)
+
+	// Initialize cards
+	e.State.Players[0].InitCards(0)
+	e.State.Players[1].InitCards(0)
+
+	// Draw initial hands (4 cards each)
+	for i := 0; i < 2; i++ {
+		drawn := e.State.Players[i].DrawCards(4)
+		e.emit(GameEvent{
+			Type:   "initial_draw",
+			Player: i,
+			Data: map[string]any{
+				"cards": cardsToInfo(drawn),
+				"count": len(drawn),
+			},
+		})
+	}
+
+	// Enter mulligan phase
+	e.State.Phase = PhaseMulligan
+	e.emit(GameEvent{
+		Type:   "phase_change",
+		Player: -1,
+		Data:   map[string]any{"phase": "mulligan"},
+	})
+
+	return nil
+}
+
+// HandleAction processes a player action
+func (e *Engine) HandleAction(playerID int, action ActionMessage) error {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	log.Printf("[Game %s] Player %d action: %s", e.State.GameID, playerID, action.Action)
+
+	switch action.Action {
+	case "mulligan":
+		return e.handleMulligan(playerID, action)
+	case "summon":
+		return e.handleSummon(playerID, action)
+	case "consume":
+		return e.handleConsume(playerID, action)
+	case "cast_spell":
+		return e.handleCastSpell(playerID, action)
+	case "defend":
+		return e.handleDefend(playerID, action)
+	case "no_defend":
+		return e.handleNoDefend(playerID, action)
+	case "attack":
+		return e.handleAttack(playerID, action)
+	case "equip":
+		return e.handleEquip(playerID, action)
+	case "learn_skill":
+		return e.handleLearnSkill(playerID, action)
+	case "use_item":
+		return e.handleUseItem(playerID, action)
+	case "place_terrain":
+		return e.handlePlaceTerrain(playerID, action)
+	case "use_ability":
+		return e.handleUseAbility(playerID, action)
+	case "end_turn":
+		return e.handleEndTurn(playerID, action)
+	default:
+		return fmt.Errorf("unknown action: %s", action.Action)
+	}
+}
+
+// handleMulligan handles the mulligan (redraw) action
+func (e *Engine) handleMulligan(playerID int, action ActionMessage) error {
+	if e.State.Phase != PhaseMulligan {
+		return fmt.Errorf("not in mulligan phase")
+	}
+	if e.State.MulliganDone[playerID] {
+		return fmt.Errorf("already submitted mulligan")
+	}
+
+	// Check if player wants to redraw
+	keepStr, _ := action.Data["keep"].(bool)
+
+	if !keepStr {
+		// Redraw: put hand back in deck, shuffle, draw 4
+		ps := e.State.Players[playerID]
+		ps.Deck = append(ps.Deck, ps.Hand...)
+		ps.Hand = make([]*CardInstance, 0)
+		shuffleDeck(ps.Deck)
+		drawn := ps.DrawCards(4)
+		e.emit(GameEvent{
+			Type:   "mulligan_redraw",
+			Player: playerID,
+			Data: map[string]any{
+				"cards": cardsToInfo(drawn),
+				"count": len(drawn),
+			},
+		})
+	}
+
+	e.State.MulliganDone[playerID] = true
+
+	e.emit(GameEvent{
+		Type:   "mulligan_done",
+		Player: playerID,
+		Data:   map[string]any{"player": playerID},
+	})
+
+	// If both players are done, start the game
+	if e.State.MulliganDone[0] && e.State.MulliganDone[1] {
+		e.startGame()
+	}
+
+	return nil
+}
+
+// startGame begins the actual game
+func (e *Engine) startGame() {
+	e.State.CurrentTurn = 0
+	e.State.TurnNumber = 1
+	e.State.IsFirstTurn = true
+
+	e.emit(GameEvent{
+		Type:   "game_start",
+		Player: -1,
+		Data: map[string]any{
+			"first_player": 0,
+		},
+	})
+
+	e.startTurn()
+}
+
+// startTurn begins a new turn for the current player
+func (e *Engine) startTurn() {
+	ps := e.State.Players[e.State.CurrentTurn]
+
+	// Reset cards (vertical)
+	e.resetCards(ps)
+
+	// Refresh elements from all vertical cards
+	e.refreshElements(ps)
+
+	// Draw a card (not on first turn of the game for first player)
+	if !e.State.IsFirstTurn || e.State.CurrentTurn == 1 {
+		drawn := ps.DrawCards(1)
+		if len(drawn) > 0 {
+			e.emit(GameEvent{
+				Type:   "draw_card",
+				Player: e.State.CurrentTurn,
+				Data: map[string]any{
+					"card": cardToInfo(drawn[0]),
+				},
+			})
+			// Notify opponent about the draw (without card info)
+			e.emit(GameEvent{
+				Type:   "opponent_draw",
+				Player: 1 - e.State.CurrentTurn,
+				Data: map[string]any{
+					"count": 1,
+				},
+			})
+		}
+	}
+
+	e.State.Phase = PhaseMain
+
+	e.emit(GameEvent{
+		Type:   "turn_start",
+		Player: -1,
+		Data: map[string]any{
+			"current_player": e.State.CurrentTurn,
+			"turn_number":    e.State.TurnNumber,
+			"elements":       ps.Elements,
+		},
+	})
+
+	// Trigger 回合开始 effects for all cards on the current player's field
+	allCards := e.getAllFieldCards(ps)
+	for _, card := range allCards {
+		e.triggerEffects(TriggerOnTurnStart, card, nil, nil)
+	}
+}
+
+// resetCards resets all cards to vertical state
+func (e *Engine) resetCards(ps *PlayerState) {
+	// Reset units
+	for col := 0; col < 3; col++ {
+		for row := 0; row < 3; row++ {
+			if ps.Units[col][row] != nil {
+				ps.Units[col][row].Reset()
+				ps.Units[col][row].UsedThisTurn = 0
+			}
+		}
+	}
+	// Reset skills
+	for i := 0; i < 5; i++ {
+		if ps.Skills[i] != nil {
+			ps.Skills[i].Reset()
+			ps.Skills[i].UsedThisTurn = 0
+		}
+	}
+	// Reset equipment
+	for i := 0; i < 5; i++ {
+		if ps.Equipment[i] != nil {
+			ps.Equipment[i].Reset()
+			ps.Equipment[i].UsedThisTurn = 0
+		}
+	}
+}
+
+// refreshElements calculates available elements from all vertical (竖置) cards
+func (e *Engine) refreshElements(ps *PlayerState) {
+	// Clear elements
+	for elem := range ps.Elements {
+		ps.Elements[elem] = 0
+	}
+	// Don't auto-gain. Elements are gained by consuming (横置) cards.
+	// At turn start, elements reset to 0. Player must consume cards to gain elements.
+}
+
+// handleSummon handles summoning a companion to the field
+func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
+	if e.State.Phase != PhaseMain {
+		return fmt.Errorf("not in main phase")
+	}
+	if e.State.CurrentTurn != playerID {
+		return fmt.Errorf("not your turn")
+	}
+
+	instanceID, _ := action.Data["instance_id"].(string)
+	colF, _ := action.Data["col"].(float64)
+	rowF, _ := action.Data["row"].(float64)
+	col := int(colF)
+	row := int(rowF)
+
+	ps := e.State.Players[playerID]
+
+	// Find card in hand
+	card, handIdx := ps.FindHandCard(instanceID)
+	if card == nil {
+		return fmt.Errorf("card not found in hand")
+	}
+
+	// Must be a companion or item
+	if !card.Card.IsCompanion() {
+		return fmt.Errorf("can only summon companions to unit area")
+	}
+
+	// Check position
+	pos := Position{Col: col, Row: row}
+	if !pos.Valid() {
+		return fmt.Errorf("invalid position")
+	}
+	if ps.Units[col][row] != nil {
+		return fmt.Errorf("position already occupied")
+	}
+
+	// Check cost
+	if !ps.CanPayCost(card.Card.ElementsCost) {
+		return fmt.Errorf("not enough elements")
+	}
+
+	// Check unit limit (max 9 including hero)
+	if ps.CountUnits() >= 9 {
+		return fmt.Errorf("unit area is full")
+	}
+
+	// Pay cost and place
+	ps.PayCost(card.Card.ElementsCost)
+	ps.RemoveFromHand(handIdx)
+	card.Position = &Position{Col: col, Row: row}
+	card.IsHorizontal = true // enters horizontal by default
+	card.EnterTurn = e.State.TurnNumber
+	ps.Units[col][row] = card
+
+	// Apply keyword effects (速攻 makes it enter vertical, etc.)
+	e.ApplyKeywordOnEnter(card)
+
+	e.emit(GameEvent{
+		Type:   "summon",
+		Player: -1,
+		Data: map[string]any{
+			"player":      playerID,
+			"card":        cardToInfo(card),
+			"position":    pos,
+			"elements":    ps.Elements,
+		},
+	})
+
+	// Trigger 入场 (on enter) effects for the summoned card
+	e.triggerEffects(TriggerOnEnter, card, nil, nil)
+
+	// Notify other friendly cards about the new unit entering
+	e.triggerFieldEffects(TriggerOnUnitEnter, playerID, card)
+
+	e.checkWinCondition()
+	return nil
+}
+
+// handleConsume handles consuming a card (横置 to gain elements)
+func (e *Engine) handleConsume(playerID int, action ActionMessage) error {
+	if e.State.Phase != PhaseMain && e.State.Phase != PhaseDefenseWindow {
+		return fmt.Errorf("cannot consume now")
+	}
+	// During defense window, only the defending player can consume (透支)
+	if e.State.Phase == PhaseDefenseWindow {
+		if e.State.PendingSpell == nil || playerID == e.State.PendingSpell.AttackerID {
+			return fmt.Errorf("only defender can overdraft during defense")
+		}
+	}
+	if e.State.Phase == PhaseMain && e.State.CurrentTurn != playerID {
+		return fmt.Errorf("not your turn")
+	}
+
+	instanceID, _ := action.Data["instance_id"].(string)
+	ps := e.State.Players[playerID]
+
+	// Find the card on the field
+	card := e.findCardOnField(ps, instanceID)
+	if card == nil {
+		return fmt.Errorf("card not found on field")
+	}
+	if !card.CanConsume() {
+		return fmt.Errorf("card cannot be consumed")
+	}
+
+	// Consume: set horizontal and gain elements
+	card.IsHorizontal = true
+	gains := make(map[string]int)
+	for k, v := range card.Card.ElementsGain {
+		gains[k] = v
+	}
+	// First player's first turn: half load
+	if e.State.IsFirstTurn && playerID == 0 {
+		for k, v := range gains {
+			gains[k] = v / 2
+		}
+	}
+	ps.GainElements(gains)
+
+	e.emit(GameEvent{
+		Type:   "consume",
+		Player: -1,
+		Data: map[string]any{
+			"player":      playerID,
+			"instance_id": instanceID,
+			"elements":    ps.Elements,
+			"gained":      gains,
+		},
+	})
+
+	// Trigger 消耗 effects
+	e.triggerEffects(TriggerOnConsume, card, nil, map[string]any{
+		"gained": gains,
+	})
+
+	return nil
+}
+
+// handleCastSpell handles casting a spell
+func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
+	if e.State.Phase != PhaseMain {
+		return fmt.Errorf("not in main phase")
+	}
+	if e.State.CurrentTurn != playerID {
+		return fmt.Errorf("not your turn")
+	}
+
+	instanceID, _ := action.Data["instance_id"].(string)
+	targetType, _ := action.Data["target_type"].(string)
+	targetColF, _ := action.Data["target_col"].(float64)
+	targetRowF, _ := action.Data["target_row"].(float64)
+
+	ps := e.State.Players[playerID]
+
+	// Find skill in skill area
+	var skill *CardInstance
+	for i := 0; i < 5; i++ {
+		if ps.Skills[i] != nil && ps.Skills[i].InstanceID == instanceID {
+			skill = ps.Skills[i]
+			break
+		}
+	}
+	if skill == nil {
+		return fmt.Errorf("skill not found in skill area")
+	}
+
+	// Check if skill can be used
+	if skill.IsHorizontal {
+		return fmt.Errorf("skill is horizontal (already used)")
+	}
+	if skill.Statuses[StatusCooldown] > 0 {
+		return fmt.Errorf("skill is on cooldown")
+	}
+	if skill.Statuses[StatusPetrify] > 0 {
+		return fmt.Errorf("skill is petrified")
+	}
+
+	// Check cost
+	cost := skill.Card.ElementsExpense
+	if len(cost) == 0 {
+		cost = skill.Card.ElementsCost
+	}
+	if !ps.CanPayCost(cost) {
+		return fmt.Errorf("not enough elements")
+	}
+
+	// Pay cost and set horizontal
+	ps.PayCost(cost)
+	skill.IsHorizontal = true
+
+	// Apply cooldown from keyword
+	e.ApplyKeywordOnSkillUse(skill)
+
+	target := SpellTarget{
+		Type:     targetType,
+		Position: Position{Col: int(targetColF), Row: int(targetRowF)},
+	}
+
+	// Check if it's a 咒术 (sorcery - unblockable)
+	isSorcery := isSorcerySkill(skill.Card)
+
+	if isSorcery {
+		// Sorcery resolves immediately
+		e.resolveSpellHit(playerID, skill, target)
+	} else {
+		// Regular spell: open defense window
+		e.State.PendingSpell = &SpellCast{
+			AttackerID: playerID,
+			Skill:      skill,
+			Target:     target,
+			TotalPower: max(skill.Card.Power, 0),
+		}
+		e.State.Phase = PhaseDefenseWindow
+
+		e.emit(GameEvent{
+			Type:   "spell_cast",
+			Player: -1,
+			Data: map[string]any{
+				"attacker":    playerID,
+				"skill":       cardToInfo(skill),
+				"target":      target,
+				"power":       e.State.PendingSpell.TotalPower,
+				"is_sorcery":  false,
+			},
+		})
+
+		e.emit(GameEvent{
+			Type:   "defense_window",
+			Player: 1 - playerID,
+			Data: map[string]any{
+				"timeout": 30,
+			},
+		})
+	}
+
+	return nil
+}
+
+// handleDefend handles the defender's response to a spell
+func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
+	if e.State.Phase != PhaseDefenseWindow {
+		return fmt.Errorf("not in defense window")
+	}
+	if e.State.PendingSpell == nil {
+		return fmt.Errorf("no pending spell")
+	}
+	if playerID == e.State.PendingSpell.AttackerID {
+		return fmt.Errorf("attacker cannot defend")
+	}
+
+	defenseIDsRaw, _ := action.Data["skill_ids"].([]any)
+	boostIDsRaw, _ := action.Data["boost_ids"].([]any)
+
+	ps := e.State.Players[playerID]
+
+	// Gather defense skills
+	var defenseSkills []*CardInstance
+	totalDefPower := 0
+
+	for _, idRaw := range defenseIDsRaw {
+		id, _ := idRaw.(string)
+		skill := e.findSkill(ps, id)
+		if skill == nil {
+			return fmt.Errorf("defense skill not found: %s", id)
+		}
+		if skill.IsHorizontal {
+			return fmt.Errorf("skill %s already used", id)
+		}
+		// Pay cost via overdraft (透支) - mark horizontal
+		skill.IsHorizontal = true
+		defenseSkills = append(defenseSkills, skill)
+		totalDefPower += max(skill.Card.Power, 0)
+	}
+
+	// Boost skills
+	for _, idRaw := range boostIDsRaw {
+		id, _ := idRaw.(string)
+		skill := e.findSkill(ps, id)
+		if skill == nil {
+			return fmt.Errorf("boost skill not found: %s", id)
+		}
+		if skill.IsHorizontal {
+			return fmt.Errorf("skill %s already used", id)
+		}
+		skill.IsHorizontal = true
+		totalDefPower += max(skill.Card.Power, 0)
+	}
+
+	attackPower := e.State.PendingSpell.TotalPower
+
+	e.emit(GameEvent{
+		Type:   "defense_attempt",
+		Player: -1,
+		Data: map[string]any{
+			"defender":      playerID,
+			"defense_power": totalDefPower,
+			"attack_power":  attackPower,
+			"skills_used":   len(defenseSkills) + len(boostIDsRaw),
+		},
+	})
+
+	if totalDefPower >= attackPower && len(defenseSkills) > 0 {
+		// Defense successful
+		e.emit(GameEvent{
+			Type:   "defense_success",
+			Player: -1,
+			Data:   map[string]any{"defender": playerID},
+		})
+	} else {
+		// Defense failed, spell hits
+		e.resolveSpellHit(
+			e.State.PendingSpell.AttackerID,
+			e.State.PendingSpell.Skill,
+			e.State.PendingSpell.Target,
+		)
+	}
+
+	e.State.PendingSpell = nil
+	e.State.Phase = PhaseMain
+	e.checkWinCondition()
+
+	return nil
+}
+
+// handleNoDefend handles when the defender chooses not to defend
+func (e *Engine) handleNoDefend(playerID int, action ActionMessage) error {
+	if e.State.Phase != PhaseDefenseWindow {
+		return fmt.Errorf("not in defense window")
+	}
+	if e.State.PendingSpell == nil {
+		return fmt.Errorf("no pending spell")
+	}
+	if playerID == e.State.PendingSpell.AttackerID {
+		return fmt.Errorf("attacker cannot respond here")
+	}
+
+	// Spell hits
+	e.resolveSpellHit(
+		e.State.PendingSpell.AttackerID,
+		e.State.PendingSpell.Skill,
+		e.State.PendingSpell.Target,
+	)
+
+	e.State.PendingSpell = nil
+	e.State.Phase = PhaseMain
+	e.checkWinCondition()
+
+	return nil
+}
+
+// resolveSpellHit applies spell damage to the target
+func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target SpellTarget) {
+	dmg := max(skill.Card.Attack, 0)
+
+	e.emit(GameEvent{
+		Type:   "spell_hit",
+		Player: -1,
+		Data: map[string]any{
+			"attacker": attackerID,
+			"skill":    cardToInfo(skill),
+			"target":   target,
+			"damage":   dmg,
+		},
+	})
+
+	if target.Type == "unit" {
+		defenderID := 1 - attackerID
+		targetUnit := e.State.Players[defenderID].Units[target.Position.Col][target.Position.Row]
+		if targetUnit != nil && dmg > 0 {
+			e.dealDamage(targetUnit, dmg, defenderID)
+		}
+	}
+
+	// Trigger spell hit effects on the skill card itself
+	e.triggerEffects(TriggerOnSpellHit, skill, nil, map[string]any{
+		"damage": dmg,
+		"target": target,
+	})
+}
+
+// handleAttack handles a unit attacking another unit
+func (e *Engine) handleAttack(playerID int, action ActionMessage) error {
+	if e.State.Phase != PhaseMain {
+		return fmt.Errorf("not in main phase")
+	}
+	if e.State.CurrentTurn != playerID {
+		return fmt.Errorf("not your turn")
+	}
+
+	attackerID, _ := action.Data["attacker_id"].(string)
+	targetColF, _ := action.Data["target_col"].(float64)
+	targetRowF, _ := action.Data["target_row"].(float64)
+	targetCol := int(targetColF)
+	targetRow := int(targetRowF)
+
+	ps := e.State.Players[playerID]
+	opponent := e.State.Players[1-playerID]
+
+	// Find attacker
+	attacker := e.findUnitOnGrid(ps, attackerID)
+	if attacker == nil {
+		return fmt.Errorf("attacker not found")
+	}
+	if attacker.Card.Attack <= 0 {
+		return fmt.Errorf("unit has no attack")
+	}
+	if attacker.IsHorizontal {
+		return fmt.Errorf("attacker is horizontal")
+	}
+	if attacker.Statuses[StatusStun] > 0 {
+		return fmt.Errorf("attacker is stunned")
+	}
+
+	// Check attacker is in front row
+	frontRow := ps.GetFrontRow()
+	if attacker.Position.Row != frontRow {
+		return fmt.Errorf("attacker is not in front row")
+	}
+
+	// Check target is in attacker's range (default: enemy front row)
+	targetPos := Position{Col: targetCol, Row: targetRow}
+	enemyFrontRow := opponent.GetFrontRow()
+	if targetRow != enemyFrontRow {
+		return fmt.Errorf("target is not in front row")
+	}
+
+	target := opponent.Units[targetCol][targetRow]
+	if target == nil {
+		return fmt.Errorf("no unit at target position")
+	}
+
+	// Consume attacker (横置)
+	attacker.IsHorizontal = true
+
+	// Trigger 攻击时 effects
+	e.triggerEffects(TriggerOnAttack, attacker, target, nil)
+
+	dmg := attacker.CurrentAttack
+
+	e.emit(GameEvent{
+		Type:   "unit_attack",
+		Player: -1,
+		Data: map[string]any{
+			"attacker_player": playerID,
+			"attacker":        cardToInfo(attacker),
+			"target":          cardToInfo(target),
+			"target_pos":      targetPos,
+			"damage":          dmg,
+		},
+	})
+
+	// Deal damage (unit attacks cannot be defended)
+	if dmg > 0 {
+		e.dealDamage(target, dmg, 1-playerID)
+		// Trigger 命中 effects
+		e.triggerEffects(TriggerOnHit, attacker, target, map[string]any{"damage": dmg})
+	}
+
+	e.checkWinCondition()
+	return nil
+}
+
+// dealDamage deals damage to a card instance
+func (e *Engine) dealDamage(target *CardInstance, amount int, ownerID int) {
+	// Apply shield damage reduction
+	amount = ApplyShieldDamage(target, amount)
+	if amount <= 0 {
+		e.emit(GameEvent{
+			Type:   "shield_block",
+			Player: -1,
+			Data: map[string]any{
+				"target":    cardToInfo(target),
+				"shield":    target.Statuses["护盾"],
+			},
+		})
+		return
+	}
+
+	target.CurrentLife -= amount
+
+	e.emit(GameEvent{
+		Type:   "damage",
+		Player: -1,
+		Data: map[string]any{
+			"target":    cardToInfo(target),
+			"amount":    amount,
+			"remaining": target.CurrentLife,
+		},
+	})
+
+	// Trigger 受伤 effects
+	e.triggerEffects(TriggerOnDamaged, target, nil, map[string]any{
+		"damage": amount,
+	})
+
+	if target.CurrentLife <= 0 {
+		e.destroyUnit(target, ownerID)
+	}
+}
+
+// destroyUnit removes a unit from the field and sends it to graveyard
+func (e *Engine) destroyUnit(unit *CardInstance, ownerID int) {
+	ps := e.State.Players[ownerID]
+
+	// Remove from grid
+	if unit.Position != nil {
+		ps.Units[unit.Position.Col][unit.Position.Row] = nil
+	}
+
+	// Add to graveyard
+	ps.Graveyard = append(ps.Graveyard, unit)
+
+	e.emit(GameEvent{
+		Type:   "unit_destroyed",
+		Player: -1,
+		Data: map[string]any{
+			"player": ownerID,
+			"card":   cardToInfo(unit),
+		},
+	})
+
+	// Trigger 遗言 (on death) effects
+	e.triggerEffects(TriggerOnDeath, unit, nil, nil)
+
+	// Notify friendly cards about the death
+	e.triggerFieldEffects(TriggerOnFriendlyDeath, ownerID, unit)
+
+	// Notify enemy cards about the death
+	e.triggerFieldEffects(TriggerOnEnemyDeath, 1-ownerID, unit)
+
+	// Check if hero died
+	if unit.Card.IsHero() {
+		e.State.Winner = 1 - ownerID
+		e.State.Phase = PhaseGameOver
+		e.emit(GameEvent{
+			Type:   "game_over",
+			Player: -1,
+			Data: map[string]any{
+				"winner": e.State.Winner,
+				"reason": "hero_killed",
+			},
+		})
+	}
+}
+
+// handleEquip handles equipping an item
+func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
+	if e.State.Phase != PhaseMain {
+		return fmt.Errorf("not in main phase")
+	}
+	if e.State.CurrentTurn != playerID {
+		return fmt.Errorf("not your turn")
+	}
+
+	instanceID, _ := action.Data["instance_id"].(string)
+	ps := e.State.Players[playerID]
+
+	card, handIdx := ps.FindHandCard(instanceID)
+	if card == nil {
+		return fmt.Errorf("card not found in hand")
+	}
+	if !card.Card.IsItem() {
+		return fmt.Errorf("card is not an item")
+	}
+	if !ps.CanPayCost(card.Card.ElementsCost) {
+		return fmt.Errorf("not enough elements")
+	}
+
+	// Find empty equipment slot
+	slotIdx := -1
+	for i := 0; i < 5; i++ {
+		if ps.Equipment[i] == nil {
+			slotIdx = i
+			break
+		}
+	}
+	if slotIdx == -1 {
+		return fmt.Errorf("equipment area is full")
+	}
+
+	ps.PayCost(card.Card.ElementsCost)
+	ps.RemoveFromHand(handIdx)
+	card.IsHorizontal = true
+	card.SlotIndex = slotIdx
+	card.EnterTurn = e.State.TurnNumber
+	ps.Equipment[slotIdx] = card
+
+	e.emit(GameEvent{
+		Type:   "equip",
+		Player: -1,
+		Data: map[string]any{
+			"player":   playerID,
+			"card":     cardToInfo(card),
+			"slot":     slotIdx,
+			"elements": ps.Elements,
+		},
+	})
+
+	return nil
+}
+
+// handleLearnSkill handles learning a skill from the skill pool
+func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
+	if e.State.Phase != PhaseMain {
+		return fmt.Errorf("not in main phase")
+	}
+	if e.State.CurrentTurn != playerID {
+		return fmt.Errorf("not your turn")
+	}
+
+	instanceID, _ := action.Data["instance_id"].(string)
+	replaceID, _ := action.Data["replace_id"].(string) // optional: which skill to replace
+
+	ps := e.State.Players[playerID]
+
+	// Find skill in skill pool
+	var skill *CardInstance
+	var poolIdx int
+	for i, s := range ps.SkillPool {
+		if s.InstanceID == instanceID {
+			skill = s
+			poolIdx = i
+			break
+		}
+	}
+	if skill == nil {
+		return fmt.Errorf("skill not found in skill pool")
+	}
+
+	// Check cost
+	if !ps.CanPayCost(skill.Card.ElementsCost) {
+		return fmt.Errorf("not enough elements")
+	}
+
+	// Find slot
+	slotIdx := -1
+	if replaceID != "" {
+		// Replace existing skill
+		for i := 0; i < 5; i++ {
+			if ps.Skills[i] != nil && ps.Skills[i].InstanceID == replaceID {
+				if !ps.Skills[i].IsHorizontal {
+					return fmt.Errorf("can only replace horizontal skills")
+				}
+				// Send replaced skill to graveyard
+				ps.Graveyard = append(ps.Graveyard, ps.Skills[i])
+				slotIdx = i
+				break
+			}
+		}
+		if slotIdx == -1 {
+			return fmt.Errorf("replacement skill not found")
+		}
+	} else {
+		// Find empty slot
+		for i := 0; i < 5; i++ {
+			if ps.Skills[i] == nil {
+				slotIdx = i
+				break
+			}
+		}
+		if slotIdx == -1 {
+			return fmt.Errorf("skill area is full, must replace an existing skill")
+		}
+	}
+
+	// Pay cost and place
+	ps.PayCost(skill.Card.ElementsCost)
+	ps.SkillPool = append(ps.SkillPool[:poolIdx], ps.SkillPool[poolIdx+1:]...)
+	skill.IsHorizontal = true
+	skill.SlotIndex = slotIdx
+	skill.EnterTurn = e.State.TurnNumber
+	ps.Skills[slotIdx] = skill
+
+	e.emit(GameEvent{
+		Type:   "learn_skill",
+		Player: -1,
+		Data: map[string]any{
+			"player":   playerID,
+			"card":     cardToInfo(skill),
+			"slot":     slotIdx,
+			"elements": ps.Elements,
+		},
+	})
+
+	return nil
+}
+
+// handleUseItem handles using a consumable item from hand
+func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
+	if e.State.Phase != PhaseMain {
+		return fmt.Errorf("not in main phase")
+	}
+	if e.State.CurrentTurn != playerID {
+		return fmt.Errorf("not your turn")
+	}
+
+	instanceID, _ := action.Data["instance_id"].(string)
+	ps := e.State.Players[playerID]
+
+	card, handIdx := ps.FindHandCard(instanceID)
+	if card == nil {
+		return fmt.Errorf("card not found in hand")
+	}
+	if !card.Card.IsItem() {
+		return fmt.Errorf("card is not an item")
+	}
+
+	// Check if this is a terrain card - terrain cards go to battlefield
+	if card.Card.IsTerrain() {
+		// Redirect to terrain placement handler
+		// Re-use the action but call the terrain handler
+		colF, _ := action.Data["col"].(float64)
+		rowF, _ := action.Data["row"].(float64)
+		return e.handlePlaceTerrain(playerID, ActionMessage{
+			Action: "place_terrain",
+			Data: map[string]any{
+				"instance_id": instanceID,
+				"col":         colF,
+				"row":         rowF,
+			},
+		})
+	}
+
+	// Regular consumable item
+	if !ps.CanPayCost(card.Card.ElementsCost) {
+		return fmt.Errorf("not enough elements")
+	}
+
+	// Pay and use
+	ps.PayCost(card.Card.ElementsCost)
+	ps.RemoveFromHand(handIdx)
+	ps.Graveyard = append(ps.Graveyard, card)
+
+	e.emit(GameEvent{
+		Type:   "use_item",
+		Player: -1,
+		Data: map[string]any{
+			"player":   playerID,
+			"card":     cardToInfo(card),
+			"elements": ps.Elements,
+		},
+	})
+
+	return nil
+}
+
+// handlePlaceTerrain handles placing a terrain card (地形牌) on the battlefield
+func (e *Engine) handlePlaceTerrain(playerID int, action ActionMessage) error {
+	if e.State.Phase != PhaseMain {
+		return fmt.Errorf("not in main phase")
+	}
+	if e.State.CurrentTurn != playerID {
+		return fmt.Errorf("not your turn")
+	}
+
+	instanceID, _ := action.Data["instance_id"].(string)
+	colF, _ := action.Data["col"].(float64)
+	rowF, _ := action.Data["row"].(float64)
+	col := int(colF)
+	row := int(rowF)
+
+	ps := e.State.Players[playerID]
+
+	// Find card in hand
+	card, handIdx := ps.FindHandCard(instanceID)
+	if card == nil {
+		return fmt.Errorf("card not found in hand")
+	}
+
+	// Must be an item with terrain keyword
+	if !card.Card.IsItem() {
+		return fmt.Errorf("card is not an item")
+	}
+	if !card.Card.IsTerrain() {
+		return fmt.Errorf("card is not a terrain")
+	}
+
+	// Check position
+	pos := Position{Col: col, Row: row}
+	if !pos.Valid() {
+		return fmt.Errorf("invalid position")
+	}
+	if ps.Terrain[col][row] != nil {
+		return fmt.Errorf("position already has terrain")
+	}
+
+	// Check cost
+	if !ps.CanPayCost(card.Card.ElementsCost) {
+		return fmt.Errorf("not enough elements")
+	}
+
+	// Pay cost and place
+	ps.PayCost(card.Card.ElementsCost)
+	ps.RemoveFromHand(handIdx)
+	card.Position = &Position{Col: col, Row: row}
+	card.EnterTurn = e.State.TurnNumber
+	ps.Terrain[col][row] = card
+
+	e.emit(GameEvent{
+		Type:   "place_terrain",
+		Player: -1,
+		Data: map[string]any{
+			"player":      playerID,
+			"card":        cardToInfo(card),
+			"position":    pos,
+			"elements":    ps.Elements,
+		},
+	})
+
+	// Trigger 入场 (on enter) effects for the terrain
+	e.triggerEffects(TriggerOnEnter, card, nil, nil)
+
+	e.checkWinCondition()
+	return nil
+}
+
+// handleUseAbility handles using a card's activated ability (回合技/绝技)
+func (e *Engine) handleUseAbility(playerID int, action ActionMessage) error {
+	if e.State.Phase != PhaseMain {
+		return fmt.Errorf("not in main phase")
+	}
+	if e.State.CurrentTurn != playerID {
+		return fmt.Errorf("not your turn")
+	}
+
+	instanceID, _ := action.Data["instance_id"].(string)
+	abilityType, _ := action.Data["ability_type"].(string) // "per_turn" or "ultimate"
+	targetID, _ := action.Data["target_id"].(string)
+
+	ps := e.State.Players[playerID]
+
+	// Find the card with the ability
+	card := e.findCardOnField(ps, instanceID)
+	if card == nil {
+		return fmt.Errorf("card not found on field")
+	}
+
+	if card.Statuses[StatusPetrify] > 0 {
+		return fmt.Errorf("card is petrified")
+	}
+	if card.Statuses[StatusStun] > 0 {
+		return fmt.Errorf("card is stunned")
+	}
+
+	var trigger EffectTrigger
+	if abilityType == "ultimate" {
+		trigger = TriggerUltimate
+		if card.UltimateUsed {
+			return fmt.Errorf("ultimate already used")
+		}
+	} else {
+		trigger = TriggerPerTurn
+		// Check if already used this turn (回合技 limit)
+		maxUses := parseNumberAfter(card.Card.Description, "回合技")
+		if maxUses == 0 {
+			maxUses = 1
+		}
+		if card.UsedThisTurn >= maxUses {
+			return fmt.Errorf("ability already used this turn")
+		}
+	}
+
+	// Find target if specified
+	var target *CardInstance
+	if targetID != "" {
+		// Search both player fields for target
+		for i := 0; i < 2; i++ {
+			t := e.findCardOnField(e.State.Players[i], targetID)
+			if t == nil {
+				t = e.findUnitOnGrid(e.State.Players[i], targetID)
+			}
+			if t != nil {
+				target = t
+				break
+			}
+		}
+	}
+
+	// Execute the ability
+	effects := globalRegistry.GetEffects(card.Card.Number, trigger)
+	if len(effects) == 0 {
+		return fmt.Errorf("card has no %s ability", abilityType)
+	}
+
+	ctx := &EffectContext{
+		Engine:     e,
+		Source:     card,
+		Target:     target,
+		PlayerID:   playerID,
+		OpponentID: 1 - playerID,
+	}
+
+	for _, eff := range effects {
+		if eff.IsActive {
+			if err := eff.Handler(ctx); err != nil {
+				return err
+			}
+		}
+	}
+
+	if abilityType == "ultimate" {
+		card.UltimateUsed = true
+	} else {
+		card.UsedThisTurn++
+	}
+
+	e.emit(GameEvent{
+		Type:   "ability_used",
+		Player: -1,
+		Data: map[string]any{
+			"player":   playerID,
+			"card":     cardToInfo(card),
+			"ability":  abilityType,
+		},
+	})
+
+	e.checkWinCondition()
+	return nil
+}
+
+// handleEndTurn handles ending the current turn
+func (e *Engine) handleEndTurn(playerID int, action ActionMessage) error {
+	if e.State.Phase != PhaseMain {
+		return fmt.Errorf("not in main phase")
+	}
+	if e.State.CurrentTurn != playerID {
+		return fmt.Errorf("not your turn")
+	}
+
+	e.endTurn()
+	return nil
+}
+
+// endTurn processes end-of-turn effects and switches to next player
+func (e *Engine) endTurn() {
+	ps := e.State.Players[e.State.CurrentTurn]
+
+	// Discard to hand limit
+	for len(ps.Hand) > e.State.HandLimit {
+		// Discard last card (simplified - ideally player chooses)
+		discarded := ps.Hand[len(ps.Hand)-1]
+		ps.Hand = ps.Hand[:len(ps.Hand)-1]
+		ps.Graveyard = append(ps.Graveyard, discarded)
+		e.emit(GameEvent{
+			Type:   "discard",
+			Player: e.State.CurrentTurn,
+			Data: map[string]any{
+				"card": cardToInfo(discarded),
+			},
+		})
+	}
+
+	// Trigger 回合结束 effects for all cards on the current player's field
+	allCards := e.getAllFieldCards(ps)
+	for _, card := range allCards {
+		e.triggerEffects(TriggerOnTurnEnd, card, nil, nil)
+	}
+
+	// Remove 临时 (temporary) units
+	e.HandleTemporaryUnits(ps)
+
+	// Process status marks (点燃, 冻结, etc.)
+	e.processEndOfTurnStatuses(ps)
+
+	// Decay 护盾 and 隐蔽
+	e.HandleShieldDecay(ps)
+
+	// Clear elements
+	for elem := range ps.Elements {
+		ps.Elements[elem] = 0
+	}
+
+	e.emit(GameEvent{
+		Type:   "turn_end",
+		Player: -1,
+		Data: map[string]any{
+			"player": e.State.CurrentTurn,
+		},
+	})
+
+	// Switch turns
+	if e.State.IsFirstTurn && e.State.CurrentTurn == 0 {
+		e.State.IsFirstTurn = false
+	}
+	e.State.CurrentTurn = 1 - e.State.CurrentTurn
+	if e.State.CurrentTurn == 0 {
+		e.State.TurnNumber++
+	}
+
+	if e.State.Phase != PhaseGameOver {
+		e.startTurn()
+	}
+}
+
+// processEndOfTurnStatuses processes status marks at end of turn
+func (e *Engine) processEndOfTurnStatuses(ps *PlayerState) {
+	allCards := e.getAllFieldCards(ps)
+
+	for _, card := range allCards {
+		// 点燃: remove 1 stack, deal 1 fire damage
+		if card.Statuses[StatusBurn] > 0 {
+			card.Statuses[StatusBurn]--
+			e.dealDamage(card, 1, ps.PlayerID)
+		}
+		// 冻结: remove 1 stack
+		if card.Statuses[StatusFreeze] > 0 {
+			card.Statuses[StatusFreeze]--
+		}
+		// 眩晕: remove 1 stack
+		if card.Statuses[StatusStun] > 0 {
+			card.Statuses[StatusStun]--
+		}
+		// 石化: remove 1 stack
+		if card.Statuses[StatusPetrify] > 0 {
+			card.Statuses[StatusPetrify]--
+		}
+		// 冷却: remove 1 stack
+		if card.Statuses[StatusCooldown] > 0 {
+			card.Statuses[StatusCooldown]--
+		}
+	}
+
+	// 虚弱 is on skills, handled separately
+	for i := 0; i < 5; i++ {
+		if ps.Skills[i] != nil && ps.Skills[i].Statuses[StatusWeaken] > 0 {
+			ps.Skills[i].Statuses[StatusWeaken]--
+		}
+	}
+}
+
+// checkWinCondition checks if the game is over
+func (e *Engine) checkWinCondition() {
+	for i := 0; i < 2; i++ {
+		if e.State.Players[i].Hero != nil && e.State.Players[i].Hero.CurrentLife <= 0 {
+			e.State.Winner = 1 - i
+			e.State.Phase = PhaseGameOver
+			e.emit(GameEvent{
+				Type:   "game_over",
+				Player: -1,
+				Data: map[string]any{
+					"winner": e.State.Winner,
+					"reason": "hero_killed",
+				},
+			})
+			return
+		}
+	}
+}
+
+// GetStateForPlayer returns a filtered game state visible to the specified player
+func (e *Engine) GetStateForPlayer(playerID int) map[string]any {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	state := e.State
+	opponentID := 1 - playerID
+	ps := state.Players[playerID]
+	op := state.Players[opponentID]
+
+	return map[string]any{
+		"game_id":      state.GameID,
+		"phase":        state.Phase.String(),
+		"current_turn": state.CurrentTurn,
+		"turn_number":  state.TurnNumber,
+		"winner":       state.Winner,
+		"you":          playerStateToInfo(ps, true),
+		"opponent":     playerStateToInfo(op, false),
+		"pending_spell": func() any {
+			if state.PendingSpell != nil {
+				return map[string]any{
+					"attacker": state.PendingSpell.AttackerID,
+					"skill":    cardToInfo(state.PendingSpell.Skill),
+					"target":   state.PendingSpell.Target,
+					"power":    state.PendingSpell.TotalPower,
+				}
+			}
+			return nil
+		}(),
+	}
+}
+
+// Helper functions
+
+func (e *Engine) findCardOnField(ps *PlayerState, instanceID string) *CardInstance {
+	// Check units
+	for col := 0; col < 3; col++ {
+		for row := 0; row < 3; row++ {
+			if ps.Units[col][row] != nil && ps.Units[col][row].InstanceID == instanceID {
+				return ps.Units[col][row]
+			}
+		}
+	}
+	// Check equipment
+	for i := 0; i < 5; i++ {
+		if ps.Equipment[i] != nil && ps.Equipment[i].InstanceID == instanceID {
+			return ps.Equipment[i]
+		}
+	}
+	return nil
+}
+
+func (e *Engine) findUnitOnGrid(ps *PlayerState, instanceID string) *CardInstance {
+	for col := 0; col < 3; col++ {
+		for row := 0; row < 3; row++ {
+			if ps.Units[col][row] != nil && ps.Units[col][row].InstanceID == instanceID {
+				return ps.Units[col][row]
+			}
+		}
+	}
+	return nil
+}
+
+func (e *Engine) findSkill(ps *PlayerState, instanceID string) *CardInstance {
+	for i := 0; i < 5; i++ {
+		if ps.Skills[i] != nil && ps.Skills[i].InstanceID == instanceID {
+			return ps.Skills[i]
+		}
+	}
+	return nil
+}
+
+func (e *Engine) getAllFieldCards(ps *PlayerState) []*CardInstance {
+	var cards []*CardInstance
+	for col := 0; col < 3; col++ {
+		for row := 0; row < 3; row++ {
+			if ps.Units[col][row] != nil {
+				cards = append(cards, ps.Units[col][row])
+			}
+		}
+	}
+	for i := 0; i < 5; i++ {
+		if ps.Skills[i] != nil {
+			cards = append(cards, ps.Skills[i])
+		}
+	}
+	for i := 0; i < 5; i++ {
+		if ps.Equipment[i] != nil {
+			cards = append(cards, ps.Equipment[i])
+		}
+	}
+	return cards
+}
+
+func shuffleDeck(deck []*CardInstance) {
+	rand.Shuffle(len(deck), func(i, j int) {
+		deck[i], deck[j] = deck[j], deck[i]
+	})
+}
+
+func isSorcerySkill(card *model.Card) bool {
+	// 咒术 skills contain "咒术" in their tag or have power = -1
+	// Simple heuristic: if power is -1 and it's a skill, it's likely sorcery
+	return card.IsSkill() && card.Power == -1
+}
+
+func cardToInfo(ci *CardInstance) map[string]any {
+	if ci == nil {
+		return nil
+	}
+	return map[string]any{
+		"instance_id":    ci.InstanceID,
+		"number":         ci.Card.Number,
+		"name":           ci.Card.Name,
+		"type":           ci.Card.Type,
+		"category":       ci.Card.Category,
+		"tag":            ci.Card.Tag,
+		"description":    ci.Card.Description,
+		"attack":         ci.Card.Attack,
+		"life":           ci.Card.Life,
+		"power":          ci.Card.Power,
+		"duration":       ci.Card.Duration,
+		"elements_cost":  ci.Card.ElementsCost,
+		"elements_gain":  ci.Card.ElementsGain,
+		"current_life":   ci.CurrentLife,
+		"current_attack": ci.CurrentAttack,
+		"is_horizontal":  ci.IsHorizontal,
+		"is_terrain":     ci.Card.IsTerrain(),
+		"statuses":       ci.Statuses,
+		"position":       ci.Position,
+		"output_path":    ci.Card.OutputPath,
+	}
+}
+
+func cardsToInfo(cards []*CardInstance) []map[string]any {
+	result := make([]map[string]any, len(cards))
+	for i, c := range cards {
+		result[i] = cardToInfo(c)
+	}
+	return result
+}
+
+func playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any {
+	info := map[string]any{
+		"player_id":   ps.PlayerID,
+		"player_name": ps.PlayerName,
+		"hero":        cardToInfo(ps.Hero),
+		"elements":    ps.Elements,
+		"charge":      ps.Charge,
+		"deck_count":  len(ps.Deck),
+		"graveyard":   cardsToInfo(ps.Graveyard),
+	}
+
+	// Units grid
+	units := [3][3]any{}
+	for col := 0; col < 3; col++ {
+		for row := 0; row < 3; row++ {
+			units[col][row] = cardToInfo(ps.Units[col][row])
+		}
+	}
+	info["units"] = units
+
+	// Terrain grid
+	terrain := [3][3]any{}
+	for col := 0; col < 3; col++ {
+		for row := 0; row < 3; row++ {
+			terrain[col][row] = cardToInfo(ps.Terrain[col][row])
+		}
+	}
+	info["terrain"] = terrain
+
+	// Skills
+	skills := [5]any{}
+	for i := 0; i < 5; i++ {
+		skills[i] = cardToInfo(ps.Skills[i])
+	}
+	info["skills"] = skills
+
+	// Equipment
+	equipment := [5]any{}
+	for i := 0; i < 5; i++ {
+		equipment[i] = cardToInfo(ps.Equipment[i])
+	}
+	info["equipment"] = equipment
+
+	if isOwner {
+		// Show full hand
+		info["hand"] = cardsToInfo(ps.Hand)
+		info["skill_pool"] = cardsToInfo(ps.SkillPool)
+	} else {
+		// Only show count
+		info["hand_count"] = len(ps.Hand)
+		info["skill_pool_count"] = len(ps.SkillPool)
+	}
+
+	return info
+}

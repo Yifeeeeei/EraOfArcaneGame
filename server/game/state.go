@@ -1,0 +1,466 @@
+package game
+
+import (
+	"eraofarcane/model"
+	"fmt"
+	"math/rand"
+)
+
+// Position on the 3x3 unit grid
+type Position struct {
+	Col int `json:"col"` // 0-2, left to right
+	Row int `json:"row"` // 0-2, 0=front row (closest to enemy)
+}
+
+func (p Position) Valid() bool {
+	return p.Col >= 0 && p.Col < 3 && p.Row >= 0 && p.Row < 3
+}
+
+func (p Position) String() string {
+	return fmt.Sprintf("(%d,%d)", p.Col, p.Row)
+}
+
+// CardInstance represents a card in play with runtime state
+type CardInstance struct {
+	InstanceID string      `json:"instance_id"`
+	Card       *model.Card `json:"card"`
+	OwnerID    int         `json:"owner_id"` // 0 or 1
+
+	// Runtime state
+	CurrentLife   int            `json:"current_life"`
+	CurrentAttack int            `json:"current_attack"`
+	IsHorizontal  bool           `json:"is_horizontal"` // 横置=true, 竖置=false
+	Statuses      map[string]int `json:"statuses"`      // status -> stack count
+	Position      *Position      `json:"position"`       // nil if not on unit grid
+	SlotIndex     int            `json:"slot_index"`     // for skill/equipment slots
+	EnterTurn     int            `json:"enter_turn"`     // which turn this card entered the field
+
+	// Skill-specific
+	UsedThisTurn int  `json:"used_this_turn"` // for 回合技
+	UltimateUsed bool `json:"ultimate_used"`  // for 绝技
+
+	// Equipment uses
+	UsesRemaining int `json:"uses_remaining"` // for 法宝
+}
+
+// NewCardInstance creates a new card instance
+func NewCardInstance(card *model.Card, ownerID int, turn int) *CardInstance {
+	ci := &CardInstance{
+		InstanceID:    generateID(),
+		Card:          card,
+		OwnerID:       ownerID,
+		CurrentLife:   card.Life,
+		CurrentAttack: card.Attack,
+		IsHorizontal:  true, // enters horizontal (横置) by default
+		Statuses:      make(map[string]int),
+		EnterTurn:     turn,
+	}
+	return ci
+}
+
+// CanConsume checks if this card can be consumed (横置 to gain elements)
+func (ci *CardInstance) CanConsume() bool {
+	if ci.IsHorizontal {
+		return false // already horizontal
+	}
+	if ci.Statuses[StatusStun] > 0 {
+		return false // stunned
+	}
+	if ci.Statuses[StatusCooldown] > 0 {
+		return false
+	}
+	return true
+}
+
+// Reset resets the card to vertical (竖置) state at turn start
+func (ci *CardInstance) Reset() {
+	if ci.Statuses[StatusFreeze] > 0 {
+		return // frozen cards don't reset
+	}
+	if ci.Statuses[StatusCooldown] > 0 {
+		return
+	}
+	ci.IsHorizontal = false
+}
+
+// Status constants
+const (
+	StatusBurn     = "点燃"
+	StatusFreeze   = "冻结"
+	StatusStun     = "眩晕"
+	StatusPetrify  = "石化"
+	StatusWeaken   = "虚弱"
+	StatusCooldown = "冷却"
+)
+
+// PlayerState holds all state for one player
+type PlayerState struct {
+	PlayerID   int              `json:"player_id"` // 0 or 1
+	PlayerName string           `json:"player_name"`
+	Hero       *CardInstance    `json:"hero"`
+	Units      [3][3]*CardInstance `json:"units"` // [col][row], hero is at [1][1]
+	Terrain    [3][3]*CardInstance `json:"terrain"` // Terrain cards placed on grid
+	Skills     [5]*CardInstance `json:"skills"`
+	Equipment  [5]*CardInstance `json:"equipment"`
+	Hand       []*CardInstance  `json:"hand"`
+	Deck       []*CardInstance  `json:"deck"`       // remaining draw pile
+	SkillPool  []*CardInstance  `json:"skill_pool"`
+	Graveyard  []*CardInstance  `json:"graveyard"`
+	ExtraDeck  []*CardInstance  `json:"extra_deck"`
+
+	// Element pool - available elements this turn
+	Elements map[string]int `json:"elements"`
+
+	// Charge pool - 充能 counter (shared across all cards)
+	Charge int `json:"charge"`
+
+	// Deck definition
+	DeckDef *model.Deck `json:"-"`
+}
+
+// NewPlayerState creates initial player state from a deck
+func NewPlayerState(id int, name string, deck *model.Deck) *PlayerState {
+	ps := &PlayerState{
+		PlayerID:   id,
+		PlayerName: name,
+		Elements:   make(map[string]int),
+		DeckDef:    deck,
+	}
+
+	// Initialize elements to 0
+	for _, e := range model.AllElements {
+		ps.Elements[e] = 0
+	}
+
+	return ps
+}
+
+// InitCards creates all card instances from the deck definition
+func (ps *PlayerState) InitCards(turn int) {
+	cardDB := make(map[string]*model.Card)
+	for k, v := range getCardDB() {
+		cardDB[k] = v
+	}
+
+	// Create hero
+	heroCard := cardDB[ps.DeckDef.HeroID]
+	ps.Hero = NewCardInstance(heroCard, ps.PlayerID, turn)
+	ps.Hero.IsHorizontal = false // hero starts vertical
+	ps.Hero.Position = &Position{Col: 1, Row: 1}
+	ps.Units[1][1] = ps.Hero
+
+	// Create main deck cards and shuffle
+	ps.Deck = make([]*CardInstance, 0, len(ps.DeckDef.MainDeck))
+	for _, id := range ps.DeckDef.MainDeck {
+		card := cardDB[id]
+		ci := NewCardInstance(card, ps.PlayerID, 0)
+		ps.Deck = append(ps.Deck, ci)
+	}
+	rand.Shuffle(len(ps.Deck), func(i, j int) {
+		ps.Deck[i], ps.Deck[j] = ps.Deck[j], ps.Deck[i]
+	})
+
+	// Create skill pool cards
+	ps.SkillPool = make([]*CardInstance, 0, len(ps.DeckDef.SkillPool))
+	for _, id := range ps.DeckDef.SkillPool {
+		card := cardDB[id]
+		ci := NewCardInstance(card, ps.PlayerID, 0)
+		ps.SkillPool = append(ps.SkillPool, ci)
+	}
+
+	// Create extra deck cards
+	ps.ExtraDeck = make([]*CardInstance, 0, len(ps.DeckDef.ExtraDeck))
+	for _, id := range ps.DeckDef.ExtraDeck {
+		card := cardDB[id]
+		ci := NewCardInstance(card, ps.PlayerID, 0)
+		ps.ExtraDeck = append(ps.ExtraDeck, ci)
+	}
+
+	ps.Hand = make([]*CardInstance, 0)
+	ps.Graveyard = make([]*CardInstance, 0)
+}
+
+// DrawCards draws n cards from the deck to hand
+func (ps *PlayerState) DrawCards(n int) []*CardInstance {
+	drawn := make([]*CardInstance, 0, n)
+	for i := 0; i < n && len(ps.Deck) > 0; i++ {
+		card := ps.Deck[0]
+		ps.Deck = ps.Deck[1:]
+		ps.Hand = append(ps.Hand, card)
+		drawn = append(drawn, card)
+	}
+	return drawn
+}
+
+// FindHandCard finds a card in hand by instance ID
+func (ps *PlayerState) FindHandCard(instanceID string) (*CardInstance, int) {
+	for i, c := range ps.Hand {
+		if c.InstanceID == instanceID {
+			return c, i
+		}
+	}
+	return nil, -1
+}
+
+// RemoveFromHand removes a card from hand by index
+func (ps *PlayerState) RemoveFromHand(index int) {
+	ps.Hand = append(ps.Hand[:index], ps.Hand[index+1:]...)
+}
+
+// CountUnits counts non-nil units on the grid (including hero)
+func (ps *PlayerState) CountUnits() int {
+	count := 0
+	for col := 0; col < 3; col++ {
+		for row := 0; row < 3; row++ {
+			if ps.Units[col][row] != nil {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+// FindEmptyPosition finds an empty position on the unit grid
+func (ps *PlayerState) FindEmptyPosition() *Position {
+	// Prefer positions near hero: adjacent first, then corners
+	order := []Position{
+		{0, 1}, {2, 1}, {1, 0}, {1, 2},
+		{0, 0}, {2, 0}, {0, 2}, {2, 2},
+	}
+	for _, p := range order {
+		if ps.Units[p.Col][p.Row] == nil {
+			return &p
+		}
+	}
+	return nil
+}
+
+// GetFrontRow returns the front row index (closest row with units, from enemy's perspective)
+// Row 0 = front (closest to enemy)
+func (ps *PlayerState) GetFrontRow() int {
+	for row := 0; row < 3; row++ {
+		for col := 0; col < 3; col++ {
+			if ps.Units[col][row] != nil {
+				return row
+			}
+		}
+	}
+	return -1 // no units
+}
+
+// CanPayCost checks if the player can pay the given element cost
+// Arcane (无) in cost can be paid with any element, and arcane elements can pay for any cost
+func (ps *PlayerState) CanPayCost(cost map[string]int) bool {
+	if len(cost) == 0 {
+		return true
+	}
+
+	// Simple approach: check total cost <= total elements, plus specific element constraints
+	totalCost := 0
+	totalAvail := 0
+	for _, v := range cost {
+		totalCost += v
+	}
+	for _, v := range ps.Elements {
+		totalAvail += v
+	}
+	if totalAvail < totalCost {
+		return false
+	}
+
+	// Simulate payment: specific elements first, then arcane as wildcard
+	avail := make(map[string]int)
+	for k, v := range ps.Elements {
+		avail[k] = v
+	}
+
+	arcaneNeeded := 0
+	for elem, amount := range cost {
+		if elem == model.ElementArcane {
+			arcaneNeeded += amount
+			continue
+		}
+		// Pay with matching element first
+		pay := min(avail[elem], amount)
+		avail[elem] -= pay
+		remaining := amount - pay
+		// Pay remainder with arcane
+		arcanePay := min(avail[model.ElementArcane], remaining)
+		avail[model.ElementArcane] -= arcanePay
+		remaining -= arcanePay
+		if remaining > 0 {
+			return false // can't pay this specific element
+		}
+	}
+
+	// Pay arcane cost with any remaining elements
+	for _, elem := range model.AllElements {
+		if arcaneNeeded <= 0 {
+			break
+		}
+		pay := min(avail[elem], arcaneNeeded)
+		avail[elem] -= pay
+		arcaneNeeded -= pay
+	}
+
+	return arcaneNeeded <= 0
+}
+
+// PayCost deducts elements from the pool. Returns false if insufficient.
+func (ps *PlayerState) PayCost(cost map[string]int) bool {
+	if !ps.CanPayCost(cost) {
+		return false
+	}
+
+	// Pay specific elements first, use arcane as wildcard
+	remaining := make(map[string]int)
+	for k, v := range cost {
+		remaining[k] = v
+	}
+
+	// First pass: pay with matching elements
+	for elem, amount := range remaining {
+		if elem == model.ElementArcane {
+			continue
+		}
+		pay := min(ps.Elements[elem], amount)
+		ps.Elements[elem] -= pay
+		remaining[elem] -= pay
+	}
+
+	// Second pass: pay remaining with arcane
+	for elem, amount := range remaining {
+		if elem == model.ElementArcane || amount == 0 {
+			continue
+		}
+		pay := min(ps.Elements[model.ElementArcane], amount)
+		ps.Elements[model.ElementArcane] -= pay
+		remaining[elem] -= pay
+	}
+
+	// Pay arcane cost with any remaining elements
+	arcaneNeeded := remaining[model.ElementArcane]
+	if arcaneNeeded > 0 {
+		// Use arcane first
+		pay := min(ps.Elements[model.ElementArcane], arcaneNeeded)
+		ps.Elements[model.ElementArcane] -= pay
+		arcaneNeeded -= pay
+
+		// Then use any other element
+		for _, elem := range model.AllElements {
+			if arcaneNeeded <= 0 {
+				break
+			}
+			pay := min(ps.Elements[elem], arcaneNeeded)
+			ps.Elements[elem] -= pay
+			arcaneNeeded -= pay
+		}
+	}
+
+	return true
+}
+
+// GainElements adds elements to the pool
+func (ps *PlayerState) GainElements(gains map[string]int) {
+	for elem, amount := range gains {
+		ps.Elements[elem] += amount
+	}
+}
+
+// GamePhase represents the current phase of the game
+type GamePhase int
+
+const (
+	PhaseWaitingPlayers GamePhase = iota
+	PhaseMulligan
+	PhaseTurnStart
+	PhaseMain
+	PhaseSpellCast    // spell has been cast, waiting for defense
+	PhaseDefenseWindow
+	PhaseTurnEnd
+	PhaseGameOver
+)
+
+func (p GamePhase) String() string {
+	switch p {
+	case PhaseWaitingPlayers:
+		return "waiting_players"
+	case PhaseMulligan:
+		return "mulligan"
+	case PhaseTurnStart:
+		return "turn_start"
+	case PhaseMain:
+		return "main"
+	case PhaseSpellCast:
+		return "spell_cast"
+	case PhaseDefenseWindow:
+		return "defense_window"
+	case PhaseTurnEnd:
+		return "turn_end"
+	case PhaseGameOver:
+		return "game_over"
+	default:
+		return "unknown"
+	}
+}
+
+// GameState holds the entire game state
+type GameState struct {
+	GameID       string         `json:"game_id"`
+	Players      [2]*PlayerState `json:"players"`
+	CurrentTurn  int            `json:"current_turn"`  // 0 or 1 (which player's turn)
+	TurnNumber   int            `json:"turn_number"`
+	Phase        GamePhase      `json:"phase"`
+	Winner       int            `json:"winner"` // -1 = no winner, 0 or 1
+	HandLimit    int            `json:"hand_limit"`
+	IsFirstTurn  bool           `json:"is_first_turn"` // first player's first turn
+
+	// Combat state
+	PendingSpell *SpellCast `json:"pending_spell,omitempty"`
+
+	// Mulligan state
+	MulliganDone [2]bool `json:"mulligan_done"`
+}
+
+// SpellCast represents an ongoing spell combat
+type SpellCast struct {
+	AttackerID   int           `json:"attacker_id"`
+	Skill        *CardInstance `json:"skill"`
+	Target       SpellTarget   `json:"target"`
+	TotalPower   int           `json:"total_power"`
+	BoostSkills  []*CardInstance `json:"boost_skills"` // skills used to boost
+}
+
+// SpellTarget represents the target of a spell
+type SpellTarget struct {
+	Type     string   `json:"type"`     // "unit" or "area"
+	Position Position `json:"position"` // for unit targets
+}
+
+// NewGameState creates a new game state
+func NewGameState(gameID string) *GameState {
+	return &GameState{
+		GameID:    gameID,
+		Winner:    -1,
+		HandLimit: 7,
+		Phase:     PhaseWaitingPlayers,
+	}
+}
+
+var idCounter int
+
+func generateID() string {
+	idCounter++
+	return fmt.Sprintf("ci_%d", idCounter)
+}
+
+func getCardDB() map[string]*model.Card {
+	// This will be set by the engine
+	return cardDBRef
+}
+
+var cardDBRef map[string]*model.Card
+
+func SetCardDB(db map[string]*model.Card) {
+	cardDBRef = db
+}
