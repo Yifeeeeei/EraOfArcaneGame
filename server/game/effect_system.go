@@ -55,9 +55,18 @@ type CardEffect struct {
 	IsActive   bool // true if this is an activated ability (回合技/绝技), not auto-trigger
 }
 
+// CardAbilityWithPrecondition 包含前提条件的卡牌能力
+type CardAbilityWithPrecondition struct {
+	Preconditions []Precondition  // 前提条件列表
+	Effect        EffectHandler   // 实际效果
+	Trigger       EffectTrigger   // 触发时机
+	IsActive      bool            // 是否为主动能力
+}
+
 // EffectRegistry holds all registered card effects
 type EffectRegistry struct {
-	effects map[string][]*CardEffect // cardNumber -> effects list
+	effects               map[string][]*CardEffect              // cardNumber -> effects list
+	conditionalAbilities  map[string][]*CardAbilityWithPrecondition // cardNumber -> conditional abilities
 }
 
 // Global effect registry
@@ -75,7 +84,8 @@ func GetEffectRegistry() *EffectRegistry {
 // NewEffectRegistry creates a new effect registry
 func NewEffectRegistry() *EffectRegistry {
 	return &EffectRegistry{
-		effects: make(map[string][]*CardEffect),
+		effects:              make(map[string][]*CardEffect),
+		conditionalAbilities: make(map[string][]*CardAbilityWithPrecondition),
 	}
 }
 
@@ -96,6 +106,55 @@ func (r *EffectRegistry) RegisterActive(cardNumber string, trigger EffectTrigger
 		Handler:    handler,
 		IsActive:   true,
 	})
+}
+
+// RegisterWithPrecondition 注册带前提条件的能力
+func (r *EffectRegistry) RegisterWithPrecondition(
+	cardNumber string,
+	trigger EffectTrigger,
+	preconditions []Precondition,
+	handler EffectHandler,
+	isActive bool,
+) {
+	r.conditionalAbilities[cardNumber] = append(r.conditionalAbilities[cardNumber], &CardAbilityWithPrecondition{
+		Preconditions: preconditions,
+		Effect:        handler,
+		Trigger:       trigger,
+		IsActive:      isActive,
+	})
+}
+
+// CheckPreconditions 检查卡牌的所有前提条件
+func (r *EffectRegistry) CheckPreconditions(
+	cardNumber string,
+	trigger EffectTrigger,
+	ctx *ConditionContext,
+) (bool, string) {
+	abilities, exists := r.conditionalAbilities[cardNumber]
+	if !exists {
+		return true, "" // 没有条件要求，默认通过
+	}
+
+	for _, ability := range abilities {
+		if ability.Trigger != trigger {
+			continue
+		}
+
+		// 检查所有前提条件
+		for _, precond := range ability.Preconditions {
+			result := precond.Check(ctx)
+			if !result.Passed {
+				return false, result.Reason
+			}
+		}
+	}
+
+	return true, ""
+}
+
+// GetConditionalAbilities 获取卡牌的所有条件能力
+func (r *EffectRegistry) GetConditionalAbilities(cardNumber string) []*CardAbilityWithPrecondition {
+	return r.conditionalAbilities[cardNumber]
 }
 
 // GetEffects returns all effects for a card number and trigger type
