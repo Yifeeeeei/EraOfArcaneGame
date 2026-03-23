@@ -128,6 +128,23 @@
             </div>
         </div>
 
+        <!-- ═══ CONTEXT MENU ═══ -->
+        <div v-if="contextMenu.show" class="context-menu" :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }" @click.stop>
+            <div class="context-menu-item" @click="contextMenuAction('detail')">
+                <span class="icon">👁</span> 查看详情
+            </div>
+            <div class="context-menu-item" v-if="contextMenu.source === 'skill_pool'" @click="contextMenuAction('learn')">
+                <span class="icon">📖</span> 学习技能
+            </div>
+            <div class="context-menu-item" v-if="contextMenu.source === 'hand' && contextMenu.card && contextMenu.card.type === '道具' && !contextMenu.card.is_terrain" @click="contextMenuAction('use')">
+                <span class="icon">⚡</span> 使用/装备
+            </div>
+            <div class="context-menu-item" v-if="contextMenu.source === 'hand' && contextMenu.card && contextMenu.card.type === '伙伴'" @click="contextMenuAction('use')">
+                <span class="icon">🎴</span> 选择召唤位置
+            </div>
+        </div>
+        <div v-if="contextMenu.show" class="context-menu-backdrop" @click="hideContextMenu"></div>
+
         <!-- ═══ CARD DETAIL MODAL ═══ -->
         <div v-if="detailCard" class="overlay" @click.self="detailCard = null">
             <div class="card-detail-modal">
@@ -393,10 +410,11 @@
                     <h3>技能池 ({{ myState.skill_pool.length }})</h3>
                     <div class="skill-pool-grid">
                         <div v-for="card in myState.skill_pool" :key="card.instance_id" class="sp-card"
-                             @click="showCardDetail(card)" @dblclick="learnSkill(card)">
+                             @contextmenu.prevent="showCardContextMenu($event, card, 'skill_pool')"
+                             title="右键点击查看选项">
                             <img :src="getCardImage(card)" :alt="card.name">
                             <div class="sp-name">{{ card.name }}</div>
-                            <div class="sp-learn-hint">双击学习</div>
+                            <div class="sp-learn-hint">右键菜单</div>
                         </div>
                     </div>
                 </div>
@@ -416,7 +434,8 @@
                          class="hand-card"
                          :class="{ selected: selectedHandCard === card }"
                          @click="selectHandCard(card)"
-                         @dblclick="showCardDetail(card)">
+                         @contextmenu.prevent="showCardContextMenu($event, card, 'hand')"
+                         title="右键点击查看选项">
                         <img :src="getCardImage(card)" class="hand-card-img">
                         <div class="hand-card-info">
                             <div class="hand-card-name">{{ card.name }}</div>
@@ -506,6 +525,52 @@
             function getMyUnit(col, row) { return myState.value.units?.[col]?.[row] || null; }
             function getOpponentUnit(col, row) { return opponent.value.units?.[col]?.[row] || null; }
             function showCardDetail(card) { detailCard.value = card; }
+
+            // Context menu for cards
+            const contextMenu = ref({ show: false, x: 0, y: 0, card: null, source: '' });
+
+            function showCardContextMenu(event, card, source) {
+                contextMenu.value = {
+                    show: true,
+                    x: event.clientX,
+                    y: event.clientY,
+                    card: card,
+                    source: source
+                };
+            }
+
+            function hideContextMenu() {
+                contextMenu.value.show = false;
+            }
+
+            function contextMenuAction(action) {
+                const card = contextMenu.value.card;
+                const source = contextMenu.value.source;
+                if (!card) return;
+
+                switch (action) {
+                    case 'detail':
+                        showCardDetail(card);
+                        break;
+                    case 'learn':
+                        if (source === 'skill_pool') {
+                            learnSkill(card);
+                        }
+                        break;
+                    case 'use':
+                        if (source === 'hand') {
+                            selectHandCard(card);
+                            // If it's a consumable, auto-use it
+                            if (isConsumable(card)) {
+                                sendAction('use_item', { instance_id: card.instance_id });
+                            } else if (card.type === '道具' && !card.is_terrain) {
+                                sendAction('equip', { instance_id: card.instance_id });
+                            }
+                        }
+                        break;
+                }
+                hideContextMenu();
+            }
 
             function sendAction(action, data = {}) {
                 if (ws && ws.readyState === WebSocket.OPEN)
@@ -865,7 +930,9 @@
                 pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction,
                 // Abilities
                 canUsePerTurn, canUseUltimate, useAbility,
-                learnSkill, endTurn
+                learnSkill, endTurn,
+                // Context menu
+                contextMenu, showCardContextMenu, hideContextMenu, contextMenuAction
             };
         }
     }).mount('#app');
