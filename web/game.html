@@ -47,14 +47,83 @@
 
         <!-- ═══ DEFENSE WINDOW OVERLAY ═══ -->
         <div v-if="showDefenseWindow" class="overlay defense-overlay">
-            <div class="overlay-content">
+            <div class="overlay-content defense-panel">
                 <h2>对手施放法术！</h2>
                 <div v-if="gameState.pending_spell" class="spell-info">
                     <div>法术：{{ gameState.pending_spell.skill.name }}</div>
-                    <div>威力：{{ gameState.pending_spell.power }}</div>
+                    <div>进攻威力：<strong>{{ gameState.pending_spell.power }}</strong></div>
                 </div>
+
+                <!-- Available defense skills -->
+                <div class="defense-skills-section" v-if="availableDefenseSkills.length > 0">
+                    <h3>选择防御技能</h3>
+                    <div class="defense-skill-list">
+                        <div v-for="skill in availableDefenseSkills" :key="skill.instance_id"
+                             class="defense-skill-card"
+                             :class="{ selected: defenseSelected.includes(skill.instance_id) }"
+                             @click="toggleDefenseSkill(skill)">
+                            <img :src="getCardImage(skill)" class="defense-skill-img">
+                            <div class="defense-skill-info">
+                                <div class="defense-skill-name">{{ skill.name }}</div>
+                                <div class="defense-skill-power">威力 {{ skill.power >= 0 ? skill.power : 0 }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Boost skills -->
+                <div class="defense-skills-section" v-if="availableBoostSkills.length > 0">
+                    <h3>强化技能（可选）</h3>
+                    <div class="defense-skill-list">
+                        <div v-for="skill in availableBoostSkills" :key="skill.instance_id"
+                             class="defense-skill-card boost"
+                             :class="{ selected: defenseBoostSelected.includes(skill.instance_id) }"
+                             @click="toggleDefenseBoost(skill)">
+                            <img :src="getCardImage(skill)" class="defense-skill-img">
+                            <div class="defense-skill-info">
+                                <div class="defense-skill-name">{{ skill.name }}</div>
+                                <div class="defense-skill-power">+威力 {{ skill.power >= 0 ? skill.power : 0 }}</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Power comparison -->
+                <div class="power-comparison" v-if="defenseSelected.length > 0">
+                    <span>防御威力：<strong>{{ totalDefensePower }}</strong></span>
+                    <span :class="totalDefensePower >= gameState.pending_spell.power ? 'power-win' : 'power-lose'">
+                        {{ totalDefensePower >= gameState.pending_spell.power ? '防御成功' : '威力不足' }}
+                    </span>
+                </div>
+
                 <div class="defense-actions">
+                    <button v-if="defenseSelected.length > 0" @click="submitDefend()" class="btn btn-success">确认防御</button>
                     <button @click="noDefend()" class="btn btn-danger">不防御</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ PENDING ACTION MODAL ═══ -->
+        <div v-if="showPendingAction" class="overlay pending-action-overlay">
+            <div class="overlay-content pending-action-panel">
+                <h2>{{ pendingAction.prompt }}</h2>
+                <div class="pending-candidates">
+                    <div v-for="candidate in pendingAction.candidates" :key="candidate.instance_id"
+                         class="pending-card"
+                         :class="{ selected: pendingSelected.includes(candidate.instance_id) }"
+                         @click="togglePendingSelect(candidate)">
+                        <img :src="getCardImage(candidate)" class="pending-card-img">
+                        <div class="pending-card-name">{{ candidate.name }}</div>
+                    </div>
+                </div>
+                <div class="pending-info">
+                    已选 {{ pendingSelected.length }} / {{ pendingAction.min_select }}–{{ pendingAction.max_select }}
+                </div>
+                <div class="pending-actions">
+                    <button @click="submitPendingAction()" class="btn btn-success"
+                            :disabled="pendingSelected.length < pendingAction.min_select || pendingSelected.length > pendingAction.max_select">
+                        确认
+                    </button>
                 </div>
             </div>
         </div>
@@ -135,6 +204,12 @@
                         <div>
                             <div class="hero-hp">{{ myState.hero.current_life }}</div>
                             <div class="hero-hp-label">生命值</div>
+                            <div class="hero-abilities" v-if="isMyTurn && gameState.phase === 'main'">
+                                <button v-if="canUsePerTurn(myState.hero)" class="action-btn ability small"
+                                        @click.stop="useAbility(myState.hero, 'per_turn')">回合技</button>
+                                <button v-if="canUseUltimate(myState.hero)" class="action-btn ability ultimate small"
+                                        @click.stop="useAbility(myState.hero, 'ultimate')">绝技</button>
+                            </div>
                         </div>
                     </div>
                     <div class="player-meta">
@@ -259,6 +334,10 @@
                                                 class="action-btn consume" @click.stop="consumeCard(getMyUnit(col, row))">消耗</button>
                                         <button v-if="canAttackWith(getMyUnit(col, row))"
                                                 class="action-btn attack" @click.stop="selectAttacker(getMyUnit(col, row))">攻击</button>
+                                        <button v-if="canUsePerTurn(getMyUnit(col, row))"
+                                                class="action-btn ability" @click.stop="useAbility(getMyUnit(col, row), 'per_turn')">回合技</button>
+                                        <button v-if="canUseUltimate(getMyUnit(col, row))"
+                                                class="action-btn ability ultimate" @click.stop="useAbility(getMyUnit(col, row), 'ultimate')">绝技</button>
                                     </div>
                                 </template>
                             </div>
@@ -271,13 +350,22 @@
                     <div class="slot-group">
                         <span class="slot-label">技能</span>
                         <div class="slots">
-                            <div v-for="i in 5" :key="'ms'+i" class="slot" :class="{occupied: mySkills[i-1]}"
+                            <div v-for="i in 5" :key="'ms'+i" class="slot"
+                                 :class="{occupied: mySkills[i-1], 'defense-only': mySkills[i-1]?.is_defense_only, 'boost-selected': selectedBoostSkills.includes(mySkills[i-1]?.instance_id)}"
                                  @click="mySkills[i-1] && showCardDetail(mySkills[i-1])">
                                 <template v-if="mySkills[i-1]">
                                     <img :src="getCardImage(mySkills[i-1])" class="slot-img"
                                          :class="{horizontal: mySkills[i-1].is_horizontal}">
+                                    <div class="skill-badges">
+                                        <span v-if="mySkills[i-1].is_defense_only" class="badge badge-defense">防御</span>
+                                        <span v-if="mySkills[i-1].is_sorcery" class="badge badge-sorcery">咒术</span>
+                                    </div>
                                     <div v-if="canCastSkill(mySkills[i-1])" class="cast-btn"
                                          @click.stop="selectSkillToCast(mySkills[i-1])">施放</div>
+                                    <div v-if="selectedSkill && canBoostWith(mySkills[i-1])" class="boost-btn"
+                                         @click.stop="toggleBoostSkill(mySkills[i-1])">
+                                        {{ selectedBoostSkills.includes(mySkills[i-1].instance_id) ? '取消强化' : '强化' }}
+                                    </div>
                                 </template>
                             </div>
                         </div>
@@ -430,14 +518,26 @@
                 addLog(keep ? '保留手牌' : '重抽手牌');
             }
 
+            function isConsumable(card) {
+                if (!card || card.type !== '道具') return false;
+                // Consumables: 消耗品, 法术卷轴, 咒术卷轴
+                const tag = card.tag || '';
+                return tag.includes('消耗品') || tag.includes('卷轴');
+            }
+
             function selectHandCard(card) {
                 if (!isMyTurn.value || gameState.value.phase !== 'main') return;
                 selectedAttacker.value = null;
                 selectedSkill.value = null;
                 if (selectedHandCard.value === card) {
                     if (card.type === '道具' && !card.is_terrain) {
-                        sendAction('equip', { instance_id: card.instance_id });
-                        addLog(`装备 ${card.name}`);
+                        if (isConsumable(card)) {
+                            sendAction('use_item', { instance_id: card.instance_id });
+                            addLog(`使用 ${card.name}`);
+                        } else {
+                            sendAction('equip', { instance_id: card.instance_id });
+                            addLog(`装备 ${card.name}`);
+                        }
                         selectedHandCard.value = null;
                         return;
                     }
@@ -446,6 +546,7 @@
                     selectedHandCard.value = card;
                     if (card.type === '伙伴') addLog(`选择 ${card.name}，点击空格放置`);
                     else if (card.type === '道具' && card.is_terrain) addLog(`选择地形 ${card.name}，点击空格放置`);
+                    else if (card.type === '道具' && isConsumable(card)) addLog(`选择 ${card.name}，再次点击使用`);
                     else if (card.type === '道具') addLog(`选择 ${card.name}，再次点击装备`);
                 }
             }
@@ -508,21 +609,171 @@
             }
 
             function canCastSkill(skill) {
-                return isMyTurn.value && gameState.value.phase === 'main' && skill && !skill.is_horizontal;
+                if (!isMyTurn.value || gameState.value.phase !== 'main' || !skill || skill.is_horizontal) return false;
+                if (skill.statuses?.['冷却'] > 0 || skill.statuses?.['石化'] > 0) return false;
+                if (skill.is_defense_only) return false;
+                return true;
             }
             function selectSkillToCast(skill) {
                 selectedHandCard.value = null; selectedAttacker.value = null;
                 selectedSkill.value = selectedSkill.value === skill ? null : skill;
+                selectedBoostSkills.value = [];
                 if (selectedSkill.value) addLog(`选择法术 ${skill.name}，点击敌方目标`);
             }
-            function castSpellAt(col, row) {
-                if (!selectedSkill.value) return;
-                sendAction('cast_spell', { instance_id: selectedSkill.value.instance_id, target_type: 'unit', target_col: col, target_row: row });
-                addLog(`施放 ${selectedSkill.value.name} → (${col},${row})`);
-                selectedSkill.value = null;
+
+            // Boost skill selection for attack casting
+            const selectedBoostSkills = ref([]);
+
+            function canBoostWith(skill) {
+                if (!selectedSkill.value || !skill || skill.is_horizontal) return false;
+                if (skill.instance_id === selectedSkill.value.instance_id) return false;
+                if (skill.statuses?.['冷却'] > 0) return false;
+                return true;
+            }
+            function toggleBoostSkill(skill) {
+                const idx = selectedBoostSkills.value.indexOf(skill.instance_id);
+                if (idx >= 0) selectedBoostSkills.value.splice(idx, 1);
+                else selectedBoostSkills.value.push(skill.instance_id);
             }
 
-            function noDefend() { sendAction('no_defend', {}); addLog('不防御'); }
+            function castSpellAt(col, row) {
+                if (!selectedSkill.value) return;
+                const data = {
+                    instance_id: selectedSkill.value.instance_id,
+                    target_type: 'unit',
+                    target_col: col,
+                    target_row: row
+                };
+                if (selectedBoostSkills.value.length > 0) {
+                    data.boost_ids = [...selectedBoostSkills.value];
+                }
+                sendAction('cast_spell', data);
+                addLog(`施放 ${selectedSkill.value.name} → (${col},${row})` +
+                    (selectedBoostSkills.value.length > 0 ? ` (+${selectedBoostSkills.value.length}强化)` : ''));
+                selectedSkill.value = null;
+                selectedBoostSkills.value = [];
+            }
+
+            // Defense skill selection state
+            const defenseSelected = ref([]);
+            const defenseBoostSelected = ref([]);
+
+            const availableDefenseSkills = computed(() => {
+                if (!showDefenseWindow.value) return [];
+                return (myState.value.skills || []).filter(s =>
+                    s && !s.is_horizontal && !s.is_sorcery &&
+                    s.statuses?.['冷却'] === undefined || s.statuses?.['冷却'] === 0
+                );
+            });
+
+            const availableBoostSkills = computed(() => {
+                if (!showDefenseWindow.value || defenseSelected.value.length === 0) return [];
+                return (myState.value.skills || []).filter(s =>
+                    s && !s.is_horizontal &&
+                    !defenseSelected.value.includes(s.instance_id) &&
+                    (s.statuses?.['冷却'] === undefined || s.statuses?.['冷却'] === 0)
+                );
+            });
+
+            const totalDefensePower = computed(() => {
+                let power = 0;
+                const skills = myState.value.skills || [];
+                for (const id of defenseSelected.value) {
+                    const sk = skills.find(s => s && s.instance_id === id);
+                    if (sk) power += Math.max(sk.power || 0, 0);
+                }
+                for (const id of defenseBoostSelected.value) {
+                    const sk = skills.find(s => s && s.instance_id === id);
+                    if (sk) power += Math.max(sk.power || 0, 0);
+                }
+                return power;
+            });
+
+            function toggleDefenseSkill(skill) {
+                const idx = defenseSelected.value.indexOf(skill.instance_id);
+                if (idx >= 0) {
+                    defenseSelected.value.splice(idx, 1);
+                    // Also remove from boost if present
+                    const bi = defenseBoostSelected.value.indexOf(skill.instance_id);
+                    if (bi >= 0) defenseBoostSelected.value.splice(bi, 1);
+                } else {
+                    defenseSelected.value.push(skill.instance_id);
+                }
+            }
+
+            function toggleDefenseBoost(skill) {
+                const idx = defenseBoostSelected.value.indexOf(skill.instance_id);
+                if (idx >= 0) {
+                    defenseBoostSelected.value.splice(idx, 1);
+                } else {
+                    defenseBoostSelected.value.push(skill.instance_id);
+                }
+            }
+
+            function submitDefend() {
+                sendAction('defend', {
+                    skill_ids: [...defenseSelected.value],
+                    boost_ids: [...defenseBoostSelected.value]
+                });
+                addLog(`防御 (${defenseSelected.value.length}技能, +${defenseBoostSelected.value.length}强化)`);
+                defenseSelected.value = [];
+                defenseBoostSelected.value = [];
+            }
+
+            function noDefend() {
+                sendAction('no_defend', {});
+                addLog('不防御');
+                defenseSelected.value = [];
+                defenseBoostSelected.value = [];
+            }
+
+            // Pending action selection
+            const pendingSelected = ref([]);
+
+            const pendingAction = computed(() => gameState.value?.pending_action || null);
+            const showPendingAction = computed(() => pendingAction.value != null);
+
+            function togglePendingSelect(candidate) {
+                const id = candidate.instance_id;
+                const idx = pendingSelected.value.indexOf(id);
+                if (idx >= 0) {
+                    pendingSelected.value.splice(idx, 1);
+                } else {
+                    const max = pendingAction.value?.max_select || 1;
+                    if (pendingSelected.value.length < max) {
+                        pendingSelected.value.push(id);
+                    }
+                }
+            }
+
+            function submitPendingAction() {
+                sendAction('resolve_action', { selected: [...pendingSelected.value] });
+                addLog('确认选择');
+                pendingSelected.value = [];
+            }
+
+            // Ability functions
+            function canUsePerTurn(unit) {
+                if (!unit || !unit.has_per_turn) return false;
+                if (unit.statuses?.['石化'] > 0 || unit.statuses?.['眩晕'] > 0) return false;
+                const limit = unit.per_turn_limit || 1;
+                return (unit.used_this_turn || 0) < limit;
+            }
+
+            function canUseUltimate(unit) {
+                if (!unit || !unit.has_ultimate) return false;
+                if (unit.statuses?.['石化'] > 0 || unit.statuses?.['眩晕'] > 0) return false;
+                return !unit.ultimate_used;
+            }
+
+            function useAbility(unit, abilityType) {
+                sendAction('use_ability', {
+                    instance_id: unit.instance_id,
+                    ability_type: abilityType
+                });
+                addLog(`${unit.name} 使用${abilityType === 'ultimate' ? '绝技' : '回合技'}`);
+            }
+
             function learnSkill(card) {
                 if (!isMyTurn.value || gameState.value.phase !== 'main') return;
                 sendAction('learn_skill', { instance_id: card.instance_id, replace_id: '' });
@@ -577,6 +828,19 @@
                     case 'unit_destroyed': addLog(`${d.card.name} 被摧毁`); break;
                     case 'game_over': addLog(`游戏结束 玩家${d.winner+1} 获胜`); break;
                     case 'draw_card': addLog(`抽到 ${d.card.name}`); break;
+                    case 'effect_trigger':
+                        if (d.effect === 'charge') addLog(`充能+${d.amount}`);
+                        else if (d.effect === 'damage') addLog(`${d.source?.name} 造成${d.amount}伤害`);
+                        else if (d.effect === 'apply_status') addLog(`${d.target?.name} ${d.status}+${d.amount}`);
+                        else if (d.effect === 'gain_shield') addLog(`${d.source?.name} 获得护盾${d.amount}`);
+                        else if (d.effect === 'gain_stealth') addLog(`${d.source?.name} 获得隐蔽`);
+                        break;
+                    case 'ability_used': addLog(`${d.card.name} 使用${d.ability === 'ultimate' ? '绝技' : '回合技'}`); break;
+                    case 'defense_attempt': addLog(`防御 威力${d.defense_power} vs ${d.attack_power}`); break;
+                    case 'pending_action': addLog(`等待选择: ${d.prompt}`); break;
+                    case 'discard': addLog(`弃置 ${d.card.name}`); break;
+                    case 'place_terrain': addLog(`放置地形 ${d.card.name}`); break;
+                    case 'consume': addLog(`消耗 ${d.instance_id}`); break;
                 }
             }
 
@@ -586,14 +850,21 @@
             return {
                 connected, connectionStatus, error,
                 gameState, mySlot, mulliganSubmitted, detailCard,
-                selectedHandCard, selectedAttacker, selectedSkill, actionLog,
+                selectedHandCard, selectedAttacker, selectedSkill, selectedBoostSkills, actionLog,
                 myState, opponent, myHand, mySkills, myEquipment,
                 isMyTurn, showDefenseWindow, myFrontRow, opponentFrontRow,
                 getCardImage, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, hasCost, hasGain,
-                showCardDetail, mulligan, selectHandCard, canSummonAt,
+                showCardDetail, mulligan, selectHandCard, isConsumable, canSummonAt,
                 handleCellClick, canConsumeUnit, consumeCard,
                 canAttackWith, selectAttacker, isAttackTarget,
-                canCastSkill, selectSkillToCast, noDefend,
+                canCastSkill, selectSkillToCast, canBoostWith, toggleBoostSkill, noDefend,
+                // Defense
+                defenseSelected, defenseBoostSelected, availableDefenseSkills, availableBoostSkills,
+                totalDefensePower, toggleDefenseSkill, toggleDefenseBoost, submitDefend,
+                // Pending action
+                pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction,
+                // Abilities
+                canUsePerTurn, canUseUltimate, useAbility,
                 learnSkill, endTurn
             };
         }

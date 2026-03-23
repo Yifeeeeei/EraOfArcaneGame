@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"strings"
 	"sync"
 )
 
@@ -118,6 +119,8 @@ func (e *Engine) HandleAction(playerID int, action ActionMessage) error {
 		return e.handlePlaceTerrain(playerID, action)
 	case "use_ability":
 		return e.handleUseAbility(playerID, action)
+	case "resolve_action":
+		return e.handleResolveAction(playerID, action)
 	case "end_turn":
 		return e.handleEndTurn(playerID, action)
 	default:
@@ -427,6 +430,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	targetType, _ := action.Data["target_type"].(string)
 	targetColF, _ := action.Data["target_col"].(float64)
 	targetRowF, _ := action.Data["target_row"].(float64)
+	boostIDsRaw, _ := action.Data["boost_ids"].([]any)
 
 	ps := e.State.Players[playerID]
 
@@ -469,10 +473,26 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	// Apply cooldown from keyword
 	e.ApplyKeywordOnSkillUse(skill)
 
+	// Process boost skills (法术强化)
+	var boostSkills []*CardInstance
+	boostPower := 0
+	for _, idRaw := range boostIDsRaw {
+		id, _ := idRaw.(string)
+		boostSkill := e.findSkill(ps, id)
+		if boostSkill == nil || boostSkill.IsHorizontal || boostSkill.InstanceID == instanceID {
+			continue
+		}
+		boostSkill.IsHorizontal = true
+		boostSkills = append(boostSkills, boostSkill)
+		boostPower += max(boostSkill.Card.Power, 0)
+	}
+
 	target := SpellTarget{
 		Type:     targetType,
 		Position: Position{Col: int(targetColF), Row: int(targetRowF)},
 	}
+
+	totalPower := max(skill.Card.Power, 0) + boostPower
 
 	// Check if it's a 咒术 (sorcery - unblockable)
 	isSorcery := isSorcerySkill(skill.Card)
@@ -483,10 +503,11 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	} else {
 		// Regular spell: open defense window
 		e.State.PendingSpell = &SpellCast{
-			AttackerID: playerID,
-			Skill:      skill,
-			Target:     target,
-			TotalPower: max(skill.Card.Power, 0),
+			AttackerID:  playerID,
+			Skill:       skill,
+			Target:      target,
+			TotalPower:  totalPower,
+			BoostSkills: boostSkills,
 		}
 		e.State.Phase = PhaseDefenseWindow
 
@@ -497,7 +518,8 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 				"attacker":    playerID,
 				"skill":       cardToInfo(skill),
 				"target":      target,
-				"power":       e.State.PendingSpell.TotalPower,
+				"power":       totalPower,
+				"boost_count": len(boostSkills),
 				"is_sorcery":  false,
 			},
 		})
@@ -1196,6 +1218,74 @@ func (e *Engine) handleUseAbility(playerID int, action ActionMessage) error {
 	return nil
 }
 
+// handleResolveAction handles the player's response to a pending action
+func (e *Engine) handleResolveAction(playerID int, action ActionMessage) error {
+	if e.State.Phase != PhaseWaitingAction {
+		return fmt.Errorf("no pending action")
+	}
+	pa := e.State.PendingAction
+	if pa == nil {
+		return fmt.Errorf("no pending action")
+	}
+	if pa.PlayerID != playerID {
+		return fmt.Errorf("not your pending action")
+	}
+
+	selectedRaw, _ := action.Data["selected"].([]any)
+	var selected []string
+	for _, s := range selectedRaw {
+		if str, ok := s.(string); ok {
+			selected = append(selected, str)
+		}
+	}
+
+	if len(selected) < pa.MinSelect {
+		return fmt.Errorf("must select at least %d", pa.MinSelect)
+	}
+	if len(selected) > pa.MaxSelect {
+		return fmt.Errorf("can select at most %d", pa.MaxSelect)
+	}
+
+	// Execute callback
+	callback := pa.Callback
+	e.State.PendingAction = nil
+	e.State.Phase = e.State.ResumePhase
+
+	if callback != nil {
+		callback(selected)
+	}
+
+	e.checkWinCondition()
+	return nil
+}
+
+// SetPendingAction sets a pending player action and pauses the game
+func (e *Engine) SetPendingAction(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, callback func([]string)) {
+	e.State.ResumePhase = e.State.Phase
+	e.State.Phase = PhaseWaitingAction
+	e.State.PendingAction = &PendingAction{
+		Type:       actionType,
+		PlayerID:   playerID,
+		Prompt:     prompt,
+		Candidates: candidates,
+		MinSelect:  minSelect,
+		MaxSelect:  maxSelect,
+		Callback:   callback,
+	}
+
+	e.emit(GameEvent{
+		Type:   "pending_action",
+		Player: playerID,
+		Data: map[string]any{
+			"type":       actionType,
+			"prompt":     prompt,
+			"candidates": candidates,
+			"min_select": minSelect,
+			"max_select": maxSelect,
+		},
+	})
+}
+
 // handleEndTurn handles ending the current turn
 func (e *Engine) handleEndTurn(playerID int, action ActionMessage) error {
 	if e.State.Phase != PhaseMain {
@@ -1214,20 +1304,48 @@ func (e *Engine) endTurn() {
 	ps := e.State.Players[e.State.CurrentTurn]
 
 	// Discard to hand limit
-	for len(ps.Hand) > e.State.HandLimit {
-		// Discard last card (simplified - ideally player chooses)
-		discarded := ps.Hand[len(ps.Hand)-1]
-		ps.Hand = ps.Hand[:len(ps.Hand)-1]
-		ps.Graveyard = append(ps.Graveyard, discarded)
-		e.emit(GameEvent{
-			Type:   "discard",
-			Player: e.State.CurrentTurn,
-			Data: map[string]any{
-				"card": cardToInfo(discarded),
-			},
-		})
+	if len(ps.Hand) > e.State.HandLimit {
+		discardCount := len(ps.Hand) - e.State.HandLimit
+		// Build candidates from hand cards
+		candidates := make([]map[string]any, len(ps.Hand))
+		for i, c := range ps.Hand {
+			candidates[i] = cardToInfo(c)
+		}
+		currentTurn := e.State.CurrentTurn
+		e.SetPendingAction(currentTurn, "discard",
+			fmt.Sprintf("弃牌至手牌上限（需弃%d张）", discardCount),
+			candidates, discardCount, discardCount,
+			func(selected []string) {
+				// Discard selected cards
+				toDiscard := make(map[string]bool)
+				for _, id := range selected {
+					toDiscard[id] = true
+				}
+				remaining := make([]*CardInstance, 0, len(ps.Hand)-len(selected))
+				for _, c := range ps.Hand {
+					if toDiscard[c.InstanceID] {
+						ps.Graveyard = append(ps.Graveyard, c)
+						e.emit(GameEvent{
+							Type:   "discard",
+							Player: currentTurn,
+							Data:   map[string]any{"card": cardToInfo(c)},
+						})
+					} else {
+						remaining = append(remaining, c)
+					}
+				}
+				ps.Hand = remaining
+				// Continue end turn processing
+				e.finishEndTurn(ps)
+			})
+		return // Wait for player to choose
 	}
 
+	e.finishEndTurn(ps)
+}
+
+// finishEndTurn completes end-of-turn processing (after optional discard)
+func (e *Engine) finishEndTurn(ps *PlayerState) {
 	// Trigger 回合结束 effects for all cards on the current player's field
 	allCards := e.getAllFieldCards(ps)
 	for _, card := range allCards {
@@ -1354,6 +1472,18 @@ func (e *Engine) GetStateForPlayer(playerID int) map[string]any {
 			}
 			return nil
 		}(),
+		"pending_action": func() any {
+			if state.PendingAction != nil && state.PendingAction.PlayerID == playerID {
+				return map[string]any{
+					"type":       state.PendingAction.Type,
+					"prompt":     state.PendingAction.Prompt,
+					"candidates": state.PendingAction.Candidates,
+					"min_select": state.PendingAction.MinSelect,
+					"max_select": state.PendingAction.MaxSelect,
+				}
+			}
+			return nil
+		}(),
 	}
 }
 
@@ -1435,7 +1565,7 @@ func cardToInfo(ci *CardInstance) map[string]any {
 	if ci == nil {
 		return nil
 	}
-	return map[string]any{
+	info := map[string]any{
 		"instance_id":    ci.InstanceID,
 		"number":         ci.Card.Number,
 		"name":           ci.Card.Name,
@@ -1449,6 +1579,7 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		"duration":       ci.Card.Duration,
 		"elements_cost":  ci.Card.ElementsCost,
 		"elements_gain":  ci.Card.ElementsGain,
+		"elements_expense": ci.Card.ElementsExpense,
 		"current_life":   ci.CurrentLife,
 		"current_attack": ci.CurrentAttack,
 		"is_horizontal":  ci.IsHorizontal,
@@ -1456,7 +1587,39 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		"statuses":       ci.Statuses,
 		"position":       ci.Position,
 		"output_path":    ci.Card.OutputPath,
+		"used_this_turn": ci.UsedThisTurn,
+		"ultimate_used":  ci.UltimateUsed,
+		"uses_remaining": ci.UsesRemaining,
 	}
+
+	// Expose ability availability
+	registry := GetEffectRegistry()
+	hasPerTurn := registry.HasEffect(ci.Card.Number, TriggerPerTurn)
+	hasUltimate := registry.HasEffect(ci.Card.Number, TriggerUltimate)
+	info["has_per_turn"] = hasPerTurn
+	info["has_ultimate"] = hasUltimate
+
+	if hasPerTurn {
+		maxUses := parseNumberAfter(ci.Card.Description, "回合技")
+		if maxUses == 0 {
+			maxUses = 1
+		}
+		info["per_turn_limit"] = maxUses
+	}
+
+	// Mark defense-only skills
+	if ci.Card.IsSkill() {
+		info["is_defense_only"] = isDefenseOnlySkill(ci.Card)
+		info["is_sorcery"] = isSorcerySkill(ci.Card)
+	}
+
+	return info
+}
+
+// isDefenseOnlySkill checks if a skill card has the 防御 marker
+func isDefenseOnlySkill(card *model.Card) bool {
+	return card.IsSkill() && strings.Contains(card.Description, "防御")  &&
+		(strings.HasPrefix(card.Description, "防御") || strings.Contains(card.Tag, "防御"))
 }
 
 func cardsToInfo(cards []*CardInstance) []map[string]any {

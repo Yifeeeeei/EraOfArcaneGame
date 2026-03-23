@@ -377,6 +377,7 @@ const (
 	PhaseMain
 	PhaseSpellCast    // spell has been cast, waiting for defense
 	PhaseDefenseWindow
+	PhaseWaitingAction // waiting for a player to resolve a pending action
 	PhaseTurnEnd
 	PhaseGameOver
 )
@@ -395,6 +396,8 @@ func (p GamePhase) String() string {
 		return "spell_cast"
 	case PhaseDefenseWindow:
 		return "defense_window"
+	case PhaseWaitingAction:
+		return "waiting_action"
 	case PhaseTurnEnd:
 		return "turn_end"
 	case PhaseGameOver:
@@ -402,6 +405,17 @@ func (p GamePhase) String() string {
 	default:
 		return "unknown"
 	}
+}
+
+// PendingAction represents a player choice that must be resolved
+type PendingAction struct {
+	Type       string           `json:"type"`       // "select_target", "select_card", "discard", "select_position"
+	PlayerID   int              `json:"player_id"`  // which player must choose
+	Prompt     string           `json:"prompt"`     // display text
+	Candidates []map[string]any `json:"candidates"` // selectable options (cards or positions)
+	MinSelect  int              `json:"min_select"` // minimum selections required
+	MaxSelect  int              `json:"max_select"` // maximum selections allowed
+	Callback   func(selected []string) `json:"-"`   // called when resolved
 }
 
 // GameState holds the entire game state
@@ -418,8 +432,14 @@ type GameState struct {
 	// Combat state
 	PendingSpell *SpellCast `json:"pending_spell,omitempty"`
 
+	// Player choice state
+	PendingAction *PendingAction `json:"pending_action,omitempty"`
+
 	// Mulligan state
 	MulliganDone [2]bool `json:"mulligan_done"`
+
+	// Phase to resume after pending action resolves
+	ResumePhase GamePhase `json:"-"`
 }
 
 // SpellCast represents an ongoing spell combat
