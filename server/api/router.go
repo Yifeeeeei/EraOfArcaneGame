@@ -28,7 +28,7 @@ func SetupRoutes(mux *http.ServeMux, rm *match.RoomManager) {
 
 func handleGetCards(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cards.CardDB)
+	json.NewEncoder(w).Encode(cards.PlayableCardDB)
 }
 
 func handleValidateDeck(w http.ResponseWriter, r *http.Request) {
@@ -51,19 +51,20 @@ func handleValidateDeck(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := deck.Validate(cards.CardDB); err != nil {
+	if err := deck.Validate(cards.PlayableCardDB); err != nil {
 		jsonError(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
 	// Return deck info
-	heroCard := cards.CardDB[deck.HeroID]
+	heroCard := cards.PlayableCardDB[deck.HeroID]
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]any{
-		"valid":      true,
-		"hero_name":  heroCard.Name,
-		"hero_id":    deck.HeroID,
-		"main_count": len(deck.MainDeck),
+		"valid":       true,
+		"card_pool":   cards.BaseVersionName,
+		"hero_name":   heroCard.Name,
+		"hero_id":     deck.HeroID,
+		"main_count":  len(deck.MainDeck),
 		"skill_count": len(deck.SkillPool),
 		"extra_count": len(deck.ExtraDeck),
 	})

@@ -31,9 +31,9 @@ type CardInstance struct {
 	CurrentAttack int            `json:"current_attack"`
 	IsHorizontal  bool           `json:"is_horizontal"` // 横置=true, 竖置=false
 	Statuses      map[string]int `json:"statuses"`      // status -> stack count
-	Position      *Position      `json:"position"`       // nil if not on unit grid
-	SlotIndex     int            `json:"slot_index"`     // for skill/equipment slots
-	EnterTurn     int            `json:"enter_turn"`     // which turn this card entered the field
+	Position      *Position      `json:"position"`      // nil if not on unit grid
+	SlotIndex     int            `json:"slot_index"`    // for skill/equipment slots
+	EnterTurn     int            `json:"enter_turn"`    // which turn this card entered the field
 
 	// Skill-specific
 	UsedThisTurn int  `json:"used_this_turn"` // for 回合技
@@ -95,18 +95,18 @@ const (
 
 // PlayerState holds all state for one player
 type PlayerState struct {
-	PlayerID   int              `json:"player_id"` // 0 or 1
-	PlayerName string           `json:"player_name"`
-	Hero       *CardInstance    `json:"hero"`
-	Units      [3][3]*CardInstance `json:"units"` // [col][row], hero is at [1][1]
+	PlayerID   int                 `json:"player_id"` // 0 or 1
+	PlayerName string              `json:"player_name"`
+	Hero       *CardInstance       `json:"hero"`
+	Units      [3][3]*CardInstance `json:"units"`   // [col][row], hero is at [1][1]
 	Terrain    [3][3]*CardInstance `json:"terrain"` // Terrain cards placed on grid
-	Skills     [5]*CardInstance `json:"skills"`
-	Equipment  [5]*CardInstance `json:"equipment"`
-	Hand       []*CardInstance  `json:"hand"`
-	Deck       []*CardInstance  `json:"deck"`       // remaining draw pile
-	SkillPool  []*CardInstance  `json:"skill_pool"`
-	Graveyard  []*CardInstance  `json:"graveyard"`
-	ExtraDeck  []*CardInstance  `json:"extra_deck"`
+	Skills     [5]*CardInstance    `json:"skills"`
+	Equipment  [5]*CardInstance    `json:"equipment"`
+	Hand       []*CardInstance     `json:"hand"`
+	Deck       []*CardInstance     `json:"deck"` // remaining draw pile
+	SkillPool  []*CardInstance     `json:"skill_pool"`
+	Graveyard  []*CardInstance     `json:"graveyard"`
+	ExtraDeck  []*CardInstance     `json:"extra_deck"`
 
 	// Element pool - available elements this turn
 	Elements map[string]int `json:"elements"`
@@ -251,110 +251,19 @@ func (ps *PlayerState) GetFrontRow() int {
 // CanPayCost checks if the player can pay the given element cost
 // Arcane (无) in cost can be paid with any element, and arcane elements can pay for any cost
 func (ps *PlayerState) CanPayCost(cost map[string]int) bool {
-	if len(cost) == 0 {
-		return true
-	}
-
-	// Simple approach: check total cost <= total elements, plus specific element constraints
-	totalCost := 0
-	totalAvail := 0
-	for _, v := range cost {
-		totalCost += v
-	}
-	for _, v := range ps.Elements {
-		totalAvail += v
-	}
-	if totalAvail < totalCost {
-		return false
-	}
-
-	// Simulate payment: specific elements first, then arcane as wildcard
-	avail := make(map[string]int)
-	for k, v := range ps.Elements {
-		avail[k] = v
-	}
-
-	arcaneNeeded := 0
-	for elem, amount := range cost {
-		if elem == model.ElementArcane {
-			arcaneNeeded += amount
-			continue
-		}
-		// Pay with matching element first
-		pay := min(avail[elem], amount)
-		avail[elem] -= pay
-		remaining := amount - pay
-		// Pay remainder with arcane
-		arcanePay := min(avail[model.ElementArcane], remaining)
-		avail[model.ElementArcane] -= arcanePay
-		remaining -= arcanePay
-		if remaining > 0 {
-			return false // can't pay this specific element
-		}
-	}
-
-	// Pay arcane cost with any remaining elements
-	for _, elem := range model.AllElements {
-		if arcaneNeeded <= 0 {
-			break
-		}
-		pay := min(avail[elem], arcaneNeeded)
-		avail[elem] -= pay
-		arcaneNeeded -= pay
-	}
-
-	return arcaneNeeded <= 0
+	_, ok := calculateElementPayment(ps.Elements, cost)
+	return ok
 }
 
 // PayCost deducts elements from the pool. Returns false if insufficient.
 func (ps *PlayerState) PayCost(cost map[string]int) bool {
-	if !ps.CanPayCost(cost) {
+	payment, ok := calculateElementPayment(ps.Elements, cost)
+	if !ok {
 		return false
 	}
 
-	// Pay specific elements first, use arcane as wildcard
-	remaining := make(map[string]int)
-	for k, v := range cost {
-		remaining[k] = v
-	}
-
-	// First pass: pay with matching elements
-	for elem, amount := range remaining {
-		if elem == model.ElementArcane {
-			continue
-		}
-		pay := min(ps.Elements[elem], amount)
-		ps.Elements[elem] -= pay
-		remaining[elem] -= pay
-	}
-
-	// Second pass: pay remaining with arcane
-	for elem, amount := range remaining {
-		if elem == model.ElementArcane || amount == 0 {
-			continue
-		}
-		pay := min(ps.Elements[model.ElementArcane], amount)
-		ps.Elements[model.ElementArcane] -= pay
-		remaining[elem] -= pay
-	}
-
-	// Pay arcane cost with any remaining elements
-	arcaneNeeded := remaining[model.ElementArcane]
-	if arcaneNeeded > 0 {
-		// Use arcane first
-		pay := min(ps.Elements[model.ElementArcane], arcaneNeeded)
-		ps.Elements[model.ElementArcane] -= pay
-		arcaneNeeded -= pay
-
-		// Then use any other element
-		for _, elem := range model.AllElements {
-			if arcaneNeeded <= 0 {
-				break
-			}
-			pay := min(ps.Elements[elem], arcaneNeeded)
-			ps.Elements[elem] -= pay
-			arcaneNeeded -= pay
-		}
+	for elem, amount := range payment {
+		ps.Elements[elem] -= amount
 	}
 
 	return true
@@ -375,7 +284,7 @@ const (
 	PhaseMulligan
 	PhaseTurnStart
 	PhaseMain
-	PhaseSpellCast    // spell has been cast, waiting for defense
+	PhaseSpellCast // spell has been cast, waiting for defense
 	PhaseDefenseWindow
 	PhaseWaitingAction // waiting for a player to resolve a pending action
 	PhaseTurnEnd
@@ -409,25 +318,25 @@ func (p GamePhase) String() string {
 
 // PendingAction represents a player choice that must be resolved
 type PendingAction struct {
-	Type       string           `json:"type"`       // "select_target", "select_card", "discard", "select_position"
-	PlayerID   int              `json:"player_id"`  // which player must choose
-	Prompt     string           `json:"prompt"`     // display text
-	Candidates []map[string]any `json:"candidates"` // selectable options (cards or positions)
-	MinSelect  int              `json:"min_select"` // minimum selections required
-	MaxSelect  int              `json:"max_select"` // maximum selections allowed
-	Callback   func(selected []string) `json:"-"`   // called when resolved
+	Type       string                  `json:"type"`       // "select_target", "select_card", "discard", "select_position"
+	PlayerID   int                     `json:"player_id"`  // which player must choose
+	Prompt     string                  `json:"prompt"`     // display text
+	Candidates []map[string]any        `json:"candidates"` // selectable options (cards or positions)
+	MinSelect  int                     `json:"min_select"` // minimum selections required
+	MaxSelect  int                     `json:"max_select"` // maximum selections allowed
+	Callback   func(selected []string) `json:"-"`          // called when resolved
 }
 
 // GameState holds the entire game state
 type GameState struct {
-	GameID       string         `json:"game_id"`
-	Players      [2]*PlayerState `json:"players"`
-	CurrentTurn  int            `json:"current_turn"`  // 0 or 1 (which player's turn)
-	TurnNumber   int            `json:"turn_number"`
-	Phase        GamePhase      `json:"phase"`
-	Winner       int            `json:"winner"` // -1 = no winner, 0 or 1
-	HandLimit    int            `json:"hand_limit"`
-	IsFirstTurn  bool           `json:"is_first_turn"` // first player's first turn
+	GameID      string          `json:"game_id"`
+	Players     [2]*PlayerState `json:"players"`
+	CurrentTurn int             `json:"current_turn"` // 0 or 1 (which player's turn)
+	TurnNumber  int             `json:"turn_number"`
+	Phase       GamePhase       `json:"phase"`
+	Winner      int             `json:"winner"` // -1 = no winner, 0 or 1
+	HandLimit   int             `json:"hand_limit"`
+	IsFirstTurn bool            `json:"is_first_turn"` // first player's first turn
 
 	// Combat state
 	PendingSpell *SpellCast `json:"pending_spell,omitempty"`
@@ -444,11 +353,11 @@ type GameState struct {
 
 // SpellCast represents an ongoing spell combat
 type SpellCast struct {
-	AttackerID   int           `json:"attacker_id"`
-	Skill        *CardInstance `json:"skill"`
-	Target       SpellTarget   `json:"target"`
-	TotalPower   int           `json:"total_power"`
-	BoostSkills  []*CardInstance `json:"boost_skills"` // skills used to boost
+	AttackerID  int             `json:"attacker_id"`
+	Skill       *CardInstance   `json:"skill"`
+	Target      SpellTarget     `json:"target"`
+	TotalPower  int             `json:"total_power"`
+	BoostSkills []*CardInstance `json:"boost_skills"` // skills used to boost
 }
 
 // SpellTarget represents the target of a spell

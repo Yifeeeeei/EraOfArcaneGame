@@ -52,7 +52,7 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 			http.Error(w, "invalid deck: "+err.Error(), http.StatusBadRequest)
 			return
 		}
-		if err := deck.Validate(cards.CardDB); err != nil {
+		if err := deck.Validate(cards.PlayableCardDB); err != nil {
 			http.Error(w, "invalid deck: "+err.Error(), http.StatusBadRequest)
 			return
 		}

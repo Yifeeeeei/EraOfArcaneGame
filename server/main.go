@@ -17,8 +17,8 @@ func main() {
 		log.Fatalf("Failed to load cards: %v", err)
 	}
 
-	// Set card DB reference for game engine
-	game.SetCardDB(cards.CardDB)
+	// Set card DB reference for game engine. For now, only the base set is playable.
+	game.SetCardDB(cards.PlayableCardDB)
 
 	// Register card effects (manual + auto-parsed)
 	game.RegisterAllCardEffects()

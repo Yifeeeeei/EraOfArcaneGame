@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"eraofarcane/cards"
 	"eraofarcane/game"
@@ -14,7 +15,7 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-const testDeckCode = "4311003 // 1021001 1021001 1211203 1311202 1321002 1321002 1321010 1321012 1321013 1321013 1321105 1321204 1321204 1321205 1321205 1321207 1321207 1321210 1321210 1321212 2221205 2221205 2321006 2321006 2321201 2321202 2321207 2321207 2321208 2321211 // 3221209 3311201 3321002 3321007 3321015 3321106 3321206 3321207 3321208 3321209 // 2001201 2001202 2001203 2001204 2001205 2001206 2001207 2001208"
+const testDeckCode = "4311003 // 2601001 2601001 2601002 2601002 2611001 2611001 2611002 2611002 2621001 2621001 2211001 2211001 2621002 2621002 2211002 2211002 2221001 2221001 2221002 2221002 2221003 2221003 2221004 2221004 2221005 2221005 2221006 2221006 2221007 2221007 // 3501001 3521001 3521002 3521003 3001001 3001002 3521004 3021001 3021002 3021003"
 
 func setupTestServer(t *testing.T) (*httptest.Server, *match.RoomManager) {
 	t.Helper()
@@ -23,7 +24,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, *match.RoomManager) {
 		if err := cards.LoadCards("../../data/all_card_infos.json"); err != nil {
 			t.Fatalf("Failed to load cards: %v", err)
 		}
-		game.SetCardDB(cards.CardDB)
+		game.SetCardDB(cards.PlayableCardDB)
 	}
 
 	rm := match.NewRoomManager()
@@ -133,4 +134,20 @@ func TestWebSocketGameFlow(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	t.Log("Full WebSocket game flow test passed!")
+}
+
+func TestDeckValidationRejectsNonBaseCards(t *testing.T) {
+	server, _ := setupTestServer(t)
+	defer server.Close()
+
+	reqBody := []byte(`{"deck_code":"4311003 // 1021001 1021001 1211203 1211203 1321002 1321002 1321010 1321010 1321012 1321012 1321013 1321013 1321105 1321105 1321204 1321204 1321205 1321205 1321207 1321207 1321210 1321210 2221205 2221205 2321006 2321006 2321201 2321201 2321202 2321202 // 3221209 3311201 3321002 3321007 3321015 3321106 3321206 3321207 3321208 3321209"}`)
+	resp, err := http.Post(server.URL+"/api/deck/validate", "application/json", bytes.NewReader(reqBody))
+	if err != nil {
+		t.Fatalf("validate request: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("expected non-base deck to be rejected, got status %d", resp.StatusCode)
+	}
 }

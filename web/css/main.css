@@ -1,72 +1,130 @@
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Noto+Serif+SC:wght@400;600;700&display=swap');
+
+:root {
+    --arcane-void: #050403;
+    --arcane-ink: #0d0a08;
+    --arcane-panel: #18120d;
+    --arcane-panel-2: #211810;
+    --arcane-line: rgba(198, 174, 116, 0.22);
+    --arcane-line-strong: rgba(217, 189, 126, 0.48);
+    --arcane-gold: #d3b46a;
+    --arcane-gold-bright: #efe0a9;
+    --arcane-bone: #f0eadc;
+    --arcane-text: #d8cfbd;
+    --arcane-muted: #908676;
+    --arcane-red: #b94a3e;
+    --arcane-green: #7da877;
+    --arcane-blue: #8da8b7;
+    --font-display: 'Cormorant Garamond', 'Noto Serif SC', serif;
+    --font-body: 'Noto Serif SC', 'Cormorant Garamond', serif;
 }
 
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
 body {
-    font-family: 'Segoe UI', Arial, sans-serif;
-    background: #1a1a2e;
-    color: #e0e0e0;
+    font-family: var(--font-body);
+    background:
+        linear-gradient(115deg, rgba(55, 38, 23, 0.36), transparent 32%),
+        linear-gradient(245deg, rgba(61, 22, 18, 0.24), transparent 38%),
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.018) 0 1px, transparent 1px 5px),
+        var(--arcane-void);
+    color: var(--arcane-text);
     min-height: 100vh;
 }
 
+body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background:
+        linear-gradient(rgba(255,255,255,0.035), rgba(0,0,0,0.08)),
+        radial-gradient(ellipse at 50% 0, rgba(211,180,106,0.08), transparent 48%);
+    mix-blend-mode: screen;
+    opacity: 0.42;
+}
+
 header {
-    background: linear-gradient(135deg, #16213e, #0f3460);
-    padding: 20px;
+    position: relative;
+    z-index: 1;
+    padding: 22px;
     text-align: center;
-    border-bottom: 2px solid #e94560;
+    background: rgba(13, 10, 8, 0.88);
+    border-bottom: 1px solid var(--arcane-line);
+    box-shadow: inset 0 -1px 0 rgba(255,255,255,0.04);
 }
 
 header h1 {
-    color: #e94560;
-    font-size: 28px;
+    color: var(--arcane-bone);
+    font-family: var(--font-display);
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
 }
 
 header h1 small {
-    color: #aaa;
-    font-size: 14px;
+    color: var(--arcane-muted);
+    font-size: 13px;
     display: block;
-    margin-top: 4px;
+    margin-top: 2px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
 }
 
 .btn {
     padding: 8px 16px;
-    border: none;
-    border-radius: 4px;
+    border: 1px solid var(--arcane-line-strong);
+    border-radius: 0;
     cursor: pointer;
+    font-family: var(--font-body);
     font-size: 14px;
-    transition: opacity 0.2s;
+    color: var(--arcane-bone);
+    background: rgba(24, 18, 13, 0.92);
+    transition: border-color 0.18s, background 0.18s, color 0.18s, transform 0.18s;
 }
-.btn:hover { opacity: 0.85; }
-.btn:active { opacity: 0.7; }
+.btn:hover {
+    border-color: var(--arcane-gold-bright);
+    background: rgba(42, 31, 21, 0.96);
+    color: #fff8df;
+}
+.btn:active { transform: translateY(1px); }
 
-.btn-primary { background: #e94560; color: white; }
-.btn-success { background: #2ecc71; color: white; }
-.btn-info { background: #3498db; color: white; }
+.btn-primary,
+.btn-success,
+.btn-info,
+.btn-warning {
+    background: rgba(45, 34, 22, 0.96);
+    color: var(--arcane-gold-bright);
+}
+.btn-danger {
+    border-color: rgba(185,74,62,0.72);
+    background: rgba(61, 21, 18, 0.94);
+    color: #ffc3b9;
+}
 .btn-small { padding: 4px 10px; font-size: 12px; }
-.btn-danger { background: #e74c3c; color: white; }
-.btn-warning { background: #f39c12; color: white; }
 
 .input-field {
     padding: 8px 12px;
-    background: #16213e;
-    border: 1px solid #333;
-    color: #e0e0e0;
-    border-radius: 4px;
+    background: #090705;
+    border: 1px solid var(--arcane-line);
+    color: var(--arcane-bone);
+    border-radius: 0;
+    font-family: var(--font-body);
     font-size: 14px;
 }
 .input-field:focus {
     outline: none;
-    border-color: #e94560;
+    border-color: var(--arcane-gold);
+    box-shadow: 0 0 0 1px rgba(211,180,106,0.2);
 }
 .input-small { width: 100px; }
 
 .tag {
     display: inline-block;
     padding: 2px 8px;
-    border-radius: 10px;
+    border: 1px solid var(--arcane-line);
+    border-radius: 0;
     font-size: 12px;
 }
-.tag-active { background: #27ae60; color: white; }
-.tag-waiting { background: #f39c12; color: white; }
+.tag-active { background: rgba(125,168,119,0.16); color: #bfe4b6; }
+.tag-waiting { background: rgba(211,180,106,0.12); color: var(--arcane-gold-bright); }

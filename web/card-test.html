@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>基础包卡牌测试台</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="css/main.css">
+    <style>
+        body { background: var(--arcane-void); color: var(--arcane-text); }
+        header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 18px;
+            padding: 16px 22px;
+            background: rgba(13, 10, 8, 0.92);
+            border-bottom: 1px solid var(--arcane-line);
+        }
+        header h1 {
+            font-family: var(--font-display);
+            font-size: 26px;
+            color: var(--arcane-bone);
+            letter-spacing: 0.04em;
+        }
+        header a { color: var(--arcane-gold-bright); text-decoration: none; }
+        .lab {
+            height: calc(100vh - 66px);
+            display: grid;
+            grid-template-columns: 300px minmax(430px, 1fr) 330px;
+            gap: 0;
+            overflow: hidden;
+        }
+        .panel {
+            min-height: 0;
+            overflow: auto;
+            border-right: 1px solid var(--arcane-line);
+            background: rgba(24, 18, 13, 0.9);
+        }
+        .panel.right { border-right: 0; border-left: 1px solid var(--arcane-line); }
+        .toolbar {
+            position: sticky;
+            top: 0;
+            z-index: 5;
+            padding: 12px;
+            background: rgba(24, 18, 13, 0.98);
+            border-bottom: 1px solid var(--arcane-line);
+        }
+        .search {
+            width: 100%;
+            padding: 9px 10px;
+            border: 1px solid var(--arcane-line);
+            border-radius: 0;
+            color: var(--arcane-bone);
+            background: #090705;
+            margin-bottom: 10px;
+        }
+        .filters { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
+        .filter-btn {
+            border: 1px solid var(--arcane-line);
+            border-radius: 0;
+            background: rgba(13, 10, 8, 0.74);
+            color: var(--arcane-muted);
+            padding: 6px 0;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        .filter-btn.active { border-color: var(--arcane-gold); color: var(--arcane-gold-bright); background: rgba(45, 34, 22, 0.96); }
+        .card-list { padding: 8px; display: grid; gap: 6px; }
+        .card-row {
+            border: 1px solid transparent;
+            border-radius: 0;
+            background: rgba(33, 24, 16, 0.88);
+            display: grid;
+            grid-template-columns: 42px 1fr auto;
+            gap: 8px;
+            padding: 6px;
+            cursor: pointer;
+            align-items: center;
+        }
+        .card-row:hover, .card-row.active { border-color: var(--arcane-gold); }
+        .card-row img { width: 42px; height: 58px; object-fit: cover; border-radius: 3px; }
+        .row-name { font-weight: 700; color: var(--arcane-bone); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .row-meta { color: var(--arcane-muted); font-size: 12px; margin-top: 2px; }
+        .chip {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 34px;
+            padding: 3px 7px;
+            border-radius: 0;
+            border: 1px solid rgba(198,174,116,0.18);
+            background: rgba(13, 10, 8, 0.72);
+            color: var(--arcane-gold-bright);
+            font-size: 12px;
+        }
+        .detail {
+            min-height: 0;
+            overflow: auto;
+            padding: 18px 22px 28px;
+            background:
+                linear-gradient(180deg, rgba(33,24,16,0.52), rgba(5,4,3,0.7)),
+                var(--arcane-ink);
+        }
+        .summary-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(80px, 1fr));
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+        .summary {
+            border: 1px solid var(--arcane-line);
+            border-radius: 0;
+            background: rgba(24,18,13,0.84);
+            padding: 10px;
+        }
+        .summary strong { display: block; color: var(--arcane-gold-bright); font-size: 20px; line-height: 1; }
+        .summary span { color: var(--arcane-muted); font-size: 12px; }
+        .selected-card {
+            display: grid;
+            grid-template-columns: 220px 1fr;
+            gap: 20px;
+            align-items: start;
+        }
+        .selected-card img {
+            width: 220px;
+            aspect-ratio: 1 / 1.4;
+            object-fit: cover;
+            border-radius: 0;
+            border: 2px solid rgba(211,180,106,0.42);
+            box-shadow: 0 18px 48px rgba(0,0,0,0.45);
+        }
+        h2 { color: var(--arcane-bone); margin-bottom: 8px; font-family: var(--font-display); }
+        h3 { color: var(--arcane-gold-bright); margin: 18px 0 8px; font-size: 15px; font-family: var(--font-display); }
+        .meta-line { color: var(--arcane-muted); margin-bottom: 4px; }
+        .desc {
+            margin-top: 12px;
+            padding: 12px;
+            border-left: 3px solid var(--arcane-gold);
+            background: rgba(8,6,5,0.58);
+            line-height: 1.65;
+            white-space: pre-wrap;
+        }
+        .steps { display: grid; gap: 8px; margin-top: 10px; }
+        .step {
+            display: grid;
+            grid-template-columns: 26px 1fr;
+            gap: 8px;
+            align-items: start;
+            border: 1px solid var(--arcane-line);
+            background: rgba(24,18,13,0.78);
+            padding: 8px;
+            border-radius: 0;
+        }
+        .step-num {
+            width: 24px;
+            height: 24px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 0;
+            background: var(--arcane-gold);
+            color: var(--arcane-void);
+            font-weight: 800;
+        }
+        .action-box {
+            margin-top: 12px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        .deck-code {
+            width: 100%;
+            min-height: 78px;
+            resize: vertical;
+            padding: 8px;
+            border-radius: 0;
+            border: 1px solid var(--arcane-line);
+            background: #090705;
+            color: var(--arcane-bone);
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px;
+        }
+        .test-panel { padding: 14px; }
+        .test-result {
+            margin-top: 10px;
+            border-radius: 0;
+            border: 1px solid var(--arcane-line);
+            background: #090705;
+            padding: 10px;
+            color: var(--arcane-muted);
+            white-space: pre-wrap;
+            line-height: 1.55;
+        }
+        .pass { color: #7ee29b; }
+        .fail { color: #ff8c7a; }
+        @media (max-width: 1100px) {
+            .lab { grid-template-columns: 270px 1fr; }
+            .panel.right { grid-column: 1 / 3; height: 220px; border-left: 0; border-top: 1px solid var(--arcane-line); }
+            .selected-card { grid-template-columns: 170px 1fr; }
+            .selected-card img { width: 170px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <header>
+            <h1>基础包卡牌测试台</h1>
+            <a href="/">返回大厅</a>
+        </header>
+
+        <main class="lab">
+            <aside class="panel">
+                <div class="toolbar">
+                    <input class="search" v-model="query" placeholder="搜索名称 / 编号 / 标签 / 描述">
+                    <div class="filters">
+                        <button v-for="type in filters" :key="type" class="filter-btn"
+                                :class="{ active: selectedType === type }"
+                                @click="selectedType = type">{{ type }}</button>
+                    </div>
+                </div>
+                <div class="card-list" data-testid="card-list">
+                    <div v-for="card in filteredCards" :key="card.number"
+                         class="card-row"
+                         :class="{ active: selected && selected.number === card.number }"
+                         @click="selectCard(card)"
+                         :data-card-number="card.number">
+                        <img :src="getCardImage(card)" :alt="card.name">
+                        <div>
+                            <div class="row-name">{{ card.name }}</div>
+                            <div class="row-meta">{{ card.number }} · {{ card.type }} · {{ card.category }}</div>
+                        </div>
+                        <span class="chip">{{ operationLabel(card) }}</span>
+                    </div>
+                </div>
+            </aside>
+
+            <section class="detail">
+                <div class="summary-grid" data-testid="summary">
+                    <div class="summary"><strong>{{ cards.length }}</strong><span>基础包总数</span></div>
+                    <div class="summary"><strong>{{ typeCount('人物') }}</strong><span>人物</span></div>
+                    <div class="summary"><strong>{{ typeCount('伙伴') }}</strong><span>伙伴</span></div>
+                    <div class="summary"><strong>{{ typeCount('技能') }}</strong><span>技能</span></div>
+                    <div class="summary"><strong>{{ typeCount('道具') }}</strong><span>道具</span></div>
+                </div>
+
+                <div v-if="selected" class="selected-card" data-testid="selected-card">
+                    <img :src="getCardImage(selected)" :alt="selected.name">
+                    <div>
+                        <h2>{{ selected.name }}</h2>
+                        <div class="meta-line">{{ selected.number }} · {{ selected.version_name }} · {{ selected.type }} · {{ selected.category }}</div>
+                        <div class="meta-line">费用：{{ costLabel(selected.elements_cost) }}　负载：{{ costLabel(selected.elements_gain) }}</div>
+                        <div class="meta-line" v-if="selected.type === '技能'">施放费用：{{ costLabel(selected.elements_expense) }}　威力：{{ valueLabel(selected.power) }}　伤害：{{ valueLabel(selected.attack) }}</div>
+                        <div class="meta-line" v-else>攻击：{{ valueLabel(selected.attack) }}　生命：{{ valueLabel(selected.life) }}</div>
+                        <div class="desc">{{ selected.description || '无描述。' }}</div>
+
+                        <h3>玩家操作路径</h3>
+                        <div class="steps">
+                            <div v-for="(step, i) in operationSteps(selected)" :key="step" class="step">
+                                <span class="step-num">{{ i + 1 }}</span>
+                                <span>{{ step }}</span>
+                            </div>
+                        </div>
+
+                        <h3>真实对局测试入口</h3>
+                        <textarea class="deck-code" readonly :value="deckCodeForSelected"></textarea>
+                        <div class="action-box">
+                            <button class="btn btn-primary" @click="createRoomForSelected">用这张卡创建测试房间</button>
+                            <button class="btn btn-info" @click="copyDeck">复制测试卡组</button>
+                        </div>
+                    </div>
+                </div>
+                <div v-else>正在加载基础包卡牌...</div>
+            </section>
+
+            <aside class="panel right">
+                <div class="test-panel">
+                    <h3>前端可操作性自检</h3>
+                    <button class="btn btn-success" data-testid="run-ui-self-test" @click="runSelfTest">运行 378 张卡 UI 自检</button>
+                    <div class="test-result" data-testid="ui-self-test-result" :class="{ pass: selfTest.ok, fail: selfTest.ok === false }">{{ selfTest.message }}</div>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <script>
+    const { createApp, ref, computed, onMounted } = Vue;
+
+    createApp({
+        setup() {
+            const IMAGE_BASE = 'https://yifeeeeei.github.io/ArcaneImages/';
+            const cards = ref([]);
+            const query = ref('');
+            const selectedType = ref('全部');
+            const selected = ref(null);
+            const selfTest = ref({ ok: null, message: '尚未运行。' });
+            const filters = ['全部', '人物', '伙伴', '技能', '道具'];
+            const baseHero = '4311003';
+
+            const filteredCards = computed(() => {
+                const q = query.value.trim().toLowerCase();
+                return cards.value.filter(card => {
+                    if (selectedType.value !== '全部' && card.type !== selectedType.value) return false;
+                    if (!q) return true;
+                    return [card.number, card.name, card.type, card.category, card.tag, card.description]
+                        .some(v => String(v || '').toLowerCase().includes(q));
+                });
+            });
+
+            const deckCodeForSelected = computed(() => selected.value ? buildDeckCode(selected.value) : '');
+
+            function getCardImage(card) {
+                if (!card || !card.output_path) return '';
+                return IMAGE_BASE + card.output_path.replace(/\\/g, '/');
+            }
+
+            function selectCard(card) {
+                selected.value = card;
+            }
+
+            function typeCount(type) {
+                return cards.value.filter(card => card.type === type).length;
+            }
+
+            function valueLabel(value) {
+                return value === undefined || value < 0 ? '-' : value;
+            }
+
+            function costLabel(cost) {
+                const entries = Object.entries(cost || {}).filter(([, v]) => Number(v) > 0);
+                return entries.length ? entries.map(([k, v]) => `${k}${v}`).join(' ') : '免费';
+            }
+
+            function operationLabel(card) {
+                if (!card) return '-';
+                if (card.type === '人物') return hasAbility(card) ? '英雄能力' : '英雄';
+                if (card.type === '伙伴') return '召唤';
+                if (card.type === '技能') {
+                    if (isDefenseSkill(card)) return '防御/强化';
+                    if (isSorcery(card)) return '咒术';
+                    return '学习/施放';
+                }
+                if (card.type === '道具') {
+                    if (isTerrain(card)) return '地形';
+                    if (isConsumable(card)) return '使用';
+                    return '装备';
+                }
+                return '查看';
+            }
+
+            function hasAbility(card) {
+                return /回合技|绝技/.test(card.description || '');
+            }
+
+            function isDefenseSkill(card) {
+                return card.type === '技能' && /防御/.test(card.description || '');
+            }
+
+            function isSorcery(card) {
+                return card.type === '技能' && Number(card.power) < 0;
+            }
+
+            function isTerrain(card) {
+                return card.type === '道具' && /地形/.test(card.description || '');
+            }
+
+            function isConsumable(card) {
+                return card.type === '道具' && /消耗品|卷轴|药剂|符文/.test(card.tag || '');
+            }
+
+            function operationSteps(card) {
+                if (card.type === '人物') {
+                    const steps = ['在卡组第一段选择这张人物作为英雄。', '进入对局后，英雄会在己方中央格。', '竖置时可点击“消耗”获得它的负载元素。'];
+                    if (/回合技/.test(card.description || '')) steps.push('若界面出现“回合技”，点击后按提示选择目标或确认。');
+                    if (/绝技/.test(card.description || '')) steps.push('若界面出现“绝技”，点击后按提示选择目标或确认。');
+                    return steps;
+                }
+                if (card.type === '伙伴') {
+                    const steps = ['在手牌中点击这张伙伴。', '己方战场空格会高亮，点击空格召唤。', '下个己方回合竖置后，可点击“消耗”获得负载元素。'];
+                    if (Number(card.attack) > 0) steps.push('若它位于己方前排且竖置，可点击“攻击”，再点敌方前排目标。');
+                    if (/回合技|绝技/.test(card.description || '')) steps.push('若界面出现能力按钮，点击后按顶部提示操作。');
+                    return steps;
+                }
+                if (card.type === '技能') {
+                    const steps = ['在右侧技能池找到这张技能，右键选择学习。', '技能进入下方技能槽，下个己方回合竖置后可操作。'];
+                    if (isDefenseSkill(card)) steps.push('对手施放可防御法术时，防御窗口会列出这张技能，点击选择后确认防御。');
+                    if (!isDefenseSkill(card)) steps.push('点击技能槽上的“施放”，再点击敌方合法目标。');
+                    if (!isSorcery(card)) steps.push('这类法术会打开对手防御窗口；无人防御时正常命中。');
+                    return steps;
+                }
+                if (card.type === '道具') {
+                    if (isTerrain(card)) return ['在手牌中点击这张地形牌。', '己方战场空格会高亮，点击空格放置地形。', '地形会显示在该格底层，单位可叠放在上面。'];
+                    if (isConsumable(card)) return ['在手牌中点击这张消耗品。', '再次点击或右键选择使用。', '使用后进入弃牌堆，并在日志中显示。'];
+                    return ['在手牌中点击这张装备。', '再次点击或右键选择装备。', '装备会进入装备槽，后续按卡面效果操作。'];
+                }
+                return ['查看卡牌详情。'];
+            }
+
+            function cardIDsByType(type) {
+                return cards.value.filter(card => card.type === type).map(card => card.number).sort();
+            }
+
+            function fillToCount(ids, candidates, count, maxCopies = 2) {
+                const currentCounts = {};
+                for (const id of ids) currentCounts[id] = (currentCounts[id] || 0) + 1;
+                for (const id of candidates) {
+                    while ((currentCounts[id] || 0) < maxCopies && ids.length < count) {
+                        ids.push(id);
+                        currentCounts[id] = (currentCounts[id] || 0) + 1;
+                    }
+                    if (ids.length >= count) break;
+                }
+                return ids;
+            }
+
+            function buildDeckCode(card) {
+                const heroes = cardIDsByType('人物');
+                const mainCandidates = cards.value.filter(c => c.type === '伙伴' || c.type === '道具').map(c => c.number).sort();
+                const skillCandidates = cardIDsByType('技能');
+                const hero = card.type === '人物' ? card.number : (heroes.includes(baseHero) ? baseHero : heroes[0]);
+                const main = [];
+                const skills = [];
+                if (card.type === '伙伴' || card.type === '道具') main.push(card.number, card.number);
+                if (card.type === '技能') skills.push(card.number);
+                fillToCount(main, mainCandidates, 30, 2);
+                fillToCount(skills, skillCandidates, 10, 1);
+                return `${hero} // ${main.join(' ')} // ${skills.join(' ')}`;
+            }
+
+            async function copyDeck() {
+                await navigator.clipboard.writeText(deckCodeForSelected.value);
+            }
+
+            async function createRoomForSelected() {
+                const resp = await fetch('/api/room/create', { method: 'POST' });
+                const data = await resp.json();
+                const params = new URLSearchParams({
+                    room: data.room_id,
+                    player_id: `card_test_${Date.now()}`,
+                    player_name: `测试-${selected.value.name}`,
+                    deck_code: deckCodeForSelected.value
+                });
+                window.location.href = '/game.html?' + params.toString();
+            }
+
+            function runSelfTest() {
+                const problems = [];
+                const expected = { '人物': 20, '伙伴': 131, '技能': 109, '道具': 118 };
+                if (cards.value.length !== 378) problems.push(`基础包总数应为 378，实际 ${cards.value.length}`);
+                for (const [type, count] of Object.entries(expected)) {
+                    const actual = typeCount(type);
+                    if (actual !== count) problems.push(`${type} 应为 ${count}，实际 ${actual}`);
+                }
+                for (const card of cards.value) {
+                    if (card.version_name !== '基础包') problems.push(`${card.number} ${card.name} 不是基础包`);
+                    if (!card.output_path) problems.push(`${card.number} ${card.name} 缺少图片路径`);
+                    if (!operationLabel(card)) problems.push(`${card.number} ${card.name} 缺少操作标签`);
+                    if (!operationSteps(card).length) problems.push(`${card.number} ${card.name} 缺少操作步骤`);
+                    const deck = buildDeckCode(card);
+                    if (!deck.includes(card.number)) problems.push(`${card.number} ${card.name} 生成测试卡组未包含本卡`);
+                }
+                selfTest.value = problems.length
+                    ? { ok: false, message: `失败：${problems.length} 个问题\n` + problems.slice(0, 20).join('\n') }
+                    : { ok: true, message: '通过：378 张基础包卡均可在前端检索、查看操作路径，并可生成真实对局测试卡组。' };
+            }
+
+            onMounted(async () => {
+                const resp = await fetch('/api/cards');
+                const data = await resp.json();
+                cards.value = Object.values(data).sort((a, b) => a.number.localeCompare(b.number));
+                selected.value = cards.value[0] || null;
+            });
+
+            return {
+                cards, query, selectedType, selected, selfTest, filters, filteredCards,
+                deckCodeForSelected, getCardImage, selectCard, typeCount, valueLabel, costLabel,
+                operationLabel, operationSteps, runSelfTest, copyDeck, createRoomForSelected
+            };
+        }
+    }).mount('#app');
+    </script>
+</body>
+</html>

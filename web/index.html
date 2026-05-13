@@ -26,8 +26,11 @@
                 <h2>卡组导入</h2>
                 <textarea v-model="deckCode" placeholder="粘贴卡组代码..." class="deck-input" rows="4"></textarea>
                 <button @click="validateDeck" class="btn btn-primary">验证卡组</button>
+                <button @click="useSampleDeck" class="btn btn-info">使用基础包示例卡组</button>
+                <a href="/card-test.html" class="btn btn-warning" style="display:inline-block;text-decoration:none">基础包卡牌测试台</a>
                 <div v-if="deckInfo" class="deck-info">
                     <div class="deck-valid">卡组有效</div>
+                    <div>卡池: {{ deckInfo.card_pool }}</div>
                     <div>英雄: {{ deckInfo.hero_name }}</div>
                     <div>主卡组: {{ deckInfo.main_count }}/30</div>
                     <div>技能池: {{ deckInfo.skill_count }}/10</div>
@@ -91,6 +94,12 @@
             const joinRoomID = ref('');
             const currentRoom = ref(null);
             const rooms = ref([]);
+            const sampleDeckCode = '4311003 // 1021001 1021001 1021004 1021004 1021011 1021011 1321002 1321002 1321001 1321001 1321003 1321003 1321007 1321007 1321013 1321013 1321011 1321011 1321010 1321010 1321008 1321008 1321004 1321004 1021006 1021006 1021007 1021007 1021012 1021012 // 3321002 3321003 3321005 3321010 3321013 3321015 3021008 3021009 3021005 3021003';
+
+            function useSampleDeck() {
+                deckCode.value = sampleDeckCode;
+                validateDeck();
+            }
 
             async function validateDeck() {
                 deckError.value = '';
@@ -159,7 +168,7 @@
             return {
                 playerName, deckCode, deckInfo, deckError,
                 joinRoomID, currentRoom, rooms,
-                validateDeck, createRoom, joinRoom, refreshRooms
+                validateDeck, createRoom, joinRoom, refreshRooms, useSampleDeck
             };
         }
     }).mount('#app');

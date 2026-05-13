@@ -340,10 +340,10 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 		Type:   "summon",
 		Player: -1,
 		Data: map[string]any{
-			"player":      playerID,
-			"card":        cardToInfo(card),
-			"position":    pos,
-			"elements":    ps.Elements,
+			"player":   playerID,
+			"card":     cardToInfo(card),
+			"position": pos,
+			"elements": ps.Elements,
 		},
 	})
 
@@ -447,52 +447,47 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	}
 
 	// Check if skill can be used
-	if skill.IsHorizontal {
-		return fmt.Errorf("skill is horizontal (already used)")
+	if err := e.validateReadySkill(skill); err != nil {
+		return err
 	}
-	if skill.Statuses[StatusCooldown] > 0 {
-		return fmt.Errorf("skill is on cooldown")
-	}
-	if skill.Statuses[StatusPetrify] > 0 {
-		return fmt.Errorf("skill is petrified")
+	if !canUseSkillToAttack(skill.Card) {
+		return fmt.Errorf("skill cannot be used to attack")
 	}
 
 	// Check cost
-	cost := skill.Card.ElementsExpense
-	if len(cost) == 0 {
-		cost = skill.Card.ElementsCost
-	}
+	cost := skillUseCost(skill.Card)
 	if !ps.CanPayCost(cost) {
 		return fmt.Errorf("not enough elements")
-	}
-
-	// Pay cost and set horizontal
-	ps.PayCost(cost)
-	skill.IsHorizontal = true
-
-	// Apply cooldown from keyword
-	e.ApplyKeywordOnSkillUse(skill)
-
-	// Process boost skills (法术强化)
-	var boostSkills []*CardInstance
-	boostPower := 0
-	for _, idRaw := range boostIDsRaw {
-		id, _ := idRaw.(string)
-		boostSkill := e.findSkill(ps, id)
-		if boostSkill == nil || boostSkill.IsHorizontal || boostSkill.InstanceID == instanceID {
-			continue
-		}
-		boostSkill.IsHorizontal = true
-		boostSkills = append(boostSkills, boostSkill)
-		boostPower += max(boostSkill.Card.Power, 0)
 	}
 
 	target := SpellTarget{
 		Type:     targetType,
 		Position: Position{Col: int(targetColF), Row: int(targetRowF)},
 	}
+	if err := e.validateSpellTarget(playerID, skill, target); err != nil {
+		return err
+	}
 
-	totalPower := max(skill.Card.Power, 0) + boostPower
+	// Process boost skills (法术强化)
+	boostIDs := stringsFromAnySlice(boostIDsRaw)
+	boostSkills, boostCost, err := e.collectSkillUses(ps, boostIDs, skillPurposeBoost, map[string]bool{instanceID: true})
+	if err != nil {
+		return err
+	}
+	totalCost := mergeElementCosts(cost, boostCost)
+	if !ps.CanPayCost(totalCost) {
+		return fmt.Errorf("not enough elements for boost skills")
+	}
+
+	// Pay costs and set cards horizontal only after all validation succeeds.
+	ps.PayCost(totalCost)
+	skill.IsHorizontal = true
+	tapSkills(boostSkills)
+
+	// Apply cooldown from keyword
+	e.ApplyKeywordOnSkillUse(skill)
+
+	totalPower := max(skill.Card.Power, 0) + totalSkillPower(boostSkills)
 
 	// Check if it's a 咒术 (sorcery - unblockable)
 	isSorcery := isSorcerySkill(skill.Card)
@@ -553,38 +548,27 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 
 	ps := e.State.Players[playerID]
 
-	// Gather defense skills
-	var defenseSkills []*CardInstance
-	totalDefPower := 0
-
-	for _, idRaw := range defenseIDsRaw {
-		id, _ := idRaw.(string)
-		skill := e.findSkill(ps, id)
-		if skill == nil {
-			return fmt.Errorf("defense skill not found: %s", id)
-		}
-		if skill.IsHorizontal {
-			return fmt.Errorf("skill %s already used", id)
-		}
-		// Pay cost via overdraft (透支) - mark horizontal
-		skill.IsHorizontal = true
-		defenseSkills = append(defenseSkills, skill)
-		totalDefPower += max(skill.Card.Power, 0)
+	defenseIDs := stringsFromAnySlice(defenseIDsRaw)
+	boostIDs := stringsFromAnySlice(boostIDsRaw)
+	defenseSkills, defenseCost, err := e.collectSkillUses(ps, defenseIDs, skillPurposeDefend, nil)
+	if err != nil {
+		return err
 	}
-
-	// Boost skills
-	for _, idRaw := range boostIDsRaw {
-		id, _ := idRaw.(string)
-		skill := e.findSkill(ps, id)
-		if skill == nil {
-			return fmt.Errorf("boost skill not found: %s", id)
-		}
-		if skill.IsHorizontal {
-			return fmt.Errorf("skill %s already used", id)
-		}
-		skill.IsHorizontal = true
-		totalDefPower += max(skill.Card.Power, 0)
+	usedIDs := skillIDSet(defenseSkills)
+	boostSkills, boostCost, err := e.collectSkillUses(ps, boostIDs, skillPurposeBoost, usedIDs)
+	if err != nil {
+		return err
 	}
+	totalCost := mergeElementCosts(defenseCost, boostCost)
+	if !ps.CanPayCost(totalCost) {
+		return fmt.Errorf("not enough elements for defense")
+	}
+	if len(defenseSkills)+len(boostSkills) > 0 {
+		ps.PayCost(totalCost)
+		tapSkills(defenseSkills)
+		tapSkills(boostSkills)
+	}
+	totalDefPower := totalSkillPower(defenseSkills) + totalSkillPower(boostSkills)
 
 	attackPower := e.State.PendingSpell.TotalPower
 
@@ -719,14 +703,15 @@ func (e *Engine) handleAttack(playerID int, action ActionMessage) error {
 
 	// Check target is in attacker's range (default: enemy front row)
 	targetPos := Position{Col: targetCol, Row: targetRow}
-	enemyFrontRow := opponent.GetFrontRow()
-	if targetRow != enemyFrontRow {
-		return fmt.Errorf("target is not in front row")
+	if !targetPos.Valid() {
+		return fmt.Errorf("invalid target position")
 	}
-
 	target := opponent.Units[targetCol][targetRow]
 	if target == nil {
 		return fmt.Errorf("no unit at target position")
+	}
+	if !e.IsInAttackRange(playerID, attacker, targetCol, targetRow) {
+		return fmt.Errorf("target is not in attack range")
 	}
 
 	// Consume attacker (横置)
@@ -769,8 +754,8 @@ func (e *Engine) dealDamage(target *CardInstance, amount int, ownerID int) {
 			Type:   "shield_block",
 			Player: -1,
 			Data: map[string]any{
-				"target":    cardToInfo(target),
-				"shield":    target.Statuses["护盾"],
+				"target": cardToInfo(target),
+				"shield": target.Statuses["护盾"],
 			},
 		})
 		return
@@ -1100,10 +1085,10 @@ func (e *Engine) handlePlaceTerrain(playerID int, action ActionMessage) error {
 		Type:   "place_terrain",
 		Player: -1,
 		Data: map[string]any{
-			"player":      playerID,
-			"card":        cardToInfo(card),
-			"position":    pos,
-			"elements":    ps.Elements,
+			"player":   playerID,
+			"card":     cardToInfo(card),
+			"position": pos,
+			"elements": ps.Elements,
 		},
 	})
 
@@ -1208,9 +1193,9 @@ func (e *Engine) handleUseAbility(playerID int, action ActionMessage) error {
 		Type:   "ability_used",
 		Player: -1,
 		Data: map[string]any{
-			"player":   playerID,
-			"card":     cardToInfo(card),
-			"ability":  abilityType,
+			"player":  playerID,
+			"card":    cardToInfo(card),
+			"ability": abilityType,
 		},
 	})
 
@@ -1426,6 +1411,9 @@ func (e *Engine) processEndOfTurnStatuses(ps *PlayerState) {
 
 // checkWinCondition checks if the game is over
 func (e *Engine) checkWinCondition() {
+	if e.State.Phase == PhaseGameOver {
+		return
+	}
 	for i := 0; i < 2; i++ {
 		if e.State.Players[i].Hero != nil && e.State.Players[i].Hero.CurrentLife <= 0 {
 			e.State.Winner = 1 - i
@@ -1498,6 +1486,14 @@ func (e *Engine) findCardOnField(ps *PlayerState, instanceID string) *CardInstan
 			}
 		}
 	}
+	// Check terrain
+	for col := 0; col < 3; col++ {
+		for row := 0; row < 3; row++ {
+			if ps.Terrain[col][row] != nil && ps.Terrain[col][row].InstanceID == instanceID {
+				return ps.Terrain[col][row]
+			}
+		}
+	}
 	// Check equipment
 	for i := 0; i < 5; i++ {
 		if ps.Equipment[i] != nil && ps.Equipment[i].InstanceID == instanceID {
@@ -1541,6 +1537,13 @@ func (e *Engine) getAllFieldCards(ps *PlayerState) []*CardInstance {
 			cards = append(cards, ps.Skills[i])
 		}
 	}
+	for col := 0; col < 3; col++ {
+		for row := 0; row < 3; row++ {
+			if ps.Terrain[col][row] != nil {
+				cards = append(cards, ps.Terrain[col][row])
+			}
+		}
+	}
 	for i := 0; i < 5; i++ {
 		if ps.Equipment[i] != nil {
 			cards = append(cards, ps.Equipment[i])
@@ -1566,30 +1569,30 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		return nil
 	}
 	info := map[string]any{
-		"instance_id":    ci.InstanceID,
-		"number":         ci.Card.Number,
-		"name":           ci.Card.Name,
-		"type":           ci.Card.Type,
-		"category":       ci.Card.Category,
-		"tag":            ci.Card.Tag,
-		"description":    ci.Card.Description,
-		"attack":         ci.Card.Attack,
-		"life":           ci.Card.Life,
-		"power":          ci.Card.Power,
-		"duration":       ci.Card.Duration,
-		"elements_cost":  ci.Card.ElementsCost,
-		"elements_gain":  ci.Card.ElementsGain,
+		"instance_id":      ci.InstanceID,
+		"number":           ci.Card.Number,
+		"name":             ci.Card.Name,
+		"type":             ci.Card.Type,
+		"category":         ci.Card.Category,
+		"tag":              ci.Card.Tag,
+		"description":      ci.Card.Description,
+		"attack":           ci.Card.Attack,
+		"life":             ci.Card.Life,
+		"power":            ci.Card.Power,
+		"duration":         ci.Card.Duration,
+		"elements_cost":    ci.Card.ElementsCost,
+		"elements_gain":    ci.Card.ElementsGain,
 		"elements_expense": ci.Card.ElementsExpense,
-		"current_life":   ci.CurrentLife,
-		"current_attack": ci.CurrentAttack,
-		"is_horizontal":  ci.IsHorizontal,
-		"is_terrain":     ci.Card.IsTerrain(),
-		"statuses":       ci.Statuses,
-		"position":       ci.Position,
-		"output_path":    ci.Card.OutputPath,
-		"used_this_turn": ci.UsedThisTurn,
-		"ultimate_used":  ci.UltimateUsed,
-		"uses_remaining": ci.UsesRemaining,
+		"current_life":     ci.CurrentLife,
+		"current_attack":   ci.CurrentAttack,
+		"is_horizontal":    ci.IsHorizontal,
+		"is_terrain":       ci.Card.IsTerrain(),
+		"statuses":         ci.Statuses,
+		"position":         ci.Position,
+		"output_path":      ci.Card.OutputPath,
+		"used_this_turn":   ci.UsedThisTurn,
+		"ultimate_used":    ci.UltimateUsed,
+		"uses_remaining":   ci.UsesRemaining,
 	}
 
 	// Expose ability availability
@@ -1618,7 +1621,7 @@ func cardToInfo(ci *CardInstance) map[string]any {
 
 // isDefenseOnlySkill checks if a skill card has the 防御 marker
 func isDefenseOnlySkill(card *model.Card) bool {
-	return card.IsSkill() && strings.Contains(card.Description, "防御")  &&
+	return card.IsSkill() && strings.Contains(card.Description, "防御") &&
 		(strings.HasPrefix(card.Description, "防御") || strings.Contains(card.Tag, "防御"))
 }
 
