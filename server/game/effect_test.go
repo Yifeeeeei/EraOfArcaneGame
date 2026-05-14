@@ -124,6 +124,24 @@ func TestEffectRegistry(t *testing.T) {
 	}
 }
 
+func TestRegisterAllCardEffectsIsLazy(t *testing.T) {
+	previousRegistry := globalRegistry
+	t.Cleanup(func() { globalRegistry = previousRegistry })
+
+	RegisterAllCardEffects()
+
+	if got := len(globalRegistry.effects); got != 0 {
+		t.Fatalf("RegisterAllCardEffects should not instantiate behavior effects, got %d effect entries", got)
+	}
+
+	if !globalRegistry.HasEffect("1021006", TriggerOnEnter) {
+		t.Fatal("expected lazy lookup to materialize 1021006 enter behavior")
+	}
+	if got := len(globalRegistry.effects); got != 1 {
+		t.Fatalf("expected only queried card behavior to be materialized, got %d effect entries", got)
+	}
+}
+
 func TestShieldMechanic(t *testing.T) {
 	// Test shield damage reduction
 	card := &CardInstance{

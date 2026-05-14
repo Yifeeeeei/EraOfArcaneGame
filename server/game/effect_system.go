@@ -9,38 +9,38 @@ import (
 type EffectTrigger int
 
 const (
-	TriggerOnEnter       EffectTrigger = iota // 入场: card enters the field
-	TriggerOnDeath                            // 遗言: card dies / leaves field to graveyard
-	TriggerOnTurnStart                        // 回合开始: owner's turn starts
-	TriggerOnTurnEnd                          // 回合结束: owner's turn ends
-	TriggerOnConsume                          // 消耗时: card is consumed (横置)
-	TriggerOnAttack                           // 攻击时: unit declares attack
-	TriggerOnHit                              // 命中: attack hits (not defended)
-	TriggerOnDamaged                          // 受伤时: card takes damage
-	TriggerOnSpellCast                        // 施法时: spell is cast
-	TriggerOnSpellHit                         // 法术命中: spell hits target
-	TriggerOnDefend                           // 防御时: spell is defended
-	TriggerOnDraw                             // 抽牌时: card is drawn
-	TriggerOnSummon                           // 召唤时: any friendly unit is summoned
-	TriggerOnFriendlyDeath                    // 友方死亡: any friendly unit dies
-	TriggerOnEnemyDeath                       // 敌方死亡: any enemy unit dies
-	TriggerOnUnitEnter                        // 任意入场: any unit enters field (for passive listeners)
-	TriggerPerTurn                            // 回合技: active ability (per-turn)
-	TriggerUltimate                           // 绝技: one-time active ability
-	TriggerOnEquip                            // 装备时: item is equipped
-	TriggerPassive                            // 被动: always active while on field
+	TriggerOnEnter         EffectTrigger = iota // 入场: card enters the field
+	TriggerOnDeath                              // 遗言: card dies / leaves field to graveyard
+	TriggerOnTurnStart                          // 回合开始: owner's turn starts
+	TriggerOnTurnEnd                            // 回合结束: owner's turn ends
+	TriggerOnConsume                            // 消耗时: card is consumed (横置)
+	TriggerOnAttack                             // 攻击时: unit declares attack
+	TriggerOnHit                                // 命中: attack hits (not defended)
+	TriggerOnDamaged                            // 受伤时: card takes damage
+	TriggerOnSpellCast                          // 施法时: spell is cast
+	TriggerOnSpellHit                           // 法术命中: spell hits target
+	TriggerOnDefend                             // 防御时: spell is defended
+	TriggerOnDraw                               // 抽牌时: card is drawn
+	TriggerOnSummon                             // 召唤时: any friendly unit is summoned
+	TriggerOnFriendlyDeath                      // 友方死亡: any friendly unit dies
+	TriggerOnEnemyDeath                         // 敌方死亡: any enemy unit dies
+	TriggerOnUnitEnter                          // 任意入场: any unit enters field (for passive listeners)
+	TriggerPerTurn                              // 回合技: active ability (per-turn)
+	TriggerUltimate                             // 绝技: one-time active ability
+	TriggerOnEquip                              // 装备时: item is equipped
+	TriggerPassive                              // 被动: always active while on field
 )
 
 // EffectContext provides context for effect execution
 type EffectContext struct {
-	Engine     *Engine
-	Source     *CardInstance // the card triggering the effect
-	Target     *CardInstance // optional target
-	TargetPos  *Position     // optional target position
-	PlayerID   int           // source card's owner
-	OpponentID int           // opponent of source card's owner
-	DamageAmount int         // for damage-related triggers
-	ExtraData  map[string]any // additional context data
+	Engine       *Engine
+	Source       *CardInstance  // the card triggering the effect
+	Target       *CardInstance  // optional target
+	TargetPos    *Position      // optional target position
+	PlayerID     int            // source card's owner
+	OpponentID   int            // opponent of source card's owner
+	DamageAmount int            // for damage-related triggers
+	ExtraData    map[string]any // additional context data
 }
 
 // EffectHandler is a function that implements a card effect
@@ -57,16 +57,18 @@ type CardEffect struct {
 
 // CardAbilityWithPrecondition 包含前提条件的卡牌能力
 type CardAbilityWithPrecondition struct {
-	Preconditions []Precondition  // 前提条件列表
-	Effect        EffectHandler   // 实际效果
-	Trigger       EffectTrigger   // 触发时机
-	IsActive      bool            // 是否为主动能力
+	Preconditions []Precondition // 前提条件列表
+	Effect        EffectHandler  // 实际效果
+	Trigger       EffectTrigger  // 触发时机
+	IsActive      bool           // 是否为主动能力
 }
 
 // EffectRegistry holds all registered card effects
 type EffectRegistry struct {
-	effects               map[string][]*CardEffect              // cardNumber -> effects list
-	conditionalAbilities  map[string][]*CardAbilityWithPrecondition // cardNumber -> conditional abilities
+	effects              map[string][]*CardEffect                  // cardNumber -> effects list
+	conditionalAbilities map[string][]*CardAbilityWithPrecondition // cardNumber -> conditional abilities
+	behaviorFactories    map[string]func() CardBehavior            // cardNumber -> lazy behavior constructor
+	loadedBehaviors      map[string]bool                           // cardNumber -> behavior registered into effects
 }
 
 // Global effect registry
@@ -86,7 +88,28 @@ func NewEffectRegistry() *EffectRegistry {
 	return &EffectRegistry{
 		effects:              make(map[string][]*CardEffect),
 		conditionalAbilities: make(map[string][]*CardAbilityWithPrecondition),
+		behaviorFactories:    make(map[string]func() CardBehavior),
+		loadedBehaviors:      make(map[string]bool),
 	}
+}
+
+// RegisterBehaviorFactory records how to construct a card behavior without
+// allocating it at server startup. The behavior is materialized only when that
+// card number is queried by the engine.
+func (r *EffectRegistry) RegisterBehaviorFactory(cardNumber string, factory func() CardBehavior) {
+	r.behaviorFactories[cardNumber] = factory
+}
+
+func (r *EffectRegistry) ensureBehaviorLoaded(cardNumber string) {
+	if r.loadedBehaviors[cardNumber] {
+		return
+	}
+	factory, ok := r.behaviorFactories[cardNumber]
+	if !ok {
+		return
+	}
+	r.loadedBehaviors[cardNumber] = true
+	registerBehavior(r, factory())
 }
 
 // Register adds an effect for a card
@@ -159,6 +182,7 @@ func (r *EffectRegistry) GetConditionalAbilities(cardNumber string) []*CardAbili
 
 // GetEffects returns all effects for a card number and trigger type
 func (r *EffectRegistry) GetEffects(cardNumber string, trigger EffectTrigger) []*CardEffect {
+	r.ensureBehaviorLoaded(cardNumber)
 	var result []*CardEffect
 	for _, eff := range r.effects[cardNumber] {
 		if eff.Trigger == trigger {
@@ -170,6 +194,7 @@ func (r *EffectRegistry) GetEffects(cardNumber string, trigger EffectTrigger) []
 
 // HasEffect checks if a card has any registered effect for a trigger
 func (r *EffectRegistry) HasEffect(cardNumber string, trigger EffectTrigger) bool {
+	r.ensureBehaviorLoaded(cardNumber)
 	for _, eff := range r.effects[cardNumber] {
 		if eff.Trigger == trigger {
 			return true
@@ -180,6 +205,7 @@ func (r *EffectRegistry) HasEffect(cardNumber string, trigger EffectTrigger) boo
 
 // GetAllEffects returns all effects for a card number
 func (r *EffectRegistry) GetAllEffects(cardNumber string) []*CardEffect {
+	r.ensureBehaviorLoaded(cardNumber)
 	return r.effects[cardNumber]
 }
 

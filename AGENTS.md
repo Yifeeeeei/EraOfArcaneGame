@@ -52,8 +52,8 @@ Serving:
 - `server/cards/snapshot.go`: exports the playable card pool as a stable JSON snapshot.
 - `server/cmd/snapshot-supported-cards/main.go`: regenerates `data/supported_card_infos.json`.
 - `server/game/card_behavior.go`: card behavior interfaces such as `OnEnterBehavior`, `OnDeathBehavior`, `PerTurnAbility`, and `UltimateAbility`.
-- `server/game/card_effects_base_*.go`: concrete base-set card structs that own their custom behavior.
-- `server/game/card_effects_catalog.go`: registers the current base-set behavior objects with the engine adapter.
+- `server/game/card_<number>_<name>.go`: one file per concrete base-set card with custom behavior.
+- `server/game/card_effects_catalog.go`: registers lazy behavior factories with the engine adapter; it should not instantiate every behavior at startup.
 - `server/game/engine.go`: main game engine and action handling.
 - `server/game/rules.go`: focused rules helpers.
 - `server/game/payment.go`: element payment logic.
@@ -86,9 +86,10 @@ The game should be understandable from Go code alone. JSON snapshots are referen
 
 - Card metadata lives in compiled Go definitions under `server/cards`.
 - Card categories are Go interfaces (`HeroCard`, `CompanionCard`, `SkillCard`, `ItemCard`, plus item subtypes) rather than runtime-only string checks.
-- Custom rules live on concrete structs under `server/game`, for example `Card1021006Grocer`.
+- Custom rules live on concrete structs under `server/game`, one file per card, for example `card_1021006_grocer.go` containing `Card1021006Grocer`.
 - Category and trigger behavior is expressed through Go interfaces. A card gets an enter effect by implementing `OnEnter(*EffectContext) error`; an ultimate by implementing `OnUltimate(*EffectContext) error`; and so on.
 - `EffectRegistry` still exists as an engine adapter, but new work should add or change card behavior structs, not description parsers or string-inferred effects.
+- Behavior registration is lazy. `RegisterAllCardEffects` registers factories only; concrete behavior objects should be constructed only when a card number is queried during play or serialization.
 - Expansion cards should not be added until the base-set scope changes.
 
 ## Tests
