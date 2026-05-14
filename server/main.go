@@ -11,9 +11,8 @@ import (
 )
 
 func main() {
-	// Load card data
-	cardDataPath := "../data/all_card_infos.json"
-	if err := cards.LoadCards(cardDataPath); err != nil {
+	// Load compiled base-set card definitions.
+	if err := cards.LoadCards(); err != nil {
 		log.Fatalf("Failed to load cards: %v", err)
 	}
 

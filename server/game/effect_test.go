@@ -11,7 +11,7 @@ const effectTestDeck = "4311003 // 1021001 1021001 1021002 1021002 1021004 10210
 func setupEffectTest(t *testing.T) *Engine {
 	t.Helper()
 	if cards.CardDB == nil {
-		if err := cards.LoadCards("../../data/all_card_infos.json"); err != nil {
+		if err := cards.LoadCards(); err != nil {
 			t.Fatalf("Failed to load cards: %v", err)
 		}
 		SetCardDB(cards.PlayableCardDB)

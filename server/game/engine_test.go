@@ -14,7 +14,7 @@ func setupTestEngine(t *testing.T) *Engine {
 
 	// Load cards
 	if cards.CardDB == nil {
-		if err := cards.LoadCards("../../data/all_card_infos.json"); err != nil {
+		if err := cards.LoadCards(); err != nil {
 			t.Fatalf("Failed to load cards: %v", err)
 		}
 		SetCardDB(cards.CardDB)

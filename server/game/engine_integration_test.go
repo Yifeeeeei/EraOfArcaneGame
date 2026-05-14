@@ -9,7 +9,7 @@ import (
 // TestFullCombatFlow tests a complete game with summon, consume, attack
 func TestFullCombatFlow(t *testing.T) {
 	if cards.CardDB == nil {
-		if err := cards.LoadCards("../../data/all_card_infos.json"); err != nil {
+		if err := cards.LoadCards(); err != nil {
 			t.Fatalf("Failed to load cards: %v", err)
 		}
 		SetCardDB(cards.PlayableCardDB)
@@ -149,7 +149,7 @@ func TestFullCombatFlow(t *testing.T) {
 // TestSkillCastAndDefense tests spell casting and defense mechanics
 func TestSkillCastAndDefense(t *testing.T) {
 	if cards.CardDB == nil {
-		if err := cards.LoadCards("../../data/all_card_infos.json"); err != nil {
+		if err := cards.LoadCards(); err != nil {
 			t.Fatalf("Failed to load cards: %v", err)
 		}
 		SetCardDB(cards.PlayableCardDB)

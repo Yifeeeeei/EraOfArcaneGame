@@ -24,9 +24,8 @@ func PlayableCardsSorted() []model.Card {
 	return cards
 }
 
-// WriteSupportedCardInfoSnapshot writes the current playable card pool in the
-// same schema as all_card_infos.json. It is intended as a balance/version
-// snapshot for future diffs against newer source card data.
+// WriteSupportedCardInfoSnapshot writes the current playable base card pool as
+// a stable balance/version snapshot.
 func WriteSupportedCardInfoSnapshot(path string) error {
 	if PlayableCardDB == nil {
 		return fmt.Errorf("playable card database is not loaded")

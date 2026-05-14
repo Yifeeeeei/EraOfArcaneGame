@@ -21,7 +21,7 @@ func setupTestServer(t *testing.T) (*httptest.Server, *match.RoomManager) {
 	t.Helper()
 
 	if cards.CardDB == nil {
-		if err := cards.LoadCards("../../data/all_card_infos.json"); err != nil {
+		if err := cards.LoadCards(); err != nil {
 			t.Fatalf("Failed to load cards: %v", err)
 		}
 		game.SetCardDB(cards.PlayableCardDB)

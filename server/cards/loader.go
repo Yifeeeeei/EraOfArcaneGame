@@ -18,12 +18,8 @@ var BaseCardDB map[string]*model.Card
 // PlayableCardDB is the active card pool used by deck validation and games.
 var PlayableCardDB map[string]*model.Card
 
-// LoadCards loads all compiled card definitions.
-//
-// The path argument is kept for compatibility with older call sites and tools,
-// but the server no longer parses JSON at runtime. Card definitions are Go
-// implementations in definitions_gen.go.
-func LoadCards(path string) error {
+// LoadCards loads all compiled base-set card definitions.
+func LoadCards() error {
 	CardDB = make(map[string]*model.Card, len(compiledCardDefinitions))
 	BaseCardDB = make(map[string]*model.Card)
 	for _, definition := range compiledCardDefinitions {

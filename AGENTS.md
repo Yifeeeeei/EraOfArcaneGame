@@ -6,14 +6,14 @@ This file is for future coding agents working on EraOfArcaneGame. Treat it as th
 
 EraOfArcaneGame is a browser-playable prototype for the tabletop/card game "奥术纪元 / Era of Arcane".
 
-The current product goal is narrow: make the base set playable and testable in a real two-player frontend match. Do not assume the full card catalog is supported yet.
+The current product goal is narrow: make the base set playable and testable in a real two-player frontend match. Do not assume any expansion cards are supported yet.
 
 ## Current Scope
 
-- Only cards with `version_name == "基础包"` are currently supported for live games.
-- `data/all_card_infos.json` is the upstream/full card data source.
-- `data/supported_card_infos.json` is the current supported-card snapshot. It should match the backend playable card pool.
-- Non-base cards should be treated as unsupported for now, even if they exist in `all_card_infos.json`.
+- Only the base set (`version_name == "基础包"`) is present in this repository and supported for live games.
+- `server/cards/definitions_gen.go` is the compiled Go definition file for the 378 playable base cards.
+- `data/supported_card_infos.json` is the base-card snapshot used for balance review and regeneration of compiled definitions.
+- Non-base cards are intentionally absent from the runtime card pool.
 
 ## Tech Stack
 
@@ -44,8 +44,9 @@ Serving:
 
 ## Important Files
 
-- `server/main.go`: process entrypoint. Loads card data, sets playable card DB, registers effects, serves routes.
-- `server/cards/loader.go`: loads all cards and builds `BaseCardDB` / `PlayableCardDB`.
+- `server/main.go`: process entrypoint. Loads compiled base cards, sets playable card DB, registers effects, serves routes.
+- `server/cards/definitions_gen.go`: generated Go definitions for all currently supported base cards.
+- `server/cards/loader.go`: loads compiled base cards and builds `BaseCardDB` / `PlayableCardDB`.
 - `server/cards/snapshot.go`: exports the playable card pool as a stable JSON snapshot.
 - `server/cmd/snapshot-supported-cards/main.go`: regenerates `data/supported_card_infos.json`.
 - `server/game/engine.go`: main game engine and action handling.
@@ -72,14 +73,7 @@ Then open:
 http://localhost:9090/
 ```
 
-The server currently assumes:
-
-```text
-../data/all_card_infos.json
-../web
-```
-
-If you change deployment layout, update path handling instead of silently relying on a different working directory.
+The server currently assumes `../web` is available relative to the `server` directory. Card data is compiled into Go and is not read from JSON at startup.
 
 ## Tests
 
@@ -106,7 +100,7 @@ Minimum frontend sanity check:
 
 ## Supported Card Snapshot Workflow
 
-After changing supported card filtering, base card data, or balance values in `all_card_infos.json`, regenerate the snapshot:
+After changing base card data or balance values, regenerate the compiled definitions and snapshot:
 
 ```bash
 cd server
@@ -117,10 +111,10 @@ go test ./...
 Then inspect:
 
 ```bash
-git diff -- data/supported_card_infos.json
+git diff -- data/supported_card_infos.json server/cards/definitions_gen.go
 ```
 
-This diff is intended to show exactly which supported cards changed, were added, or were removed.
+This diff is intended to show exactly which base cards changed, were added, or were removed.
 
 ## Design Language
 

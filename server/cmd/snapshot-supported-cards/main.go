@@ -6,7 +6,7 @@ import (
 )
 
 func main() {
-	if err := cards.LoadCards("../data/all_card_infos.json"); err != nil {
+	if err := cards.LoadCards(); err != nil {
 		log.Fatalf("load cards: %v", err)
 	}
 	if err := cards.WriteSupportedCardInfoSnapshot(cards.SupportedCardInfoSnapshotPath); err != nil {

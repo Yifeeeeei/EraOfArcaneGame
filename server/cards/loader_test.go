@@ -3,7 +3,7 @@ package cards
 import "testing"
 
 func TestLoadCardsBuildsBasePlayablePool(t *testing.T) {
-	if err := LoadCards("../../data/all_card_infos.json"); err != nil {
+	if err := LoadCards(); err != nil {
 		t.Fatalf("LoadCards: %v", err)
 	}
 
