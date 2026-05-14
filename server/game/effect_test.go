@@ -17,7 +17,6 @@ func setupEffectTest(t *testing.T) *Engine {
 		SetCardDB(cards.PlayableCardDB)
 	}
 	RegisterAllCardEffects()
-	AutoParseAndRegister()
 
 	deck, err := model.ParseDeckCode(effectTestDeck)
 	if err != nil {

@@ -19,9 +19,8 @@ func main() {
 	// Set card DB reference for game engine. For now, only the base set is playable.
 	game.SetCardDB(cards.PlayableCardDB)
 
-	// Register card effects (manual + auto-parsed)
+	// Register explicit card effects. Runtime never parses card text for behavior.
 	game.RegisterAllCardEffects()
-	game.AutoParseAndRegister()
 
 	// Create room manager
 	rm := match.NewRoomManager()

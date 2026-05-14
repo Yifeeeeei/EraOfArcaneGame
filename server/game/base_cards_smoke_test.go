@@ -26,7 +26,6 @@ func setupBaseCardSmokeSuite(t *testing.T) {
 	SetCardDB(cards.PlayableCardDB)
 	globalRegistry = NewEffectRegistry()
 	RegisterAllCardEffects()
-	AutoParseAndRegister()
 
 	t.Cleanup(func() {
 		if previousDB != nil {
