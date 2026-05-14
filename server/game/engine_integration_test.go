@@ -12,16 +12,21 @@ func TestFullCombatFlow(t *testing.T) {
 		if err := cards.LoadCards("../../data/all_card_infos.json"); err != nil {
 			t.Fatalf("Failed to load cards: %v", err)
 		}
-		SetCardDB(cards.CardDB)
+		SetCardDB(cards.PlayableCardDB)
 	}
 
-	deck, _ := model.ParseDeckCode(testDeckCode)
+	deck, err := model.ParseDeckCode(testDeckCode)
+	if err != nil {
+		t.Fatalf("parse test deck: %v", err)
+	}
 
 	events := make([]GameEvent, 0)
 	engine := NewEngine("combat-test", func(event GameEvent, targetPlayer int) {
 		events = append(events, event)
 	})
-	engine.SetupGame("P1", deck, "P2", deck)
+	if err := engine.SetupGame("P1", deck, "P2", deck); err != nil {
+		t.Fatalf("setup game: %v", err)
+	}
 
 	// Mulligan
 	engine.HandleAction(0, ActionMessage{Action: "mulligan", Data: map[string]any{"keep": true}})
@@ -147,13 +152,18 @@ func TestSkillCastAndDefense(t *testing.T) {
 		if err := cards.LoadCards("../../data/all_card_infos.json"); err != nil {
 			t.Fatalf("Failed to load cards: %v", err)
 		}
-		SetCardDB(cards.CardDB)
+		SetCardDB(cards.PlayableCardDB)
 	}
 
-	deck, _ := model.ParseDeckCode(testDeckCode)
+	deck, err := model.ParseDeckCode(testDeckCode)
+	if err != nil {
+		t.Fatalf("parse test deck: %v", err)
+	}
 
 	engine := NewEngine("spell-test", func(event GameEvent, targetPlayer int) {})
-	engine.SetupGame("P1", deck, "P2", deck)
+	if err := engine.SetupGame("P1", deck, "P2", deck); err != nil {
+		t.Fatalf("setup game: %v", err)
+	}
 
 	// Mulligan
 	engine.HandleAction(0, ActionMessage{Action: "mulligan", Data: map[string]any{"keep": true}})

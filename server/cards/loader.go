@@ -1,9 +1,7 @@
 package cards
 
 import (
-	"encoding/json"
 	"fmt"
-	"os"
 
 	"eraofarcane/model"
 )
@@ -20,34 +18,17 @@ var BaseCardDB map[string]*model.Card
 // PlayableCardDB is the active card pool used by deck validation and games.
 var PlayableCardDB map[string]*model.Card
 
-// LoadCards loads all card data from the JSON file
+// LoadCards loads all compiled card definitions.
+//
+// The path argument is kept for compatibility with older call sites and tools,
+// but the server no longer parses JSON at runtime. Card definitions are Go
+// implementations in definitions_gen.go.
 func LoadCards(path string) error {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		return fmt.Errorf("failed to read card data: %w", err)
-	}
-
-	var cardList []model.Card
-	if err := json.Unmarshal(data, &cardList); err != nil {
-		return fmt.Errorf("failed to parse card data: %w", err)
-	}
-
-	CardDB = make(map[string]*model.Card, len(cardList))
+	CardDB = make(map[string]*model.Card, len(compiledCardDefinitions))
 	BaseCardDB = make(map[string]*model.Card)
-	for i := range cardList {
-		c := &cardList[i]
-		if c.ElementsCost == nil {
-			c.ElementsCost = make(map[string]int)
-		}
-		if c.ElementsGain == nil {
-			c.ElementsGain = make(map[string]int)
-		}
-		if c.ElementsExpense == nil {
-			c.ElementsExpense = make(map[string]int)
-		}
-		if c.Spawns == nil {
-			c.Spawns = []string{}
-		}
+	for _, definition := range compiledCardDefinitions {
+		card := definition.Card()
+		c := normalizeCard(card)
 		CardDB[c.Number] = c
 		if c.VersionName == BaseVersionName {
 			BaseCardDB[c.Number] = c
@@ -57,6 +38,22 @@ func LoadCards(path string) error {
 
 	fmt.Printf("Loaded %d cards (%d playable base cards)\n", len(CardDB), len(PlayableCardDB))
 	return nil
+}
+
+func normalizeCard(card model.Card) *model.Card {
+	if card.ElementsCost == nil {
+		card.ElementsCost = make(map[string]int)
+	}
+	if card.ElementsGain == nil {
+		card.ElementsGain = make(map[string]int)
+	}
+	if card.ElementsExpense == nil {
+		card.ElementsExpense = make(map[string]int)
+	}
+	if card.Spawns == nil {
+		card.Spawns = []string{}
+	}
+	return &card
 }
 
 // GetCard returns a card by number

@@ -1,25 +1,27 @@
 package model
 
-// Card represents a card definition loaded from all_card_infos.json
+// Card represents a card definition exposed to the game engine and frontend.
+// Server-side definitions are implemented in Go; JSON snapshots are generated
+// or reference data, not the runtime source of truth.
 type Card struct {
-	Number       string            `json:"number"`
-	Type         string            `json:"type"`          // 人物/伙伴/技能/道具
-	Name         string            `json:"name"`
-	Category     string            `json:"category"`      // element category
-	Tag          string            `json:"tag"`           // e.g. "装备-饰物"
-	Description  string            `json:"description"`
-	Quote        string            `json:"quote"`
-	ElementsCost map[string]int    `json:"elements_cost"` // cost to play
-	ElementsGain map[string]int    `json:"elements_gain"` // elements provided (负载)
+	Number          string         `json:"number"`
+	Type            string         `json:"type"` // 人物/伙伴/技能/道具
+	Name            string         `json:"name"`
+	Category        string         `json:"category"` // element category
+	Tag             string         `json:"tag"`      // e.g. "装备-饰物"
+	Description     string         `json:"description"`
+	Quote           string         `json:"quote"`
+	ElementsCost    map[string]int `json:"elements_cost"` // cost to play
+	ElementsGain    map[string]int `json:"elements_gain"` // elements provided (负载)
 	ElementsExpense map[string]int `json:"elements_expense"`
-	VersionNum   string            `json:"version_number"`
-	VersionName  string            `json:"version_name"`
-	Attack       int               `json:"attack"`   // -1 = N/A
-	Life         int               `json:"life"`      // -1 = N/A
-	Duration     int               `json:"duration"`  // -1 = N/A
-	Power        int               `json:"power"`     // -1 = N/A
-	Spawns       []string          `json:"spawns"`
-	OutputPath   string            `json:"output_path"`
+	VersionNum      string         `json:"version_number"`
+	VersionName     string         `json:"version_name"`
+	Attack          int            `json:"attack"`   // -1 = N/A
+	Life            int            `json:"life"`     // -1 = N/A
+	Duration        int            `json:"duration"` // -1 = N/A
+	Power           int            `json:"power"`    // -1 = N/A
+	Spawns          []string       `json:"spawns"`
+	OutputPath      string         `json:"output_path"`
 }
 
 // CardType constants
@@ -32,13 +34,13 @@ const (
 
 // Element constants (matching JSON data short names)
 const (
-	ElementFire    = "火"
-	ElementWater   = "水"
-	ElementEarth   = "地"
-	ElementAir     = "气"
-	ElementLight   = "光"
-	ElementShadow  = "暗"
-	ElementArcane  = "无" // 奥术/无 = wildcard element
+	ElementFire   = "火"
+	ElementWater  = "水"
+	ElementEarth  = "地"
+	ElementAir    = "气"
+	ElementLight  = "光"
+	ElementShadow = "暗"
+	ElementArcane = "无" // 奥术/无 = wildcard element
 )
 
 var AllElements = []string{
