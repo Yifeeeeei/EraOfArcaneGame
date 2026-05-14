@@ -62,6 +62,21 @@
                     <div>进攻威力：<strong>{{ gameState.pending_spell.power }}</strong></div>
                 </div>
 
+                <div class="defense-skills-section" v-if="defenseConsumableUnits.length > 0">
+                    <h3>消耗单位获得元素</h3>
+                    <div class="defense-skill-list">
+                        <button v-for="unit in defenseConsumableUnits" :key="unit.instance_id"
+                                class="defense-skill-card consume-card"
+                                @click="consumeCard(unit)">
+                            <img :src="getCardImage(unit)" class="defense-skill-img">
+                            <div class="defense-skill-info">
+                                <div class="defense-skill-name">{{ unit.name }}</div>
+                                <div class="defense-skill-power">{{ costLabel(unit.elements_gain) }}</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Available defense skills -->
                 <div class="defense-skills-section" v-if="availableDefenseSkills.length > 0">
                     <h3>选择防御技能</h3>
@@ -791,7 +806,9 @@
             }
 
             function canConsumeUnit(unit) {
-                return isMyTurn.value && gameState.value.phase === 'main' && unit && !unit.is_horizontal;
+                if (!unit || unit.is_horizontal) return false;
+                if (isMyTurn.value && gameState.value.phase === 'main') return true;
+                return showDefenseWindow.value;
             }
             function consumeCard(unit) {
                 sendAction('consume', { instance_id: unit.instance_id });
@@ -890,6 +907,18 @@
             const availableDefenseSkills = computed(() => {
                 if (!showDefenseWindow.value) return [];
                 return (myState.value.skills || []).filter(canUseSkillAsDefense);
+            });
+
+            const defenseConsumableUnits = computed(() => {
+                if (!showDefenseWindow.value || !myState.value.units) return [];
+                const units = [];
+                for (let col = 0; col < 3; col++) {
+                    for (let row = 0; row < 3; row++) {
+                        const unit = getMyUnit(col, row);
+                        if (unit && !unit.is_horizontal) units.push(unit);
+                    }
+                }
+                return units;
             });
 
             const availableBoostSkills = computed(() => {
@@ -1150,7 +1179,7 @@
                 canShowCostHint, missingCostText, skillUseCost, canLearnSkill, costLabel,
                 canPlayHandCard, canPayCost,
                 // Defense
-                defenseSelected, defenseBoostSelected, availableDefenseSkills, availableBoostSkills,
+                defenseSelected, defenseBoostSelected, availableDefenseSkills, availableBoostSkills, defenseConsumableUnits,
                 totalDefensePower, toggleDefenseSkill, toggleDefenseBoost, submitDefend,
                 // Pending action
                 pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction,

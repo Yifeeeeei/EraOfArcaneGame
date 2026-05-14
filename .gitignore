@@ -3,6 +3,7 @@ server/arcane-server
 server/server
 *.exe
 *.db
+tmp/
 
 # OS
 .DS_Store

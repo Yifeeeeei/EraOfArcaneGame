@@ -1220,6 +1220,9 @@ body::before {
     cursor: pointer;
     transition: all 0.15s ease;
     min-width: 120px;
+    color: var(--text-primary);
+    font: inherit;
+    text-align: left;
 }
 .defense-skill-card:hover {
     border-color: var(--gold-dim);
