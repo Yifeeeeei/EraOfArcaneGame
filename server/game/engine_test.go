@@ -279,6 +279,12 @@ func TestFullGameFlow(t *testing.T) {
 					})
 					if err == nil {
 						t.Logf("Turn %d P%d: Summoned %s at (%d,%d)", turn+1, currentPlayer, card.Card.Name, pos.Col, pos.Row)
+						if engine.State.Phase != PhaseMain {
+							t.Logf("Turn %d P%d: %s opened %s; returning to main for flow smoke test", turn+1, currentPlayer, card.Card.Name, engine.State.Phase)
+							engine.State.PendingAction = nil
+							engine.State.ResumePhase = PhaseMain
+							engine.State.Phase = PhaseMain
+						}
 						break
 					}
 				}

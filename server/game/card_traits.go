@@ -104,6 +104,10 @@ func traitsForCardNumber(number string) cardTraits {
 	case "3001001":
 		t.noBoost = true
 	}
+	switch number {
+	case "3221008":
+		t.noAttack = true
+	}
 
 	switch number {
 	case "3021001", "3021004", "3021006", "3021007", "3021010", "3021012", "3221007", "3221010", "3321007", "3321014", "3621012":
@@ -280,6 +284,14 @@ func spellArea(skill *CardInstance) SpellArea {
 	return traitsForCardNumber(skill.Card.Number).area
 }
 
+func cardRevealsOnDraw(card *CardInstance) bool {
+	if card == nil || card.Card == nil {
+		return false
+	}
+	reveal, ok := behaviorForNumber(card.Card.Number).(DrawRevealBehavior)
+	return ok && reveal.RevealsOnDraw()
+}
+
 func skillNeedsTargetInstance(skill *CardInstance) bool {
 	if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
 		return false
@@ -313,7 +325,7 @@ func canUseSkillForPurpose(card *model.Card, purpose skillPurpose) bool {
 
 func staticCanUseSkillForPurpose(card *model.Card, t cardTraits, purpose skillPurpose) bool {
 	if t.sorcery {
-		return purpose == skillPurposeAttack
+		return purpose == skillPurposeAttack && !t.noAttack
 	}
 	switch purpose {
 	case skillPurposeAttack:
@@ -396,6 +408,7 @@ func ruleInfoForCard(card *model.Card) map[string]any {
 		info["can_defense_boost"] = staticCanUseSkillForPurpose(card, t, skillPurposeDefenseBoost)
 		info["can_boost"] = info["can_attack_boost"]
 		info["spell_area"] = t.area
+		info["can_react"] = hasSpellReactionNumber(card.Number)
 	}
 	return info
 }

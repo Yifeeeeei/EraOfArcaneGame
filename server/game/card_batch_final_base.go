@@ -277,9 +277,24 @@ type Card3221008IceDissolve struct{}
 
 func (Card3221008IceDissolve) ID() string   { return "3221008" }
 func (Card3221008IceDissolve) Name() string { return "冰封消解" }
-func (Card3221008IceDissolve) OnSpellHit(ctx *EffectContext) error {
-	if ctx.Target != nil {
-		ctx.Target.PowerBonus -= 1
+
+func (Card3221008IceDissolve) CanReactToSpell(ctx *EffectContext, spell *SpellCast) bool {
+	return ctx != nil && spell != nil && spell.AttackerID != ctx.PlayerID && spell.TotalPower > 0
+}
+
+func (Card3221008IceDissolve) OnSpellReaction(ctx *EffectContext, spell *SpellCast) error {
+	if spell.TotalPower > 0 {
+		spell.TotalPower--
+		ctx.Engine.emit(GameEvent{
+			Type:   "spell_reaction",
+			Player: -1,
+			Data: map[string]any{
+				"player": ctx.PlayerID,
+				"card":   cardToInfo(ctx.Source),
+				"effect": "power_minus_one",
+				"power":  spell.TotalPower,
+			},
+		})
 	}
 	return nil
 }

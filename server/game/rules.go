@@ -14,6 +14,7 @@ const (
 	skillPurposeBoost        skillPurpose = "boost"
 	skillPurposeAttackBoost  skillPurpose = "attack_boost"
 	skillPurposeDefenseBoost skillPurpose = "defense_boost"
+	skillPurposeReaction     skillPurpose = "reaction"
 )
 
 func isBoostPurpose(purpose skillPurpose) bool {
@@ -162,6 +163,20 @@ func (e *Engine) validateSkillForPurpose(skill *CardInstance, purpose skillPurpo
 	case skillPurposeBoost, skillPurposeAttackBoost, skillPurposeDefenseBoost:
 		if !canUseSkillForPurpose(skill.Card, purpose) {
 			return fmt.Errorf("skill cannot be used to boost")
+		}
+	case skillPurposeReaction:
+		behavior, ok := behaviorForNumber(skill.Card.Number).(SpellReactionBehavior)
+		if !ok {
+			return fmt.Errorf("skill cannot react to spells")
+		}
+		ctx := &EffectContext{
+			Engine:     e,
+			Source:     skill,
+			PlayerID:   skill.OwnerID,
+			OpponentID: 1 - skill.OwnerID,
+		}
+		if !behavior.CanReactToSpell(ctx, e.State.PendingSpell) {
+			return fmt.Errorf("skill cannot react to this spell")
 		}
 	default:
 		return fmt.Errorf("unknown skill purpose: %s", purpose)

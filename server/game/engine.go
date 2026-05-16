@@ -104,6 +104,8 @@ func (e *Engine) HandleAction(playerID int, action ActionMessage) error {
 		return e.handleConsume(playerID, action)
 	case "cast_spell":
 		return e.handleCastSpell(playerID, action)
+	case "react_spell":
+		return e.handleReactSpell(playerID, action)
 	case "defend":
 		return e.handleDefend(playerID, action)
 	case "no_defend":
@@ -127,6 +129,60 @@ func (e *Engine) HandleAction(playerID int, action ActionMessage) error {
 	default:
 		return fmt.Errorf("unknown action: %s", action.Action)
 	}
+}
+
+func (e *Engine) handleReactSpell(playerID int, action ActionMessage) error {
+	if e.State.Phase != PhaseDefenseWindow {
+		return fmt.Errorf("not in spell reaction window")
+	}
+	if e.State.PendingSpell == nil {
+		return fmt.Errorf("no pending spell")
+	}
+	if playerID == e.State.PendingSpell.AttackerID {
+		return fmt.Errorf("attacker cannot react to their own spell this way")
+	}
+
+	instanceID, _ := action.Data["instance_id"].(string)
+	ps := e.State.Players[playerID]
+	skill := e.findSkill(ps, instanceID)
+	if skill == nil {
+		return fmt.Errorf("reaction skill not found")
+	}
+	if err := e.validateSkillForPurpose(skill, skillPurposeReaction); err != nil {
+		return err
+	}
+	cost := e.effectiveSkillUseCost(ps, skill)
+	overexertIDsRaw, _ := action.Data["overexert_ids"].([]any)
+	overexertIDs := stringsFromAnySlice(overexertIDsRaw)
+	overexertUnits, err := e.collectOverexertUnits(ps, overexertIDs)
+	if err != nil {
+		return err
+	}
+	if !canPayCostWithOverexert(ps, cost, overexertUnits) {
+		return fmt.Errorf("not enough elements")
+	}
+	if !payDefenseCost(ps, cost, action, overexertUnits) {
+		return fmt.Errorf("invalid payment")
+	}
+
+	skill.IsHorizontal = true
+	if !e.shouldSkipCooldown(ps, skill) {
+		e.ApplyKeywordOnSkillUse(skill)
+	}
+	e.consumeNextSkillUseModifiers(ps, skill)
+
+	behavior := behaviorForNumber(skill.Card.Number).(SpellReactionBehavior)
+	ctx := &EffectContext{
+		Engine:     e,
+		Source:     skill,
+		PlayerID:   playerID,
+		OpponentID: 1 - playerID,
+		ExtraData: map[string]any{
+			"react_player": playerID,
+			"spell":        e.State.PendingSpell,
+		},
+	}
+	return behavior.OnSpellReaction(ctx, e.State.PendingSpell)
 }
 
 // handleMulligan handles the mulligan (redraw) action
@@ -613,11 +669,13 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 
 	defenseIDsRaw, _ := action.Data["skill_ids"].([]any)
 	boostIDsRaw, _ := action.Data["boost_ids"].([]any)
+	overexertIDsRaw, _ := action.Data["overexert_ids"].([]any)
 
 	ps := e.State.Players[playerID]
 
 	defenseIDs := stringsFromAnySlice(defenseIDsRaw)
 	boostIDs := stringsFromAnySlice(boostIDsRaw)
+	overexertIDs := stringsFromAnySlice(overexertIDsRaw)
 	defenseSkills, defenseCost, err := e.collectSkillUses(ps, defenseIDs, skillPurposeDefend, nil)
 	if err != nil {
 		return err
@@ -627,12 +685,16 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 	if err != nil {
 		return err
 	}
+	overexertUnits, err := e.collectOverexertUnits(ps, overexertIDs)
+	if err != nil {
+		return err
+	}
 	totalCost := mergeElementCosts(defenseCost, boostCost)
-	if !ps.CanPayCost(totalCost) {
+	if !canPayCostWithOverexert(ps, totalCost, overexertUnits) {
 		return fmt.Errorf("not enough elements for defense")
 	}
 	if len(defenseSkills)+len(boostSkills) > 0 {
-		if !payCostForAction(ps, totalCost, action) {
+		if !payDefenseCost(ps, totalCost, action, overexertUnits) {
 			return fmt.Errorf("invalid payment")
 		}
 		tapSkills(defenseSkills)
@@ -650,7 +712,8 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 			"defender":      playerID,
 			"defense_power": totalDefPower,
 			"attack_power":  attackPower,
-			"skills_used":   len(defenseSkills) + len(boostIDsRaw),
+			"skills_used":   len(defenseSkills) + len(boostSkills),
+			"overexerted":   len(overexertUnits),
 		},
 	})
 
@@ -692,6 +755,26 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 	e.checkWinCondition()
 
 	return nil
+}
+
+func (e *Engine) collectOverexertUnits(ps *PlayerState, ids []string) ([]*CardInstance, error) {
+	units := make([]*CardInstance, 0, len(ids))
+	seen := make(map[string]bool)
+	for _, id := range ids {
+		if seen[id] {
+			return nil, fmt.Errorf("unit %s selected more than once", id)
+		}
+		seen[id] = true
+		unit := e.findUnitOnGrid(ps, id)
+		if unit == nil {
+			return nil, fmt.Errorf("overexert unit not found: %s", id)
+		}
+		if !unit.CanConsume() {
+			return nil, fmt.Errorf("unit cannot be overexerted: %s", id)
+		}
+		units = append(units, unit)
+	}
+	return units, nil
 }
 
 // handleNoDefend handles when the defender chooses not to defend
@@ -1566,18 +1649,20 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 
 	e.clearExpiredTemporaryModifiers(ps.PlayerID)
 
-	// Remove 临时 (temporary) units
+	// Remove 临时 (temporary) units before the cleanup/reset steps.
 	e.HandleTemporaryUnits(ps)
 
-	// Process status marks (点燃, 冻结, etc.)
+	// Discard phase has already happened above. The cleanup order is:
+	// reset cards first, then settle marks. A skill with 冷却1 therefore remains
+	// horizontal through the next turn, because 冷却 blocks this reset before it
+	// is removed by mark settlement.
+	e.resetCards(ps)
+
+	// Process status marks (点燃, 冻结, 冷却, etc.) after reset.
 	e.processEndOfTurnStatuses(ps)
 
-	// Decay 护盾 and 隐蔽
+	// Decay 护盾 and 隐蔽 as part of mark settlement.
 	e.HandleShieldDecay(ps)
-
-	// Reset cards at the end of their owner's turn. This makes cards vertical
-	// for the opponent's turn, including defense windows.
-	e.resetCards(ps)
 
 	// Clear elements
 	for elem := range ps.Elements {
@@ -1892,6 +1977,7 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		info["can_defend"] = canUseSkillForPurpose(ci.Card, skillPurposeDefend)
 		info["can_attack_boost"] = canUseSkillForPurpose(ci.Card, skillPurposeAttackBoost)
 		info["can_defense_boost"] = canUseSkillForPurpose(ci.Card, skillPurposeDefenseBoost)
+		info["can_react"] = hasSpellReactionNumber(ci.Card.Number)
 		info["can_boost"] = info["can_attack_boost"]
 		info["spell_area"] = spellArea(ci)
 	}
@@ -1972,7 +2058,6 @@ func playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any {
 		"charge":         ps.Charge,
 		"temp_modifiers": ps.TempModifiers,
 		"deck_count":     len(ps.Deck),
-		"deck_summary":   deckSummaryToInfo(ps.Deck),
 		"graveyard":      cardsToInfo(ps.Graveyard),
 	}
 
@@ -2011,10 +2096,18 @@ func playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any {
 	if isOwner {
 		// Show full hand
 		info["hand"] = cardsToInfo(ps.Hand)
+		info["deck_summary"] = deckSummaryToInfo(ps.Deck)
 		info["skill_pool"] = cardsToInfo(ps.SkillPool)
 	} else {
 		// Only show count
 		info["hand_count"] = len(ps.Hand)
+		revealed := make([]*CardInstance, 0)
+		for _, card := range ps.Hand {
+			if ps.RevealedHand[card.InstanceID] {
+				revealed = append(revealed, card)
+			}
+		}
+		info["revealed_hand"] = cardsToInfo(revealed)
 		info["skill_pool_count"] = len(ps.SkillPool)
 	}
 
