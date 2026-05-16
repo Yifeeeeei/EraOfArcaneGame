@@ -78,16 +78,5 @@ func (c *Card) TotalCost() int {
 // IsTerrain checks if this item card is a terrain card (地形)
 // Terrain cards are placed on the battlefield grid instead of being consumed
 func (c *Card) IsTerrain() bool {
-	if c.Type != CardTypeItem {
-		return false
-	}
-	// Check description for terrain keyword
-	desc := c.Description
-	// Look for "地形" keyword
-	for i := 0; i < len(desc)-len("地形")+1; i++ {
-		if desc[i:i+len("地形")] == "地形" {
-			return true
-		}
-	}
 	return false
 }

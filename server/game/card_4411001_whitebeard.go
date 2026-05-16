@@ -10,7 +10,7 @@ func (Card4411001Whitebeard) OnTurnStart(ctx *EffectContext) error {
 	}
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	for i, c := range ps.Deck {
-		if c.Card.Category == "地" && hasTag(c.Card.Tag, "野兽", "植物", "精灵") {
+		if c.Card.Category == "地" && isBeastPlantOrSpirit(c) {
 			ps.Hand = append(ps.Hand, c)
 			ps.Deck = append(ps.Deck[:i], ps.Deck[i+1:]...)
 			shuffleDeck(ps.Deck)

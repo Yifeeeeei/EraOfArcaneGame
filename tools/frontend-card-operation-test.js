@@ -59,19 +59,23 @@ function primaryElement(cost, fallback = '气') {
 }
 
 function isDefenseSkill(card) {
-  return card.type === '技能' && /防御/.test(card.description || '');
+  return card.type === '技能' && !!card.is_defense_only;
 }
 
 function isSorcery(card) {
-  return card.type === '技能' && Number(card.power) < 0;
+  return card.type === '技能' && !!card.is_sorcery;
+}
+
+function skillNeedsTarget(card) {
+  return !!(card && card.type === '技能' && card.needs_target);
 }
 
 function isTerrain(card) {
-  return card.type === '道具' && /地形/.test(card.description || '');
+  return card.type === '道具' && !!card.is_terrain;
 }
 
 function isConsumable(card) {
-  return card.type === '道具' && /消耗品|卷轴|药剂|符文/.test(card.tag || '');
+  return card.type === '道具' && !!card.is_consumable;
 }
 
 function opKind(card) {
@@ -91,11 +95,7 @@ function opKind(card) {
 }
 
 function expectsActiveHeroAbility(card) {
-  const desc = card.description || '';
-  if (!/回合技|绝技/.test(desc)) return false;
-  if (/游戏开始前/.test(desc)) return false;
-  if (/回合技[:：]?\s*当/.test(desc)) return false;
-  return true;
+  return !!(card.has_per_turn || card.has_ultimate);
 }
 
 function dedupeSkillPool(target) {
@@ -329,9 +329,11 @@ async function castLearnedSkill(page, other, card, stats) {
     if (await visible(castButton, 500)) {
       await castButton.click();
       await sleep(300);
-      const target = page.locator('.unit-cell.spell-target.occupied').first();
-      if (!(await visible(target, 800))) return { status: 'missing_control', reason: 'spell target not highlighted after clicking cast' };
-      await target.click();
+      if (skillNeedsTarget(card)) {
+        const target = page.locator('.unit-cell.spell-target.occupied').first();
+        if (!(await visible(target, 800))) return { status: 'missing_control', reason: 'spell target not highlighted after clicking cast' };
+        await target.click();
+      }
       await sleep(800);
       await resolveInterrupts(page, other, stats);
       const body = await page.locator('body').innerText();
@@ -443,7 +445,7 @@ async function testOne(browser, card) {
       result.primaryElement = primaryElement(card.elements_cost, card.category || '气');
       result.frontendLogs = env.logs.filter((line) => !line.includes('development build of Vue')).slice(-5);
       last = result;
-      if (result.status === 'pass' || result.status === 'unaffordable' || result.status === 'missing_control') return { ...result, ...aggregate };
+      if (result.status === 'pass' || result.status === 'missing_control') return { ...result, ...aggregate };
     } catch (err) {
       last = { status: 'frontend_error', reason: err.message, attempt, kind };
     } finally {

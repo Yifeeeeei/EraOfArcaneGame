@@ -1,11 +1,12 @@
 package game
 
 import (
+	"eraofarcane/cards"
 	"eraofarcane/model"
 	"fmt"
 	"log"
 	"math/rand"
-	"strings"
+	"sort"
 	"sync"
 )
 
@@ -193,15 +194,25 @@ func (e *Engine) startGame() {
 // startTurn begins a new turn for the current player
 func (e *Engine) startTurn() {
 	ps := e.State.Players[e.State.CurrentTurn]
+	ps.SpellsCastThisTurn = make(map[string]int)
 
-	// Reset cards (vertical)
-	e.resetCards(ps)
-
-	// Refresh elements from all vertical cards
+	// Elements are gained by consuming vertical cards. Cards reset at end of
+	// their owner's turn, so start turn only clears the spent pool.
 	e.refreshElements(ps)
+	e.applyTurnStartTemporaryModifiers(ps)
 
 	// Draw a card (not on first turn of the game for first player)
-	if !e.State.IsFirstTurn || e.State.CurrentTurn == 1 {
+	shouldDraw := !e.State.IsFirstTurn || e.State.CurrentTurn == 1
+	if shouldDraw && ps.SkipNextDraw {
+		ps.SkipNextDraw = false
+		e.emit(GameEvent{
+			Type:   "effect_trigger",
+			Player: e.State.CurrentTurn,
+			Data: map[string]any{
+				"effect": "skip_draw",
+			},
+		})
+	} else if shouldDraw {
 		drawn := ps.DrawCards(1)
 		if len(drawn) > 0 {
 			e.emit(GameEvent{
@@ -315,8 +326,8 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 		return fmt.Errorf("position already occupied")
 	}
 
-	// Check cost
-	if !ps.CanPayCost(card.Card.ElementsCost) {
+	cost := e.effectiveCardPlayCost(ps, card)
+	if !ps.CanPayCost(cost) {
 		return fmt.Errorf("not enough elements")
 	}
 
@@ -325,8 +336,17 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 		return fmt.Errorf("unit area is full")
 	}
 
+	if !canPayCostForAction(ps, cost, action) {
+		return fmt.Errorf("invalid payment")
+	}
+	if err := e.validateAndApplySummonDevour(playerID, card, action); err != nil {
+		return err
+	}
+
 	// Pay cost and place
-	ps.PayCost(card.Card.ElementsCost)
+	if !payCostForAction(ps, cost, action) {
+		return fmt.Errorf("invalid payment")
+	}
 	ps.RemoveFromHand(handIdx)
 	card.Position = &Position{Col: col, Row: row}
 	card.IsHorizontal = true // enters horizontal by default
@@ -350,10 +370,40 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 	// Trigger 入场 (on enter) effects for the summoned card
 	e.triggerEffects(TriggerOnEnter, card, nil, nil)
 
-	// Notify other friendly cards about the new unit entering
-	e.triggerFieldEffects(TriggerOnUnitEnter, playerID, card)
+	enterData := map[string]any{"entered_player": playerID}
+	// Notify both sides about the new unit entering; individual card behaviors
+	// decide whether they care about friendly or enemy units.
+	e.triggerFieldEffectsWithData(TriggerOnUnitEnter, playerID, card, enterData)
+	e.triggerFieldEffectsWithData(TriggerOnUnitEnter, 1-playerID, card, enterData)
 
 	e.checkWinCondition()
+	return nil
+}
+
+func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, action ActionMessage) error {
+	requirement := summonDevourRequirement(card)
+	if len(requirement) == 0 {
+		return nil
+	}
+
+	devourID, _ := action.Data["devour_id"].(string)
+	if devourID == "" {
+		return fmt.Errorf("%s requires devour before summon", card.Card.Name)
+	}
+
+	ps := e.State.Players[playerID]
+	target := e.findFieldCardByInstance(ps, devourID)
+	if target == nil {
+		target = e.findUnitOnGrid(ps, devourID)
+	}
+	if target == nil || target.Card == nil || !target.Card.IsCompanion() || target.Card.IsHero() || target == card {
+		return fmt.Errorf("invalid devour target")
+	}
+	if !cardSatisfiesDevourRequirement(target, requirement) {
+		return fmt.Errorf("devour target load does not satisfy requirement")
+	}
+
+	e.destroyUnit(target, playerID)
 	return nil
 }
 
@@ -386,10 +436,7 @@ func (e *Engine) handleConsume(playerID int, action ActionMessage) error {
 
 	// Consume: set horizontal and gain elements
 	card.IsHorizontal = true
-	gains := make(map[string]int)
-	for k, v := range card.Card.ElementsGain {
-		gains[k] = v
-	}
+	gains := effectiveElementsGain(card)
 	// First player's first turn: half load
 	if e.State.IsFirstTurn && playerID == 0 {
 		for k, v := range gains {
@@ -412,6 +459,14 @@ func (e *Engine) handleConsume(playerID int, action ActionMessage) error {
 	// Trigger 消耗 effects
 	e.triggerEffects(TriggerOnConsume, card, nil, map[string]any{
 		"gained": gains,
+	})
+	e.triggerFieldEffectsWithData(TriggerOnConsume, playerID, card, map[string]any{
+		"consumed_player": playerID,
+		"gained":          gains,
+	})
+	e.triggerFieldEffectsWithData(TriggerOnConsume, 1-playerID, card, map[string]any{
+		"consumed_player": playerID,
+		"gained":          gains,
 	})
 
 	return nil
@@ -450,12 +505,12 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	if err := e.validateReadySkill(skill); err != nil {
 		return err
 	}
-	if !canUseSkillToAttack(skill.Card) {
+	if !canUseSkillForPurpose(skill.Card, skillPurposeAttack) {
 		return fmt.Errorf("skill cannot be used to attack")
 	}
 
 	// Check cost
-	cost := skillUseCost(skill.Card)
+	cost := e.effectiveSkillUseCost(ps, skill)
 	if !ps.CanPayCost(cost) {
 		return fmt.Errorf("not enough elements")
 	}
@@ -470,7 +525,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 
 	// Process boost skills (法术强化)
 	boostIDs := stringsFromAnySlice(boostIDsRaw)
-	boostSkills, boostCost, err := e.collectSkillUses(ps, boostIDs, skillPurposeBoost, map[string]bool{instanceID: true})
+	boostSkills, boostCost, err := e.collectSkillUses(ps, boostIDs, skillPurposeAttackBoost, map[string]bool{instanceID: true})
 	if err != nil {
 		return err
 	}
@@ -480,21 +535,47 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	}
 
 	// Pay costs and set cards horizontal only after all validation succeeds.
-	ps.PayCost(totalCost)
+	if !payCostForAction(ps, totalCost, action) {
+		return fmt.Errorf("invalid payment")
+	}
 	skill.IsHorizontal = true
 	tapSkills(boostSkills)
 
 	// Apply cooldown from keyword
-	e.ApplyKeywordOnSkillUse(skill)
+	if !e.shouldSkipCooldown(ps, skill) {
+		e.ApplyKeywordOnSkillUse(skill)
+	}
+	e.consumeNextSkillUseModifiers(ps, skill)
 
-	totalPower := max(skill.Card.Power, 0) + totalSkillPower(boostSkills)
+	totalPower := e.effectiveSpellPower(playerID, skill, boostSkills, target)
 
 	// Check if it's a 咒术 (sorcery - unblockable)
 	isSorcery := isSorcerySkill(skill.Card)
+	if ps.SpellsCastThisTurn == nil {
+		ps.SpellsCastThisTurn = make(map[string]int)
+	}
+	ps.SpellsCastThisTurn[skill.Card.Category]++
+	spellCastData := map[string]any{
+		"cast_player": playerID,
+		"attacker":    playerID,
+		"skill":       cardToInfo(skill),
+		"target":      target,
+		"power":       totalPower,
+		"boost_count": len(boostSkills),
+		"is_sorcery":  isSorcery,
+	}
+	e.emit(GameEvent{
+		Type:   "spell_cast",
+		Player: -1,
+		Data:   spellCastData,
+	})
+	e.triggerEffects(TriggerOnSpellCast, skill, nil, spellCastData)
+	e.triggerFieldEffectsWithData(TriggerOnSpellCast, playerID, skill, spellCastData)
+	e.triggerFieldEffectsWithData(TriggerOnSpellCast, 1-playerID, skill, spellCastData)
 
 	if isSorcery {
 		// Sorcery resolves immediately
-		e.resolveSpellHit(playerID, skill, target)
+		e.resolveSpellHit(playerID, skill, target, boostSkills)
 	} else {
 		// Regular spell: open defense window
 		e.State.PendingSpell = &SpellCast{
@@ -505,19 +586,6 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 			BoostSkills: boostSkills,
 		}
 		e.State.Phase = PhaseDefenseWindow
-
-		e.emit(GameEvent{
-			Type:   "spell_cast",
-			Player: -1,
-			Data: map[string]any{
-				"attacker":    playerID,
-				"skill":       cardToInfo(skill),
-				"target":      target,
-				"power":       totalPower,
-				"boost_count": len(boostSkills),
-				"is_sorcery":  false,
-			},
-		})
 
 		e.emit(GameEvent{
 			Type:   "defense_window",
@@ -555,7 +623,7 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		return err
 	}
 	usedIDs := skillIDSet(defenseSkills)
-	boostSkills, boostCost, err := e.collectSkillUses(ps, boostIDs, skillPurposeBoost, usedIDs)
+	boostSkills, boostCost, err := e.collectSkillUses(ps, boostIDs, skillPurposeDefenseBoost, usedIDs)
 	if err != nil {
 		return err
 	}
@@ -564,11 +632,14 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		return fmt.Errorf("not enough elements for defense")
 	}
 	if len(defenseSkills)+len(boostSkills) > 0 {
-		ps.PayCost(totalCost)
+		if !payCostForAction(ps, totalCost, action) {
+			return fmt.Errorf("invalid payment")
+		}
 		tapSkills(defenseSkills)
 		tapSkills(boostSkills)
 	}
-	totalDefPower := totalSkillPower(defenseSkills) + totalSkillPower(boostSkills)
+	totalDefPower := e.totalEffectiveSkillPower(playerID, defenseSkills, skillPurposeDefend) +
+		e.totalEffectiveSkillPower(playerID, boostSkills, skillPurposeDefenseBoost)
 
 	attackPower := e.State.PendingSpell.TotalPower
 
@@ -583,7 +654,21 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		},
 	})
 
-	if totalDefPower >= attackPower && len(defenseSkills) > 0 {
+	defenseSuccess := totalDefPower >= attackPower && len(defenseSkills) > 0
+	defendData := map[string]any{
+		"defender":        playerID,
+		"attacker":        e.State.PendingSpell.AttackerID,
+		"defense_power":   totalDefPower,
+		"attack_power":    attackPower,
+		"defense_success": defenseSuccess,
+		"attack_skill":    e.State.PendingSpell.Skill,
+		"boost_skills":    e.State.PendingSpell.BoostSkills,
+	}
+	for _, defenseSkill := range defenseSkills {
+		e.triggerEffects(TriggerOnDefend, defenseSkill, nil, defendData)
+	}
+
+	if defenseSuccess {
 		// Defense successful
 		e.emit(GameEvent{
 			Type:   "defense_success",
@@ -596,11 +681,14 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 			e.State.PendingSpell.AttackerID,
 			e.State.PendingSpell.Skill,
 			e.State.PendingSpell.Target,
+			e.State.PendingSpell.BoostSkills,
 		)
 	}
 
 	e.State.PendingSpell = nil
-	e.State.Phase = PhaseMain
+	if e.State.PendingAction == nil {
+		e.State.Phase = PhaseMain
+	}
 	e.checkWinCondition()
 
 	return nil
@@ -623,18 +711,39 @@ func (e *Engine) handleNoDefend(playerID int, action ActionMessage) error {
 		e.State.PendingSpell.AttackerID,
 		e.State.PendingSpell.Skill,
 		e.State.PendingSpell.Target,
+		e.State.PendingSpell.BoostSkills,
 	)
 
 	e.State.PendingSpell = nil
-	e.State.Phase = PhaseMain
+	if e.State.PendingAction == nil {
+		e.State.Phase = PhaseMain
+	}
 	e.checkWinCondition()
 
 	return nil
 }
 
 // resolveSpellHit applies spell damage to the target
-func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target SpellTarget) {
-	dmg := max(skill.Card.Attack, 0)
+func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target SpellTarget, boostSkills []*CardInstance) {
+	defenderID := 1 - attackerID
+	affectedUnits := e.spellAffectedUnits(defenderID, skill, target)
+	var targetUnit *CardInstance
+	if len(affectedUnits) > 0 {
+		targetUnit = affectedUnits[0]
+	}
+	ctx := &EffectContext{
+		Engine:     e,
+		Source:     skill,
+		Target:     targetUnit,
+		PlayerID:   attackerID,
+		OpponentID: defenderID,
+		ExtraData:  map[string]any{"target": target},
+	}
+	dmg := max(skill.Card.Attack+skill.AttackBonus, 0)
+	if override, ok := globalRegistry.SpellDamage(skill.Card.Number, ctx); ok {
+		dmg = max(override, 0)
+	}
+	dmg = e.effectiveSpellDamage(attackerID, skill, dmg, boostSkills)
 
 	e.emit(GameEvent{
 		Type:   "spell_hit",
@@ -647,19 +756,92 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 		},
 	})
 
-	if target.Type == "unit" {
-		defenderID := 1 - attackerID
-		targetUnit := e.State.Players[defenderID].Units[target.Position.Col][target.Position.Row]
-		if targetUnit != nil && dmg > 0 {
-			e.dealDamage(targetUnit, dmg, defenderID)
+	if dmg > 0 {
+		for _, unit := range affectedUnits {
+			e.dealDamage(unit, dmg, defenderID)
 		}
 	}
+	e.applyGenericSpellEffects(attackerID, defenderID, skill, affectedUnits, target)
+	e.applyTemporarySpellHitStatus(attackerID, skill, affectedUnits)
 
 	// Trigger spell hit effects on the skill card itself
-	e.triggerEffects(TriggerOnSpellHit, skill, nil, map[string]any{
-		"damage": dmg,
-		"target": target,
-	})
+	hitData := map[string]any{
+		"damage":         dmg,
+		"target":         target,
+		"affected_units": affectedUnits,
+	}
+	e.triggerEffects(TriggerOnSpellHit, skill, targetUnit, hitData)
+	e.triggerFieldEffectsWithData(TriggerOnSpellHit, attackerID, skill, hitData)
+}
+
+func (e *Engine) spellAffectedUnits(defenderID int, skill *CardInstance, target SpellTarget) []*CardInstance {
+	if target.Type != "unit" {
+		return nil
+	}
+	defender := e.State.Players[defenderID]
+	units := make([]*CardInstance, 0, 9)
+
+	switch spellArea(skill) {
+	case SpellAreaSquare:
+		for col := 0; col < 3; col++ {
+			for row := 0; row < 3; row++ {
+				if defender.Units[col][row] != nil {
+					units = append(units, defender.Units[col][row])
+				}
+			}
+		}
+		return units
+	case SpellAreaAll:
+		for col := 0; col < 3; col++ {
+			for row := 0; row < 3; row++ {
+				if defender.Units[col][row] != nil {
+					units = append(units, defender.Units[col][row])
+				}
+			}
+		}
+		return units
+	case SpellAreaColumn:
+		for row := 0; row < 3; row++ {
+			if defender.Units[target.Position.Col][row] != nil {
+				units = append(units, defender.Units[target.Position.Col][row])
+			}
+		}
+		return units
+	case SpellAreaFrontRow:
+		frontRow := defender.GetFrontRow()
+		if frontRow >= 0 {
+			for col := 0; col < 3; col++ {
+				if defender.Units[col][frontRow] != nil {
+					units = append(units, defender.Units[col][frontRow])
+				}
+			}
+		}
+		return units
+	case SpellAreaSplashCross:
+		for _, delta := range []struct{ col, row int }{{0, 0}, {-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
+			col := target.Position.Col + delta.col
+			row := target.Position.Row + delta.row
+			if col < 0 || col >= 3 || row < 0 || row >= 3 {
+				continue
+			}
+			if defender.Units[col][row] != nil {
+				units = append(units, defender.Units[col][row])
+			}
+		}
+		return units
+	}
+
+	if target.Position.Valid() && defender.Units[target.Position.Col][target.Position.Row] != nil {
+		return []*CardInstance{defender.Units[target.Position.Col][target.Position.Row]}
+	}
+	return nil
+}
+
+func (e *Engine) applyGenericSpellEffects(attackerID int, defenderID int, skill *CardInstance, targets []*CardInstance, target SpellTarget) {
+	e.applyGenericElementGain(attackerID, skill)
+	for _, unit := range targets {
+		e.applyGenericStatusFromDescription(skill, unit)
+	}
 }
 
 // handleAttack handles a unit attacking another unit
@@ -777,6 +959,14 @@ func (e *Engine) dealDamage(target *CardInstance, amount int, ownerID int) {
 	e.triggerEffects(TriggerOnDamaged, target, nil, map[string]any{
 		"damage": amount,
 	})
+	e.triggerFieldEffectsWithData(TriggerOnDamaged, ownerID, target, map[string]any{
+		"damaged_player": ownerID,
+		"damage":         amount,
+	})
+	e.triggerFieldEffectsWithData(TriggerOnDamaged, 1-ownerID, target, map[string]any{
+		"damaged_player": ownerID,
+		"damage":         amount,
+	})
 
 	if target.CurrentLife <= 0 {
 		e.destroyUnit(target, ownerID)
@@ -791,6 +981,10 @@ func (e *Engine) destroyUnit(unit *CardInstance, ownerID int) {
 	if unit.Position != nil {
 		ps.Units[unit.Position.Col][unit.Position.Row] = nil
 	}
+
+	// Bound skills live only while their host is on the battlefield. They do not
+	// enter the graveyard as independent cards.
+	unit.BoundSkills = nil
 
 	// Add to graveyard
 	ps.Graveyard = append(ps.Graveyard, unit)
@@ -847,7 +1041,8 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 	if !card.Card.IsItem() {
 		return fmt.Errorf("card is not an item")
 	}
-	if !ps.CanPayCost(card.Card.ElementsCost) {
+	cost := e.effectiveCardPlayCost(ps, card)
+	if !ps.CanPayCost(cost) {
 		return fmt.Errorf("not enough elements")
 	}
 
@@ -863,7 +1058,9 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 		return fmt.Errorf("equipment area is full")
 	}
 
-	ps.PayCost(card.Card.ElementsCost)
+	if !payCostForAction(ps, cost, action) {
+		return fmt.Errorf("invalid payment")
+	}
 	ps.RemoveFromHand(handIdx)
 	card.IsHorizontal = true
 	card.SlotIndex = slotIdx
@@ -880,6 +1077,9 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 			"elements": ps.Elements,
 		},
 	})
+
+	e.triggerEffects(TriggerOnEquip, card, nil, nil)
+	e.triggerEffects(TriggerOnEnter, card, nil, nil)
 
 	return nil
 }
@@ -913,7 +1113,8 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 	}
 
 	// Check cost
-	if !ps.CanPayCost(skill.Card.ElementsCost) {
+	cost := e.effectiveSkillLearnCost(ps, skill)
+	if !ps.CanPayCost(cost) {
 		return fmt.Errorf("not enough elements")
 	}
 
@@ -949,12 +1150,22 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 	}
 
 	// Pay cost and place
-	ps.PayCost(skill.Card.ElementsCost)
+	if !payCostForAction(ps, cost, action) {
+		return fmt.Errorf("invalid payment")
+	}
 	ps.SkillPool = append(ps.SkillPool[:poolIdx], ps.SkillPool[poolIdx+1:]...)
 	skill.IsHorizontal = true
 	skill.SlotIndex = slotIdx
 	skill.EnterTurn = e.State.TurnNumber
+	e.ApplyKeywordOnEnter(skill)
 	ps.Skills[slotIdx] = skill
+	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
+		if modifier.Type == TempModNextLearnedSkillHaste && modifier.RemainingUses != 0 {
+			skill.IsHorizontal = false
+			e.removeTemporaryModifier(playerID, modifier.ID)
+			break
+		}
+	}
 
 	e.emit(GameEvent{
 		Type:   "learn_skill",
@@ -991,7 +1202,7 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 	}
 
 	// Check if this is a terrain card - terrain cards go to battlefield
-	if card.Card.IsTerrain() {
+	if cards.IsTerrain(card.Card.Number) {
 		// Redirect to terrain placement handler
 		// Re-use the action but call the terrain handler
 		colF, _ := action.Data["col"].(float64)
@@ -1002,17 +1213,21 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 				"instance_id": instanceID,
 				"col":         colF,
 				"row":         rowF,
+				"payment":     action.Data["payment"],
 			},
 		})
 	}
 
 	// Regular consumable item
-	if !ps.CanPayCost(card.Card.ElementsCost) {
+	cost := e.effectiveCardPlayCost(ps, card)
+	if !ps.CanPayCost(cost) {
 		return fmt.Errorf("not enough elements")
 	}
 
 	// Pay and use
-	ps.PayCost(card.Card.ElementsCost)
+	if !payCostForAction(ps, cost, action) {
+		return fmt.Errorf("invalid payment")
+	}
 	ps.RemoveFromHand(handIdx)
 	ps.Graveyard = append(ps.Graveyard, card)
 
@@ -1025,6 +1240,8 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 			"elements": ps.Elements,
 		},
 	})
+
+	e.triggerEffects(TriggerOnUseItem, card, nil, nil)
 
 	return nil
 }
@@ -1056,7 +1273,7 @@ func (e *Engine) handlePlaceTerrain(playerID int, action ActionMessage) error {
 	if !card.Card.IsItem() {
 		return fmt.Errorf("card is not an item")
 	}
-	if !card.Card.IsTerrain() {
+	if !cards.IsTerrain(card.Card.Number) {
 		return fmt.Errorf("card is not a terrain")
 	}
 
@@ -1070,12 +1287,15 @@ func (e *Engine) handlePlaceTerrain(playerID int, action ActionMessage) error {
 	}
 
 	// Check cost
-	if !ps.CanPayCost(card.Card.ElementsCost) {
+	cost := e.effectiveCardPlayCost(ps, card)
+	if !ps.CanPayCost(cost) {
 		return fmt.Errorf("not enough elements")
 	}
 
 	// Pay cost and place
-	ps.PayCost(card.Card.ElementsCost)
+	if !payCostForAction(ps, cost, action) {
+		return fmt.Errorf("invalid payment")
+	}
 	ps.RemoveFromHand(handIdx)
 	card.Position = &Position{Col: col, Row: row}
 	card.EnterTurn = e.State.TurnNumber
@@ -1136,10 +1356,7 @@ func (e *Engine) handleUseAbility(playerID int, action ActionMessage) error {
 	} else {
 		trigger = TriggerPerTurn
 		// Check if already used this turn (回合技 limit)
-		maxUses := parseNumberAfter(card.Card.Description, "回合技")
-		if maxUses == 0 {
-			maxUses = 1
-		}
+		maxUses := perTurnLimit(card)
 		if card.UsedThisTurn >= maxUses {
 			return fmt.Errorf("ability already used this turn")
 		}
@@ -1240,12 +1457,19 @@ func (e *Engine) handleResolveAction(playerID int, action ActionMessage) error {
 		callback(selected)
 	}
 
+	if e.State.PendingAction == nil && e.State.Phase == PhaseDefenseWindow && e.State.PendingSpell == nil {
+		e.State.Phase = PhaseMain
+	}
+
 	e.checkWinCondition()
 	return nil
 }
 
 // SetPendingAction sets a pending player action and pauses the game
 func (e *Engine) SetPendingAction(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, callback func([]string)) {
+	if minSelect > 0 && len(candidates) == 0 {
+		return
+	}
 	e.State.ResumePhase = e.State.Phase
 	e.State.Phase = PhaseWaitingAction
 	e.State.PendingAction = &PendingAction{
@@ -1336,6 +1560,11 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 	for _, card := range allCards {
 		e.triggerEffects(TriggerOnTurnEnd, card, nil, nil)
 	}
+	e.applyOpponentTurnEndTemporaryModifiers(ps.PlayerID)
+	e.discardMarkedEndOfTurnCards(ps)
+	e.applyLoadGainAtTurnEnd(ps)
+
+	e.clearExpiredTemporaryModifiers(ps.PlayerID)
 
 	// Remove 临时 (temporary) units
 	e.HandleTemporaryUnits(ps)
@@ -1345,6 +1574,10 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 
 	// Decay 护盾 and 隐蔽
 	e.HandleShieldDecay(ps)
+
+	// Reset cards at the end of their owner's turn. This makes cards vertical
+	// for the opponent's turn, including defense windows.
+	e.resetCards(ps)
 
 	// Clear elements
 	for elem := range ps.Elements {
@@ -1406,6 +1639,9 @@ func (e *Engine) processEndOfTurnStatuses(ps *PlayerState) {
 		if ps.Skills[i] != nil && ps.Skills[i].Statuses[StatusWeaken] > 0 {
 			ps.Skills[i].Statuses[StatusWeaken]--
 		}
+		if ps.Skills[i] != nil && ps.Skills[i].Statuses[StatusSeal] > 0 {
+			ps.Skills[i].Statuses[StatusSeal]--
+		}
 	}
 }
 
@@ -1429,6 +1665,44 @@ func (e *Engine) checkWinCondition() {
 			return
 		}
 	}
+}
+
+func payCostForAction(ps *PlayerState, cost map[string]int, action ActionMessage) bool {
+	if payment := paymentFromAction(action); payment != nil {
+		return ps.PayCostWithPayment(cost, payment)
+	}
+	return ps.PayCost(cost)
+}
+
+func canPayCostForAction(ps *PlayerState, cost map[string]int, action ActionMessage) bool {
+	if payment := paymentFromAction(action); payment != nil {
+		return validateElementPayment(ps.Elements, cost, payment)
+	}
+	return ps.CanPayCost(cost)
+}
+
+func paymentFromAction(action ActionMessage) map[string]int {
+	raw, ok := action.Data["payment"]
+	if !ok || raw == nil {
+		return nil
+	}
+	payment := make(map[string]int)
+	switch values := raw.(type) {
+	case map[string]any:
+		for elem, value := range values {
+			switch amount := value.(type) {
+			case float64:
+				payment[elem] = int(amount)
+			case int:
+				payment[elem] = amount
+			}
+		}
+	case map[string]int:
+		for elem, amount := range values {
+			payment[elem] = amount
+		}
+	}
+	return payment
 }
 
 // GetStateForPlayer returns a filtered game state visible to the specified player
@@ -1558,12 +1832,6 @@ func shuffleDeck(deck []*CardInstance) {
 	})
 }
 
-func isSorcerySkill(card *model.Card) bool {
-	// 咒术 skills contain "咒术" in their tag or have power = -1
-	// Simple heuristic: if power is -1 and it's a skill, it's likely sorcery
-	return card.IsSkill() && card.Power == -1
-}
-
 func cardToInfo(ci *CardInstance) map[string]any {
 	if ci == nil {
 		return nil
@@ -1576,17 +1844,20 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		"category":         ci.Card.Category,
 		"tag":              ci.Card.Tag,
 		"description":      ci.Card.Description,
-		"attack":           ci.Card.Attack,
+		"attack":           ci.Card.Attack + ci.AttackBonus,
 		"life":             ci.Card.Life,
-		"power":            ci.Card.Power,
+		"power":            ci.Card.Power + ci.PowerBonus,
 		"duration":         ci.Card.Duration,
 		"elements_cost":    ci.Card.ElementsCost,
-		"elements_gain":    ci.Card.ElementsGain,
+		"elements_gain":    effectiveElementsGain(ci),
 		"elements_expense": ci.Card.ElementsExpense,
 		"current_life":     ci.CurrentLife,
 		"current_attack":   ci.CurrentAttack,
 		"is_horizontal":    ci.IsHorizontal,
-		"is_terrain":       ci.Card.IsTerrain(),
+		"is_terrain":       cards.IsTerrain(ci.Card.Number),
+		"is_consumable":    cards.IsConsumable(ci.Card.Number),
+		"is_equipment":     cards.IsEquipment(ci.Card.Number),
+		"is_weapon":        cards.IsWeapon(ci.Card.Number),
 		"statuses":         ci.Statuses,
 		"position":         ci.Position,
 		"output_path":      ci.Card.OutputPath,
@@ -1594,35 +1865,38 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		"ultimate_used":    ci.UltimateUsed,
 		"uses_remaining":   ci.UsesRemaining,
 	}
+	if len(ci.BoundSkills) > 0 {
+		info["bound_skills"] = cardsToInfo(ci.BoundSkills)
+	}
 
-	// Expose ability availability
-	registry := GetEffectRegistry()
-	hasPerTurn := registry.HasEffect(ci.Card.Number, TriggerPerTurn)
-	hasUltimate := registry.HasEffect(ci.Card.Number, TriggerUltimate)
+	// Expose ability availability without materializing lazy behavior objects.
+	hasPerTurn := hasPerTurnAbilityNumber(ci.Card.Number)
+	hasUltimate := hasUltimateAbilityNumber(ci.Card.Number)
 	info["has_per_turn"] = hasPerTurn
 	info["has_ultimate"] = hasUltimate
 
 	if hasPerTurn {
-		maxUses := parseNumberAfter(ci.Card.Description, "回合技")
-		if maxUses == 0 {
-			maxUses = 1
-		}
-		info["per_turn_limit"] = maxUses
+		info["per_turn_limit"] = perTurnLimit(ci)
+	}
+	if requirement := summonDevourRequirement(ci); len(requirement) > 0 {
+		info["devour_requirement"] = requirement
 	}
 
 	// Mark defense-only skills
 	if ci.Card.IsSkill() {
 		info["is_defense_only"] = isDefenseOnlySkill(ci.Card)
 		info["is_sorcery"] = isSorcerySkill(ci.Card)
+		info["needs_target"] = skillNeedsTargetInstance(ci)
+		info["has_pierce"] = cardHasPierce(ci)
+		info["can_attack"] = canUseSkillForPurpose(ci.Card, skillPurposeAttack)
+		info["can_defend"] = canUseSkillForPurpose(ci.Card, skillPurposeDefend)
+		info["can_attack_boost"] = canUseSkillForPurpose(ci.Card, skillPurposeAttackBoost)
+		info["can_defense_boost"] = canUseSkillForPurpose(ci.Card, skillPurposeDefenseBoost)
+		info["can_boost"] = info["can_attack_boost"]
+		info["spell_area"] = spellArea(ci)
 	}
 
 	return info
-}
-
-// isDefenseOnlySkill checks if a skill card has the 防御 marker
-func isDefenseOnlySkill(card *model.Card) bool {
-	return card.IsSkill() && strings.Contains(card.Description, "防御") &&
-		(strings.HasPrefix(card.Description, "防御") || strings.Contains(card.Tag, "防御"))
 }
 
 func cardsToInfo(cards []*CardInstance) []map[string]any {
@@ -1633,15 +1907,73 @@ func cardsToInfo(cards []*CardInstance) []map[string]any {
 	return result
 }
 
+func deckSummaryToInfo(deck []*CardInstance) []map[string]any {
+	type summary struct {
+		card  *model.Card
+		count int
+	}
+
+	byNumber := map[string]*summary{}
+	for _, ci := range deck {
+		if ci == nil || ci.Card == nil {
+			continue
+		}
+		number := ci.Card.Number
+		entry := byNumber[number]
+		if entry == nil {
+			entry = &summary{card: ci.Card}
+			byNumber[number] = entry
+		}
+		entry.count++
+	}
+
+	numbers := make([]string, 0, len(byNumber))
+	for number := range byNumber {
+		numbers = append(numbers, number)
+	}
+	sort.Strings(numbers)
+
+	result := make([]map[string]any, 0, len(numbers))
+	for _, number := range numbers {
+		entry := byNumber[number]
+		card := entry.card
+		result = append(result, map[string]any{
+			"number":           card.Number,
+			"name":             card.Name,
+			"type":             card.Type,
+			"category":         card.Category,
+			"tag":              card.Tag,
+			"description":      card.Description,
+			"attack":           card.Attack,
+			"life":             card.Life,
+			"power":            card.Power,
+			"duration":         card.Duration,
+			"elements_cost":    card.ElementsCost,
+			"elements_gain":    card.ElementsGain,
+			"elements_expense": card.ElementsExpense,
+			"output_path":      card.OutputPath,
+			"count":            entry.count,
+			"is_terrain":       cards.IsTerrain(card.Number),
+			"is_consumable":    cards.IsConsumable(card.Number),
+			"is_equipment":     cards.IsEquipment(card.Number),
+			"is_weapon":        cards.IsWeapon(card.Number),
+		})
+	}
+
+	return result
+}
+
 func playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any {
 	info := map[string]any{
-		"player_id":   ps.PlayerID,
-		"player_name": ps.PlayerName,
-		"hero":        cardToInfo(ps.Hero),
-		"elements":    ps.Elements,
-		"charge":      ps.Charge,
-		"deck_count":  len(ps.Deck),
-		"graveyard":   cardsToInfo(ps.Graveyard),
+		"player_id":      ps.PlayerID,
+		"player_name":    ps.PlayerName,
+		"hero":           cardToInfo(ps.Hero),
+		"elements":       ps.Elements,
+		"charge":         ps.Charge,
+		"temp_modifiers": ps.TempModifiers,
+		"deck_count":     len(ps.Deck),
+		"deck_summary":   deckSummaryToInfo(ps.Deck),
+		"graveyard":      cardsToInfo(ps.Graveyard),
 	}
 
 	// Units grid

@@ -349,36 +349,36 @@
             }
 
             function hasAbility(card) {
-                return /回合技|绝技/.test(card.description || '');
+                return !!(card.has_per_turn || card.has_ultimate);
             }
 
             function isDefenseSkill(card) {
-                return card.type === '技能' && /防御/.test(card.description || '');
+                return card.type === '技能' && !!card.is_defense_only;
             }
 
             function isSorcery(card) {
-                return card.type === '技能' && Number(card.power) < 0;
+                return card.type === '技能' && !!card.is_sorcery;
             }
 
             function isTerrain(card) {
-                return card.type === '道具' && /地形/.test(card.description || '');
+                return card.type === '道具' && !!card.is_terrain;
             }
 
             function isConsumable(card) {
-                return card.type === '道具' && /消耗品|卷轴|药剂|符文/.test(card.tag || '');
+                return card.type === '道具' && !!card.is_consumable;
             }
 
             function operationSteps(card) {
                 if (card.type === '人物') {
                     const steps = ['在卡组第一段选择这张人物作为英雄。', '进入对局后，英雄会在己方中央格。', '竖置时可点击“消耗”获得它的负载元素。'];
-                    if (/回合技/.test(card.description || '')) steps.push('若界面出现“回合技”，点击后按提示选择目标或确认。');
-                    if (/绝技/.test(card.description || '')) steps.push('若界面出现“绝技”，点击后按提示选择目标或确认。');
+                    if (card.has_per_turn) steps.push('若界面出现“回合技”，点击后按提示选择目标或确认。');
+                    if (card.has_ultimate) steps.push('若界面出现“绝技”，点击后按提示选择目标或确认。');
                     return steps;
                 }
                 if (card.type === '伙伴') {
                     const steps = ['在手牌中点击这张伙伴。', '己方战场空格会高亮，点击空格召唤。', '下个己方回合竖置后，可点击“消耗”获得负载元素。'];
                     if (Number(card.attack) > 0) steps.push('若它位于己方前排且竖置，可点击“攻击”，再点敌方前排目标。');
-                    if (/回合技|绝技/.test(card.description || '')) steps.push('若界面出现能力按钮，点击后按顶部提示操作。');
+                    if (hasAbility(card)) steps.push('若界面出现能力按钮，点击后按顶部提示操作。');
                     return steps;
                 }
                 if (card.type === '技能') {

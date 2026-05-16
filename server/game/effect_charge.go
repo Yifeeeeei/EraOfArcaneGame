@@ -12,9 +12,9 @@ func (e *Engine) addCharge(playerID int, amount int) {
 		Type:   "charge_change",
 		Player: -1,
 		Data: map[string]any{
-			"player":      playerID,
-			"amount":      amount,
-			"total":       ps.Charge,
+			"player": playerID,
+			"amount": amount,
+			"total":  ps.Charge,
 		},
 	})
 
@@ -34,9 +34,9 @@ func (e *Engine) removeCharge(playerID int, amount int) bool {
 		Type:   "charge_change",
 		Player: -1,
 		Data: map[string]any{
-			"player":      playerID,
-			"amount":      -amount,
-			"total":       ps.Charge,
+			"player": playerID,
+			"amount": -amount,
+			"total":  ps.Charge,
 		},
 	})
 
@@ -49,10 +49,11 @@ func (e *Engine) checkOverload(playerID int) {
 	allCards := e.getAllFieldCards(ps)
 
 	for _, card := range allCards {
-		if !HasKeyword(card.Card.Description, KW_Overload) {
+		behavior, ok := globalRegistry.GetBehavior(card.Card.Number).(OverloadBehavior)
+		if !ok {
 			continue
 		}
-		threshold := parseNumberAfter(card.Card.Description, "过载")
+		threshold := behavior.OverloadThreshold()
 		if threshold > 0 && ps.Charge >= threshold {
 			// Trigger overload effect
 			e.triggerEffects(TriggerOnEnter, card, nil, map[string]any{

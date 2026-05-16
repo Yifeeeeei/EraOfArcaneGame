@@ -9091,7 +9091,7 @@ func (CardDef3321005) Card() model.Card {
 		Quote:           "",
 		ElementsCost:    map[string]int{"气": 1},
 		ElementsGain:    map[string]int{},
-		ElementsExpense: map[string]int{"气": 1},
+		ElementsExpense: map[string]int{"气": 2},
 		VersionNum:      "1",
 		VersionName:     "基础包",
 		Attack:          1,

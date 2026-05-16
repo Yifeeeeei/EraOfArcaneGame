@@ -27,13 +27,18 @@ type CardInstance struct {
 	OwnerID    int         `json:"owner_id"` // 0 or 1
 
 	// Runtime state
-	CurrentLife   int            `json:"current_life"`
-	CurrentAttack int            `json:"current_attack"`
-	IsHorizontal  bool           `json:"is_horizontal"` // 横置=true, 竖置=false
-	Statuses      map[string]int `json:"statuses"`      // status -> stack count
-	Position      *Position      `json:"position"`      // nil if not on unit grid
-	SlotIndex     int            `json:"slot_index"`    // for skill/equipment slots
-	EnterTurn     int            `json:"enter_turn"`    // which turn this card entered the field
+	CurrentLife       int             `json:"current_life"`
+	CurrentAttack     int             `json:"current_attack"`
+	IsHorizontal      bool            `json:"is_horizontal"` // 横置=true, 竖置=false
+	Statuses          map[string]int  `json:"statuses"`      // status -> stack count
+	ElementsGainBonus map[string]int  `json:"elements_gain_bonus,omitempty"`
+	ElementsGainSet   map[string]int  `json:"elements_gain_set,omitempty"`
+	PowerBonus        int             `json:"power_bonus,omitempty"`
+	AttackBonus       int             `json:"attack_bonus,omitempty"`
+	Position          *Position       `json:"position"`               // nil if not on unit grid
+	SlotIndex         int             `json:"slot_index"`             // for skill/equipment slots
+	EnterTurn         int             `json:"enter_turn"`             // which turn this card entered the field
+	BoundSkills       []*CardInstance `json:"bound_skills,omitempty"` // skills attached to this card, not skill slots
 
 	// Skill-specific
 	UsedThisTurn int  `json:"used_this_turn"` // for 回合技
@@ -46,14 +51,15 @@ type CardInstance struct {
 // NewCardInstance creates a new card instance
 func NewCardInstance(card *model.Card, ownerID int, turn int) *CardInstance {
 	ci := &CardInstance{
-		InstanceID:    generateID(),
-		Card:          card,
-		OwnerID:       ownerID,
-		CurrentLife:   card.Life,
-		CurrentAttack: card.Attack,
-		IsHorizontal:  true, // enters horizontal (横置) by default
-		Statuses:      make(map[string]int),
-		EnterTurn:     turn,
+		InstanceID:        generateID(),
+		Card:              card,
+		OwnerID:           ownerID,
+		CurrentLife:       card.Life,
+		CurrentAttack:     card.Attack,
+		IsHorizontal:      true, // enters horizontal (横置) by default
+		Statuses:          make(map[string]int),
+		ElementsGainBonus: make(map[string]int),
+		EnterTurn:         turn,
 	}
 	return ci
 }
@@ -91,6 +97,7 @@ const (
 	StatusPetrify  = "石化"
 	StatusWeaken   = "虚弱"
 	StatusCooldown = "冷却"
+	StatusSeal     = "封印"
 )
 
 // PlayerState holds all state for one player
@@ -109,7 +116,12 @@ type PlayerState struct {
 	ExtraDeck  []*CardInstance     `json:"extra_deck"`
 
 	// Element pool - available elements this turn
-	Elements map[string]int `json:"elements"`
+	Elements           map[string]int            `json:"elements"`
+	SkipNextDraw       bool                      `json:"skip_next_draw"`
+	TempModifiers      []TemporaryModifier       `json:"temp_modifiers"`
+	SpellsCastThisTurn map[string]int            `json:"spells_cast_this_turn,omitempty"`
+	DiscardAtTurnEnd   map[string]bool           `json:"discard_at_turn_end,omitempty"`
+	LoadGainAtTurnEnd  map[string]map[string]int `json:"load_gain_at_turn_end,omitempty"`
 
 	// Charge pool - 充能 counter (shared across all cards)
 	Charge int `json:"charge"`
@@ -121,10 +133,13 @@ type PlayerState struct {
 // NewPlayerState creates initial player state from a deck
 func NewPlayerState(id int, name string, deck *model.Deck) *PlayerState {
 	ps := &PlayerState{
-		PlayerID:   id,
-		PlayerName: name,
-		Elements:   make(map[string]int),
-		DeckDef:    deck,
+		PlayerID:           id,
+		PlayerName:         name,
+		Elements:           make(map[string]int),
+		SpellsCastThisTurn: make(map[string]int),
+		DiscardAtTurnEnd:   make(map[string]bool),
+		LoadGainAtTurnEnd:  make(map[string]map[string]int),
+		DeckDef:            deck,
 	}
 
 	// Initialize elements to 0
@@ -262,10 +277,16 @@ func (ps *PlayerState) PayCost(cost map[string]int) bool {
 		return false
 	}
 
+	return ps.PayCostWithPayment(cost, payment)
+}
+
+func (ps *PlayerState) PayCostWithPayment(cost map[string]int, payment map[string]int) bool {
+	if !validateElementPayment(ps.Elements, cost, payment) {
+		return false
+	}
 	for elem, amount := range payment {
 		ps.Elements[elem] -= amount
 	}
-
 	return true
 }
 

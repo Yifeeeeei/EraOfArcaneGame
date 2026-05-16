@@ -8,6 +8,9 @@ func (Card4011002NoFace) OnUnitEnter(ctx *EffectContext) error {
 	if ctx.Target == nil || ctx.Source == nil {
 		return nil
 	}
+	if ctx.Target.OwnerID != ctx.PlayerID {
+		return nil
+	}
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	for _, c := range ctx.Engine.getAllFieldCards(ps) {
 		if c == ctx.Target {

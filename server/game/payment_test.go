@@ -56,6 +56,34 @@ func TestArcaneCostCanUseAnyElement(t *testing.T) {
 	}
 }
 
+func TestArcaneCostCanUseChosenSpecificElement(t *testing.T) {
+	ps := newPaymentPlayer(map[string]int{
+		model.ElementFire:  1,
+		model.ElementWater: 1,
+	})
+
+	if !ps.PayCostWithPayment(map[string]int{model.ElementArcane: 1}, map[string]int{model.ElementWater: 1}) {
+		t.Fatalf("expected chosen water to pay arcane cost")
+	}
+	if ps.Elements[model.ElementFire] != 1 || ps.Elements[model.ElementWater] != 0 {
+		t.Fatalf("expected only water to be spent, got %v", ps.Elements)
+	}
+}
+
+func TestChosenPaymentCannotIncludeUnusedElements(t *testing.T) {
+	ps := newPaymentPlayer(map[string]int{
+		model.ElementFire:  1,
+		model.ElementWater: 1,
+	})
+
+	if ps.PayCostWithPayment(map[string]int{model.ElementArcane: 1}, map[string]int{
+		model.ElementFire:  1,
+		model.ElementWater: 1,
+	}) {
+		t.Fatalf("payment with extra unused elements should be rejected")
+	}
+}
+
 func TestCanPayCostDoesNotMutateElements(t *testing.T) {
 	ps := newPaymentPlayer(map[string]int{
 		model.ElementFire:   1,

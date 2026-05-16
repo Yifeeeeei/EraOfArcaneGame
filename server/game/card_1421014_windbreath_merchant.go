@@ -10,7 +10,7 @@ func (Card1421014WindbreathMerchant) OnEnter(ctx *EffectContext) error {
 		if unit == ctx.Source || !unit.Card.IsCompanion() {
 			continue
 		}
-		if hasTag(unit.Card.Tag, "野兽", "精灵", "植物") {
+		if isBeastPlantOrSpirit(unit) {
 			count++
 			if count >= 3 {
 				break

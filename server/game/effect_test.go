@@ -31,64 +31,27 @@ func setupEffectTest(t *testing.T) *Engine {
 	return engine
 }
 
-func TestKeywordRush(t *testing.T) {
-	// Test that 速攻 keyword makes a card enter vertical
-	engine := setupEffectTest(t)
-	p0 := engine.State.Players[0]
+func TestKeywordTraits(t *testing.T) {
+	setupEffectTest(t)
 
-	// Give P0 elements to summon
-	engine.HandleAction(0, ActionMessage{Action: "consume", Data: map[string]any{"instance_id": p0.Hero.InstanceID}})
-
-	// Find a card with 速攻 in hand (if any)
-	for _, card := range p0.Hand {
-		if HasKeyword(card.Card.Description, KW_Rush) {
-			t.Logf("Found rush card: %s", card.Card.Name)
-		}
+	rushSkill := NewCardInstance(cards.PlayableCardDB["3021009"], 0, 1)
+	rushSkill.IsHorizontal = true
+	engine := NewEngine("keyword-traits", func(event GameEvent, targetPlayer int) {})
+	engine.ApplyKeywordOnEnter(rushSkill)
+	if rushSkill.IsHorizontal {
+		t.Fatal("rush skill should enter ready through explicit trait")
 	}
 
-	t.Log("Rush keyword test completed")
-}
-
-func TestKeywordCooldown(t *testing.T) {
-	// Test cooldown parsing
-	tests := []struct {
-		desc     string
-		expected int
-	}{
-		{"冷却1.速攻.穿透.", 1},
-		{"冷却2.异能:...", 2},
-		{"冷却3", 3},
-		{"没有冷却", 0},
-		{"", 0},
+	cooldownSkill := NewCardInstance(cards.PlayableCardDB["3421015"], 0, 1)
+	engine.ApplyKeywordOnSkillUse(cooldownSkill)
+	if cooldownSkill.Statuses[StatusCooldown] != 2 {
+		t.Fatalf("cooldown trait = %d, want 2", cooldownSkill.Statuses[StatusCooldown])
 	}
 
-	for _, tt := range tests {
-		got := ParseCooldown(tt.desc)
-		if got != tt.expected {
-			t.Errorf("ParseCooldown(%q) = %d, want %d", tt.desc, got, tt.expected)
-		}
-	}
-}
-
-func TestKeywordParse(t *testing.T) {
-	// Test keyword detection
-	tests := []struct {
-		desc    string
-		keyword string
-		expect  bool
-	}{
-		{"速攻.穿透", KW_Rush, true},
-		{"入场:充能1", KW_Charge, true},
-		{"隐蔽2.引魔", KW_Stealth, true},
-		{"隐蔽2.引魔", KW_Taunt, true},
-		{"普通卡牌", KW_Rush, false},
-	}
-
-	for _, tt := range tests {
-		got := HasKeyword(tt.desc, tt.keyword)
-		if got != tt.expect {
-			t.Errorf("HasKeyword(%q, %q) = %v, want %v", tt.desc, tt.keyword, got, tt.expect)
-		}
+	tauntUnit := NewCardInstance(cards.PlayableCardDB["1011001"], 0, 1)
+	engine.ApplyKeywordOnEnter(tauntUnit)
+	if tauntUnit.Statuses["引魔"] != 1 {
+		t.Fatal("taunt trait should apply 引魔 status")
 	}
 }
 
@@ -139,6 +102,25 @@ func TestRegisterAllCardEffectsIsLazy(t *testing.T) {
 	}
 	if got := len(globalRegistry.effects); got != 1 {
 		t.Fatalf("expected only queried card behavior to be materialized, got %d effect entries", got)
+	}
+}
+
+func TestCardRuleInfoDoesNotMaterializeLazyBehaviors(t *testing.T) {
+	previousRegistry := globalRegistry
+	t.Cleanup(func() { globalRegistry = previousRegistry })
+
+	if cards.CardDB == nil {
+		if err := cards.LoadCards(); err != nil {
+			t.Fatalf("load cards: %v", err)
+		}
+	}
+	RegisterAllCardEffects()
+
+	for _, card := range cards.PlayableCardDB {
+		_ = CardRuleInfo(card)
+	}
+	if got := len(globalRegistry.effects); got != 0 {
+		t.Fatalf("CardRuleInfo should not materialize behavior effects, got %d effect entries", got)
 	}
 }
 
@@ -222,10 +204,9 @@ func TestEffectSystemIntegration(t *testing.T) {
 		} else {
 			t.Logf("Summoned successfully at (0,0)")
 
-			// Verify keyword effects
 			placed := p0.Units[0][0]
 			if placed != nil {
-				if HasKeyword(desc, KW_Rush) && placed.IsHorizontal {
+				if cardHasRush(placed) && placed.IsHorizontal {
 					t.Error("Rush card should be vertical on enter")
 				}
 				t.Logf("Card is_horizontal: %v", placed.IsHorizontal)

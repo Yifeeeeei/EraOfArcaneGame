@@ -84,3 +84,22 @@ func calculateElementPayment(available map[string]int, cost map[string]int) (map
 
 	return payment, true
 }
+
+func validateElementPayment(available map[string]int, cost map[string]int, payment map[string]int) bool {
+	for elem, amount := range payment {
+		if amount < 0 || amount > available[elem] {
+			return false
+		}
+	}
+
+	spent, ok := calculateElementPayment(payment, cost)
+	if !ok {
+		return false
+	}
+	for _, elem := range model.AllElements {
+		if spent[elem] != payment[elem] {
+			return false
+		}
+	}
+	return true
+}

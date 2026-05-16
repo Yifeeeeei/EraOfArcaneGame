@@ -84,6 +84,8 @@ The server currently assumes `../web` is available relative to the `server` dire
 
 The game should be understandable from Go code alone. JSON snapshots are reference material only; they are not runtime truth.
 
+- A horizontal card may still use `回合技` / `绝技` unless that specific card text or implementation says otherwise.
+- A `消耗:` effect is different from a normal `回合技`: it pays by turning a vertical card horizontal, so it cannot be used when the source is already horizontal. Most `消耗:` cards should be implemented through `TriggerOnConsume` so `handleConsume` enforces this. Cards such as `渡鸦信使` that use an active button for `消耗:` must explicitly reject horizontal sources and set themselves horizontal without granting their printed load.
 - Card metadata lives in compiled Go definitions under `server/cards`.
 - Card categories are Go interfaces (`HeroCard`, `CompanionCard`, `SkillCard`, `ItemCard`, plus item subtypes) rather than runtime-only string checks.
 - Custom rules live on concrete structs under `server/game`, one file per card, for example `card_1021006_grocer.go` containing `Card1021006Grocer`.
@@ -91,6 +93,22 @@ The game should be understandable from Go code alone. JSON snapshots are referen
 - `EffectRegistry` still exists as an engine adapter, but new work should add or change card behavior structs, not description parsers or string-inferred effects.
 - Behavior registration is lazy. `RegisterAllCardEffects` registers factories only; concrete behavior objects should be constructed only when a card number is queried during play or serialization.
 - Expansion cards should not be added until the base-set scope changes.
+
+## Rule Clarifications From Prior Corrections
+
+These are rules that previous agents have misunderstood. Treat them as hard constraints unless the user explicitly changes the game rules.
+
+- Do not infer mechanics from `Description` text. Code such as `strings.Contains(card.Description, "精通")`, `includes("穿透")`, or similar text parsing is tech debt and should be removed, not expanded. Keywords and categories must be represented through Go interfaces or explicit card behavior methods.
+- A keyword belongs to a specific card instance, not to a player globally. For example, `精通` is not a player-wide value; cards that care about mastered cards must inspect cards that implement the relevant interface/state.
+- `绑定技能` is not a learnable skill. It does not enter the skill pool, does not occupy one of the 5 skill slots, and cannot be learned with `learn_skill`. It is attached to its host card as runtime state such as `BoundSkills`; when the host leaves the battlefield, the bound skill disappears with it and does not go to the graveyard as an independent card. Example: `"风暴之女" 艾拉雅` binds `风暴之怒` on herself.
+- A derived/generated skill may still have a concrete Go behavior file. Being generated or bound does not justify special parser logic.
+- Cards reset from horizontal to vertical at the end of their owner's turn, not at the beginning of that player's next turn.
+- `消耗:` is a tap payment. It requires the source card to be vertical first. A horizontal card can still use `回合技` or `绝技` if rules allow, but it cannot pay a `消耗:` cost because that cost is turning vertical to horizontal.
+- `奥术`/`无` in a play cost is a wildcard requirement whose exact paid element can be ambiguous. If the player has multiple possible elements that could satisfy an arcane cost, the frontend should ask the player to choose the payment rather than silently picking one.
+- `吞噬:3\气` and similar summon requirements happen before choosing/placing the summoned card on the battlefield. The player must select a valid friendly companion with sufficient load and destroy it as part of summoning. Do not model this as a later optional ability.
+- `速攻` means the card can be vertical and usable immediately after entering, according to the card's type/implementation. Apply the keyword generally, not only for one named card.
+- Bound, generated, or temporary cards still need to be visible enough in the frontend for a human to understand why an effect exists. Showing bound skills in the inspector/detail view is appropriate; showing them in the skill pool is wrong.
+- Remaining deck visibility must not reveal order. If exposing deck contents, expose only an unordered summary by card number/name/count, never the ordered deck slice or instance IDs.
 
 ## Tests
 

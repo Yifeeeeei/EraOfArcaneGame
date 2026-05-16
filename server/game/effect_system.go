@@ -28,6 +28,7 @@ const (
 	TriggerPerTurn                              // 回合技: active ability (per-turn)
 	TriggerUltimate                             // 绝技: one-time active ability
 	TriggerOnEquip                              // 装备时: item is equipped
+	TriggerOnUseItem                            // 使用消耗品道具时
 	TriggerPassive                              // 被动: always active while on field
 )
 
@@ -68,7 +69,8 @@ type EffectRegistry struct {
 	effects              map[string][]*CardEffect                  // cardNumber -> effects list
 	conditionalAbilities map[string][]*CardAbilityWithPrecondition // cardNumber -> conditional abilities
 	behaviorFactories    map[string]func() CardBehavior            // cardNumber -> lazy behavior constructor
-	loadedBehaviors      map[string]bool                           // cardNumber -> behavior registered into effects
+	loadedBehaviors      map[string]CardBehavior                   // cardNumber -> behavior registered into effects
+	spellDamage          map[string]func(*EffectContext) int       // cardNumber -> spell damage override
 }
 
 // Global effect registry
@@ -89,7 +91,8 @@ func NewEffectRegistry() *EffectRegistry {
 		effects:              make(map[string][]*CardEffect),
 		conditionalAbilities: make(map[string][]*CardAbilityWithPrecondition),
 		behaviorFactories:    make(map[string]func() CardBehavior),
-		loadedBehaviors:      make(map[string]bool),
+		loadedBehaviors:      make(map[string]CardBehavior),
+		spellDamage:          make(map[string]func(*EffectContext) int),
 	}
 }
 
@@ -101,15 +104,21 @@ func (r *EffectRegistry) RegisterBehaviorFactory(cardNumber string, factory func
 }
 
 func (r *EffectRegistry) ensureBehaviorLoaded(cardNumber string) {
-	if r.loadedBehaviors[cardNumber] {
+	if r.loadedBehaviors[cardNumber] != nil {
 		return
 	}
 	factory, ok := r.behaviorFactories[cardNumber]
 	if !ok {
 		return
 	}
-	r.loadedBehaviors[cardNumber] = true
-	registerBehavior(r, factory())
+	behavior := factory()
+	r.loadedBehaviors[cardNumber] = behavior
+	registerBehavior(r, behavior)
+}
+
+func (r *EffectRegistry) GetBehavior(cardNumber string) CardBehavior {
+	r.ensureBehaviorLoaded(cardNumber)
+	return r.loadedBehaviors[cardNumber]
 }
 
 // Register adds an effect for a card
@@ -129,6 +138,19 @@ func (r *EffectRegistry) RegisterActive(cardNumber string, trigger EffectTrigger
 		Handler:    handler,
 		IsActive:   true,
 	})
+}
+
+func (r *EffectRegistry) RegisterSpellDamage(cardNumber string, handler func(*EffectContext) int) {
+	r.spellDamage[cardNumber] = handler
+}
+
+func (r *EffectRegistry) SpellDamage(cardNumber string, ctx *EffectContext) (int, bool) {
+	r.ensureBehaviorLoaded(cardNumber)
+	handler, ok := r.spellDamage[cardNumber]
+	if !ok {
+		return 0, false
+	}
+	return handler(ctx), true
 }
 
 // RegisterWithPrecondition 注册带前提条件的能力
@@ -245,13 +267,17 @@ func (e *Engine) triggerEffects(trigger EffectTrigger, source *CardInstance, tar
 
 // triggerFieldEffects fires effects for all cards on a player's field
 func (e *Engine) triggerFieldEffects(trigger EffectTrigger, playerID int, eventSource *CardInstance) {
+	e.triggerFieldEffectsWithData(trigger, playerID, eventSource, nil)
+}
+
+func (e *Engine) triggerFieldEffectsWithData(trigger EffectTrigger, playerID int, eventSource *CardInstance, extraData map[string]any) {
 	ps := e.State.Players[playerID]
 	allCards := e.getAllFieldCards(ps)
 	for _, card := range allCards {
 		if card == eventSource {
 			continue // skip the source itself to avoid loops
 		}
-		e.triggerEffects(trigger, card, eventSource, nil)
+		e.triggerEffects(trigger, card, eventSource, extraData)
 	}
 }
 
@@ -283,6 +309,8 @@ func triggerName(t EffectTrigger) string {
 		return "per_turn"
 	case TriggerUltimate:
 		return "ultimate"
+	case TriggerOnUseItem:
+		return "on_use_item"
 	default:
 		return fmt.Sprintf("trigger_%d", t)
 	}

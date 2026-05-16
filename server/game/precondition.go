@@ -35,10 +35,10 @@ type PreconditionResult struct {
 
 // ConditionContext 条件检查的上下文
 type ConditionContext struct {
-	Engine     *Engine         // 游戏引擎
-	PlayerID   int             // 当前玩家ID
-	SourceCard *CardInstance   // 来源卡牌（如果是卡牌效果）
-	ExtraData  map[string]any  // 额外数据
+	Engine     *Engine        // 游戏引擎
+	PlayerID   int            // 当前玩家ID
+	SourceCard *CardInstance  // 来源卡牌（如果是卡牌效果）
+	ExtraData  map[string]any // 额外数据
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -240,7 +240,7 @@ func (p *PlayerHasCharge) String() string {
 // CardHasStatus 检查卡牌是否有指定状态
 type CardHasStatus struct {
 	Status    string
-	MinAmount int // 最小层数，0表示只要有
+	MinAmount int    // 最小层数，0表示只要有
 	Target    string // "source" 或 "target"
 }
 

@@ -10,9 +10,14 @@ import (
 func setupCoreRulesEngine(t *testing.T) *Engine {
 	t.Helper()
 	previousDB := cardDBRef
+	previousRegistry := globalRegistry
 	t.Cleanup(func() {
 		SetCardDB(previousDB)
+		globalRegistry = previousRegistry
 	})
+	globalRegistry = NewEffectRegistry()
+	globalRegistry.RegisterBehaviorFactory("spell_pierce", func() CardBehavior { return testPierceSkill{} })
+	globalRegistry.RegisterBehaviorFactory("spell_defense", func() CardBehavior { return testDefenseSkill{} })
 
 	db := map[string]*model.Card{
 		"hero_air": {
@@ -128,10 +133,71 @@ func setupCoreRulesEngine(t *testing.T) *Engine {
 	return engine
 }
 
+type testPierceSkill struct{}
+
+func (testPierceSkill) ID() string      { return "spell_pierce" }
+func (testPierceSkill) Name() string    { return "Piercing Bolt" }
+func (testPierceSkill) HasPierce() bool { return true }
+
+type testDefenseSkill struct{}
+
+func (testDefenseSkill) ID() string               { return "spell_defense" }
+func (testDefenseSkill) Name() string             { return "Wall" }
+func (testDefenseSkill) IsDefenseOnlySkill() bool { return true }
+func (testDefenseSkill) IsSorcerySkill() bool     { return false }
+func (testDefenseSkill) NeedsSpellTarget() bool   { return true }
+func (testDefenseSkill) SpellArea() SpellArea     { return SpellAreaSingle }
+func (testDefenseSkill) HasPierce() bool          { return false }
+func (testDefenseSkill) CanUseForSkillPurpose(p skillPurpose) bool {
+	return p == skillPurposeDefend || p == skillPurposeDefenseBoost
+}
+
 func readySkill(card *model.Card, ownerID int) *CardInstance {
 	skill := NewCardInstance(card, ownerID, 1)
 	skill.IsHorizontal = false
 	return skill
+}
+
+func TestPendingActionResolvingAfterSpellHitReturnsToMain(t *testing.T) {
+	engine := NewEngine("pending-after-hit", nil)
+	engine.State.Players[0] = NewPlayerState(0, "p1", &model.Deck{})
+	engine.State.Players[1] = NewPlayerState(1, "p2", &model.Deck{})
+	engine.State.Phase = PhaseWaitingAction
+	engine.State.ResumePhase = PhaseDefenseWindow
+	engine.State.PendingSpell = nil
+	engine.State.PendingAction = &PendingAction{
+		Type:       "hit_followup",
+		PlayerID:   0,
+		Prompt:     "resolve follow-up",
+		Candidates: []map[string]any{{"instance_id": "choice"}},
+		MinSelect:  1,
+		MaxSelect:  1,
+	}
+
+	err := engine.HandleAction(0, ActionMessage{
+		Action: "resolve_action",
+		Data:   map[string]any{"selected": []any{"choice"}},
+	})
+	if err != nil {
+		t.Fatalf("resolve action: %v", err)
+	}
+	if engine.State.Phase != PhaseMain {
+		t.Fatalf("expected main phase after defense follow-up resolves, got %s", engine.State.Phase)
+	}
+}
+
+func TestRequiredPendingActionWithNoCandidatesIsSkipped(t *testing.T) {
+	engine := NewEngine("empty-pending", nil)
+	engine.State.Phase = PhaseMain
+
+	engine.SetPendingAction(0, "empty", "cannot resolve", nil, 1, 1, nil)
+
+	if engine.State.PendingAction != nil {
+		t.Fatalf("expected empty required pending action to be skipped")
+	}
+	if engine.State.Phase != PhaseMain {
+		t.Fatalf("expected phase to remain main, got %s", engine.State.Phase)
+	}
 }
 
 func TestSpellRangeRequiresEnemyFrontRowUnlessPiercing(t *testing.T) {

@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"eraofarcane/cards"
+	"eraofarcane/game"
 	"eraofarcane/match"
 	"eraofarcane/model"
 	"fmt"
@@ -28,7 +29,34 @@ func SetupRoutes(mux *http.ServeMux, rm *match.RoomManager) {
 
 func handleGetCards(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(cards.PlayableCardDB)
+	response := make(map[string]map[string]any, len(cards.PlayableCardDB))
+	for id, card := range cards.PlayableCardDB {
+		entry := map[string]any{
+			"number":           card.Number,
+			"type":             card.Type,
+			"name":             card.Name,
+			"category":         card.Category,
+			"tag":              card.Tag,
+			"description":      card.Description,
+			"quote":            card.Quote,
+			"elements_cost":    card.ElementsCost,
+			"elements_gain":    card.ElementsGain,
+			"elements_expense": card.ElementsExpense,
+			"version_number":   card.VersionNum,
+			"version_name":     card.VersionName,
+			"attack":           card.Attack,
+			"life":             card.Life,
+			"duration":         card.Duration,
+			"power":            card.Power,
+			"spawns":           card.Spawns,
+			"output_path":      card.OutputPath,
+		}
+		for key, value := range game.CardRuleInfo(card) {
+			entry[key] = value
+		}
+		response[id] = entry
+	}
+	json.NewEncoder(w).Encode(response)
 }
 
 func handleValidateDeck(w http.ResponseWriter, r *http.Request) {

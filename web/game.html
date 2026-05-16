@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>奥术纪元 — 对战</title>
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <link rel="stylesheet" href="css/game.css?v=20260513-arcane-unified">
+    <link rel="stylesheet" href="css/game.css?v=20260515-readable-cards">
 </head>
 <body>
     <div id="app">
@@ -41,7 +41,7 @@
             <div class="overlay-content mulligan-panel">
                 <h2>选择初始手牌</h2>
                 <div class="mulligan-cards">
-                    <div v-for="card in myHand" :key="card.instance_id" class="card-mini" @click="showCardDetail(card)">
+                    <div v-for="card in myHand" :key="card.instance_id" class="card-mini" @mouseenter="previewCard(card)" @click="showCardDetail(card)">
                         <img :src="getCardImage(card)" :alt="card.name" class="card-img-small">
                         <div class="card-mini-name">{{ card.name }}</div>
                     </div>
@@ -120,7 +120,7 @@
                 </div>
 
                 <div class="defense-actions">
-                    <button v-if="defenseSelected.length > 0" @click="submitDefend()" class="btn btn-success">确认防御</button>
+                    <button v-if="defenseSelected.length > 0" @click="submitDefend()" class="btn btn-success" :disabled="!canSubmitDefense">确认防御</button>
                     <button @click="noDefend()" class="btn btn-danger">不防御</button>
                 </div>
             </div>
@@ -137,6 +137,10 @@
                          @click="togglePendingSelect(candidate)">
                         <img :src="getCardImage(candidate)" class="pending-card-img">
                         <div class="pending-card-name">{{ candidate.name }}</div>
+                        <div class="pending-card-side">
+                            <span v-if="candidate.side">{{ candidate.side === 'own' ? '己方' : '敌方' }}</span>
+                            <span v-if="candidate.zone"> · {{ zoneLabel(candidate.zone) }}</span>
+                        </div>
                     </div>
                 </div>
                 <div class="pending-info">
@@ -147,6 +151,59 @@
                             :disabled="pendingSelected.length < pendingAction.min_select || pendingSelected.length > pendingAction.max_select">
                         确认
                     </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ SUMMON DEVOUR MODAL ═══ -->
+        <div v-if="devourRequest" class="overlay pending-action-overlay">
+            <div class="overlay-content pending-action-panel">
+                <h2>选择吞噬对象</h2>
+                <div class="payment-title">{{ devourRequest.card.name }}</div>
+                <div class="payment-cost">需求：{{ costLabel(devourRequest.requirement) }} 负载</div>
+                <div class="pending-candidates">
+                    <div v-for="candidate in devourCandidates(devourRequest.card)" :key="candidate.instance_id"
+                         class="pending-card"
+                         :class="{ selected: devourSelection === candidate.instance_id }"
+                         @click="devourSelection = candidate.instance_id">
+                        <img :src="getCardImage(candidate)" class="pending-card-img">
+                        <div class="pending-card-name">{{ candidate.name }}</div>
+                        <div class="pending-card-side">负载 {{ costLabel(candidate.elements_gain) }}</div>
+                    </div>
+                </div>
+                <div class="pending-actions">
+                    <button @click="confirmDevourSelection()" class="btn btn-success" :disabled="!devourSelection">确认</button>
+                    <button @click="cancelDevourSelection()" class="btn btn-danger">取消</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- ═══ PAYMENT CHOICE MODAL ═══ -->
+        <div v-if="paymentRequest" class="overlay payment-overlay">
+            <div class="overlay-content payment-panel">
+                <h2>选择支付元素</h2>
+                <div class="payment-title">{{ paymentRequest.title }}</div>
+                <div class="payment-cost">费用：{{ costLabel(paymentRequest.cost) }}</div>
+                <div class="payment-options">
+                    <button v-for="elem in paymentElements()" :key="elem"
+                            class="payment-token"
+                            :disabled="!canAddPayment(elem)"
+                            @click="addPayment(elem)">
+                        <img :src="getElementIcon(elem)" :alt="elemFull(elem)" class="payment-icon">
+                        <span>{{ elemFull(elem) }}</span>
+                        <strong>{{ paymentSelection[elem] || 0 }}</strong>
+                        <small>/ {{ myState.elements?.[elem] || 0 }}</small>
+                    </button>
+                </div>
+                <div class="payment-summary">
+                    已选 {{ selectedPaymentTotal() }} / {{ totalCost(paymentRequest.cost) }}
+                </div>
+                <div class="payment-remaining" :class="{ ready: isPaymentSelectionValid() }">
+                    {{ paymentRemainingText() }}
+                </div>
+                <div class="pending-actions">
+                    <button @click="confirmPayment()" class="btn btn-success" :disabled="!isPaymentSelectionValid()">确认支付</button>
+                    <button @click="cancelPayment()" class="btn btn-danger">取消</button>
                 </div>
             </div>
         </div>
@@ -182,14 +239,53 @@
                         <span v-if="detailCard.power >= 0" style="color:var(--elem-arcane)">威力 {{ detailCard.power }}</span>
                     </div>
                     <div v-if="hasCost(detailCard)" class="card-cost">
-                        费用：<span v-for="(v,k) in detailCard.elements_cost" :key="k">{{ elemFull(k) }}×{{ v }} </span>
+                        费用：<span class="element-list" v-html="costHTML(detailCard.elements_cost)"></span>
                     </div>
                     <div v-if="hasGain(detailCard)" class="card-gain">
-                        负载：<span v-for="(v,k) in detailCard.elements_gain" :key="k">{{ elemFull(k) }}×{{ v }} </span>
+                        负载：<span class="element-list" v-html="costHTML(detailCard.elements_gain)"></span>
+                    </div>
+                    <div v-if="detailCard.bound_skills && detailCard.bound_skills.length" class="bound-skill-list">
+                        <div class="bound-skill-title">绑定技能</div>
+                        <button v-for="skill in detailCard.bound_skills" :key="skill.instance_id"
+                                class="bound-skill-chip"
+                                @mouseenter="previewCard(skill)"
+                                @click.stop="showCardDetail(skill)">
+                            {{ skill.name }}
+                        </button>
                     </div>
                     <div class="card-desc">{{ detailCard.description }}</div>
                 </div>
                 <button @click="detailCard = null" class="close-btn">✕</button>
+            </div>
+        </div>
+
+        <!-- ═══ PILE VIEW MODAL ═══ -->
+        <div v-if="pileView" class="overlay" @click.self="closePileView">
+            <div class="pile-modal">
+                <div class="pile-modal-header">
+                    <div>
+                        <div class="pile-owner">{{ pileView.ownerName }}</div>
+                        <h3>{{ pileView.title }}</h3>
+                    </div>
+                    <button @click="closePileView" class="close-btn">✕</button>
+                </div>
+                <div v-if="pileView.zone === 'deck'" class="pile-note">剩余卡组只显示种类与数量，不显示抽牌顺序。</div>
+                <div v-if="pileView.cards.length" class="pile-list">
+                    <div v-for="card in pileView.cards" :key="card.number || card.name" class="pile-entry"
+                         @mouseenter="previewCard(card)"
+                         @click="showCardDetail(card)">
+                        <img :src="getCardImage(card)" :alt="card.name">
+                        <div class="pile-entry-main">
+                            <div class="pile-entry-name">{{ card.name }}</div>
+                            <div class="pile-entry-meta">
+                                {{ card.type || '卡牌' }}
+                                <template v-if="card.category && card.category !== '无'"> · {{ elemFull(card.category) }}</template>
+                            </div>
+                        </div>
+                        <div class="pile-entry-count">×{{ card.count || 1 }}</div>
+                    </div>
+                </div>
+                <div v-else class="pile-empty">暂无卡牌</div>
             </div>
         </div>
 
@@ -208,7 +304,7 @@
                         <span v-if="!isMyTurn" class="turn-badge waiting">当前回合</span>
                     </div>
                     <div class="hero-row" v-if="opponent.hero">
-                        <div class="hero-portrait" @click="showCardDetail(opponent.hero)">
+                        <div class="hero-portrait" @mouseenter="previewCard(opponent.hero)" @click="showCardDetail(opponent.hero)">
                             <img :src="getCardImage(opponent.hero)" :alt="opponent.hero.name">
                         </div>
                         <div>
@@ -222,8 +318,8 @@
                     </div>
                     <div class="elem-grid">
                         <div v-for="(v,k) in opponent.elements" :key="k" class="elem-item">
-                            <span class="elem-pip" :class="'pip-'+k"></span>
-                            <span>{{ elemFull(k) }}</span>
+                            <img :src="getElementIcon(k)" :alt="elemFull(k)" class="elem-icon">
+                            <span class="elem-name">{{ elemFull(k) }}</span>
                             <span class="elem-count" :class="{'has-value': v > 0}">{{ v }}</span>
                         </div>
                     </div>
@@ -238,7 +334,7 @@
                         <span v-if="isMyTurn" class="turn-badge active">你的回合</span>
                     </div>
                     <div class="hero-row" v-if="myState.hero">
-                        <div class="hero-portrait" @click="showCardDetail(myState.hero)">
+                        <div class="hero-portrait" @mouseenter="previewCard(myState.hero)" @click="showCardDetail(myState.hero)">
                             <img :src="getCardImage(myState.hero)" :alt="myState.hero.name">
                         </div>
                         <div>
@@ -258,8 +354,8 @@
                     </div>
                     <div class="elem-grid">
                         <div v-for="(v,k) in myState.elements" :key="k" class="elem-item">
-                            <span class="elem-pip" :class="'pip-'+k"></span>
-                            <span>{{ elemFull(k) }}</span>
+                            <img :src="getElementIcon(k)" :alt="elemFull(k)" class="elem-icon">
+                            <span class="elem-name">{{ elemFull(k) }}</span>
                             <span class="elem-count" :class="{'has-value': v > 0}">{{ v }}</span>
                         </div>
                     </div>
@@ -281,42 +377,14 @@
                             @click="clearSelection">取消选择</button>
                 </div>
 
-                <!-- Opponent Skills & Equipment -->
-                <div class="slot-row">
-                    <div class="slot-group">
-                        <span class="slot-label">技能</span>
-                        <div class="slots">
-                            <div v-for="i in 5" :key="'os'+i" class="slot" :class="{occupied: opponent.skills[i-1]}"
-                                 @click="opponent.skills[i-1] && showCardDetail(opponent.skills[i-1])">
-                                <template v-if="opponent.skills[i-1]">
-                                    <img :src="getCardImage(opponent.skills[i-1])" class="slot-img"
-                                         :class="{horizontal: opponent.skills[i-1].is_horizontal}">
-                                    <div class="status-badges compact" v-if="statusEntries(opponent.skills[i-1]).length">
-                                        <span v-for="s in statusEntries(opponent.skills[i-1])" :key="s.label" class="status-badge">{{ s.label }}</span>
-                                    </div>
-                                </template>
-                            </div>
+                <div class="boards-wrapper">
+                    <div class="player-board opponent-board">
+                        <div class="board-title">
+                            <span>{{ opponent.player_name || '对手' }}</span>
+                            <small>战场</small>
                         </div>
-                    </div>
-                    <div class="slot-group">
-                        <span class="slot-label">装备</span>
-                        <div class="slots">
-                            <div v-for="i in 5" :key="'oe'+i" class="slot" :class="{occupied: opponent.equipment[i-1]}"
-                                 @click="opponent.equipment[i-1] && showCardDetail(opponent.equipment[i-1])">
-                                <template v-if="opponent.equipment[i-1]">
-                                    <img :src="getCardImage(opponent.equipment[i-1])" class="slot-img"
-                                         :class="{horizontal: opponent.equipment[i-1].is_horizontal}">
-                                </template>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Grids -->
-                <div class="grids-wrapper">
-
-                    <!-- Opponent Grid (row 2 at top = back, row 0 at bottom = front) -->
-                    <div class="unit-grid">
+                        <!-- Opponent Grid (row 2 at top = back, row 0 at bottom = front) -->
+                        <div class="unit-grid board-grid">
                         <template v-for="row in [2,1,0]">
                             <div v-for="col in [0,1,2]" :key="'ou'+col+'_'+row"
                                  class="unit-cell"
@@ -330,12 +398,14 @@
                                  }"
                                  @click="handleCellClick(1 - mySlot, col, row)">
                                 <div v-if="getOpponentTerrain(col, row)" class="terrain-layer"
+                                     @mouseenter.stop="previewCard(getOpponentTerrain(col, row))"
                                      @click.stop="showCardDetail(getOpponentTerrain(col, row))">
                                     <img :src="getCardImage(getOpponentTerrain(col, row))" class="terrain-img">
                                 </div>
                                 <template v-if="getOpponentUnit(col, row)">
                                     <img :src="getCardImage(getOpponentUnit(col, row))" class="unit-img"
                                          :class="{horizontal: getOpponentUnit(col, row).is_horizontal, 'inside-terrain': getOpponentTerrain(col, row)}"
+                                         @mouseenter.stop="previewCard(getOpponentUnit(col, row))"
                                          @click.stop="handleUnitImageClick(1 - mySlot, col, row, getOpponentUnit(col, row))">
                                     <div class="unit-overlay">
                                         <span class="unit-hp">{{ getOpponentUnit(col, row).current_life }}</span>
@@ -347,6 +417,48 @@
                                 </template>
                             </div>
                         </template>
+                        </div>
+                        <div class="board-side">
+                            <div class="slot-bank">
+                                <div class="slot-lane">
+                                    <span class="slot-label">技能</span>
+                                    <div class="slots">
+                                        <div v-for="i in 5" :key="'os'+i" class="slot" :class="{occupied: opponent.skills[i-1]}"
+                                             @mouseenter="opponent.skills[i-1] && previewCard(opponent.skills[i-1])"
+                                             @click="opponent.skills[i-1] && showCardDetail(opponent.skills[i-1])">
+                                            <template v-if="opponent.skills[i-1]">
+                                                <img :src="getCardImage(opponent.skills[i-1])" class="slot-img"
+                                                     :class="{horizontal: opponent.skills[i-1].is_horizontal}">
+                                                <div class="status-badges compact" v-if="statusEntries(opponent.skills[i-1]).length">
+                                                    <span v-for="s in statusEntries(opponent.skills[i-1])" :key="s.label" class="status-badge">{{ s.label }}</span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="slot-lane">
+                                    <span class="slot-label">装备</span>
+                                    <div class="slots">
+                                        <div v-for="i in 5" :key="'oe'+i" class="slot" :class="{occupied: opponent.equipment[i-1]}"
+                                             @mouseenter="opponent.equipment[i-1] && previewCard(opponent.equipment[i-1])"
+                                             @click="opponent.equipment[i-1] && showCardDetail(opponent.equipment[i-1])">
+                                            <template v-if="opponent.equipment[i-1]">
+                                                <img :src="getCardImage(opponent.equipment[i-1])" class="slot-img"
+                                                     :class="{horizontal: opponent.equipment[i-1].is_horizontal}">
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="pile-controls">
+                                <button class="pile-button deck" @click="openPileView('opponent', 'deck')">
+                                    <span>卡组</span><strong>{{ opponent.deck_count || 0 }}</strong>
+                                </button>
+                                <button class="pile-button grave" @click="openPileView('opponent', 'graveyard')">
+                                    <span>弃牌</span><strong>{{ opponent.graveyard?.length || 0 }}</strong>
+                                </button>
+                            </div>
+                        </div>
                     </div>
 
                     <!-- Divider -->
@@ -359,11 +471,19 @@
                         </span>
                     </div>
 
-                    <!-- My Grid (row 0 = front) -->
-                    <div class="unit-grid">
+                    <div class="player-board my-board">
+                        <div class="board-title">
+                            <span>{{ myState.player_name || '你' }}</span>
+                            <small>战场</small>
+                        </div>
+                        <!-- My Grid (row 0 = front) -->
+                        <div class="unit-grid board-grid">
                         <template v-for="row in [0,1,2]">
                             <div v-for="col in [0,1,2]" :key="'mu'+col+'_'+row"
                                  class="unit-cell"
+                                 data-owner="me"
+                                 :data-col="col"
+                                 :data-row="row"
                                  :class="{
                                      occupied: getMyUnit(col, row),
                                      'has-terrain': getMyTerrain(col, row),
@@ -374,12 +494,14 @@
                                  }"
                                  @click="handleCellClick(mySlot, col, row)">
                                 <div v-if="getMyTerrain(col, row)" class="terrain-layer"
+                                     @mouseenter.stop="previewCard(getMyTerrain(col, row))"
                                      @click.stop="showCardDetail(getMyTerrain(col, row))">
                                     <img :src="getCardImage(getMyTerrain(col, row))" class="terrain-img">
                                 </div>
                                 <template v-if="getMyUnit(col, row)">
                                     <img :src="getCardImage(getMyUnit(col, row))" class="unit-img"
                                          :class="{horizontal: getMyUnit(col, row).is_horizontal, 'inside-terrain': getMyTerrain(col, row)}"
+                                         @mouseenter.stop="previewCard(getMyUnit(col, row))"
                                          @click.stop="showCardDetail(getMyUnit(col, row))">
                                     <div class="unit-overlay">
                                         <span class="unit-hp">{{ getMyUnit(col, row).current_life }}</span>
@@ -387,6 +509,9 @@
                                     </div>
                                     <div class="status-badges" v-if="statusEntries(getMyUnit(col, row)).length">
                                         <span v-for="s in statusEntries(getMyUnit(col, row))" :key="s.label" class="status-badge">{{ s.label }}</span>
+                                    </div>
+                                    <div class="action-peek" v-if="unitActionChips(getMyUnit(col, row)).length">
+                                        <span v-for="chip in unitActionChips(getMyUnit(col, row))" :key="chip">{{ chip }}</span>
                                     </div>
                                     <div class="unit-actions" v-if="isMyTurn && gameState.phase === 'main'">
                                         <button v-if="canConsumeUnit(getMyUnit(col, row))"
@@ -401,49 +526,71 @@
                                 </template>
                             </div>
                         </template>
-                    </div>
-                </div>
-
-                <!-- My Skills & Equipment -->
-                <div class="slot-row">
-                    <div class="slot-group">
-                        <span class="slot-label">技能</span>
-                        <div class="slots">
-                            <div v-for="i in 5" :key="'ms'+i" class="slot"
-                                 :class="{occupied: mySkills[i-1], 'defense-only': mySkills[i-1]?.is_defense_only, 'boost-selected': selectedBoostSkills.includes(mySkills[i-1]?.instance_id), castable: canCastSkill(mySkills[i-1])}"
-                                 @click="mySkills[i-1] && showCardDetail(mySkills[i-1])">
-                                <template v-if="mySkills[i-1]">
-                                    <img :src="getCardImage(mySkills[i-1])" class="slot-img"
-                                         :class="{horizontal: mySkills[i-1].is_horizontal}">
-                                    <div class="skill-badges">
-                                        <span v-if="mySkills[i-1].is_defense_only" class="badge badge-defense">防御</span>
-                                        <span v-if="mySkills[i-1].is_sorcery" class="badge badge-sorcery">咒术</span>
-                                    </div>
-                                    <div class="status-badges compact" v-if="statusEntries(mySkills[i-1]).length">
-                                        <span v-for="s in statusEntries(mySkills[i-1])" :key="s.label" class="status-badge">{{ s.label }}</span>
-                                    </div>
-                                    <div v-if="canCastSkill(mySkills[i-1])" class="cast-btn"
-                                         @click.stop="selectSkillToCast(mySkills[i-1])">施放</div>
-                                    <div v-else-if="canShowCostHint(mySkills[i-1])" class="slot-cost-hint">
-                                        {{ missingCostText(skillUseCost(mySkills[i-1])) }}
-                                    </div>
-                                    <div v-if="selectedSkill && canBoostWith(mySkills[i-1])" class="boost-btn"
-                                         @click.stop="toggleBoostSkill(mySkills[i-1])">
-                                        {{ selectedBoostSkills.includes(mySkills[i-1].instance_id) ? '取消强化' : '强化' }}
-                                    </div>
-                                </template>
-                            </div>
                         </div>
-                    </div>
-                    <div class="slot-group">
-                        <span class="slot-label">装备</span>
-                        <div class="slots">
-                            <div v-for="i in 5" :key="'me'+i" class="slot" :class="{occupied: myEquipment[i-1]}"
-                                 @click="myEquipment[i-1] && showCardDetail(myEquipment[i-1])">
-                                <template v-if="myEquipment[i-1]">
-                                    <img :src="getCardImage(myEquipment[i-1])" class="slot-img"
-                                         :class="{horizontal: myEquipment[i-1].is_horizontal}">
-                                </template>
+                        <div class="board-side">
+                            <div class="slot-bank">
+                                <div class="slot-lane">
+                                    <span class="slot-label">技能</span>
+                                    <div class="slots">
+                                        <div v-for="i in 5" :key="'ms'+i" class="slot"
+                                             :class="{occupied: mySkills[i-1], 'defense-only': mySkills[i-1]?.is_defense_only, 'boost-selected': selectedBoostSkills.includes(mySkills[i-1]?.instance_id), castable: canCastSkill(mySkills[i-1])}"
+                                             @mouseenter="mySkills[i-1] && previewCard(mySkills[i-1])"
+                                             @click="mySkills[i-1] && showCardDetail(mySkills[i-1])">
+                                            <template v-if="mySkills[i-1]">
+                                                <img :src="getCardImage(mySkills[i-1])" class="slot-img"
+                                                     :class="{horizontal: mySkills[i-1].is_horizontal}">
+                                                <div class="skill-badges">
+                                                    <span v-if="mySkills[i-1].is_defense_only" class="badge badge-defense">防御</span>
+                                                    <span v-if="mySkills[i-1].is_sorcery" class="badge badge-sorcery">咒术</span>
+                                                </div>
+                                                <div class="status-badges compact" v-if="statusEntries(mySkills[i-1]).length">
+                                                    <span v-for="s in statusEntries(mySkills[i-1])" :key="s.label" class="status-badge">{{ s.label }}</span>
+                                                </div>
+                                                <div v-if="canCastSkill(mySkills[i-1])" class="cast-btn"
+                                                     @click.stop="selectSkillToCast(mySkills[i-1])">施放</div>
+                                                <div v-else-if="canShowCostHint(mySkills[i-1])" class="slot-cost-hint">
+                                                    {{ missingCostText(skillUseCost(mySkills[i-1])) }}
+                                                </div>
+                                                <div v-if="selectedSkill && canBoostWith(mySkills[i-1])" class="boost-btn"
+                                                     @click.stop="toggleBoostSkill(mySkills[i-1])">
+                                                    {{ selectedBoostSkills.includes(mySkills[i-1].instance_id) ? '取消强化' : '强化' }}
+                                                </div>
+                                                <div class="action-peek slot-peek" v-if="skillActionChips(mySkills[i-1]).length">
+                                                    <span v-for="chip in skillActionChips(mySkills[i-1])" :key="chip">{{ chip }}</span>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="slot-lane">
+                                    <span class="slot-label">装备</span>
+                                    <div class="slots">
+                                        <div v-for="i in 5" :key="'me'+i" class="slot" :class="{occupied: myEquipment[i-1]}"
+                                             @mouseenter="myEquipment[i-1] && previewCard(myEquipment[i-1])"
+                                             @click="myEquipment[i-1] && showCardDetail(myEquipment[i-1])">
+                                            <template v-if="myEquipment[i-1]">
+                                                <img :src="getCardImage(myEquipment[i-1])" class="slot-img"
+                                                     :class="{horizontal: myEquipment[i-1].is_horizontal}">
+                                                <div class="equipment-actions" v-if="isMyTurn && gameState.phase === 'main'">
+                                                    <button v-if="canConsumeUnit(myEquipment[i-1])"
+                                                            class="action-btn consume small" @click.stop="consumeCard(myEquipment[i-1])">消耗</button>
+                                                    <button v-if="canUsePerTurn(myEquipment[i-1])"
+                                                            class="action-btn ability small" @click.stop="useAbility(myEquipment[i-1], 'per_turn')">回合技</button>
+                                                    <button v-if="canUseUltimate(myEquipment[i-1])"
+                                                            class="action-btn ability ultimate small" @click.stop="useAbility(myEquipment[i-1], 'ultimate')">绝技</button>
+                                                </div>
+                                            </template>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="pile-controls">
+                                <button class="pile-button deck" @click="openPileView('me', 'deck')">
+                                    <span>卡组</span><strong>{{ myState.deck_count || 0 }}</strong>
+                                </button>
+                                <button class="pile-button grave" @click="openPileView('me', 'graveyard')">
+                                    <span>弃牌</span><strong>{{ myState.graveyard?.length || 0 }}</strong>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -453,17 +600,68 @@
             <!-- ── RIGHT SIDEBAR ── -->
             <div class="sidebar-right">
 
+                <!-- Card Inspector -->
+                <div class="inspection-panel" :class="{ empty: !activePreviewCard }">
+                    <template v-if="activePreviewCard">
+                        <div class="inspection-topline">
+                            <span>{{ activePreviewCard.type || '卡牌' }}</span>
+                            <span v-if="activePreviewCard.category && activePreviewCard.category !== '无'" class="element-chip">
+                                <img :src="getElementIcon(activePreviewCard.category)" :alt="elemFull(activePreviewCard.category)">
+                                {{ elemFull(activePreviewCard.category) }}
+                            </span>
+                        </div>
+                        <div class="inspection-card">
+                            <img :src="getCardImage(activePreviewCard)" :alt="activePreviewCard.name">
+                        </div>
+                        <div class="inspection-info">
+                            <h3>{{ activePreviewCard.name }}</h3>
+                            <div class="inspection-stats">
+                                <span v-if="activePreviewCard.life >= 0">生命 {{ activePreviewCard.current_life ?? activePreviewCard.life }}</span>
+                                <span v-if="activePreviewCard.attack >= 0">攻击 {{ activePreviewCard.current_attack ?? activePreviewCard.attack }}</span>
+                                <span v-if="activePreviewCard.power >= 0">威力 {{ activePreviewCard.power }}</span>
+                            </div>
+                            <div v-if="hasCost(activePreviewCard)" class="inspection-line">
+                                <span>费用</span>
+                                <span class="element-list" v-html="costHTML(activePreviewCard.elements_cost)"></span>
+                            </div>
+                            <div v-if="hasGain(activePreviewCard)" class="inspection-line">
+                                <span>负载</span>
+                                <span class="element-list" v-html="costHTML(activePreviewCard.elements_gain)"></span>
+                            </div>
+                            <div v-if="activePreviewCard.bound_skills && activePreviewCard.bound_skills.length" class="inspection-bound">
+                                <span>绑定技能</span>
+                                <button v-for="skill in activePreviewCard.bound_skills" :key="skill.instance_id"
+                                        @mouseenter="previewCard(skill)"
+                                        @click.stop="showCardDetail(skill)">
+                                    {{ skill.name }}
+                                </button>
+                            </div>
+                            <div v-if="statusEntries(activePreviewCard).length" class="inspection-status">
+                                <span v-for="s in statusEntries(activePreviewCard)" :key="s.label">{{ s.label }}</span>
+                            </div>
+                            <div class="inspection-desc">{{ activePreviewCard.description || '无描述' }}</div>
+                        </div>
+                    </template>
+                    <template v-else>
+                        <div class="inspection-placeholder">
+                            <div class="placeholder-title">读牌区</div>
+                            <div class="placeholder-text">悬停任意卡牌查看大图、费用、负载和完整效果。</div>
+                        </div>
+                    </template>
+                </div>
+
                 <!-- Skill Pool -->
                 <div class="skill-pool-panel" v-if="myState.skill_pool && myState.skill_pool.length">
                     <h3>技能池 ({{ myState.skill_pool.length }})</h3>
                     <div class="skill-pool-grid">
                         <div v-for="card in myState.skill_pool" :key="card.instance_id" class="sp-card"
                              :class="{ learnable: canLearnSkill(card), unaffordable: isMyTurn && gameState.phase === 'main' && !canLearnSkill(card) }"
+                             @mouseenter="previewCard(card)"
                              @contextmenu.prevent="showCardContextMenu($event, card, 'skill_pool')"
                              title="右键点击查看选项">
                             <img :src="getCardImage(card)" :alt="card.name">
                             <div class="sp-name">{{ card.name }}</div>
-                            <div class="sp-cost">{{ costLabel(card.elements_cost) }}</div>
+                            <div class="sp-cost" v-html="costHTML(card.elements_cost)"></div>
                             <div class="sp-learn-hint">{{ canLearnSkill(card) ? '右键学习' : missingCostText(card.elements_cost) }}</div>
                         </div>
                     </div>
@@ -482,7 +680,10 @@
                 <div class="hand-cards">
                     <div v-for="card in myHand" :key="card.instance_id"
                          class="hand-card"
+                         :data-instance-id="card.instance_id"
+                         :data-card-number="card.number"
                          :class="{ selected: selectedHandCard === card, playable: canPlayHandCard(card), unaffordable: isMyTurn && gameState.phase === 'main' && !canPlayHandCard(card) }"
+                         @mouseenter="previewCard(card)"
                          @click="selectHandCard(card)"
                          @contextmenu.prevent="showCardContextMenu($event, card, 'hand')"
                          title="右键点击查看选项">
@@ -490,10 +691,13 @@
                         <div class="hand-card-info">
                             <div class="hand-card-name">{{ card.name }}</div>
                             <div class="hand-card-cost" v-if="hasCost(card)">
-                                <span v-for="(v,k) in card.elements_cost" :key="k" class="cost-pip" :class="'elem-' + k">{{ v }}</span>
+                                <span v-for="(v,k) in card.elements_cost" :key="k" class="cost-pip" :class="'elem-' + k">
+                                    <img :src="getElementIcon(k)" :alt="elemFull(k)">
+                                    <span>{{ v }}</span>
+                                </span>
                             </div>
                             <div class="hand-card-hint" v-if="isMyTurn && gameState.phase === 'main' && hasCost(card)">
-                                {{ canPayCost(card.elements_cost) ? '可用' : missingCostText(card.elements_cost) }}
+                                {{ cardAvailabilityText(card) }}
                             </div>
                         </div>
                     </div>
@@ -517,12 +721,15 @@
             const mySlot = ref(-1);
             const mulliganSubmitted = ref(false);
             const detailCard = ref(null);
+            const hoverCard = ref(null);
             const selectedHandCard = ref(null);
             const selectedAttacker = ref(null);
             const selectedSkill = ref(null);
+            const pileView = ref(null);
             const actionLog = ref([]);
 
             const IMAGE_BASE = 'https://yifeeeeei.github.io/ArcaneImages/';
+            const ELEMENT_ICON_BASE = 'https://yifeeeeei.github.io/ArcaneComposer/resources/placeholders/';
 
             function getCardImage(card) {
                 if (!card || !card.output_path) return '';
@@ -530,8 +737,19 @@
             }
 
             const ELEM_FULL = { '火':'火焰','水':'水纹','地':'地脉','气':'大气','光':'光辉','暗':'暗影','无':'奥术' };
+            const ELEM_ICON = { '火':'fire','水':'water','地':'earth','气':'air','光':'light','暗':'dark','无':'none' };
             const ELEMENT_ORDER = ['火','水','地','气','光','暗','无'];
             function elemFull(k) { return ELEM_FULL[k] || k; }
+            function getElementIcon(k) { return `${ELEMENT_ICON_BASE}ele_${ELEM_ICON[k] || 'none'}.png`; }
+            function costHTML(cost) {
+                const entries = Object.entries(cost || {}).filter(([, v]) => Number(v) > 0);
+                if (!entries.length) return '<span class="element-free">免费</span>';
+                return entries.map(([k, v]) => {
+                    const icon = getElementIcon(k);
+                    const label = elemFull(k);
+                    return `<span class="element-token" title="${label}${v}"><img src="${icon}" alt="${label}"><b>${v}</b></span>`;
+                }).join('');
+            }
             function hasCost(c) { return c && c.elements_cost && Object.keys(c.elements_cost).length > 0; }
             function hasGain(c) { return c && c.elements_gain && Object.keys(c.elements_gain).length > 0; }
             function costLabel(cost) {
@@ -566,6 +784,15 @@
                 gameState.value.pending_spell && gameState.value.pending_spell.attacker !== mySlot.value
             );
 
+            const activePreviewCard = computed(() =>
+                hoverCard.value ||
+                selectedHandCard.value ||
+                selectedSkill.value ||
+                selectedAttacker.value ||
+                myState.value.hero ||
+                null
+            );
+
             const myFrontRow = computed(() => {
                 if (!myState.value.units) return 0;
                 for (let r = 0; r < 3; r++)
@@ -584,6 +811,7 @@
             function getMyUnit(col, row) { return myState.value.units?.[col]?.[row] || null; }
             function getOpponentUnit(col, row) { return opponent.value.units?.[col]?.[row] || null; }
             function showCardDetail(card) { detailCard.value = card; }
+            function previewCard(card) { if (card) hoverCard.value = card; }
 
             function cloneElements(elements) {
                 const result = {};
@@ -592,6 +820,10 @@
             }
 
             function calculatePayment(cost) {
+                return calculatePaymentWithAvailable(myState.value.elements || {}, cost);
+            }
+
+            function calculatePaymentWithAvailable(availableSource, cost) {
                 const remaining = {};
                 for (const [elem, raw] of Object.entries(cost || {})) {
                     const value = Number(raw) || 0;
@@ -599,7 +831,7 @@
                 }
                 if (!Object.keys(remaining).length) return {};
 
-                const available = cloneElements(myState.value.elements || {});
+                const available = cloneElements(availableSource || {});
                 const payment = {};
                 const pay = (elem, amount) => {
                     if (amount <= 0) return;
@@ -637,18 +869,101 @@
                 return arcaneNeed > 0 ? null : payment;
             }
 
+            function totalCost(cost) {
+                return Object.values(cost || {}).reduce((sum, value) => sum + Number(value || 0), 0);
+            }
+
+            function isExactPaymentForCost(payment, cost) {
+                const spent = calculatePaymentWithAvailable(payment, cost);
+                if (!spent) return false;
+                for (const elem of ELEMENT_ORDER) {
+                    if (Number(spent[elem] || 0) !== Number(payment[elem] || 0)) return false;
+                }
+                return true;
+            }
+
             function canPayCost(cost) {
                 return calculatePayment(cost) !== null;
             }
 
+            function missingCostParts(cost) {
+                if (!cost || !Object.keys(cost).length || canPayCost(cost)) return [];
+                const remaining = {};
+                for (const [elem, raw] of Object.entries(cost || {})) {
+                    const value = Number(raw) || 0;
+                    if (value > 0) remaining[elem] = (remaining[elem] || 0) + value;
+                }
+                const available = cloneElements(myState.value.elements || {});
+                const spend = (elem, amount) => {
+                    if (amount <= 0) return;
+                    available[elem] = Math.max(0, Number(available[elem] || 0) - amount);
+                };
+
+                for (const elem of ELEMENT_ORDER) {
+                    if (elem === '无') continue;
+                    const amount = Math.min(Number(available[elem] || 0), Number(remaining[elem] || 0));
+                    spend(elem, amount);
+                    remaining[elem] = Number(remaining[elem] || 0) - amount;
+                }
+                for (const elem of ELEMENT_ORDER) {
+                    if (elem === '无') continue;
+                    const amount = Math.min(Number(available['无'] || 0), Number(remaining[elem] || 0));
+                    spend('无', amount);
+                    remaining[elem] = Number(remaining[elem] || 0) - amount;
+                }
+
+                let arcaneNeed = Number(remaining['无'] || 0);
+                const arcanePay = Math.min(Number(available['无'] || 0), arcaneNeed);
+                spend('无', arcanePay);
+                arcaneNeed -= arcanePay;
+                for (const elem of ELEMENT_ORDER) {
+                    if (elem === '无' || arcaneNeed <= 0) continue;
+                    const amount = Math.min(Number(available[elem] || 0), arcaneNeed);
+                    spend(elem, amount);
+                    arcaneNeed -= amount;
+                }
+                remaining['无'] = arcaneNeed;
+
+                return ELEMENT_ORDER
+                    .map(elem => [elem, Math.max(0, Number(remaining[elem] || 0))])
+                    .filter(([, amount]) => amount > 0)
+                    .map(([elem, amount]) => `${elemFull(elem)}${amount}`);
+            }
+
             function missingCostText(cost) {
                 if (!cost || !Object.keys(cost).length) return '免费';
-                return canPayCost(cost) ? '可支付' : '元素不足';
+                if (canPayCost(cost)) return '可支付';
+                const missing = missingCostParts(cost);
+                return missing.length ? `缺${missing.join(' ')}` : '元素不足';
+            }
+
+            function cardAvailabilityText(card) {
+                if (!card || !hasCost(card)) return '';
+                return canPayCost(card.elements_cost || {}) ? '可用' : missingCostText(card.elements_cost || {});
             }
 
             function skillUseCost(skill) {
                 if (!skill) return {};
-                return hasCost({ elements_cost: skill.elements_expense }) ? skill.elements_expense : (skill.elements_cost || {});
+                if ((myState.value.temp_modifiers || []).some(m => m.type === 'next_skill_cost_zero' && (m.remaining_uses || 0) > 0)) {
+                    return {};
+                }
+                const cost = { ...(hasCost({ elements_cost: skill.elements_expense }) ? skill.elements_expense : (skill.elements_cost || {})) };
+                if (skill.category === '气' && hasFriendlyStormChimera()) {
+                    cost['气'] = Math.max(0, Number(cost['气'] || 0) - 1);
+                    if (cost['气'] <= 0) delete cost['气'];
+                }
+                return cost;
+            }
+
+            function hasFriendlyStormChimera() {
+                const units = myState.value?.units || [];
+                for (let col = 0; col < 3; col++) {
+                    for (let row = 0; row < 3; row++) {
+                        const unit = units[col]?.[row];
+                        if (unit && unit.number === '1321010' && !(unit.statuses?.['石化'] > 0)) return true;
+                    }
+                }
+                return false;
             }
 
             function clearSelection() {
@@ -666,6 +981,115 @@
                     if (Number(count) > 0) entries.push({ label: `${name}${Number(count) > 1 ? count : ''}` });
                 }
                 return entries.slice(0, 3);
+            }
+
+            function groupedCards(cards) {
+                const groups = new Map();
+                for (const raw of cards || []) {
+                    if (!raw) continue;
+                    const key = raw.number || raw.instance_id || raw.name;
+                    const current = groups.get(key);
+                    if (current) {
+                        current.count += Number(raw.count || 1);
+                    } else {
+                        groups.set(key, { ...raw, count: Number(raw.count || 1) });
+                    }
+                }
+                return [...groups.values()].sort((a, b) => String(a.number || a.name).localeCompare(String(b.number || b.name)));
+            }
+
+            function openPileView(owner, zone) {
+                const player = owner === 'me' ? myState.value : opponent.value;
+                const ownerName = owner === 'me' ? (myState.value.player_name || '你') : (opponent.value.player_name || '对手');
+                const cards = zone === 'deck'
+                    ? groupedCards(player.deck_summary || [])
+                    : groupedCards(player.graveyard || []);
+                pileView.value = {
+                    zone,
+                    ownerName,
+                    title: zone === 'deck' ? `剩余卡组 (${player.deck_count || 0})` : `弃牌堆 (${player.graveyard?.length || 0})`,
+                    cards,
+                };
+            }
+
+            function closePileView() {
+                pileView.value = null;
+            }
+
+            const paymentRequest = ref(null);
+            const paymentSelection = ref({});
+            const devourRequest = ref(null);
+            const devourSelection = ref('');
+            const pendingSummonDevour = ref({});
+
+            function needsPaymentChoice(cost) {
+                if (!cost || Number(cost['无'] || 0) <= 0) return false;
+                return ELEMENT_ORDER.filter(elem => Number(myState.value.elements?.[elem] || 0) > 0).length > 1;
+            }
+
+            function sendPaidAction(action, data, cost, title, afterSend) {
+                const payment = calculatePayment(cost);
+                if (!payment) {
+                    addLog(`${title} 元素不足`);
+                    return;
+                }
+                if (needsPaymentChoice(cost)) {
+                    paymentSelection.value = {};
+                    paymentRequest.value = { action, data, cost: { ...(cost || {}) }, title, afterSend };
+                    return;
+                }
+                sendAction(action, data);
+                if (afterSend) afterSend();
+            }
+
+            function paymentElements() {
+                return ELEMENT_ORDER.filter(elem => Number(myState.value.elements?.[elem] || 0) > 0);
+            }
+
+            function selectedPaymentTotal() {
+                return Object.values(paymentSelection.value).reduce((sum, value) => sum + Number(value || 0), 0);
+            }
+
+            function canAddPayment(elem) {
+                if (!paymentRequest.value) return false;
+                if (selectedPaymentTotal() >= totalCost(paymentRequest.value.cost)) return false;
+                return Number(paymentSelection.value[elem] || 0) < Number(myState.value.elements?.[elem] || 0);
+            }
+
+            function addPayment(elem) {
+                if (!canAddPayment(elem)) return;
+                paymentSelection.value = {
+                    ...paymentSelection.value,
+                    [elem]: Number(paymentSelection.value[elem] || 0) + 1,
+                };
+            }
+
+            function isPaymentSelectionValid() {
+                if (!paymentRequest.value) return false;
+                if (selectedPaymentTotal() !== totalCost(paymentRequest.value.cost)) return false;
+                return isExactPaymentForCost(paymentSelection.value, paymentRequest.value.cost);
+            }
+
+            function paymentRemainingText() {
+                if (!paymentRequest.value) return '';
+                if (isPaymentSelectionValid()) return '支付组合有效';
+                const need = totalCost(paymentRequest.value.cost) - selectedPaymentTotal();
+                if (need > 0) return `还需选择 ${need} 个元素`;
+                return '当前组合不能支付这项费用';
+            }
+
+            function confirmPayment() {
+                if (!isPaymentSelectionValid()) return;
+                const req = paymentRequest.value;
+                sendAction(req.action, { ...req.data, payment: { ...paymentSelection.value } });
+                if (req.afterSend) req.afterSend();
+                paymentRequest.value = null;
+                paymentSelection.value = {};
+            }
+
+            function cancelPayment() {
+                paymentRequest.value = null;
+                paymentSelection.value = {};
             }
 
             // Context menu for cards
@@ -704,9 +1128,9 @@
                             selectHandCard(card);
                             // If it's a consumable, auto-use it
                             if (isConsumable(card)) {
-                                sendAction('use_item', { instance_id: card.instance_id });
+                                sendPaidAction('use_item', { instance_id: card.instance_id }, card.elements_cost || {}, `使用 ${card.name}`);
                             } else if (card.type === '道具' && !card.is_terrain) {
-                                sendAction('equip', { instance_id: card.instance_id });
+                                sendPaidAction('equip', { instance_id: card.instance_id }, card.elements_cost || {}, `装备 ${card.name}`);
                             }
                         }
                         break;
@@ -727,9 +1151,7 @@
 
             function isConsumable(card) {
                 if (!card || card.type !== '道具') return false;
-                // Consumables: 消耗品, 法术卷轴, 咒术卷轴
-                const tag = card.tag || '';
-                return tag.includes('消耗品') || tag.includes('卷轴');
+                return !!card.is_consumable;
             }
 
             function selectHandCard(card) {
@@ -744,11 +1166,9 @@
                 if (selectedHandCard.value === card) {
                     if (card.type === '道具' && !card.is_terrain) {
                         if (isConsumable(card)) {
-                            sendAction('use_item', { instance_id: card.instance_id });
-                            addLog(`使用 ${card.name}`);
+                            sendPaidAction('use_item', { instance_id: card.instance_id }, card.elements_cost || {}, `使用 ${card.name}`, () => addLog(`使用 ${card.name}`));
                         } else {
-                            sendAction('equip', { instance_id: card.instance_id });
-                            addLog(`装备 ${card.name}`);
+                            sendPaidAction('equip', { instance_id: card.instance_id }, card.elements_cost || {}, `装备 ${card.name}`, () => addLog(`装备 ${card.name}`));
                         }
                         selectedHandCard.value = null;
                         return;
@@ -794,21 +1214,97 @@
             }
 
             function placeTerrainCard(card, col, row) {
-                sendAction('place_terrain', { instance_id: card.instance_id, col, row });
-                selectedHandCard.value = null;
-                addLog(`放置地形 ${card.name} → (${col},${row})`);
+                sendPaidAction('place_terrain', { instance_id: card.instance_id, col, row }, card.elements_cost || {}, `放置 ${card.name}`, () => {
+                    selectedHandCard.value = null;
+                    addLog(`放置地形 ${card.name} → (${col},${row})`);
+                });
+            }
+
+            function summonDevourRequirement(card) {
+                return card?.devour_requirement || null;
+            }
+
+            function loadSatisfiesRequirement(unit, requirement) {
+                if (!unit || !requirement) return false;
+                const gain = unit.elements_gain || {};
+                return Object.entries(requirement).every(([elem, amount]) => Number(gain[elem] || 0) >= Number(amount || 0));
+            }
+
+            function devourCandidates(card) {
+                const requirement = summonDevourRequirement(card);
+                if (!requirement) return [];
+                const units = [];
+                for (let col = 0; col < 3; col++) {
+                    for (let row = 0; row < 3; row++) {
+                        const unit = getMyUnit(col, row);
+                        if (!unit || unit.type !== '伙伴') continue;
+                        if (unit.is_hero) continue;
+                        if (loadSatisfiesRequirement(unit, requirement)) units.push(unit);
+                    }
+                }
+                return units;
+            }
+
+            function beginSummonDevour(card, col, row) {
+                const candidates = devourCandidates(card);
+                if (!candidates.length) {
+                    addLog(`${card.name} 没有满足吞噬负载的友方伙伴`);
+                    return;
+                }
+                devourSelection.value = '';
+                devourRequest.value = { card, col, row, requirement: summonDevourRequirement(card) };
+            }
+
+            function confirmDevourSelection() {
+                if (!devourRequest.value || !devourSelection.value) return;
+                const { card, col, row } = devourRequest.value;
+                pendingSummonDevour.value = {
+                    ...pendingSummonDevour.value,
+                    [card.instance_id]: devourSelection.value,
+                };
+                devourRequest.value = null;
+                summonCard(card, col, row);
+            }
+
+            function cancelDevourSelection() {
+                devourRequest.value = null;
+                devourSelection.value = '';
             }
 
             function summonCard(card, col, row) {
-                sendAction('summon', { instance_id: card.instance_id, col, row });
-                selectedHandCard.value = null;
-                addLog(`召唤 ${card.name} → (${col},${row})`);
+                const requirement = summonDevourRequirement(card);
+                const devourID = pendingSummonDevour.value[card.instance_id] || '';
+                if (requirement && !devourID) {
+                    beginSummonDevour(card, col, row);
+                    return;
+                }
+                const data = { instance_id: card.instance_id, col, row };
+                if (devourID) data.devour_id = devourID;
+                sendPaidAction('summon', data, card.elements_cost || {}, `召唤 ${card.name}`, () => {
+                    const next = { ...pendingSummonDevour.value };
+                    delete next[card.instance_id];
+                    pendingSummonDevour.value = next;
+                    selectedHandCard.value = null;
+                    devourSelection.value = '';
+                    addLog(`召唤 ${card.name} → (${col},${row})`);
+                });
             }
 
             function canConsumeUnit(unit) {
                 if (!unit || unit.is_horizontal) return false;
+                if (unit.statuses?.['眩晕'] > 0 || unit.statuses?.['冷却'] > 0) return false;
                 if (isMyTurn.value && gameState.value.phase === 'main') return true;
                 return showDefenseWindow.value;
+            }
+            function unitActionChips(unit) {
+                if (!isMyTurn.value || gameState.value.phase !== 'main' || !unit) return [];
+                const chips = [];
+                if (unit.bound_skills?.length) chips.push('绑');
+                if (canConsumeUnit(unit)) chips.push('消');
+                if (canAttackWith(unit)) chips.push('攻');
+                if (canUsePerTurn(unit)) chips.push('技');
+                if (canUseUltimate(unit)) chips.push('绝');
+                return chips;
             }
             function consumeCard(unit) {
                 sendAction('consume', { instance_id: unit.instance_id });
@@ -835,7 +1331,7 @@
                 if (!getOpponentUnit(col, row)) return false;
                 if (selectedAttacker.value) return row === opponentFrontRow.value;
                 if (!selectedSkill.value) return false;
-                return (selectedSkill.value.description || '').includes('穿透') || row === opponentFrontRow.value;
+                return selectedSkill.value.has_pierce || row === opponentFrontRow.value;
             }
             function isSpellTarget(col, row) {
                 return !!selectedSkill.value && isValidOpponentTarget(col, row);
@@ -850,10 +1346,16 @@
             function canCastSkill(skill) {
                 if (!isMyTurn.value || gameState.value.phase !== 'main' || !skill || skill.is_horizontal) return false;
                 if (skill.statuses?.['冷却'] > 0 || skill.statuses?.['石化'] > 0) return false;
-                if (skill.is_defense_only) return false;
-                if ((skill.description || '').includes('不可用于攻击')) return false;
+                if (!skill.can_attack) return false;
                 if (!canPayCost(skillUseCost(skill))) return false;
                 return true;
+            }
+            function skillActionChips(skill) {
+                if (!isMyTurn.value || gameState.value.phase !== 'main' || !skill) return [];
+                const chips = [];
+                if (canCastSkill(skill)) chips.push('施');
+                if (selectedSkill.value && canBoostWith(skill)) chips.push('强');
+                return chips;
             }
             function canShowCostHint(skill) {
                 return !!skill && isMyTurn.value && gameState.value.phase === 'main' &&
@@ -863,7 +1365,12 @@
                 selectedHandCard.value = null; selectedAttacker.value = null;
                 selectedSkill.value = selectedSkill.value === skill ? null : skill;
                 selectedBoostSkills.value = [];
-                if (selectedSkill.value) addLog(`选择法术 ${skill.name}，点击敌方目标`);
+                if (!selectedSkill.value) return;
+                if (!skillNeedsTarget(skill)) {
+                    castSpellWithoutTarget();
+                    return;
+                }
+                addLog(`选择法术 ${skill.name}，点击敌方目标`);
             }
 
             // Boost skill selection for attack casting
@@ -872,8 +1379,8 @@
             function canBoostWith(skill) {
                 if (!selectedSkill.value || !skill || skill.is_horizontal) return false;
                 if (skill.instance_id === selectedSkill.value.instance_id) return false;
-                if (!canUseSkillAsBoost(skill)) return false;
-                if (!canPayCost(skillUseCost(skill))) return false;
+                if (!canUseSkillAsAttackBoost(skill)) return false;
+                if (!canPayCost(mergedDefenseCost([selectedSkill.value.instance_id, ...selectedBoostSkills.value, skill.instance_id]))) return false;
                 return true;
             }
             function toggleBoostSkill(skill) {
@@ -893,11 +1400,38 @@
                 if (selectedBoostSkills.value.length > 0) {
                     data.boost_ids = [...selectedBoostSkills.value];
                 }
-                sendAction('cast_spell', data);
-                addLog(`施放 ${selectedSkill.value.name} → (${col},${row})` +
-                    (selectedBoostSkills.value.length > 0 ? ` (+${selectedBoostSkills.value.length}强化)` : ''));
-                selectedSkill.value = null;
-                selectedBoostSkills.value = [];
+                const skillName = selectedSkill.value.name;
+                const boostCount = selectedBoostSkills.value.length;
+                const cost = mergedDefenseCost([selectedSkill.value.instance_id, ...selectedBoostSkills.value]);
+                sendPaidAction('cast_spell', data, cost, `施放 ${skillName}`, () => {
+                    addLog(`施放 ${skillName} → (${col},${row})` +
+                        (boostCount > 0 ? ` (+${boostCount}强化)` : ''));
+                    selectedSkill.value = null;
+                    selectedBoostSkills.value = [];
+                });
+            }
+
+            function castSpellWithoutTarget() {
+                if (!selectedSkill.value) return;
+                const data = {
+                    instance_id: selectedSkill.value.instance_id,
+                    target_type: 'none'
+                };
+                if (selectedBoostSkills.value.length > 0) {
+                    data.boost_ids = [...selectedBoostSkills.value];
+                }
+                const skillName = selectedSkill.value.name;
+                const cost = mergedDefenseCost([selectedSkill.value.instance_id, ...selectedBoostSkills.value]);
+                sendPaidAction('cast_spell', data, cost, `施放 ${skillName}`, () => {
+                    addLog(`施放 ${skillName}`);
+                    selectedSkill.value = null;
+                    selectedBoostSkills.value = [];
+                });
+            }
+
+            function skillNeedsTarget(skill) {
+                if (!skill) return false;
+                return !!skill.needs_target;
             }
 
             // Defense skill selection state
@@ -906,7 +1440,7 @@
 
             const availableDefenseSkills = computed(() => {
                 if (!showDefenseWindow.value) return [];
-                return (myState.value.skills || []).filter(canUseSkillAsDefense);
+                return (myState.value.skills || []).filter(skill => canUseSkillAsDefense(skill) && canPayCost(skillUseCost(skill)));
             });
 
             const defenseConsumableUnits = computed(() => {
@@ -924,9 +1458,22 @@
             const availableBoostSkills = computed(() => {
                 if (!showDefenseWindow.value || defenseSelected.value.length === 0) return [];
                 return (myState.value.skills || []).filter(s =>
-                    canUseSkillAsBoost(s) && !defenseSelected.value.includes(s.instance_id)
+                    canUseSkillAsDefenseBoost(s) && !defenseSelected.value.includes(s.instance_id) && canPayCost(mergedDefenseCost([...defenseSelected.value, s.instance_id]))
                 );
             });
+
+            function mergedDefenseCost(ids) {
+                const skills = myState.value.skills || [];
+                const merged = {};
+                for (const id of ids) {
+                    const skill = skills.find(s => s && s.instance_id === id);
+                    if (!skill) continue;
+                    for (const [elem, amount] of Object.entries(skillUseCost(skill))) {
+                        merged[elem] = (merged[elem] || 0) + Number(amount || 0);
+                    }
+                }
+                return merged;
+            }
 
             function isSkillReady(skill) {
                 return !!skill && !skill.is_horizontal &&
@@ -936,18 +1483,17 @@
 
             function canUseSkillAsDefense(skill) {
                 if (!isSkillReady(skill)) return false;
-                if (skill.is_sorcery) return false;
-                if ((skill.description || '').includes('不可用于防御')) return false;
-                return (skill.power || 0) > 0;
+                return !!skill.can_defend;
             }
 
-            function canUseSkillAsBoost(skill) {
+            function canUseSkillAsAttackBoost(skill) {
                 if (!isSkillReady(skill)) return false;
-                if (skill.is_sorcery) return false;
-                const desc = skill.description || '';
-                if (desc.includes('无法用于强化') || desc.includes('不可用于强化')) return false;
-                if (desc.includes('无法强化或被强化')) return false;
-                return (skill.power || 0) > 0;
+                return !!skill.can_attack_boost;
+            }
+
+            function canUseSkillAsDefenseBoost(skill) {
+                if (!isSkillReady(skill)) return false;
+                return !!skill.can_defense_boost;
             }
 
             const totalDefensePower = computed(() => {
@@ -962,6 +1508,11 @@
                     if (sk) power += Math.max(sk.power || 0, 0);
                 }
                 return power;
+            });
+
+            const canSubmitDefense = computed(() => {
+                if (defenseSelected.value.length === 0) return false;
+                return canPayCost(mergedDefenseCost([...defenseSelected.value, ...defenseBoostSelected.value]));
             });
 
             function toggleDefenseSkill(skill) {
@@ -986,13 +1537,22 @@
             }
 
             function submitDefend() {
-                sendAction('defend', {
+                if (!canSubmitDefense.value) {
+                    addLog('防御元素不足');
+                    return;
+                }
+                const data = {
                     skill_ids: [...defenseSelected.value],
                     boost_ids: [...defenseBoostSelected.value]
+                };
+                const skillCount = defenseSelected.value.length;
+                const boostCount = defenseBoostSelected.value.length;
+                const cost = mergedDefenseCost([...defenseSelected.value, ...defenseBoostSelected.value]);
+                sendPaidAction('defend', data, cost, '防御', () => {
+                    addLog(`防御 (${skillCount}技能, +${boostCount}强化)`);
+                    defenseSelected.value = [];
+                    defenseBoostSelected.value = [];
                 });
-                addLog(`防御 (${defenseSelected.value.length}技能, +${defenseBoostSelected.value.length}强化)`);
-                defenseSelected.value = [];
-                defenseBoostSelected.value = [];
             }
 
             function noDefend() {
@@ -1014,6 +1574,13 @@
                 if (idx >= 0) {
                     pendingSelected.value.splice(idx, 1);
                 } else {
+                    if (pendingAction.value?.type === 'muling_return' && candidate.side) {
+                        const existingSameSide = pendingSelected.value.some(selectedID => {
+                            const selected = pendingAction.value.candidates.find(c => c.instance_id === selectedID);
+                            return selected?.side === candidate.side;
+                        });
+                        if (existingSameSide) return;
+                    }
                     const max = pendingAction.value?.max_select || 1;
                     if (pendingSelected.value.length < max) {
                         pendingSelected.value.push(id);
@@ -1025,6 +1592,16 @@
                 sendAction('resolve_action', { selected: [...pendingSelected.value] });
                 addLog('确认选择');
                 pendingSelected.value = [];
+            }
+
+            function zoneLabel(zone) {
+                return {
+                    hand: '手牌',
+                    equipment: '装备',
+                    skill: '技能',
+                    unit: '战场',
+                    deck: '卡组',
+                }[zone] || zone;
             }
 
             // Ability functions
@@ -1055,11 +1632,11 @@
                     addLog(`${card.name} ${missingCostText(card.elements_cost || {})}`);
                     return;
                 }
-                sendAction('learn_skill', { instance_id: card.instance_id, replace_id: '' });
-                addLog(`学习技能 ${card.name}`);
+                sendPaidAction('learn_skill', { instance_id: card.instance_id, replace_id: '' }, card.elements_cost || {}, `学习 ${card.name}`, () => addLog(`学习技能 ${card.name}`));
             }
             function canLearnSkill(card) {
-                return !!card && isMyTurn.value && gameState.value.phase === 'main' && canPayCost(card.elements_cost || {});
+                const hasEmptySkillSlot = mySkills.value.some(skill => !skill);
+                return !!card && hasEmptySkillSlot && isMyTurn.value && gameState.value.phase === 'main' && canPayCost(card.elements_cost || {});
             }
             function canPlayHandCard(card) {
                 if (!card || !isMyTurn.value || gameState.value.phase !== 'main') return false;
@@ -1141,6 +1718,7 @@
                     case 'spell_hit': addLog(`法术命中 ${d.damage} 伤害`); break;
                     case 'unit_attack': addLog(`${d.attacker.name} 攻击 ${d.damage} 伤害`); break;
                     case 'unit_destroyed': addLog(`${d.card.name} 被摧毁`); break;
+                    case 'unit_returned': addLog(`${d.card.name} 返回手牌`); break;
                     case 'game_over': addLog(`游戏结束 玩家${d.winner+1} 获胜`); break;
                     case 'draw_card': addLog(`抽到 ${d.card.name}`); break;
                     case 'effect_trigger':
@@ -1149,27 +1727,53 @@
                         else if (d.effect === 'apply_status') addLog(`${d.target?.name} ${d.status}+${d.amount}`);
                         else if (d.effect === 'gain_shield') addLog(`${d.source?.name} 获得护盾${d.amount}`);
                         else if (d.effect === 'gain_stealth') addLog(`${d.source?.name} 获得隐蔽`);
+                        else if (d.effect === 'heal') addLog(`${d.target?.name} 回复${d.amount}生命`);
+                        else if (d.effect === 'skip_draw') addLog('跳过本回合抽牌');
+                        else if (d.effect === 'temp_modifier') addLog('获得临时效果');
                         break;
                     case 'ability_used': addLog(`${d.card.name} 使用${d.ability === 'ultimate' ? '绝技' : '回合技'}`); break;
                     case 'defense_attempt': addLog(`防御 威力${d.defense_power} vs ${d.attack_power}`); break;
                     case 'pending_action': addLog(`等待选择: ${d.prompt}`); break;
                     case 'discard': addLog(`弃置 ${d.card.name}`); break;
+                    case 'search_card': addLog(`检索 ${d.card.name}`); break;
                     case 'place_terrain': addLog(`放置地形 ${d.card.name}`); break;
                     case 'consume': addLog(`消耗 ${d.instance_id}`); break;
                 }
             }
 
-            onMounted(() => { if (roomID && playerID && deckCode) connect(); });
+            onMounted(() => {
+                if (typeof window !== 'undefined') {
+                    window.__arcaneDebug = {
+                        gameState,
+                        mySlot,
+                        pendingAction,
+                        showPendingAction,
+                        isMyTurn,
+                        myHand,
+                        mySkills,
+                        hoverCard,
+                        pileView,
+                        paymentRequest,
+                        devourRequest,
+                        skillNeedsTarget,
+                        summonDevourRequirement,
+                        devourCandidates,
+                        beginSummonDevour,
+                        sendAction,
+                    };
+                }
+                if (roomID && playerID && deckCode) connect();
+            });
             onUnmounted(() => { if (ws) ws.close(); });
 
             return {
                 connected, connectionStatus, error,
-                gameState, mySlot, roomID, mulliganSubmitted, detailCard,
-                selectedHandCard, selectedAttacker, selectedSkill, selectedBoostSkills, actionLog,
+                gameState, mySlot, roomID, mulliganSubmitted, detailCard, hoverCard, activePreviewCard,
+                selectedHandCard, selectedAttacker, selectedSkill, selectedBoostSkills, pileView, actionLog,
                 myState, opponent, myHand, mySkills, myEquipment,
                 isMyTurn, showDefenseWindow, myFrontRow, opponentFrontRow,
-                getCardImage, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, hasCost, hasGain,
-                showCardDetail, mulligan, selectHandCard, isConsumable, canSummonAt,
+                getCardImage, getElementIcon, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, costHTML, hasCost, hasGain,
+                showCardDetail, previewCard, mulligan, selectHandCard, isConsumable, canSummonAt,
                 handleCellClick, canConsumeUnit, consumeCard,
                 handleUnitImageClick,
                 canAttackWith, selectAttacker, isAttackTarget,
@@ -1177,14 +1781,20 @@
                 guideKicker, currentHint, clearSelection, statusEntries,
                 hasActiveTargeting, isValidOpponentTarget, isSpellTarget, canUseMyCell,
                 canShowCostHint, missingCostText, skillUseCost, canLearnSkill, costLabel,
+                paymentRequest, paymentSelection, paymentElements, selectedPaymentTotal,
+                canAddPayment, addPayment, isPaymentSelectionValid, paymentRemainingText, confirmPayment, cancelPayment, totalCost,
+                devourRequest, devourSelection, devourCandidates, confirmDevourSelection, cancelDevourSelection,
+                canSubmitDefense,
                 canPlayHandCard, canPayCost,
                 // Defense
                 defenseSelected, defenseBoostSelected, availableDefenseSkills, availableBoostSkills, defenseConsumableUnits,
                 totalDefensePower, toggleDefenseSkill, toggleDefenseBoost, submitDefend,
                 // Pending action
                 pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction,
+                zoneLabel,
+                openPileView, closePileView,
                 // Abilities
-                canUsePerTurn, canUseUltimate, useAbility,
+                canUsePerTurn, canUseUltimate, useAbility, unitActionChips, skillActionChips, cardAvailabilityText,
                 learnSkill, endTurn,
                 // Context menu
                 contextMenu, showCardContextMenu, hideContextMenu, contextMenuAction

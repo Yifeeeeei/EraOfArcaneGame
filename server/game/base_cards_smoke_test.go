@@ -3,7 +3,6 @@ package game
 import (
 	"fmt"
 	"sort"
-	"strings"
 	"testing"
 
 	"eraofarcane/cards"
@@ -123,7 +122,7 @@ func attachSourceForEffect(engine *Engine, source *CardInstance) {
 		ps.Skills[0] = source
 		source.SlotIndex = 0
 	case source.Card.IsItem():
-		if source.Card.IsTerrain() {
+		if cards.IsTerrain(source.Card.Number) {
 			ps.Terrain[0][1] = source
 			source.Position = &Position{Col: 0, Row: 1}
 		} else {
@@ -134,7 +133,7 @@ func attachSourceForEffect(engine *Engine, source *CardInstance) {
 }
 
 func isConsumableItem(card *model.Card) bool {
-	return card.IsItem() && strings.Contains(card.Tag, "消耗品")
+	return cards.IsConsumable(card.Number)
 }
 
 func TestBaseCardPoolRejectsEveryNonBaseCard(t *testing.T) {
@@ -201,13 +200,22 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 			case card.IsCompanion():
 				instance := NewCardInstance(card, 0, engine.State.TurnNumber)
 				ps.Hand = append(ps.Hand, instance)
+				data := map[string]any{
+					"instance_id": instance.InstanceID,
+					"col":         float64(0),
+					"row":         float64(0),
+				}
+				if requirement := summonDevourRequirement(instance); len(requirement) > 0 {
+					foodCard := *card
+					foodCard.Number = card.Number + "_devour_food"
+					foodCard.Name = "吞噬测试负载"
+					foodCard.ElementsGain = requirement
+					food := placeUnit(&foodCard, 0, 2, 0, engine)
+					data["devour_id"] = food.InstanceID
+				}
 				if err := engine.HandleAction(0, ActionMessage{
 					Action: "summon",
-					Data: map[string]any{
-						"instance_id": instance.InstanceID,
-						"col":         float64(0),
-						"row":         float64(0),
-					},
+					Data:   data,
 				}); err != nil {
 					t.Fatalf("summon failed: %v", err)
 				}
@@ -227,7 +235,7 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 				if ps.Skills[0] == nil || ps.Skills[0].InstanceID != instance.InstanceID {
 					t.Fatalf("learn skill did not place card in skill slot")
 				}
-				if canUseSkillToAttack(card) {
+				if canUseSkillForPurpose(card, skillPurposeAttack) {
 					ps.Skills[0].IsHorizontal = false
 					setAllElements(ps, 99)
 					err := engine.HandleAction(0, ActionMessage{
@@ -254,7 +262,7 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 				ps.Hand = append(ps.Hand, instance)
 				action := "equip"
 				data := map[string]any{"instance_id": instance.InstanceID}
-				if card.IsTerrain() {
+				if cards.IsTerrain(card.Number) {
 					action = "place_terrain"
 					data["col"] = float64(0)
 					data["row"] = float64(0)

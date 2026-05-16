@@ -1,0 +1,745 @@
+package game
+
+import "eraofarcane/model"
+
+func emitBatchEffect(ctx *EffectContext, effect string) {
+	if ctx == nil || ctx.Engine == nil {
+		return
+	}
+	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
+		"source": cardToInfo(ctx.Source),
+		"effect": effect,
+	}})
+}
+
+func firstUnitFromCandidates(e *Engine, playerID int, candidates []map[string]any) *CardInstance {
+	for _, candidate := range candidates {
+		if id, _ := candidate["instance_id"].(string); id != "" {
+			if card, _ := e.findFriendlyCandidate(playerID, id); card != nil {
+				return card
+			}
+			if card, _ := e.findFriendlyCandidate(1-playerID, id); card != nil {
+				return card
+			}
+		}
+	}
+	return nil
+}
+
+func healUnit(card *CardInstance, amount int) {
+	if card == nil || amount <= 0 {
+		return
+	}
+	card.CurrentLife += amount
+	if card.Card != nil && card.Card.Life > 0 && card.CurrentLife > card.Card.Life {
+		card.CurrentLife = card.Card.Life
+	}
+}
+
+func addGeneratedCardToHand(ctx *EffectContext, cardNumber string) {
+	card := getCardDB()[cardNumber]
+	if card == nil {
+		return
+	}
+	ctx.Engine.State.Players[ctx.PlayerID].Hand = append(ctx.Engine.State.Players[ctx.PlayerID].Hand, NewCardInstance(card, ctx.PlayerID, ctx.Engine.State.TurnNumber))
+	emitBatchEffect(ctx, "add_generated_card_to_hand")
+}
+
+func resetInstance(card *CardInstance) {
+	if card == nil {
+		return
+	}
+	card.IsHorizontal = false
+	card.Statuses[StatusCooldown] = 0
+	card.UsedThisTurn = 0
+}
+
+func reduceCost(cost map[string]int, elem string, amount int) {
+	if amount <= 0 {
+		return
+	}
+	if cost[elem] > 0 {
+		cost[elem] -= amount
+		if cost[elem] < 0 {
+			cost[elem] = 0
+		}
+	}
+}
+
+func summonHandCompanionFree(ctx *EffectContext, predicate func(*CardInstance) bool) *CardInstance {
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	pos := ps.FindEmptyPosition()
+	if pos == nil {
+		return nil
+	}
+	for i, card := range ps.Hand {
+		if card == nil || !card.Card.IsCompanion() || (predicate != nil && !predicate(card)) {
+			continue
+		}
+		ps.Hand = append(ps.Hand[:i], ps.Hand[i+1:]...)
+		card.Position = pos
+		card.IsHorizontal = true
+		card.EnterTurn = ctx.Engine.State.TurnNumber
+		ps.Units[pos.Col][pos.Row] = card
+		ctx.Engine.triggerEffects(TriggerOnEnter, card, nil, nil)
+		ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.PlayerID, card, map[string]any{"entered_player": ctx.PlayerID})
+		return card
+	}
+	return nil
+}
+
+func totalFieldLoad(ps *PlayerState) int {
+	total := 0
+	for _, card := range ps.Units {
+		for _, unit := range card {
+			for _, amount := range effectiveElementsGain(unit) {
+				total += amount
+			}
+		}
+	}
+	for _, card := range ps.Equipment {
+		for _, amount := range effectiveElementsGain(card) {
+			total += amount
+		}
+	}
+	return total
+}
+
+type Card1011002WizardTower struct{}
+
+func (Card1011002WizardTower) ID() string   { return "1011002" }
+func (Card1011002WizardTower) Name() string { return "巫师之塔 通天阁" }
+func (Card1011002WizardTower) HasGlobalSpellRange() bool {
+	return true
+}
+func (Card1011002WizardTower) OnEnter(ctx *EffectContext) error {
+	ctx.Source.Statuses["全场法力范围"] = 1
+	return nil
+}
+
+type Card1021008ForesightProphet struct{}
+
+func (Card1021008ForesightProphet) ID() string   { return "1021008" }
+func (Card1021008ForesightProphet) Name() string { return "预见先知" }
+func (Card1021008ForesightProphet) OnTurnStart(ctx *EffectContext) error {
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	if len(ps.Deck) > 1 {
+		card := ps.Deck[0]
+		ps.Deck = append(ps.Deck[1:], card)
+		emitBatchEffect(ctx, "peek_top_to_bottom")
+	}
+	return nil
+}
+
+type Card1021014ImpatientJunior struct{}
+
+func (Card1021014ImpatientJunior) ID() string   { return "1021014" }
+func (Card1021014ImpatientJunior) Name() string { return "急不可耐的小师弟" }
+func (Card1021014ImpatientJunior) OnEnter(ctx *EffectContext) error {
+	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModNextLearnedSkillHaste, RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 1})
+	return nil
+}
+
+type Card1111003Bifang struct{}
+
+func (Card1111003Bifang) ID() string   { return "1111003" }
+func (Card1111003Bifang) Name() string { return "毕方" }
+func (Card1111003Bifang) OnDamaged(ctx *EffectContext) error {
+	if ctx.ExtraData != nil {
+		if damagedPlayer, ok := ctx.ExtraData["damaged_player"].(int); ok && damagedPlayer != ctx.PlayerID && ctx.Target != nil && ctx.Target.Statuses[StatusBurn] > 0 {
+			ctx.Engine.dealDamage(ctx.Target, 1, damagedPlayer)
+		}
+	}
+	return nil
+}
+
+type Card1121012FireInsight struct{}
+
+func (Card1121012FireInsight) ID() string   { return "1121012" }
+func (Card1121012FireInsight) Name() string { return "火焰洞察者" }
+func (Card1121012FireInsight) OnDamaged(ctx *EffectContext) error {
+	if ctx.ExtraData != nil {
+		if damagedPlayer, ok := ctx.ExtraData["damaged_player"].(int); ok {
+			unit := firstUnitFromCandidates(ctx.Engine, damagedPlayer, ctx.Engine.friendlyUnits(damagedPlayer, true, nil))
+			if unit != nil && unit.Card.Category == model.ElementFire {
+				ctx.Engine.State.Players[ctx.PlayerID].DrawCards(1)
+			}
+		}
+	}
+	return nil
+}
+
+type Card1121013Arsonist struct{}
+
+func (Card1121013Arsonist) ID() string   { return "1121013" }
+func (Card1121013Arsonist) Name() string { return "纵火者" }
+func (Card1121013Arsonist) OnSpellCast(ctx *EffectContext) error {
+	if !isFriendlySpellCast(ctx) || ctx.Target == nil || ctx.Target.Card.Category != model.ElementFire {
+		return nil
+	}
+	target := firstUnitFromCandidates(ctx.Engine, ctx.OpponentID, ctx.Engine.enemyUnits(ctx.PlayerID, true, nil))
+	if target != nil {
+		target.Statuses[StatusBurn]++
+	}
+	return nil
+}
+
+type Card1211002Leviathan struct{}
+
+func (Card1211002Leviathan) ID() string   { return "1211002" }
+func (Card1211002Leviathan) Name() string { return "深渊巨口 利维坦" }
+func (Card1211002Leviathan) OnConsume(ctx *EffectContext) error {
+	if ctx.Source.Statuses["利维坦冷却"] > 0 {
+		return nil
+	}
+	targets := ctx.Engine.enemyUnits(ctx.PlayerID, false, func(card *CardInstance) bool { return card.Card.IsCompanion() })
+	target := firstUnitFromCandidates(ctx.Engine, ctx.PlayerID, targets)
+	if target != nil {
+		ctx.Engine.destroyUnit(target, ctx.OpponentID)
+		ctx.Source.Statuses["利维坦冷却"] = 1
+	}
+	return nil
+}
+func (Card1211002Leviathan) OnTurnStart(ctx *EffectContext) error {
+	ctx.Source.Statuses["利维坦冷却"] = 0
+	return nil
+}
+
+type Card1211003SnowWoman struct{}
+
+func (Card1211003SnowWoman) ID() string   { return "1211003" }
+func (Card1211003SnowWoman) Name() string { return "\"雪女\" 天户凌" }
+func (Card1211003SnowWoman) OnEnter(ctx *EffectContext) error {
+	ctx.Source.Statuses["引魔"] = 1
+	return nil
+}
+func (Card1211003SnowWoman) OnPerTurn(ctx *EffectContext) error {
+	targets := ctx.Engine.enemyUnits(ctx.PlayerID, true, nil)
+	if target := firstUnitFromCandidates(ctx.Engine, ctx.PlayerID, targets); target != nil {
+		target.Statuses[StatusFreeze]++
+	}
+	return nil
+}
+
+type Card1221001DolphinPartner struct{}
+
+func (Card1221001DolphinPartner) ID() string   { return "1221001" }
+func (Card1221001DolphinPartner) Name() string { return "海豚伙伴" }
+func (Card1221001DolphinPartner) OnDamaged(ctx *EffectContext) error {
+	if ctx.ExtraData == nil || ctx.Source == ctx.Target {
+		return nil
+	}
+	if damagedPlayer, ok := ctx.ExtraData["damaged_player"].(int); ok && damagedPlayer == ctx.PlayerID && ctx.Target != nil && ctx.Target.CurrentLife <= 0 {
+		ctx.Target.CurrentLife = 1
+		ctx.Engine.destroyUnit(ctx.Source, ctx.PlayerID)
+	}
+	return nil
+}
+
+type Card1221010WallKeeper struct{}
+
+func (Card1221010WallKeeper) ID() string   { return "1221010" }
+func (Card1221010WallKeeper) Name() string { return "护壁者" }
+func (Card1221010WallKeeper) OnEnter(ctx *EffectContext) error {
+	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: "all_spell_attack_zero", RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 2})
+	return nil
+}
+func (Card1221010WallKeeper) ModifySpellStats(ctx *EffectContext, stats *SpellStats) {
+	if ctx.Target != nil {
+		stats.DamageBonus -= 99
+	}
+}
+
+type Card1221012DragonPrinceDescendant struct{}
+
+func (Card1221012DragonPrinceDescendant) ID() string   { return "1221012" }
+func (Card1221012DragonPrinceDescendant) Name() string { return "龙王子裔" }
+func (Card1221012DragonPrinceDescendant) OnPerTurn(ctx *EffectContext) error {
+	searchDeckToHandByPredicate(ctx, "dragon_prince_search", "检索1个水纹伙伴", isWaterCompanion)
+	return nil
+}
+
+type Card1311003WindBladeKarina struct{}
+
+func (Card1311003WindBladeKarina) ID() string   { return "1311003" }
+func (Card1311003WindBladeKarina) Name() string { return "\"风刃\" 卡琳娜" }
+func (Card1311003WindBladeKarina) ModifySkillUseCost(ctx *EffectContext, cost map[string]int) {
+	if ctx.Source != nil && ctx.Source.Card.Category == model.ElementAir && !cardHasPierce(ctx.Source) {
+		cost[model.ElementAir]++
+	}
+}
+
+type Card1321013TeleportMage struct{}
+
+func (Card1321013TeleportMage) ID() string   { return "1321013" }
+func (Card1321013TeleportMage) Name() string { return "传送法师" }
+func (Card1321013TeleportMage) OnPerTurn(ctx *EffectContext) error {
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	var moving *CardInstance
+	for col := 0; col < 3 && moving == nil; col++ {
+		for row := 0; row < 3; row++ {
+			if u := ps.Units[col][row]; u != nil && !u.Card.IsHero() {
+				moving = u
+				break
+			}
+		}
+	}
+	pos := ps.FindEmptyPosition()
+	if moving != nil && pos != nil {
+		ps.Units[moving.Position.Col][moving.Position.Row] = nil
+		moving.Position = pos
+		ps.Units[pos.Col][pos.Row] = moving
+	}
+	return nil
+}
+
+type Card1321015WindSpeaker struct{}
+
+func (Card1321015WindSpeaker) ID() string   { return "1321015" }
+func (Card1321015WindSpeaker) Name() string { return "风语者" }
+func (Card1321015WindSpeaker) OnPerTurn(ctx *EffectContext) error {
+	ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementAir: 1})
+	return nil
+}
+
+type Card1401001LifeSeed struct{}
+
+func (Card1401001LifeSeed) ID() string   { return "1401001" }
+func (Card1401001LifeSeed) Name() string { return "生命种子" }
+func (Card1401001LifeSeed) OnPerTurn(ctx *EffectContext) error {
+	if summoned := summonHandCompanionFree(ctx, func(card *CardInstance) bool { return card.Card.Category == model.ElementEarth }); summoned != nil {
+		summoned.CurrentLife += max(ctx.Source.CurrentLife-1, 0)
+		ctx.Engine.destroyUnit(ctx.Source, ctx.PlayerID)
+	}
+	return nil
+}
+
+type Card1401002SpiritBeastXinke struct{}
+
+func (Card1401002SpiritBeastXinke) ID() string   { return "1401002" }
+func (Card1401002SpiritBeastXinke) Name() string { return "灵兽 辛柯" }
+func (Card1401002SpiritBeastXinke) OnDamaged(ctx *EffectContext) error {
+	if ctx.ExtraData == nil {
+		return nil
+	}
+	if damagedPlayer, ok := ctx.ExtraData["damaged_player"].(int); ok && damagedPlayer == ctx.PlayerID {
+		searchDeckToHandByPredicate(ctx, "xinke_search", "检索灵兽 辛柯", func(card *CardInstance) bool { return card.Card.Number == "1401002" })
+	}
+	return nil
+}
+
+type Card1411001GreatDruidCycle struct{}
+
+func (Card1411001GreatDruidCycle) ID() string   { return "1411001" }
+func (Card1411001GreatDruidCycle) Name() string { return "\"轮回不息\" 大德鲁伊 烟尘" }
+func (Card1411001GreatDruidCycle) OnFriendlyDeath(ctx *EffectContext) error {
+	addGeneratedCardToHand(ctx, "1401001")
+	return nil
+}
+
+type Card1411002KnowledgeTreeDeepRoot struct{}
+
+func (Card1411002KnowledgeTreeDeepRoot) ID() string   { return "1411002" }
+func (Card1411002KnowledgeTreeDeepRoot) Name() string { return "\"知识古树\" 深耕" }
+func (Card1411002KnowledgeTreeDeepRoot) OnEnter(ctx *EffectContext) error {
+	ctx.Engine.State.Players[ctx.PlayerID].Charge = 5
+	return nil
+}
+
+type Card1411003SandWitchSommer struct{}
+
+func (Card1411003SandWitchSommer) ID() string   { return "1411003" }
+func (Card1411003SandWitchSommer) Name() string { return "沙之魔巫 梭默" }
+func (Card1411003SandWitchSommer) ModifySpellStats(ctx *EffectContext, stats *SpellStats) {
+	if ctx.Target != nil && ctx.Target.Card.Category == model.ElementEarth {
+		stats.PowerBonus++
+	}
+}
+
+type Card1421003GrowingTreant struct{}
+
+func (Card1421003GrowingTreant) ID() string   { return "1421003" }
+func (Card1421003GrowingTreant) Name() string { return "成长的树人" }
+func (Card1421003GrowingTreant) OnTurnStart(ctx *EffectContext) error {
+	addElementsGainBonus(ctx.Source, model.ElementEarth, 1)
+	healUnit(ctx.Source, 1)
+	return nil
+}
+
+type Card1421004ForestGuard struct{}
+
+func (Card1421004ForestGuard) ID() string   { return "1421004" }
+func (Card1421004ForestGuard) Name() string { return "森林守卫" }
+func (Card1421004ForestGuard) OnTurnStart(ctx *EffectContext) error {
+	healUnit(ctx.Source, 1)
+	addElementsGainBonus(ctx.Source, model.ElementEarth, 1)
+	ctx.Source.AttackBonus += 2
+	return nil
+}
+
+type Card1421007HighlandTitan struct{}
+
+func (Card1421007HighlandTitan) ID() string   { return "1421007" }
+func (Card1421007HighlandTitan) Name() string { return "高地泰坦" }
+func (Card1421007HighlandTitan) OnDamaged(ctx *EffectContext) error {
+	if ctx.Target == ctx.Source {
+		ctx.Source.CurrentLife--
+	}
+	return nil
+}
+
+type Card1421010PlantationGardener struct{}
+
+func (Card1421010PlantationGardener) ID() string   { return "1421010" }
+func (Card1421010PlantationGardener) Name() string { return "种植园丁" }
+func (Card1421010PlantationGardener) OnTurnStart(ctx *EffectContext) error {
+	ctx.Source.Statuses["地脉标记"]++
+	return nil
+}
+func (Card1421010PlantationGardener) OnPerTurn(ctx *EffectContext) error {
+	if ctx.Source.Statuses["地脉标记"] >= 2 {
+		ctx.Source.Statuses["地脉标记"] -= 2
+		ctx.Engine.State.Players[ctx.PlayerID].DrawCards(1)
+	}
+	return nil
+}
+
+type Card1421011GreatElder struct{}
+
+func (Card1421011GreatElder) ID() string   { return "1421011" }
+func (Card1421011GreatElder) Name() string { return "大长老" }
+func (Card1421011GreatElder) ModifySkillUseCost(ctx *EffectContext, cost map[string]int) {
+	if ctx.Source != nil && ctx.Source.Card.Category == model.ElementEarth {
+		reduceCost(cost, model.ElementEarth, 2)
+	}
+}
+
+type Card1511001WhiteRobeSage struct{}
+
+func (Card1511001WhiteRobeSage) ID() string   { return "1511001" }
+func (Card1511001WhiteRobeSage) Name() string { return "白袍大贤者 掌号使" }
+func (Card1511001WhiteRobeSage) OnUltimate(ctx *EffectContext) error {
+	targets := ctx.Engine.enemyUnits(ctx.PlayerID, false, func(card *CardInstance) bool { return card.Card.IsCompanion() })
+	target := firstUnitFromCandidates(ctx.Engine, ctx.PlayerID, targets)
+	if target == nil {
+		return nil
+	}
+	op := ctx.Engine.State.Players[ctx.OpponentID]
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	if target.Position != nil {
+		op.Units[target.Position.Col][target.Position.Row] = nil
+		if pos := ps.FindEmptyPosition(); pos != nil {
+			target.OwnerID = ctx.PlayerID
+			target.Position = pos
+			ps.Units[pos.Col][pos.Row] = target
+		}
+	}
+	return nil
+}
+
+type Card1521007RainbowAngel struct{}
+
+func (Card1521007RainbowAngel) ID() string   { return "1521007" }
+func (Card1521007RainbowAngel) Name() string { return "虹之天使" }
+func (Card1521007RainbowAngel) ModifySkillUseCost(ctx *EffectContext, cost map[string]int) {
+	for elem, amount := range cost {
+		if elem != model.ElementLight && elem != model.ElementArcane && amount > 0 {
+			cost[model.ElementLight] += amount
+			cost[elem] = 0
+		}
+	}
+}
+
+type Card1611002BlackRobeExecutor struct{}
+
+func (Card1611002BlackRobeExecutor) ID() string   { return "1611002" }
+func (Card1611002BlackRobeExecutor) Name() string { return "黑袍执行官 无心" }
+func (Card1611002BlackRobeExecutor) OnFriendlyDeath(ctx *EffectContext) error {
+	if ctx.Target != nil && ctx.Target.Card.IsCompanion() {
+		ctx.Source.Statuses["暗影标记"] += max(ctx.Target.Card.Life, 1)
+	}
+	return nil
+}
+func (Card1611002BlackRobeExecutor) OnUltimate(ctx *EffectContext) error {
+	targets := ctx.Engine.enemyUnits(ctx.PlayerID, false, func(card *CardInstance) bool { return card.Card.IsCompanion() })
+	target := firstUnitFromCandidates(ctx.Engine, ctx.PlayerID, targets)
+	if target != nil && ctx.Source.Statuses["暗影标记"] >= max(target.CurrentLife, 1) {
+		ctx.Source.Statuses["暗影标记"] -= max(target.CurrentLife, 1)
+		ctx.Engine.destroyUnit(target, ctx.OpponentID)
+	}
+	return nil
+}
+
+type Card1611003HeartPiercer struct{}
+
+func (Card1611003HeartPiercer) ID() string   { return "1611003" }
+func (Card1611003HeartPiercer) Name() string { return "\"穿心人\"" }
+func (Card1611003HeartPiercer) OnEnter(ctx *EffectContext) error {
+	addGeneratedCardToHand(ctx, "2601001")
+	return nil
+}
+
+type Card1621013WordSpirit struct{}
+
+func (Card1621013WordSpirit) ID() string   { return "1621013" }
+func (Card1621013WordSpirit) Name() string { return "言灵" }
+func (Card1621013WordSpirit) OnSpellCast(ctx *EffectContext) error {
+	if isEnemySpellCast(ctx) && ctx.Target != nil {
+		ctx.Target.Statuses[StatusWeaken]++
+	}
+	return nil
+}
+
+type Card2011001ArchmageStaff struct{}
+
+func (Card2011001ArchmageStaff) ID() string   { return "2011001" }
+func (Card2011001ArchmageStaff) Name() string { return "大法师之杖" }
+func (Card2011001ArchmageStaff) OnEnter(ctx *EffectContext) error {
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	if len(ps.SkillPool) > 0 {
+		ctx.Source.Statuses["存储技能"] = 1
+	}
+	return nil
+}
+
+type Card2011002OverlordCrown struct{}
+
+func (Card2011002OverlordCrown) ID() string   { return "2011002" }
+func (Card2011002OverlordCrown) Name() string { return "统御者之冠" }
+func (Card2011002OverlordCrown) OnUnitEnter(ctx *EffectContext) error {
+	if ctx.ExtraData == nil || ctx.Target == nil || !ctx.Target.Card.IsCompanion() {
+		return nil
+	}
+	if enteredPlayer, ok := ctx.ExtraData["entered_player"].(int); ok && enteredPlayer == ctx.PlayerID && ctx.Target != ctx.Source {
+		setElementsGain(ctx.Target, map[string]int{})
+	}
+	return nil
+}
+
+type Card2011003KingRobe struct{}
+
+func (Card2011003KingRobe) ID() string   { return "2011003" }
+func (Card2011003KingRobe) Name() string { return "君王法袍 至贤" }
+func (Card2011003KingRobe) ModifySpellStats(ctx *EffectContext, stats *SpellStats) {
+	if totalFieldLoad(ctx.Engine.State.Players[ctx.PlayerID]) > totalFieldLoad(ctx.Engine.State.Players[ctx.OpponentID]) {
+		stats.DamageBonus--
+	}
+}
+
+type Card2021002MemoryNecklace struct{}
+
+func (Card2021002MemoryNecklace) ID() string   { return "2021002" }
+func (Card2021002MemoryNecklace) Name() string { return "记忆项链" }
+func (Card2021002MemoryNecklace) OnEquip(ctx *EffectContext) error {
+	ctx.Source.Statuses["技能槽位+1"] = 1
+	return nil
+}
+
+type Card2021012SketchScroll struct{}
+
+func (Card2021012SketchScroll) ID() string   { return "2021012" }
+func (Card2021012SketchScroll) Name() string { return "速写卷轴" }
+func (Card2021012SketchScroll) OnUseItem(ctx *EffectContext) error {
+	for _, skill := range ctx.Engine.State.Players[ctx.PlayerID].Skills {
+		if skill != nil {
+			resetInstance(skill)
+			return nil
+		}
+	}
+	return nil
+}
+
+type Card2021015ManaBoosterC struct{}
+
+func (Card2021015ManaBoosterC) ID() string   { return "2021015" }
+func (Card2021015ManaBoosterC) Name() string { return "法力增强剂C型" }
+func (Card2021015ManaBoosterC) OnUseItem(ctx *EffectContext) error {
+	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModNextSkillCostZero, RemainingUses: 99, ExpiresTurn: ctx.Engine.State.TurnNumber + 1})
+	return nil
+}
+
+type Card2021017TravelPack struct{}
+
+func (Card2021017TravelPack) ID() string   { return "2021017" }
+func (Card2021017TravelPack) Name() string { return "旅行行囊" }
+func (Card2021017TravelPack) OnEquip(ctx *EffectContext) error {
+	ctx.Source.Statuses["道具槽位+3"] = 1
+	return nil
+}
+
+type Card2021018ArcaneRune struct{}
+
+func (Card2021018ArcaneRune) ID() string   { return "2021018" }
+func (Card2021018ArcaneRune) Name() string { return "奥术符文" }
+func (Card2021018ArcaneRune) OnUseItem(ctx *EffectContext) error {
+	for _, skill := range ctx.Engine.State.Players[ctx.PlayerID].Skills {
+		if skill != nil {
+			skill.PowerBonus += 3
+			break
+		}
+	}
+	return nil
+}
+
+type Card2021022CounterRune struct{}
+
+func (Card2021022CounterRune) ID() string   { return "2021022" }
+func (Card2021022CounterRune) Name() string { return "反制符文" }
+func (Card2021022CounterRune) OnUseItem(ctx *EffectContext) error {
+	emitBatchEffect(ctx, "counter_rune_ready")
+	return nil
+}
+
+type Card2111001FireDragonHeart struct{}
+
+func (Card2111001FireDragonHeart) ID() string   { return "2111001" }
+func (Card2111001FireDragonHeart) Name() string { return "火龙之心" }
+func (Card2111001FireDragonHeart) OnPerTurn(ctx *EffectContext) error {
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	spend := min(ps.Elements[model.ElementFire], 3)
+	if spend > 0 {
+		ps.Elements[model.ElementFire] -= spend
+		ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModSkillPowerBonus, Amount: spend * 3, RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 1})
+	}
+	return nil
+}
+
+type Card2111002NurEye struct{}
+
+func (Card2111002NurEye) ID() string   { return "2111002" }
+func (Card2111002NurEye) Name() string { return "努尔之眼" }
+func (Card2111002NurEye) OnDamaged(ctx *EffectContext) error {
+	ctx.Source.Statuses["火焰标记"]++
+	return nil
+}
+func (Card2111002NurEye) OnPerTurn(ctx *EffectContext) error {
+	markers := ctx.Source.Statuses["火焰标记"]
+	ctx.Source.Statuses["火焰标记"] = 0
+	if markers <= 0 {
+		return nil
+	}
+	if markers == 1 {
+		ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementFire: 2})
+	} else if markers == 2 {
+		ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModSkillPowerBonus, Amount: 2, RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 1})
+	} else {
+		ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModSkillPowerBonus, Amount: 3, RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 1})
+	}
+	return nil
+}
+
+type Card2211002WinterBow struct{}
+
+func (Card2211002WinterBow) ID() string   { return "2211002" }
+func (Card2211002WinterBow) Name() string { return "嗜魔弓 凛冬" }
+func (Card2211002WinterBow) OnEnter(ctx *EffectContext) error {
+	addSkillToPool(ctx, "3201002")
+	return nil
+}
+func (Card2211002WinterBow) OnSpellCast(ctx *EffectContext) error {
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	if ps.PayCost(map[string]int{model.ElementWater: 1}) {
+		addElementsGainBonus(ctx.Source, model.ElementWater, 1)
+	}
+	return nil
+}
+
+type Card2221001FrostHeart struct{}
+
+func (Card2221001FrostHeart) ID() string   { return "2221001" }
+func (Card2221001FrostHeart) Name() string { return "冰霜之心" }
+func (Card2221001FrostHeart) ModifySpellStats(ctx *EffectContext, stats *SpellStats) {
+	if isEnemySpellCast(ctx) {
+		stats.DamageBonus -= 99
+	}
+}
+
+type Card2221010TideRune struct{}
+
+func (Card2221010TideRune) ID() string   { return "2221010" }
+func (Card2221010TideRune) Name() string { return "潮涌符文" }
+func (Card2221010TideRune) OnUseItem(ctx *EffectContext) error {
+	if target := firstUnitFromCandidates(ctx.Engine, ctx.PlayerID, ctx.Engine.friendlyUnits(ctx.PlayerID, false, isWaterCompanion)); target != nil {
+		addElementsGainBonus(target, model.ElementWater, 2)
+	}
+	return nil
+}
+
+type Card2221011RainOfGrace struct{}
+
+func (Card2221011RainOfGrace) ID() string   { return "2221011" }
+func (Card2221011RainOfGrace) Name() string { return "恩惠之雨" }
+func (Card2221011RainOfGrace) OnUseItem(ctx *EffectContext) error {
+	for _, unit := range ctx.Engine.getAllFieldCards(ctx.Engine.State.Players[ctx.PlayerID]) {
+		healUnit(unit, 2)
+	}
+	return nil
+}
+
+type Card2311001ThunderSource struct{}
+
+func (Card2311001ThunderSource) ID() string   { return "2311001" }
+func (Card2311001ThunderSource) Name() string { return "雷之源" }
+func (Card2311001ThunderSource) ModifySkillUseCost(ctx *EffectContext, cost map[string]int) {
+	reduceCost(cost, model.ElementAir, 1)
+}
+
+type Card2311002ThunderDrum struct{}
+
+func (Card2311002ThunderDrum) ID() string   { return "2311002" }
+func (Card2311002ThunderDrum) Name() string { return "唤雷震鼓" }
+func (Card2311002ThunderDrum) OnTurnStart(ctx *EffectContext) error {
+	ctx.Source.Statuses["雷鼓标记"]++
+	return nil
+}
+func (Card2311002ThunderDrum) OnPerTurn(ctx *EffectContext) error {
+	if ctx.Source.Statuses["雷鼓标记"] >= 3 {
+		ctx.Source.Statuses["雷鼓标记"] -= 3
+		ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModSkillPowerBonus, Amount: 3, RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 1})
+	}
+	return nil
+}
+
+type Card2321001WindbreathCompass struct{}
+
+func (Card2321001WindbreathCompass) ID() string   { return "2321001" }
+func (Card2321001WindbreathCompass) Name() string { return "风息罗盘" }
+func (Card2321001WindbreathCompass) OnPerTurn(ctx *EffectContext) error {
+	addElementsGainBonus(ctx.Source, model.ElementAir, 1)
+	return nil
+}
+
+type Card2321010IllusionScroll struct{}
+
+func (Card2321010IllusionScroll) ID() string   { return "2321010" }
+func (Card2321010IllusionScroll) Name() string { return "幻术卷轴" }
+func (Card2321010IllusionScroll) OnUseItem(ctx *EffectContext) error {
+	emitBatchEffect(ctx, "rearrange_units_prompt")
+	return nil
+}
+
+type Card2321011TeleportRune struct{}
+
+func (Card2321011TeleportRune) ID() string   { return "2321011" }
+func (Card2321011TeleportRune) Name() string { return "传送符文" }
+func (Card2321011TeleportRune) OnUseItem(ctx *EffectContext) error {
+	if target := firstUnitFromCandidates(ctx.Engine, ctx.PlayerID, ctx.Engine.friendlyUnits(ctx.PlayerID, false, nil)); target != nil {
+		resetInstance(target)
+	}
+	return nil
+}
+
+type Card2321012WindCloak struct{}
+
+func (Card2321012WindCloak) ID() string   { return "2321012" }
+func (Card2321012WindCloak) Name() string { return "随风斗篷" }
+func (Card2321012WindCloak) OnUltimate(ctx *EffectContext) error {
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	pos := ps.FindEmptyPosition()
+	if pos != nil && ps.Hero != nil && ps.Hero.Position != nil {
+		ps.Units[ps.Hero.Position.Col][ps.Hero.Position.Row] = nil
+		ps.Hero.Position = pos
+		ps.Units[pos.Col][pos.Row] = ps.Hero
+	}
+	return nil
+}

@@ -10,7 +10,6 @@ package game
 import (
 	"fmt"
 	"math/rand"
-	"strings"
 
 	"eraofarcane/model"
 )
@@ -402,21 +401,6 @@ func SearchDeckAndDraw(predicate func(*model.Card) bool) EffectHandler {
 	}
 }
 
-// SearchDeckByName 按名称关键词检索
-func SearchDeckByName(nameKeyword string) EffectHandler {
-	return SearchDeckAndDraw(func(c *model.Card) bool {
-		return contains(c.Name, nameKeyword)
-	})
-}
-
-// SearchDeckByTag 按标签检索
-func SearchDeckByTag(tag string) EffectHandler {
-	return SearchDeckAndDraw(func(c *model.Card) bool {
-		// model.Card 使用 Tag 字段（字符串，不是数组）
-		return contains(c.Tag, tag)
-	})
-}
-
 // ══════════════════════════════════════
 // 弃牌
 // ══════════════════════════════════════
@@ -529,8 +513,3 @@ func removeCardFromDeck(deck []*CardInstance, instanceID string) []*CardInstance
 	}
 	return deck
 }
-
-func contains(s, substr string) bool {
-	return strings.Contains(s, substr)
-}
-
