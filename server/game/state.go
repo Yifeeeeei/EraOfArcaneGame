@@ -122,6 +122,7 @@ type PlayerState struct {
 	SpellsCastThisTurn map[string]int            `json:"spells_cast_this_turn,omitempty"`
 	DiscardAtTurnEnd   map[string]bool           `json:"discard_at_turn_end,omitempty"`
 	LoadGainAtTurnEnd  map[string]map[string]int `json:"load_gain_at_turn_end,omitempty"`
+	RevealedHand       map[string]bool           `json:"revealed_hand,omitempty"`
 
 	// Charge pool - 充能 counter (shared across all cards)
 	Charge int `json:"charge"`
@@ -139,6 +140,7 @@ func NewPlayerState(id int, name string, deck *model.Deck) *PlayerState {
 		SpellsCastThisTurn: make(map[string]int),
 		DiscardAtTurnEnd:   make(map[string]bool),
 		LoadGainAtTurnEnd:  make(map[string]map[string]int),
+		RevealedHand:       make(map[string]bool),
 		DeckDef:            deck,
 	}
 
@@ -202,6 +204,9 @@ func (ps *PlayerState) DrawCards(n int) []*CardInstance {
 		card := ps.Deck[0]
 		ps.Deck = ps.Deck[1:]
 		ps.Hand = append(ps.Hand, card)
+		if cardRevealsOnDraw(card) {
+			ps.RevealedHand[card.InstanceID] = true
+		}
 		drawn = append(drawn, card)
 	}
 	return drawn
@@ -219,6 +224,9 @@ func (ps *PlayerState) FindHandCard(instanceID string) (*CardInstance, int) {
 
 // RemoveFromHand removes a card from hand by index
 func (ps *PlayerState) RemoveFromHand(index int) {
+	if index >= 0 && index < len(ps.Hand) && ps.RevealedHand != nil {
+		delete(ps.RevealedHand, ps.Hand[index].InstanceID)
+	}
 	ps.Hand = append(ps.Hand[:index], ps.Hand[index+1:]...)
 }
 

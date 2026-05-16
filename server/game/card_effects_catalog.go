@@ -272,3 +272,12 @@ func RegisterAllCardEffects() {
 	}
 	log.Printf("[Effects] Registered %d lazy base-set card behavior factories", len(ids))
 }
+
+func hasSpellReactionNumber(number string) bool {
+	switch number {
+	case "3221008":
+		return true
+	default:
+		return false
+	}
+}

@@ -2,14 +2,19 @@ package game
 
 import "eraofarcane/model"
 
+func cloneElements(elements map[string]int) map[string]int {
+	result := make(map[string]int)
+	for _, elem := range model.AllElements {
+		result[elem] = elements[elem]
+	}
+	return result
+}
+
 func calculateElementPayment(available map[string]int, cost map[string]int) (map[string]int, bool) {
 	payment := make(map[string]int)
-	remainingAvailable := make(map[string]int)
+	remainingAvailable := cloneElements(available)
 	remainingCost := make(map[string]int)
 
-	for _, elem := range model.AllElements {
-		remainingAvailable[elem] = available[elem]
-	}
 	for elem, amount := range cost {
 		if amount <= 0 {
 			continue
@@ -100,6 +105,47 @@ func validateElementPayment(available map[string]int, cost map[string]int, payme
 		if spent[elem] != payment[elem] {
 			return false
 		}
+	}
+	return true
+}
+
+func availableElementsWithOverexert(ps *PlayerState, units []*CardInstance) map[string]int {
+	available := cloneElements(ps.Elements)
+	for _, unit := range units {
+		for elem, amount := range effectiveElementsGain(unit) {
+			available[elem] += amount
+		}
+	}
+	return available
+}
+
+func canPayCostWithOverexert(ps *PlayerState, cost map[string]int, units []*CardInstance) bool {
+	_, ok := calculateElementPayment(availableElementsWithOverexert(ps, units), cost)
+	return ok
+}
+
+func payDefenseCost(ps *PlayerState, cost map[string]int, action ActionMessage, units []*CardInstance) bool {
+	available := availableElementsWithOverexert(ps, units)
+	var payment map[string]int
+	if explicit := paymentFromAction(action); explicit != nil {
+		payment = explicit
+		if !validateElementPayment(available, cost, payment) {
+			return false
+		}
+	} else {
+		var ok bool
+		payment, ok = calculateElementPayment(available, cost)
+		if !ok {
+			return false
+		}
+	}
+
+	for elem, amount := range payment {
+		spendFromPool := min(ps.Elements[elem], amount)
+		ps.Elements[elem] -= spendFromPool
+	}
+	for _, unit := range units {
+		unit.IsHorizontal = true
 	}
 	return true
 }

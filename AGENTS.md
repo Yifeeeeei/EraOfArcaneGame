@@ -86,6 +86,11 @@ The game should be understandable from Go code alone. JSON snapshots are referen
 
 - A horizontal card may still use `回合技` / `绝技` unless that specific card text or implementation says otherwise.
 - A `消耗:` effect is different from a normal `回合技`: it pays by turning a vertical card horizontal, so it cannot be used when the source is already horizontal. Most `消耗:` cards should be implemented through `TriggerOnConsume` so `handleConsume` enforces this. Cards such as `渡鸦信使` that use an active button for `消耗:` must explicitly reject horizontal sources and set themselves horizontal without granting their printed load.
+- Defensive payment uses `透支`, not `消耗`. During a defense window the player selects defense skills, optional boost skills, and units to overexert, then confirms together. Overexerting a unit turns it horizontal only for paying that defense cost; it does not trigger consume effects, does not grant elements to the pool, and any excess load is lost.
+- End-of-turn cleanup follows the actual phase order: discard down to hand limit, reset cards, then settle marks. This matters for `冷却`: a horizontal skill with `冷却1` must fail to reset while the mark is still present, then the mark is removed, leaving the skill unavailable for the next turn as intended.
+- Reactive sorceries such as `冰封消解` are not normal main-phase attack spells. Model them with explicit reaction behavior and a frontend action during the defense/spell window.
+- A player may inspect their own remaining deck only as an unordered summary. Opponent deck contents are hidden; opponent graveyards are public. If a hand card is revealed by a card effect or keyword, expose it through an explicit revealed-hand zone rather than by making the whole hand visible.
+- Skill card UI must distinguish learn/entry cost (`elements_cost`) from cast/use cost (`elements_expense`). Do not collapse them into a single generic "费用" label when both exist.
 - Card metadata lives in compiled Go definitions under `server/cards`.
 - Card categories are Go interfaces (`HeroCard`, `CompanionCard`, `SkillCard`, `ItemCard`, plus item subtypes) rather than runtime-only string checks.
 - Custom rules live on concrete structs under `server/game`, one file per card, for example `card_1021006_grocer.go` containing `Card1021006Grocer`.

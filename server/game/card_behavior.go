@@ -44,6 +44,11 @@ type OnSpellHitBehavior interface {
 	OnSpellHit(*EffectContext) error
 }
 
+type SpellReactionBehavior interface {
+	CanReactToSpell(*EffectContext, *SpellCast) bool
+	OnSpellReaction(*EffectContext, *SpellCast) error
+}
+
 type OnDefendBehavior interface {
 	OnDefend(*EffectContext) error
 }
@@ -114,6 +119,10 @@ type SpellTargetingBehavior interface {
 
 type SpellAreaBehavior interface {
 	SpellArea() SpellArea
+}
+
+type DrawRevealBehavior interface {
+	RevealsOnDraw() bool
 }
 
 type SkillUsabilityBehavior interface {

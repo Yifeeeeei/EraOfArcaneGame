@@ -62,12 +62,28 @@
                     <div>进攻威力：<strong>{{ gameState.pending_spell.power }}</strong></div>
                 </div>
 
-                <div class="defense-skills-section" v-if="defenseConsumableUnits.length > 0">
-                    <h3>消耗单位获得元素</h3>
+                <div class="defense-skills-section" v-if="availableReactionSkills.length > 0">
+                    <h3>可响应咒术</h3>
                     <div class="defense-skill-list">
-                        <button v-for="unit in defenseConsumableUnits" :key="unit.instance_id"
-                                class="defense-skill-card consume-card"
-                                @click="consumeCard(unit)">
+                        <button v-for="skill in availableReactionSkills" :key="skill.instance_id"
+                                class="defense-skill-card reaction-card"
+                                @click="reactSpell(skill)">
+                            <img :src="getCardImage(skill)" class="defense-skill-img">
+                            <div class="defense-skill-info">
+                                <div class="defense-skill-name">{{ skill.name }}</div>
+                                <div class="defense-skill-power">费用 {{ costLabel(skillUseCost(skill)) }}</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="defense-skills-section" v-if="defenseOverexertUnits.length > 0">
+                    <h3>选择透支单位支付防御费用</h3>
+                    <div class="defense-skill-list">
+                        <button v-for="unit in defenseOverexertUnits" :key="unit.instance_id"
+                                class="defense-skill-card overexert-card"
+                                :class="{ selected: defenseOverexertSelected.includes(unit.instance_id) }"
+                                @click="toggleDefenseOverexert(unit)">
                             <img :src="getCardImage(unit)" class="defense-skill-img">
                             <div class="defense-skill-info">
                                 <div class="defense-skill-name">{{ unit.name }}</div>
@@ -75,6 +91,7 @@
                             </div>
                         </button>
                     </div>
+                    <div class="defense-note">透支只支付本次防御费用，不保存多余负载，也不会触发“消耗”效果。</div>
                 </div>
 
                 <!-- Available defense skills -->
@@ -114,13 +131,15 @@
                 <!-- Power comparison -->
                 <div class="power-comparison" v-if="defenseSelected.length > 0">
                     <span>防御威力：<strong>{{ totalDefensePower }}</strong></span>
+                    <span>费用：<strong>{{ costLabel(totalDefenseCost) }}</strong></span>
+                    <span>可用：<strong>{{ costLabel(defenseAvailableElements) }}</strong></span>
                     <span :class="totalDefensePower >= gameState.pending_spell.power ? 'power-win' : 'power-lose'">
                         {{ totalDefensePower >= gameState.pending_spell.power ? '防御成功' : '威力不足' }}
                     </span>
                 </div>
 
                 <div class="defense-actions">
-                    <button v-if="defenseSelected.length > 0" @click="submitDefend()" class="btn btn-success" :disabled="!canSubmitDefense">确认防御</button>
+                    <button @click="submitDefend()" class="btn btn-success" :disabled="defenseSelected.length === 0 || !canSubmitDefense">确认防御</button>
                     <button @click="noDefend()" class="btn btn-danger">不防御</button>
                 </div>
             </div>
@@ -239,7 +258,10 @@
                         <span v-if="detailCard.power >= 0" style="color:var(--elem-arcane)">威力 {{ detailCard.power }}</span>
                     </div>
                     <div v-if="hasCost(detailCard)" class="card-cost">
-                        费用：<span class="element-list" v-html="costHTML(detailCard.elements_cost)"></span>
+                        {{ entryCostLabel(detailCard) }}：<span class="element-list" v-html="costHTML(detailCard.elements_cost)"></span>
+                    </div>
+                    <div v-if="hasUseCost(detailCard)" class="card-cost">
+                        使用费用：<span class="element-list" v-html="costHTML(detailCard.elements_expense)"></span>
                     </div>
                     <div v-if="hasGain(detailCard)" class="card-gain">
                         负载：<span class="element-list" v-html="costHTML(detailCard.elements_gain)"></span>
@@ -314,7 +336,16 @@
                     </div>
                     <div class="player-meta">
                         <span>手牌 {{ opponent.hand_count || 0 }}</span>
+                        <span v-if="opponent.revealed_hand?.length">展示 {{ opponent.revealed_hand.length }}</span>
                         <span>卡组 {{ opponent.deck_count || 0 }}</span>
+                    </div>
+                    <div v-if="opponent.revealed_hand?.length" class="revealed-hand-strip">
+                        <div v-for="card in opponent.revealed_hand" :key="card.instance_id" class="revealed-card"
+                             @mouseenter="previewCard(card)"
+                             @click="showCardDetail(card)">
+                            <img :src="getCardImage(card)" :alt="card.name">
+                            <span>{{ card.name }}</span>
+                        </div>
                     </div>
                     <div class="elem-grid">
                         <div v-for="(v,k) in opponent.elements" :key="k" class="elem-item">
@@ -376,6 +407,7 @@
                             class="guide-clear"
                             @click="clearSelection">取消选择</button>
                 </div>
+                <div v-if="waitingNotice" class="waiting-notice">{{ waitingNotice }}</div>
 
                 <div class="boards-wrapper">
                     <div class="player-board opponent-board">
@@ -451,7 +483,7 @@
                                 </div>
                             </div>
                             <div class="pile-controls">
-                                <button class="pile-button deck" @click="openPileView('opponent', 'deck')">
+                                <button class="pile-button deck locked" disabled title="对手剩余卡组内容不可见">
                                     <span>卡组</span><strong>{{ opponent.deck_count || 0 }}</strong>
                                 </button>
                                 <button class="pile-button grave" @click="openPileView('opponent', 'graveyard')">
@@ -621,8 +653,12 @@
                                 <span v-if="activePreviewCard.power >= 0">威力 {{ activePreviewCard.power }}</span>
                             </div>
                             <div v-if="hasCost(activePreviewCard)" class="inspection-line">
-                                <span>费用</span>
+                                <span>{{ entryCostLabel(activePreviewCard) }}</span>
                                 <span class="element-list" v-html="costHTML(activePreviewCard.elements_cost)"></span>
+                            </div>
+                            <div v-if="hasUseCost(activePreviewCard)" class="inspection-line">
+                                <span>使用费用</span>
+                                <span class="element-list" v-html="costHTML(activePreviewCard.elements_expense)"></span>
                             </div>
                             <div v-if="hasGain(activePreviewCard)" class="inspection-line">
                                 <span>负载</span>
@@ -751,7 +787,14 @@
                 }).join('');
             }
             function hasCost(c) { return c && c.elements_cost && Object.keys(c.elements_cost).length > 0; }
+            function hasUseCost(c) { return c && c.elements_expense && Object.keys(c.elements_expense).length > 0; }
             function hasGain(c) { return c && c.elements_gain && Object.keys(c.elements_gain).length > 0; }
+            function entryCostLabel(card) {
+                if (!card) return '费用';
+                if (card.type === '技能') return '入场费用';
+                if (card.type === '伙伴') return '入场费用';
+                return '费用';
+            }
             function costLabel(cost) {
                 const entries = Object.entries(cost || {}).filter(([, v]) => Number(v) > 0);
                 if (!entries.length) return '免费';
@@ -999,6 +1042,7 @@
             }
 
             function openPileView(owner, zone) {
+                if (owner !== 'me' && zone === 'deck') return;
                 const player = owner === 'me' ? myState.value : opponent.value;
                 const ownerName = owner === 'me' ? (myState.value.player_name || '你') : (opponent.value.player_name || '对手');
                 const cards = zone === 'deck'
@@ -1293,8 +1337,7 @@
             function canConsumeUnit(unit) {
                 if (!unit || unit.is_horizontal) return false;
                 if (unit.statuses?.['眩晕'] > 0 || unit.statuses?.['冷却'] > 0) return false;
-                if (isMyTurn.value && gameState.value.phase === 'main') return true;
-                return showDefenseWindow.value;
+                return isMyTurn.value && gameState.value.phase === 'main';
             }
             function unitActionChips(unit) {
                 if (!isMyTurn.value || gameState.value.phase !== 'main' || !unit) return [];
@@ -1437,19 +1480,25 @@
             // Defense skill selection state
             const defenseSelected = ref([]);
             const defenseBoostSelected = ref([]);
+            const defenseOverexertSelected = ref([]);
 
             const availableDefenseSkills = computed(() => {
                 if (!showDefenseWindow.value) return [];
-                return (myState.value.skills || []).filter(skill => canUseSkillAsDefense(skill) && canPayCost(skillUseCost(skill)));
+                return (myState.value.skills || []).filter(canUseSkillAsDefense);
             });
 
-            const defenseConsumableUnits = computed(() => {
+            const availableReactionSkills = computed(() => {
+                if (!showDefenseWindow.value) return [];
+                return (myState.value.skills || []).filter(canUseSkillAsReaction);
+            });
+
+            const defenseOverexertUnits = computed(() => {
                 if (!showDefenseWindow.value || !myState.value.units) return [];
                 const units = [];
                 for (let col = 0; col < 3; col++) {
                     for (let row = 0; row < 3; row++) {
                         const unit = getMyUnit(col, row);
-                        if (unit && !unit.is_horizontal) units.push(unit);
+                        if (unit && canOverexertForDefense(unit)) units.push(unit);
                     }
                 }
                 return units;
@@ -1458,9 +1507,15 @@
             const availableBoostSkills = computed(() => {
                 if (!showDefenseWindow.value || defenseSelected.value.length === 0) return [];
                 return (myState.value.skills || []).filter(s =>
-                    canUseSkillAsDefenseBoost(s) && !defenseSelected.value.includes(s.instance_id) && canPayCost(mergedDefenseCost([...defenseSelected.value, s.instance_id]))
+                    canUseSkillAsDefenseBoost(s) && !defenseSelected.value.includes(s.instance_id)
                 );
             });
+
+            function canOverexertForDefense(unit) {
+                return !!unit && !unit.is_horizontal &&
+                    !(unit.statuses?.['眩晕'] > 0) &&
+                    !(unit.statuses?.['冷却'] > 0);
+            }
 
             function mergedDefenseCost(ids) {
                 const skills = myState.value.skills || [];
@@ -1475,6 +1530,21 @@
                 return merged;
             }
 
+            const totalDefenseCost = computed(() => mergedDefenseCost([...defenseSelected.value, ...defenseBoostSelected.value]));
+
+            const defenseAvailableElements = computed(() => {
+                const available = cloneElements(myState.value.elements || {});
+                const units = defenseOverexertUnits.value;
+                for (const id of defenseOverexertSelected.value) {
+                    const unit = units.find(u => u.instance_id === id);
+                    if (!unit) continue;
+                    for (const [elem, amount] of Object.entries(unit.elements_gain || {})) {
+                        available[elem] = Number(available[elem] || 0) + Number(amount || 0);
+                    }
+                }
+                return available;
+            });
+
             function isSkillReady(skill) {
                 return !!skill && !skill.is_horizontal &&
                     !(skill.statuses?.['冷却'] > 0) &&
@@ -1484,6 +1554,12 @@
             function canUseSkillAsDefense(skill) {
                 if (!isSkillReady(skill)) return false;
                 return !!skill.can_defend;
+            }
+
+            function canUseSkillAsReaction(skill) {
+                if (!isSkillReady(skill)) return false;
+                if (!skill.can_react) return false;
+                return calculatePaymentWithAvailable(defenseAvailableElements.value, skillUseCost(skill)) !== null;
             }
 
             function canUseSkillAsAttackBoost(skill) {
@@ -1512,8 +1588,14 @@
 
             const canSubmitDefense = computed(() => {
                 if (defenseSelected.value.length === 0) return false;
-                return canPayCost(mergedDefenseCost([...defenseSelected.value, ...defenseBoostSelected.value]));
+                return calculatePaymentWithAvailable(defenseAvailableElements.value, totalDefenseCost.value) !== null;
             });
+
+            function toggleDefenseOverexert(unit) {
+                const idx = defenseOverexertSelected.value.indexOf(unit.instance_id);
+                if (idx >= 0) defenseOverexertSelected.value.splice(idx, 1);
+                else defenseOverexertSelected.value.push(unit.instance_id);
+            }
 
             function toggleDefenseSkill(skill) {
                 const idx = defenseSelected.value.indexOf(skill.instance_id);
@@ -1536,6 +1618,19 @@
                 }
             }
 
+            function reactSpell(skill) {
+                if (!canUseSkillAsReaction(skill)) {
+                    addLog('响应费用不足');
+                    return;
+                }
+                sendAction('react_spell', {
+                    instance_id: skill.instance_id,
+                    overexert_ids: [...defenseOverexertSelected.value],
+                });
+                addLog(`响应 ${skill.name}`);
+                defenseOverexertSelected.value = [];
+            }
+
             function submitDefend() {
                 if (!canSubmitDefense.value) {
                     addLog('防御元素不足');
@@ -1543,16 +1638,17 @@
                 }
                 const data = {
                     skill_ids: [...defenseSelected.value],
-                    boost_ids: [...defenseBoostSelected.value]
+                    boost_ids: [...defenseBoostSelected.value],
+                    overexert_ids: [...defenseOverexertSelected.value],
                 };
                 const skillCount = defenseSelected.value.length;
                 const boostCount = defenseBoostSelected.value.length;
-                const cost = mergedDefenseCost([...defenseSelected.value, ...defenseBoostSelected.value]);
-                sendPaidAction('defend', data, cost, '防御', () => {
-                    addLog(`防御 (${skillCount}技能, +${boostCount}强化)`);
-                    defenseSelected.value = [];
-                    defenseBoostSelected.value = [];
-                });
+                const overexertCount = defenseOverexertSelected.value.length;
+                sendAction('defend', data);
+                addLog(`防御 (${skillCount}技能, +${boostCount}强化, ${overexertCount}透支)`);
+                defenseSelected.value = [];
+                defenseBoostSelected.value = [];
+                defenseOverexertSelected.value = [];
             }
 
             function noDefend() {
@@ -1560,6 +1656,7 @@
                 addLog('不防御');
                 defenseSelected.value = [];
                 defenseBoostSelected.value = [];
+                defenseOverexertSelected.value = [];
             }
 
             // Pending action selection
@@ -1658,6 +1755,16 @@
                 return isMyTurn.value ? '你的回合' : '对手回合';
             });
 
+            const waitingNotice = computed(() => {
+                if (!gameState.value) return '';
+                if (gameState.value.phase === 'mulligan' && mulliganSubmitted.value) return '等待对手确认起手...';
+                if (showPendingAction.value) return pendingAction.value?.prompt || '等待你完成选择...';
+                if (showDefenseWindow.value) return '对手施放法术，等待你选择防御方式。';
+                if (gameState.value.phase === 'defense_window' && gameState.value.pending_spell?.attacker === mySlot.value) return '等待对手选择防御或不防御...';
+                if (gameState.value.phase === 'main' && !isMyTurn.value) return '等待对手行动...';
+                return '';
+            });
+
             const currentHint = computed(() => {
                 if (!gameState.value) return '等待游戏状态同步。';
                 if (gameState.value.phase === 'mulligan') return '查看起手牌，选择保留或全部重抽。';
@@ -1714,6 +1821,7 @@
                     case 'game_start': addLog('游戏开始！'); break;
                     case 'turn_start': addLog(`回合 ${d.turn_number} — 玩家${d.current_player+1}`); break;
                     case 'spell_cast': addLog(`玩家${d.attacker+1} 施放 ${d.skill.name} 威力:${d.power}`); break;
+                    case 'spell_reaction': addLog(`${d.card?.name || '响应咒术'} 使法术威力变为 ${d.power}`); break;
                     case 'defense_success': addLog('防御成功！'); break;
                     case 'spell_hit': addLog(`法术命中 ${d.damage} 伤害`); break;
                     case 'unit_attack': addLog(`${d.attacker.name} 攻击 ${d.damage} 伤害`); break;
@@ -1759,6 +1867,7 @@
                         summonDevourRequirement,
                         devourCandidates,
                         beginSummonDevour,
+                        showCardDetail,
                         sendAction,
                     };
                 }
@@ -1772,13 +1881,13 @@
                 selectedHandCard, selectedAttacker, selectedSkill, selectedBoostSkills, pileView, actionLog,
                 myState, opponent, myHand, mySkills, myEquipment,
                 isMyTurn, showDefenseWindow, myFrontRow, opponentFrontRow,
-                getCardImage, getElementIcon, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, costHTML, hasCost, hasGain,
+                getCardImage, getElementIcon, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, costHTML, hasCost, hasUseCost, hasGain, entryCostLabel,
                 showCardDetail, previewCard, mulligan, selectHandCard, isConsumable, canSummonAt,
                 handleCellClick, canConsumeUnit, consumeCard,
                 handleUnitImageClick,
                 canAttackWith, selectAttacker, isAttackTarget,
                 canCastSkill, selectSkillToCast, canBoostWith, toggleBoostSkill, noDefend,
-                guideKicker, currentHint, clearSelection, statusEntries,
+                guideKicker, currentHint, waitingNotice, clearSelection, statusEntries,
                 hasActiveTargeting, isValidOpponentTarget, isSpellTarget, canUseMyCell,
                 canShowCostHint, missingCostText, skillUseCost, canLearnSkill, costLabel,
                 paymentRequest, paymentSelection, paymentElements, selectedPaymentTotal,
@@ -1787,8 +1896,8 @@
                 canSubmitDefense,
                 canPlayHandCard, canPayCost,
                 // Defense
-                defenseSelected, defenseBoostSelected, availableDefenseSkills, availableBoostSkills, defenseConsumableUnits,
-                totalDefensePower, toggleDefenseSkill, toggleDefenseBoost, submitDefend,
+                defenseSelected, defenseBoostSelected, defenseOverexertSelected, availableDefenseSkills, availableReactionSkills, availableBoostSkills, defenseOverexertUnits,
+                totalDefensePower, totalDefenseCost, defenseAvailableElements, toggleDefenseSkill, toggleDefenseBoost, toggleDefenseOverexert, reactSpell, submitDefend,
                 // Pending action
                 pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction,
                 zoneLabel,

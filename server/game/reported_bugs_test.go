@@ -597,6 +597,91 @@ func TestBottledElementGainsOneArcaneWhenUsed(t *testing.T) {
 	}
 }
 
+func TestDefenseOverexertPaysOnlyForThisDefenseWithoutConsumeTriggers(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+	target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+	fireSprite := placeUnit(baseCard(t, "1121001"), 1, 0, 0, engine)
+	p0.Skills[0] = readySkill(baseCard(t, "3321005"), 0)
+	p0.Elements[model.ElementAir] = 2
+	p1.Skills[0] = readySkill(baseCard(t, "3021008"), 1)
+	p1.Elements[model.ElementArcane] = 1
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": p0.Skills[0].InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(1),
+		"target_row":  float64(0),
+	}}); err != nil {
+		t.Fatalf("cast cyclone wave: %v", err)
+	}
+	if err := engine.HandleAction(1, ActionMessage{Action: "defend", Data: map[string]any{
+		"skill_ids":     []any{p1.Skills[0].InstanceID},
+		"overexert_ids": []any{fireSprite.InstanceID},
+	}}); err != nil {
+		t.Fatalf("defend by overexerting fire sprite: %v", err)
+	}
+	if !fireSprite.IsHorizontal {
+		t.Fatalf("overexerted unit should become horizontal")
+	}
+	if fireSprite.Statuses[StatusBurn] != 0 {
+		t.Fatalf("overexertion is not consume and should not trigger fire sprite burn, statuses=%v", fireSprite.Statuses)
+	}
+	if p1.Elements[model.ElementArcane] != 0 || p1.Elements[model.ElementFire] != 0 {
+		t.Fatalf("defense overexert should not store leftover load, elements=%v", p1.Elements)
+	}
+	if target.CurrentLife != target.Card.Life {
+		t.Fatalf("successful defense should prevent spell hit, target life=%d", target.CurrentLife)
+	}
+}
+
+func TestOpponentDeckHiddenButRevealedHandVisible(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+	revealed := NewCardInstance(baseCard(t, "1321003"), 1, 1)
+	hidden := NewCardInstance(baseCard(t, "1021001"), 1, 1)
+	p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021002"), 0, 1)}
+	p1.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021003"), 1, 1)}
+	p1.Hand = []*CardInstance{revealed, hidden}
+	p1.RevealedHand[revealed.InstanceID] = true
+
+	state := engine.GetStateForPlayer(0)
+	you := state["you"].(map[string]any)
+	opponent := state["opponent"].(map[string]any)
+	if _, ok := you["deck_summary"]; !ok {
+		t.Fatalf("owner should see their own unordered deck summary")
+	}
+	if _, ok := opponent["deck_summary"]; ok {
+		t.Fatalf("opponent deck summary should be hidden")
+	}
+	visible := opponent["revealed_hand"].([]map[string]any)
+	if len(visible) != 1 || visible[0]["number"] != "1321003" {
+		t.Fatalf("only explicitly revealed opponent hand cards should be visible, got %+v", visible)
+	}
+}
+
+func TestMagicDandelionRevealsWhenDrawnAndClearsWhenLeavingHand(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	dandelion := NewCardInstance(baseCard(t, "1321003"), 0, 1)
+	p0.Deck = []*CardInstance{dandelion}
+
+	drawn := p0.DrawCards(1)
+	if len(drawn) != 1 || !p0.RevealedHand[dandelion.InstanceID] {
+		t.Fatalf("magic dandelion should be marked revealed when drawn, revealed=%v", p0.RevealedHand)
+	}
+	_, handIdx := p0.FindHandCard(dandelion.InstanceID)
+	if handIdx < 0 {
+		t.Fatalf("drawn dandelion should be in hand")
+	}
+	p0.RemoveFromHand(handIdx)
+	if p0.RevealedHand[dandelion.InstanceID] {
+		t.Fatalf("revealed marker should clear when card leaves hand, revealed=%v", p0.RevealedHand)
+	}
+}
+
 func TestLifePotionUsesPendingSelectionToHealFriendlyUnit(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
@@ -897,6 +982,98 @@ func TestEnergeticSeniorMakesNextSkillIgnoreCooldown(t *testing.T) {
 	}
 	if len(p0.TempModifiers) != 0 {
 		t.Fatalf("no-cooldown modifier should be consumed, modifiers=%v", p0.TempModifiers)
+	}
+}
+
+func TestEndTurnResetsBeforeSettlingCooldown(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+
+	normal := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+	normal.IsHorizontal = true
+
+	cooldownSkill := readySkill(baseCard(t, "3021008"), 0)
+	cooldownSkill.IsHorizontal = true
+	cooldownSkill.Statuses[StatusCooldown] = 1
+	p0.Skills[0] = cooldownSkill
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "end_turn", Data: map[string]any{}}); err != nil {
+		t.Fatalf("end turn: %v", err)
+	}
+	if normal.IsHorizontal {
+		t.Fatalf("normal horizontal card should reset before mark settlement")
+	}
+	if !cooldownSkill.IsHorizontal {
+		t.Fatalf("cooldown skill should remain horizontal because cooldown blocks reset")
+	}
+	if cooldownSkill.Statuses[StatusCooldown] != 0 {
+		t.Fatalf("cooldown should settle after reset, statuses=%v", cooldownSkill.Statuses)
+	}
+}
+
+func TestIceDissolveReactsToEnemySpell(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+
+	target := placeUnit(baseCard(t, "1221002"), 1, 1, 0, engine)
+	p0.Skills[0] = readySkill(baseCard(t, "3121001"), 0)
+	p0.Elements[model.ElementFire] = 1
+	p1.Skills[0] = readySkill(baseCard(t, "3221008"), 1)
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": p0.Skills[0].InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(1),
+		"target_row":  float64(0),
+	}}); err != nil {
+		t.Fatalf("cast spell: %v", err)
+	}
+	if engine.State.Phase != PhaseDefenseWindow || engine.State.PendingSpell == nil {
+		t.Fatalf("expected defense window, phase=%v pending=%v", engine.State.Phase, engine.State.PendingSpell)
+	}
+	startPower := engine.State.PendingSpell.TotalPower
+	if err := engine.HandleAction(1, ActionMessage{Action: "react_spell", Data: map[string]any{
+		"instance_id":   p1.Skills[0].InstanceID,
+		"overexert_ids": []any{target.InstanceID},
+	}}); err != nil {
+		t.Fatalf("react with ice dissolve: %v", err)
+	}
+	if got := engine.State.PendingSpell.TotalPower; got != startPower-1 {
+		t.Fatalf("ice dissolve should reduce pending spell power by 1, got %d want %d", got, startPower-1)
+	}
+	if p1.Elements[model.ElementWater] != 0 {
+		t.Fatalf("ice dissolve should not leave overexerted water in the pool, elements=%v", p1.Elements)
+	}
+	if !target.IsHorizontal {
+		t.Fatalf("overexerted unit should become horizontal")
+	}
+	if !p1.Skills[0].IsHorizontal || p1.Skills[0].Statuses[StatusCooldown] != 1 {
+		t.Fatalf("ice dissolve should tap and gain cooldown1, horizontal=%v statuses=%v", p1.Skills[0].IsHorizontal, p1.Skills[0].Statuses)
+	}
+	if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+		t.Fatalf("resolve spell: %v", err)
+	}
+	if target.CurrentLife >= target.Card.Life {
+		t.Fatalf("ice dissolve changes spell power, not the spell hit damage")
+	}
+}
+
+func TestIceDissolveCannotBeCastAsMainPhaseAttack(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+
+	p0.Skills[0] = readySkill(baseCard(t, "3221008"), 0)
+	p0.Elements[model.ElementWater] = 2
+
+	err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": p0.Skills[0].InstanceID,
+	}})
+	if err == nil {
+		t.Fatalf("ice dissolve should only be usable as a spell reaction")
+	}
+	if p0.Elements[model.ElementWater] != 2 || p0.Skills[0].IsHorizontal {
+		t.Fatalf("failed main-phase cast should not spend or tap, elements=%v horizontal=%v", p0.Elements, p0.Skills[0].IsHorizontal)
 	}
 }
 
