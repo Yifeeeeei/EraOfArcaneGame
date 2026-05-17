@@ -85,6 +85,10 @@ func cardSatisfiesDevourRequirement(card *CardInstance, requirement map[string]i
 }
 
 func searchDeckToHandByPredicate(ctx *EffectContext, actionType string, prompt string, predicate func(*CardInstance) bool) {
+	searchDeckToHandByPredicateWithResult(ctx, actionType, prompt, predicate, nil)
+}
+
+func searchDeckToHandByPredicateWithResult(ctx *EffectContext, actionType string, prompt string, predicate func(*CardInstance) bool, afterSearch func(*CardInstance)) {
 	candidates := ctx.Engine.friendlyDeckCards(ctx.PlayerID, predicate)
 	if len(candidates) == 0 {
 		return
@@ -92,9 +96,50 @@ func searchDeckToHandByPredicate(ctx *EffectContext, actionType string, prompt s
 	ctx.Engine.SetPendingAction(ctx.PlayerID, actionType, prompt, candidates, 1, 1,
 		func(selected []string) {
 			if len(selected) > 0 {
-				ctx.Engine.searchDeckToHand(ctx.PlayerID, selected[0])
+				card := ctx.Engine.searchDeckCardToHand(ctx.PlayerID, selected[0])
+				if card != nil && afterSearch != nil {
+					afterSearch(card)
+				}
 			}
 		})
+}
+
+func summonCardFreeFromHandOrDeck(ctx *EffectContext, instanceID string) *CardInstance {
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	pos := ps.FindEmptyPosition()
+	if pos == nil || instanceID == "" {
+		return nil
+	}
+	var card *CardInstance
+	for i, candidate := range ps.Hand {
+		if candidate != nil && candidate.InstanceID == instanceID {
+			card = candidate
+			ps.Hand = append(ps.Hand[:i], ps.Hand[i+1:]...)
+			break
+		}
+	}
+	if card == nil {
+		for i, candidate := range ps.Deck {
+			if candidate != nil && candidate.InstanceID == instanceID {
+				card = candidate
+				ps.Deck = append(ps.Deck[:i], ps.Deck[i+1:]...)
+				ctx.Engine.shuffleDeck(ctx.PlayerID)
+				break
+			}
+		}
+	}
+	if card == nil {
+		return nil
+	}
+	card.OwnerID = ctx.PlayerID
+	card.Position = pos
+	card.IsHorizontal = true
+	card.EnterTurn = ctx.Engine.State.TurnNumber
+	ps.Units[pos.Col][pos.Row] = card
+	ctx.Engine.triggerEffects(TriggerOnEnter, card, nil, nil)
+	ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.PlayerID, card, map[string]any{"entered_player": ctx.PlayerID})
+	ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.OpponentID, card, map[string]any{"entered_player": ctx.PlayerID})
+	return card
 }
 
 func isWaterCompanion(card *CardInstance) bool {

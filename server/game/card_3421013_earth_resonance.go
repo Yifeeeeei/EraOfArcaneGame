@@ -22,11 +22,3 @@ func (Card3421013EarthResonance) ModifySkillContribution(ctx *EffectContext, sta
 		}
 	}
 }
-
-func totalLoad(card *CardInstance) int {
-	total := 0
-	for _, amount := range effectiveElementsGain(card) {
-		total += amount
-	}
-	return total
-}

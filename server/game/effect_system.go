@@ -240,7 +240,7 @@ func (e *Engine) triggerEffects(trigger EffectTrigger, source *CardInstance, tar
 	}
 
 	// Check for petrify - petrified cards have no effects
-	if source.Statuses[StatusPetrify] > 0 && trigger != TriggerOnDeath {
+	if e.hasEffectiveStatus(source, StatusPetrify) && trigger != TriggerOnDeath {
 		return
 	}
 

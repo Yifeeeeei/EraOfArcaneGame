@@ -522,7 +522,8 @@
                                      'front-row': row === myFrontRow,
                                      'summon-target': selectedHandCard && !getMyUnit(col, row) && canSummonAt(col, row),
                                      'terrain-target': selectedHandCard && selectedHandCard.is_terrain && !getMyTerrain(col, row),
-                                     'invalid-target': selectedHandCard && !canUseMyCell(col, row)
+                                     'spell-target': isFriendlySpellTarget(col, row),
+                                     'invalid-target': (selectedHandCard && !canUseMyCell(col, row)) || (selectedSkill && selectedSkill.allows_friendly_target && !isFriendlySpellTarget(col, row))
                                  }"
                                  @click="handleCellClick(mySlot, col, row)">
                                 <div v-if="getMyTerrain(col, row)" class="terrain-layer"
@@ -703,6 +704,27 @@
                     </div>
                 </div>
 
+                <!-- Test Room Tools -->
+                <div class="test-tools-panel" v-if="isTestRoom">
+                    <h3>测试工具</h3>
+                    <div class="test-tool-row">
+                        <input v-model.trim="testCardNumber" class="test-tool-input" placeholder="卡号，例如 2011002">
+                    </div>
+                    <div class="test-tool-actions">
+                        <button class="test-tool-btn" @click="testAddCard('hand')">加到手牌</button>
+                        <button class="test-tool-btn" @click="testAddCard('skill_pool')">加到技能池</button>
+                        <button class="test-tool-btn" @click="testAddCard('graveyard')">加到弃牌</button>
+                    </div>
+                    <div class="test-tool-row compact">
+                        <select v-model="testElement" class="test-tool-select">
+                            <option v-for="elem in ELEMENT_ORDER" :key="elem" :value="elem">{{ elemFull(elem) }}</option>
+                        </select>
+                        <input v-model.number="testElementAmount" class="test-tool-number" type="number" min="-20" max="99">
+                        <button class="test-tool-btn" @click="testAddElements">调整元素</button>
+                    </div>
+                    <div class="test-tool-hint">只在测试房间生效，会同步给双方客户端。</div>
+                </div>
+
                 <!-- Action Log -->
                 <div class="log-panel">
                     <h3>操作日志</h3>
@@ -763,6 +785,10 @@
             const selectedSkill = ref(null);
             const pileView = ref(null);
             const actionLog = ref([]);
+            const isTestRoom = ref(false);
+            const testCardNumber = ref('');
+            const testElement = ref('无');
+            const testElementAmount = ref(10);
 
             const IMAGE_BASE = 'https://yifeeeeei.github.io/ArcaneImages/';
             const ELEMENT_ICON_BASE = 'https://yifeeeeei.github.io/ArcaneComposer/resources/placeholders/';
@@ -1014,6 +1040,7 @@
                 selectedAttacker.value = null;
                 selectedSkill.value = null;
                 selectedBoostSkills.value = [];
+                pendingExtraTargetCast.value = null;
             }
 
             function statusEntries(card) {
@@ -1245,12 +1272,17 @@
                 if (ownerSlot === mySlot.value && selectedHandCard.value && selectedHandCard.value.type === '伙伴') {
                     if (!getMyUnit(col, row)) { summonCard(selectedHandCard.value, col, row); return; }
                 }
+                if (ownerSlot === mySlot.value && selectedSkill.value && isFriendlySpellTarget(col, row)) { castSpellAt(col, row); return; }
                 if (ownerSlot !== mySlot.value && selectedAttacker.value) { attackTarget(col, row); return; }
                 if (ownerSlot !== mySlot.value && selectedSkill.value) { castSpellAt(col, row); return; }
             }
 
             function handleUnitImageClick(ownerSlot, col, row, unit) {
-                if (ownerSlot !== mySlot.value && (selectedAttacker.value || selectedSkill.value)) {
+                if (selectedSkill.value && ((ownerSlot === mySlot.value && isFriendlySpellTarget(col, row)) || ownerSlot !== mySlot.value)) {
+                    handleCellClick(ownerSlot, col, row);
+                    return;
+                }
+                if (ownerSlot !== mySlot.value && selectedAttacker.value) {
                     handleCellClick(ownerSlot, col, row);
                     return;
                 }
@@ -1374,10 +1406,14 @@
                 if (!getOpponentUnit(col, row)) return false;
                 if (selectedAttacker.value) return row === opponentFrontRow.value;
                 if (!selectedSkill.value) return false;
+                if (pendingExtraTargetCast.value && selectedSkill.value.number === '3321001') return true;
                 return selectedSkill.value.has_pierce || row === opponentFrontRow.value;
             }
             function isSpellTarget(col, row) {
                 return !!selectedSkill.value && isValidOpponentTarget(col, row);
+            }
+            function isFriendlySpellTarget(col, row) {
+                return !!selectedSkill.value && !!selectedSkill.value.allows_friendly_target && !!getMyUnit(col, row);
             }
             function attackTarget(col, row) {
                 if (!selectedAttacker.value) return;
@@ -1418,6 +1454,7 @@
 
             // Boost skill selection for attack casting
             const selectedBoostSkills = ref([]);
+            const pendingExtraTargetCast = ref(null);
 
             function canBoostWith(skill) {
                 if (!selectedSkill.value || !skill || skill.is_horizontal) return false;
@@ -1434,6 +1471,25 @@
 
             function castSpellAt(col, row) {
                 if (!selectedSkill.value) return;
+                if (pendingExtraTargetCast.value && selectedSkill.value.number === '3321001') {
+                    const data = { ...pendingExtraTargetCast.value };
+                    if (data.target_col !== col || data.target_row !== row) {
+                        data.extra_target_col = col;
+                        data.extra_target_row = row;
+                    }
+                    const skillName = selectedSkill.value.name;
+                    const boostCount = selectedBoostSkills.value.length;
+                    const cost = mergedDefenseCost([selectedSkill.value.instance_id, ...selectedBoostSkills.value]);
+                    sendPaidAction('cast_spell', data, cost, `施放 ${skillName}`, () => {
+                        addLog(`施放 ${skillName} → (${data.target_col},${data.target_row})` +
+                            (data.extra_target_col !== undefined ? ` + 额外(${data.extra_target_col},${data.extra_target_row})` : '') +
+                            (boostCount > 0 ? ` (+${boostCount}强化)` : ''));
+                        selectedSkill.value = null;
+                        selectedBoostSkills.value = [];
+                        pendingExtraTargetCast.value = null;
+                    });
+                    return;
+                }
                 const data = {
                     instance_id: selectedSkill.value.instance_id,
                     target_type: 'unit',
@@ -1443,6 +1499,11 @@
                 if (selectedBoostSkills.value.length > 0) {
                     data.boost_ids = [...selectedBoostSkills.value];
                 }
+                if (selectedSkill.value.number === '3321001') {
+                    pendingExtraTargetCast.value = data;
+                    addLog('闪电链：再点击一个敌方单位作为额外目标；再次点击同一目标则不选择额外目标。');
+                    return;
+                }
                 const skillName = selectedSkill.value.name;
                 const boostCount = selectedBoostSkills.value.length;
                 const cost = mergedDefenseCost([selectedSkill.value.instance_id, ...selectedBoostSkills.value]);
@@ -1451,6 +1512,7 @@
                         (boostCount > 0 ? ` (+${boostCount}强化)` : ''));
                     selectedSkill.value = null;
                     selectedBoostSkills.value = [];
+                    pendingExtraTargetCast.value = null;
                 });
             }
 
@@ -1469,6 +1531,7 @@
                     addLog(`施放 ${skillName}`);
                     selectedSkill.value = null;
                     selectedBoostSkills.value = [];
+                    pendingExtraTargetCast.value = null;
                 });
             }
 
@@ -1780,6 +1843,7 @@
                     return `再次点击或右键使用 ${name}。`;
                 }
                 if (selectedAttacker.value) return `选择敌方前排目标，让 ${selectedAttacker.value.name} 攻击。`;
+                if (pendingExtraTargetCast.value && selectedSkill.value?.number === '3321001') return '选择闪电链的额外目标；也可以再次点击原目标跳过额外目标。';
                 if (selectedSkill.value) return `选择敌方目标施放 ${selectedSkill.value.name}。`;
                 return '消耗竖置卡牌获得元素，然后召唤、学习技能、施法或攻击。';
             });
@@ -1787,6 +1851,56 @@
             function addLog(msg) {
                 actionLog.value.unshift(`[${new Date().toLocaleTimeString()}] ${msg}`);
                 if (actionLog.value.length > 50) actionLog.value.pop();
+            }
+
+            async function postTestRoomTool(path, payload) {
+                const resp = await fetch(path, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+                const data = await resp.json().catch(() => ({}));
+                if (!resp.ok) throw new Error(data.error || `HTTP ${resp.status}`);
+                return data;
+            }
+
+            async function testAddCard(zone) {
+                const cardNumber = testCardNumber.value.trim();
+                if (!cardNumber) {
+                    addLog('测试工具：请输入卡号');
+                    return;
+                }
+                try {
+                    await postTestRoomTool('/api/test-room/add-card', {
+                        room_id: roomID,
+                        player: mySlot.value,
+                        card_number: cardNumber,
+                        zone,
+                        count: 1
+                    });
+                    addLog(`测试工具：已添加 ${cardNumber} -> ${zone}`);
+                } catch (err) {
+                    addLog(`测试工具错误：${err.message}`);
+                }
+            }
+
+            async function testAddElements() {
+                const amount = Number(testElementAmount.value || 0);
+                if (!amount) {
+                    addLog('测试工具：元素调整值不能为 0');
+                    return;
+                }
+                try {
+                    await postTestRoomTool('/api/test-room/elements', {
+                        room_id: roomID,
+                        player: mySlot.value,
+                        elements: { [testElement.value]: amount },
+                        mode: 'add'
+                    });
+                    addLog(`测试工具：${elemFull(testElement.value)} ${amount > 0 ? '+' : ''}${amount}`);
+                } catch (err) {
+                    addLog(`测试工具错误：${err.message}`);
+                }
             }
 
             // WebSocket
@@ -1803,6 +1917,7 @@
             function handleMessage(msg) {
                 if (msg.type === 'joined') {
                     mySlot.value = msg.data.slot;
+                    isTestRoom.value = !!msg.data.room?.test_mode;
                     if (msg.data.reconnected) {
                         mulliganSubmitted.value = true;
                         addLog('重新连接成功');
@@ -1866,6 +1981,8 @@
                         skillNeedsTarget,
                         summonDevourRequirement,
                         devourCandidates,
+                        selectedSkill,
+                        pendingExtraTargetCast,
                         beginSummonDevour,
                         showCardDetail,
                         sendAction,
@@ -1879,6 +1996,7 @@
                 connected, connectionStatus, error,
                 gameState, mySlot, roomID, mulliganSubmitted, detailCard, hoverCard, activePreviewCard,
                 selectedHandCard, selectedAttacker, selectedSkill, selectedBoostSkills, pileView, actionLog,
+                isTestRoom, testCardNumber, testElement, testElementAmount, ELEMENT_ORDER,
                 myState, opponent, myHand, mySkills, myEquipment,
                 isMyTurn, showDefenseWindow, myFrontRow, opponentFrontRow,
                 getCardImage, getElementIcon, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, costHTML, hasCost, hasUseCost, hasGain, entryCostLabel,
@@ -1888,12 +2006,13 @@
                 canAttackWith, selectAttacker, isAttackTarget,
                 canCastSkill, selectSkillToCast, canBoostWith, toggleBoostSkill, noDefend,
                 guideKicker, currentHint, waitingNotice, clearSelection, statusEntries,
-                hasActiveTargeting, isValidOpponentTarget, isSpellTarget, canUseMyCell,
+                hasActiveTargeting, isValidOpponentTarget, isSpellTarget, isFriendlySpellTarget, canUseMyCell,
                 canShowCostHint, missingCostText, skillUseCost, canLearnSkill, costLabel,
                 paymentRequest, paymentSelection, paymentElements, selectedPaymentTotal,
                 canAddPayment, addPayment, isPaymentSelectionValid, paymentRemainingText, confirmPayment, cancelPayment, totalCost,
                 devourRequest, devourSelection, devourCandidates, confirmDevourSelection, cancelDevourSelection,
                 canSubmitDefense,
+                testAddCard, testAddElements,
                 canPlayHandCard, canPayCost,
                 // Defense
                 defenseSelected, defenseBoostSelected, defenseOverexertSelected, availableDefenseSkills, availableReactionSkills, availableBoostSkills, defenseOverexertUnits,

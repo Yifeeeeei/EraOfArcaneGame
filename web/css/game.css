@@ -892,7 +892,7 @@ body::before {
     justify-content: center;
     flex-wrap: wrap;
     gap: 2px;
-    z-index: 4;
+    z-index: 8;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.15s ease;
@@ -906,7 +906,7 @@ body::before {
     display: flex;
     justify-content: center;
     gap: 3px;
-    z-index: 4;
+    z-index: 8;
     opacity: 0;
     pointer-events: none;
     transition: opacity 0.15s ease;
@@ -920,6 +920,9 @@ body::before {
     pointer-events: auto;
 }
 .action-btn {
+    position: relative;
+    z-index: 9;
+    pointer-events: auto;
     font-size: 9px;
     padding: 2px 5px;
     border-radius: 0;
@@ -1281,6 +1284,80 @@ body::before {
     color: #f08b7e;
 }
 .sp-card:hover .sp-learn-hint { opacity: 1; }
+
+/* Test room tools */
+.test-tools-panel {
+    flex: 0 0 auto;
+    padding: 8px;
+    border-bottom: var(--border-panel);
+    background: rgba(31, 24, 17, 0.88);
+}
+.test-tools-panel h3 {
+    font-family: var(--font-display);
+    font-size: 13px;
+    color: var(--gold);
+    letter-spacing: 1px;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1px solid rgba(201,168,76,0.1);
+}
+.test-tool-row {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 6px;
+}
+.test-tool-row.compact {
+    align-items: center;
+}
+.test-tool-input,
+.test-tool-select,
+.test-tool-number {
+    min-width: 0;
+    height: 28px;
+    border: 1px solid rgba(198,174,116,0.28);
+    border-radius: 2px;
+    background: rgba(8,6,5,0.84);
+    color: var(--text-primary);
+    font-family: var(--font-body);
+    font-size: 12px;
+}
+.test-tool-input {
+    width: 100%;
+    padding: 0 8px;
+}
+.test-tool-select {
+    flex: 1;
+    padding: 0 6px;
+}
+.test-tool-number {
+    width: 58px;
+    padding: 0 4px;
+}
+.test-tool-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 5px;
+    margin-bottom: 6px;
+}
+.test-tool-btn {
+    min-height: 28px;
+    border: 1px solid rgba(198,174,116,0.32);
+    border-radius: 2px;
+    background: rgba(45,34,22,0.96);
+    color: var(--gold-bright);
+    font-family: var(--font-body);
+    font-size: 12px;
+    cursor: pointer;
+}
+.test-tool-btn:hover {
+    border-color: var(--gold-bright);
+    filter: brightness(1.12);
+}
+.test-tool-hint {
+    color: var(--text-muted);
+    font-size: 11px;
+    line-height: 1.35;
+}
 
 /* Log panel */
 .log-panel {

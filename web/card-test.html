@@ -266,6 +266,7 @@
                         <textarea class="deck-code" readonly :value="deckCodeForSelected"></textarea>
                         <div class="action-box">
                             <button class="btn btn-primary" @click="createRoomForSelected">用这张卡创建测试房间</button>
+                            <button class="btn btn-success" @click="createDebugRoomForSelected">创建后台测试房间</button>
                             <button class="btn btn-info" @click="copyDeck">复制测试卡组</button>
                         </div>
                     </div>
@@ -443,6 +444,19 @@
                 window.location.href = '/game.html?' + params.toString();
             }
 
+            async function createDebugRoomForSelected() {
+                const resp = await fetch('/api/test-room/create', { method: 'POST' });
+                const data = await resp.json();
+                const params = new URLSearchParams({
+                    room: data.room_id,
+                    player_id: `debug_test_${Date.now()}`,
+                    player_name: `后台测试-${selected.value.name}`,
+                    deck_code: deckCodeForSelected.value,
+                    test_mode: '1'
+                });
+                window.location.href = '/game.html?' + params.toString();
+            }
+
             function runSelfTest() {
                 const problems = [];
                 const expected = { '人物': 20, '伙伴': 131, '技能': 109, '道具': 118 };
@@ -474,7 +488,7 @@
             return {
                 cards, query, selectedType, selected, selfTest, filters, filteredCards,
                 deckCodeForSelected, getCardImage, selectCard, typeCount, valueLabel, costLabel,
-                operationLabel, operationSteps, runSelfTest, copyDeck, createRoomForSelected
+                operationLabel, operationSteps, runSelfTest, copyDeck, createRoomForSelected, createDebugRoomForSelected
             };
         }
     }).mount('#app');

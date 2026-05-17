@@ -14,17 +14,18 @@ type Room struct {
 	Players   [2]*RoomPlayer `json:"players"`
 	Engine    *game.Engine   `json:"-"`
 	IsStarted bool           `json:"is_started"`
+	TestMode  bool           `json:"test_mode"`
 	mu        sync.Mutex
 }
 
 // RoomPlayer represents a player in a room
 type RoomPlayer struct {
-	ID          string                   `json:"id"`
-	Name        string                   `json:"name"`
-	Deck        *model.Deck              `json:"deck"`
-	Ready       bool                     `json:"ready"`
+	ID          string                     `json:"id"`
+	Name        string                     `json:"name"`
+	Deck        *model.Deck                `json:"deck"`
+	Ready       bool                       `json:"ready"`
 	SendFn      func(event game.GameEvent) `json:"-"`
-	IsConnected bool                     `json:"is_connected"`
+	IsConnected bool                       `json:"is_connected"`
 }
 
 // RoomManager manages all game rooms
@@ -42,6 +43,15 @@ func NewRoomManager() *RoomManager {
 
 // CreateRoom creates a new room
 func (rm *RoomManager) CreateRoom() *Room {
+	return rm.createRoom(false)
+}
+
+// CreateTestRoom creates a room whose game state may be edited through debug APIs.
+func (rm *RoomManager) CreateTestRoom() *Room {
+	return rm.createRoom(true)
+}
+
+func (rm *RoomManager) createRoom(testMode bool) *Room {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
@@ -52,7 +62,8 @@ func (rm *RoomManager) CreateRoom() *Room {
 	}
 
 	room := &Room{
-		ID: id,
+		ID:       id,
+		TestMode: testMode,
 	}
 	rm.rooms[id] = room
 	return room
@@ -222,11 +233,32 @@ func (r *Room) StartGame() error {
 	return nil
 }
 
+// BroadcastState sends each connected player their own serialized view.
+func (r *Room) BroadcastState() {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.Engine == nil {
+		return
+	}
+	for i := 0; i < 2; i++ {
+		if r.Players[i] == nil || r.Players[i].SendFn == nil {
+			continue
+		}
+		r.Players[i].SendFn(game.GameEvent{
+			Type:   "state_sync",
+			Player: i,
+			Data:   r.Engine.GetStateForPlayer(i),
+		})
+	}
+}
+
 // RoomInfo returns a serializable room info
 func (r *Room) RoomInfo() map[string]any {
 	info := map[string]any{
 		"id":         r.ID,
 		"is_started": r.IsStarted,
+		"test_mode":  r.TestMode,
 	}
 
 	players := make([]any, 0)

@@ -19,3 +19,11 @@ func isEnemySpellCast(ctx *EffectContext) bool {
 func isSpellBeingCast(ctx *EffectContext) bool {
 	return ctx != nil && ctx.Target == nil
 }
+
+func isFriendlySpellHit(ctx *EffectContext) bool {
+	if ctx == nil || ctx.ExtraData == nil {
+		return true
+	}
+	attacker, ok := ctx.ExtraData["attacker"].(int)
+	return !ok || attacker == ctx.PlayerID
+}

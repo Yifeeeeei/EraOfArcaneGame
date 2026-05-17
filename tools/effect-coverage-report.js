@@ -7,12 +7,47 @@ const root = path.resolve(__dirname, '..');
 const cardsPath = path.join(root, 'data', 'supported_card_infos.json');
 const catalogPath = path.join(root, 'server', 'game', 'card_effects_catalog.go');
 const outputPath = path.join(root, 'EFFECT_COVERAGE.md');
+const gameDir = path.join(root, 'server', 'game');
+const tmpDir = path.join(root, 'tmp');
 
 const cards = JSON.parse(fs.readFileSync(cardsPath, 'utf8'));
 const catalog = fs.readFileSync(catalogPath, 'utf8');
 const implemented = new Set(
   [...catalog.matchAll(/"(\d+)":\s*func\(\) CardBehavior/g)].map((match) => match[1]),
 );
+const testText = fs.readdirSync(gameDir)
+  .filter((file) => file.endsWith('_test.go'))
+  .map((file) => fs.readFileSync(path.join(gameDir, file), 'utf8'))
+  .join('\n');
+
+const frontendReports = fs.existsSync(tmpDir)
+  ? fs.readdirSync(tmpDir)
+    .filter((file) => /^frontend-card-operation-report.*\.json$/.test(file))
+    .map((file) => {
+      try {
+        return { file, data: JSON.parse(fs.readFileSync(path.join(tmpDir, file), 'utf8')) };
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+  : [];
+const frontendByCard = new Map();
+for (const report of frontendReports) {
+  for (const result of report.data.results || []) {
+    if (!result || !result.number) continue;
+    const previous = frontendByCard.get(result.number);
+    const current = {
+      status: result.status || 'unknown',
+      file: report.file,
+      generatedAt: report.data.generatedAt || '',
+      reason: result.reason || '',
+    };
+    if (!previous || current.status === 'pass' || current.generatedAt > previous.generatedAt) {
+      frontendByCard.set(result.number, current);
+    }
+  }
+}
 
 const genericRules = [
   ['速攻', /速攻/],
@@ -109,36 +144,76 @@ function escapeCell(value) {
   return String(value || '').replace(/\|/g, '\\|').replace(/\n/g, '<br>');
 }
 
+function semanticTestStatus(card) {
+  const mentions = (testText.match(new RegExp(card.number, 'g')) || []).length;
+  if (mentions > 0) return { status: '已点名', mentions };
+  if (!customEffectPattern.test(card.description || '') && isGenericOnlyDescription(card.description || '')) {
+    return { status: '通用/白板', mentions };
+  }
+  return { status: '未点名', mentions };
+}
+
+function frontendStatus(card) {
+  const result = frontendByCard.get(card.number);
+  if (!result) return '未记录';
+  if (result.status === 'pass') return `已操作(${result.file})`;
+  return `${result.status}(${result.file})`;
+}
+
+function riskLevel(row) {
+  if (row.runtimeStatus === '未实现' || row.runtimeStatus === '需复核') return '高';
+  if (row.semanticStatus === '未点名' && row.runtimeStatus === '已实现') return '高';
+  if (row.semanticStatus === '未点名') return '中';
+  if (row.frontendStatus === '未记录' && row.runtimeStatus !== '白板/无效果') return '中';
+  return '低';
+}
+
 const rows = cards.map((card) => {
   const status = coverageStatus(card);
+  const semantic = semanticTestStatus(card);
   return {
     number: card.number,
     name: card.name,
     type: card.type,
     element: card.category,
-    status,
+    runtimeStatus: status,
+    semanticStatus: semantic.status,
+    semanticMentions: semantic.mentions,
+    frontendStatus: frontendStatus(card),
     generic: genericTags(card.description).join('、'),
     description: card.description || '',
   };
 });
+for (const row of rows) {
+  row.risk = riskLevel(row);
+}
 
-const counts = countBy(rows, (row) => row.status);
+const counts = countBy(rows, (row) => row.runtimeStatus);
+const semanticCounts = countBy(rows, (row) => row.semanticStatus);
+const frontendCounts = countBy(rows, (row) => row.frontendStatus.startsWith('已操作') ? '已操作' : row.frontendStatus === '未记录' ? '未记录' : '未通过/旧失败');
+const riskCounts = countBy(rows, (row) => row.risk);
 const byType = {};
 for (const row of rows) {
   byType[row.type] ||= {};
-  byType[row.type][row.status] = (byType[row.type][row.status] || 0) + 1;
+  byType[row.type][row.runtimeStatus] = (byType[row.type][row.runtimeStatus] || 0) + 1;
 }
 
-const missingRows = rows.filter((row) => row.status === '未实现');
+const missingRows = rows.filter((row) => row.runtimeStatus === '未实现');
 const mechanicCounts = {};
 for (const [name, pattern] of mechanicGroups) {
   mechanicCounts[name] = missingRows.filter((row) => pattern.test(row.description)).length;
 }
+const nextRows = rows
+  .filter((row) => row.risk === '高')
+  .sort((a, b) => {
+    const runtimeRank = { 未实现: 0, 需复核: 1, 已实现: 2, 通用机制: 3, '白板/无效果': 4 };
+    return (runtimeRank[a.runtimeStatus] ?? 9) - (runtimeRank[b.runtimeStatus] ?? 9) || a.number.localeCompare(b.number);
+  });
 
 const lines = [];
 lines.push('# 基础包卡牌效果覆盖表');
 lines.push('');
-lines.push('> 这个文件由 `node tools/effect-coverage-report.js --write` 生成，用来追踪基础包卡牌效果是否真的有运行时代码。');
+lines.push('> 这个文件由 `node tools/effect-coverage-report.js --write` 生成，用来追踪基础包卡牌效果是否有运行时代码、后端语义测试、以及前端操作记录。');
 lines.push('');
 lines.push('## 总览');
 lines.push('');
@@ -148,6 +223,10 @@ lines.push(`- 只依赖通用机制：${counts['通用机制'] || 0}`);
 lines.push(`- 白板/无效果：${counts['白板/无效果'] || 0}`);
 lines.push(`- 需复核：${counts['需复核'] || 0}`);
 lines.push(`- 未实现：${counts['未实现'] || 0}`);
+lines.push(`- 后端语义测试已点名：${semanticCounts['已点名'] || 0}`);
+lines.push(`- 后端语义测试未点名：${semanticCounts['未点名'] || 0}`);
+lines.push(`- 前端已有操作记录：${frontendCounts['已操作'] || 0}`);
+lines.push(`- 高风险待验证：${riskCounts['高'] || 0}`);
 lines.push('');
 lines.push('## 按类型统计');
 lines.push('');
@@ -173,13 +252,24 @@ lines.push('- `通用机制`：目前没有专属行为，但描述主要落在�
 lines.push('- `白板/无效果`：描述为空，可以按普通卡运行。');
 lines.push('- `需复核`：描述不为空，但脚本无法判断是否需要代码。');
 lines.push('- `未实现`：描述明显要求行为代码或尚不存在的通用机制。');
+lines.push('- `后端语义测试` 的 `已点名` 表示测试文件里直接出现过该卡编号；它不是完整正确性的证明，但能区分“只被全量 smoke 扫过”和“有专门语义断言”。');
+lines.push('- `前端操作` 来自 `tmp/frontend-card-operation-report*.json`，是历史浏览器操作记录；旧失败不一定代表当前仍失败，但必须重新验证。');
+lines.push('- `风险` 主要用于排队：已实现但没有语义测试、未实现、需复核的卡优先处理。');
+lines.push('');
+lines.push('## 下一批高风险清单');
+lines.push('');
+lines.push('| 编号 | 名称 | 类型 | 运行时代码 | 后端语义测试 | 前端操作 | 描述 |');
+lines.push('|---|---|---|---|---|---|---|');
+for (const row of nextRows.slice(0, 60)) {
+  lines.push(`| ${row.number} | ${escapeCell(row.name)} | ${row.type} | ${row.runtimeStatus} | ${row.semanticStatus} | ${escapeCell(row.frontendStatus)} | ${escapeCell(row.description)} |`);
+}
 lines.push('');
 lines.push('## 全量清单');
 lines.push('');
-lines.push('| 编号 | 名称 | 类型 | 属性 | 状态 | 通用机制 | 描述 |');
-lines.push('|---|---|---|---|---|---|---|');
+lines.push('| 编号 | 名称 | 类型 | 属性 | 运行时代码 | 后端语义测试 | 前端操作 | 风险 | 通用机制 | 描述 |');
+lines.push('|---|---|---|---|---|---|---|---|---|---|');
 for (const row of rows) {
-  lines.push(`| ${row.number} | ${escapeCell(row.name)} | ${row.type} | ${row.element} | ${row.status} | ${escapeCell(row.generic)} | ${escapeCell(row.description)} |`);
+  lines.push(`| ${row.number} | ${escapeCell(row.name)} | ${row.type} | ${row.element} | ${row.runtimeStatus} | ${row.semanticStatus}${row.semanticMentions ? `(${row.semanticMentions})` : ''} | ${escapeCell(row.frontendStatus)} | ${row.risk} | ${escapeCell(row.generic)} | ${escapeCell(row.description)} |`);
 }
 lines.push('');
 
@@ -192,7 +282,19 @@ if (process.argv.includes('--write')) {
   console.log(JSON.stringify({
     total: rows.length,
     counts: Object.fromEntries(Object.entries(counts).map(([key, value]) => [statusKey(key), value])),
+    semanticCounts,
+    frontendCounts,
+    riskCounts,
     byType,
     mechanicCounts,
+    highRisk: nextRows.slice(0, 60).map((row) => ({
+      number: row.number,
+      name: row.name,
+      type: row.type,
+      runtimeStatus: row.runtimeStatus,
+      semanticStatus: row.semanticStatus,
+      frontendStatus: row.frontendStatus,
+      description: row.description,
+    })),
   }, null, 2));
 }

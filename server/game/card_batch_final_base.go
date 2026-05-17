@@ -77,10 +77,13 @@ func (Card2421001KnowledgeTreeCare) OnConsume(ctx *EffectContext) error {
 
 type Card2421007ParasiticTouch struct{}
 
-func (Card2421007ParasiticTouch) ID() string   { return "2421007" }
-func (Card2421007ParasiticTouch) Name() string { return "寄生之触" }
-func (Card2421007ParasiticTouch) OnEquip(ctx *EffectContext) error {
-	addElementsGainBonus(ctx.Source, model.ElementEarth, 1)
+func (Card2421007ParasiticTouch) ID() string      { return "2421007" }
+func (Card2421007ParasiticTouch) Name() string    { return "寄生之触" }
+func (Card2421007ParasiticTouch) MasteryMax() int { return 1 }
+func (Card2421007ParasiticTouch) OnMastery(ctx *EffectContext, level int) error {
+	if level == 1 {
+		addElementsGainBonus(ctx.Source, model.ElementEarth, 1)
+	}
 	return nil
 }
 
@@ -206,8 +209,8 @@ type Card2621012ShadowCloak struct{}
 
 func (Card2621012ShadowCloak) ID() string   { return "2621012" }
 func (Card2621012ShadowCloak) Name() string { return "暗影披风" }
-func (Card2621012ShadowCloak) ModifySpellStats(ctx *EffectContext, stats *SpellStats) {
-	if isEnemySpellCast(ctx) && ctx.Source.Statuses["已防护"] == 0 {
+func (Card2621012ShadowCloak) ModifyEnemySpellStats(ctx *EffectContext, stats *SpellStats) {
+	if isEnemySpellCast(ctx) && ctx.ExtraData["stat"] == "damage" && ctx.Source.Statuses["已防护"] == 0 {
 		stats.DamageBonus -= 99
 		ctx.Source.Statuses["已防护"] = 1
 	}
@@ -269,7 +272,7 @@ func (Card3121015BurningWind) ModifySkillContribution(ctx *EffectContext, stats 
 		if !isBoostPurpose(skillPurpose(purpose)) {
 			return
 		}
-		stats.DamageBonus += 1
+		stats.Pierce = true
 	}
 }
 
@@ -320,10 +323,11 @@ type Card3321008WindHole struct{}
 
 func (Card3321008WindHole) ID() string   { return "3321008" }
 func (Card3321008WindHole) Name() string { return "风洞" }
-func (Card3321008WindHole) OnSpellHit(ctx *EffectContext) error {
-	if ctx.Target != nil {
-		ctx.Target.Statuses[StatusSeal]++
-	}
+func (Card3321008WindHole) CanReactToSpell(ctx *EffectContext, spell *SpellCast) bool {
+	return ctx != nil && spell != nil && spell.AttackerID != ctx.PlayerID && spellArea(spell.Skill) == SpellAreaSingle
+}
+func (Card3321008WindHole) OnSpellReaction(ctx *EffectContext, spell *SpellCast) error {
+	ctx.Engine.cancelPendingSpell(ctx.PlayerID, ctx.Source, "wind_hole")
 	return nil
 }
 
@@ -339,9 +343,16 @@ type Card3521011LightShelter struct{}
 
 func (Card3521011LightShelter) ID() string   { return "3521011" }
 func (Card3521011LightShelter) Name() string { return "光之庇护" }
+func (Card3521011LightShelter) AllowsFriendlySpellTarget() bool {
+	return true
+}
 func (Card3521011LightShelter) OnSpellHit(ctx *EffectContext) error {
-	if target := firstFriendlyCompanion(ctx); target != nil {
-		target.Statuses["防止致命"] = 1
+	target := ctx.Target
+	if target == nil || target.OwnerID != ctx.PlayerID || !target.Card.IsCompanion() {
+		target = firstFriendlyCompanion(ctx)
+	}
+	if target != nil {
+		target.Statuses["防止致命"] = 2
 	}
 	return nil
 }
@@ -350,10 +361,31 @@ type Card3621015Siphon struct{}
 
 func (Card3621015Siphon) ID() string   { return "3621015" }
 func (Card3621015Siphon) Name() string { return "虹吸" }
-func (Card3621015Siphon) OnSpellHit(ctx *EffectContext) error {
-	if ctx.Target != nil {
-		healUnit(ctx.Engine.State.Players[ctx.PlayerID].Hero, 2)
+func (Card3621015Siphon) CanReactToSpell(ctx *EffectContext, spell *SpellCast) bool {
+	return ctx != nil && spell != nil && spell.AttackerID != ctx.PlayerID && spell.Skill != nil
+}
+func (Card3621015Siphon) OnSpellReaction(ctx *EffectContext, spell *SpellCast) error {
+	defenderID := ctx.PlayerID
+	affected := ctx.Engine.spellAffectedUnits(defenderID, spell.Skill, spell.Target)
+	if len(affected) == 0 {
+		return nil
 	}
+	baseDamage := max(spell.Skill.Card.Attack+spell.Skill.AttackBonus, 0)
+	if override, ok := globalRegistry.SpellDamage(spell.Skill.Card.Number, &EffectContext{
+		Engine:     ctx.Engine,
+		Source:     spell.Skill,
+		Target:     affected[0],
+		PlayerID:   spell.AttackerID,
+		OpponentID: defenderID,
+		ExtraData:  map[string]any{"target": spell.Target},
+	}); ok {
+		baseDamage = max(override, 0)
+	}
+	damage := ctx.Engine.effectiveSpellDamage(spell.AttackerID, spell.Skill, baseDamage, spell.BoostSkills)
+	for _, unit := range affected {
+		healUnit(unit, damage)
+	}
+	ctx.Engine.cancelPendingSpell(ctx.PlayerID, ctx.Source, "siphon")
 	return nil
 }
 
@@ -385,13 +417,6 @@ type Card4311002Raven struct{}
 
 func (Card4311002Raven) ID() string   { return "4311002" }
 func (Card4311002Raven) Name() string { return "\"渡鸦\" 睿文" }
-func (Card4311002Raven) OnTurnStart(ctx *EffectContext) error {
-	if ctx.Source.Statuses["额外起手"] == 0 {
-		ctx.Engine.State.Players[ctx.PlayerID].DrawCards(1)
-		ctx.Source.Statuses["额外起手"] = 1
-	}
-	return nil
-}
 
 type Card4411002Andrew struct{}
 

@@ -50,7 +50,7 @@ func (e *Engine) effectiveSkillUseCost(ps *PlayerState, skill *CardInstance) map
 		OpponentID: 1 - ps.PlayerID,
 	}
 	for _, fieldCard := range e.getAllFieldCards(ps) {
-		if fieldCard == nil || fieldCard.Card == nil || fieldCard.Statuses[StatusPetrify] > 0 {
+		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
 			continue
 		}
 		behavior := globalRegistry.GetBehavior(fieldCard.Card.Number)
@@ -79,7 +79,7 @@ func (e *Engine) effectiveCardPlayCost(ps *PlayerState, card *CardInstance) map[
 		OpponentID: 1 - ps.PlayerID,
 	}
 	for _, fieldCard := range e.getAllFieldCards(ps) {
-		if fieldCard == nil || fieldCard.Card == nil || fieldCard.Statuses[StatusPetrify] > 0 {
+		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
 			continue
 		}
 		behavior := globalRegistry.GetBehavior(fieldCard.Card.Number)
@@ -88,11 +88,22 @@ func (e *Engine) effectiveCardPlayCost(ps *PlayerState, card *CardInstance) map[
 			modifier.ModifyCardPlayCost(ctx, card, cost)
 		}
 	}
+	if card.Statuses["入场费用水-1"] > 0 {
+		reduceCost(cost, model.ElementWater, card.Statuses["入场费用水-1"])
+	}
 	return cost
 }
 
 func (e *Engine) effectiveSkillLearnCost(ps *PlayerState, skill *CardInstance) map[string]int {
-	return e.effectiveCardPlayCost(ps, skill)
+	cost := e.effectiveCardPlayCost(ps, skill)
+	if modifier := e.nextEarthSkillLearnCostMinus(ps, skill); modifier != nil {
+		amount := modifier.Amount
+		if amount <= 0 {
+			amount = 2
+		}
+		reduceCost(cost, model.ElementEarth, amount)
+	}
+	return cost
 }
 
 func mergeElementCosts(costs ...map[string]int) map[string]int {
@@ -190,7 +201,7 @@ func (e *Engine) validateSkillForPurpose(skill *CardInstance, purpose skillPurpo
 		OpponentID: 1 - skill.OwnerID,
 	}
 	for _, fieldCard := range e.getAllFieldCards(ps) {
-		if fieldCard == nil || fieldCard.Card == nil || fieldCard.Statuses[StatusPetrify] > 0 {
+		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
 			continue
 		}
 		behavior := globalRegistry.GetBehavior(fieldCard.Card.Number)
@@ -214,7 +225,7 @@ func (e *Engine) validateReadySkill(skill *CardInstance) error {
 	if skill.Statuses[StatusCooldown] > 0 {
 		return fmt.Errorf("skill is on cooldown")
 	}
-	if skill.Statuses[StatusPetrify] > 0 {
+	if e.hasEffectiveStatus(skill, StatusPetrify) {
 		return fmt.Errorf("skill is petrified")
 	}
 	if skill.Statuses[StatusSeal] > 0 {
@@ -238,7 +249,7 @@ func totalSkillPower(skills []*CardInstance) int {
 }
 
 func (e *Engine) effectiveSpellPower(playerID int, skill *CardInstance, boostSkills []*CardInstance, targets ...SpellTarget) int {
-	extra := map[string]any{}
+	extra := map[string]any{"stat": "power"}
 	if len(targets) > 0 {
 		extra["spell_target"] = targets[0]
 		if unit := e.spellTargetUnit(1-playerID, targets[0]); unit != nil {
@@ -261,7 +272,7 @@ func (e *Engine) effectiveSpellDamage(playerID int, skill *CardInstance, baseDam
 	for _, boostSkill := range boostSkills {
 		damage += e.skillContributionStats(playerID, boostSkill, skill, skillPurposeAttackBoost).DamageBonus
 	}
-	damage += e.spellStatBonuses(playerID, skill, skillPurposeAttack).DamageBonus
+	damage += e.spellStatBonusesWithData(playerID, skill, skillPurposeAttack, map[string]any{"stat": "damage"}).DamageBonus
 	return max(damage, 0)
 }
 
@@ -321,6 +332,9 @@ func (e *Engine) spellStatBonusesWithData(playerID int, skill *CardInstance, pur
 	for key, value := range extra {
 		data[key] = value
 	}
+	if _, ok := data["cast_player"]; !ok {
+		data["cast_player"] = playerID
+	}
 	ctx := &EffectContext{
 		Engine:     e,
 		Target:     skill,
@@ -329,7 +343,7 @@ func (e *Engine) spellStatBonusesWithData(playerID int, skill *CardInstance, pur
 		ExtraData:  data,
 	}
 	for _, fieldCard := range e.getAllFieldCards(ps) {
-		if fieldCard == nil || fieldCard.Card == nil || fieldCard.Statuses[StatusPetrify] > 0 {
+		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
 			continue
 		}
 		behavior := globalRegistry.GetBehavior(fieldCard.Card.Number)
@@ -339,6 +353,39 @@ func (e *Engine) spellStatBonusesWithData(playerID int, skill *CardInstance, pur
 		}
 		ctx.Source = fieldCard
 		modifier.ModifySpellStats(ctx, &stats)
+	}
+	opponentID := 1 - playerID
+	opponent := e.State.Players[opponentID]
+	enemyCtx := &EffectContext{
+		Engine:     e,
+		Target:     skill,
+		PlayerID:   opponentID,
+		OpponentID: playerID,
+		ExtraData:  data,
+	}
+	for _, fieldCard := range e.getAllFieldCards(opponent) {
+		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
+			continue
+		}
+		behavior := globalRegistry.GetBehavior(fieldCard.Card.Number)
+		modifier, ok := behavior.(EnemySpellStatModifier)
+		if !ok {
+			continue
+		}
+		enemyCtx.Source = fieldCard
+		modifier.ModifyEnemySpellStats(enemyCtx, &stats)
+	}
+	for _, owner := range []*PlayerState{ps, opponent} {
+		for _, modifier := range owner.TempModifiers {
+			if modifier.Type == TempModAllSpellDamageZero && modifier.RemainingUses != 0 && data["stat"] == "damage" {
+				stats.DamageBonus -= 99
+			}
+		}
+	}
+	for _, modifier := range opponent.TempModifiers {
+		if modifier.Type == TempModFriendlySpellDamageMinus && modifier.RemainingUses != 0 && data["stat"] == "damage" {
+			stats.DamageBonus -= modifier.Amount
+		}
 	}
 	return stats
 }
@@ -352,6 +399,10 @@ func skillIDSet(skills []*CardInstance) map[string]bool {
 }
 
 func (e *Engine) validateSpellTarget(playerID int, skill *CardInstance, target SpellTarget) error {
+	return e.validateSpellTargetWithPierce(playerID, skill, target, cardHasPierce(skill))
+}
+
+func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance, target SpellTarget, hasPierce bool) error {
 	if !skillNeedsTargetInstance(skill) {
 		if target.Type == "" || target.Type == "none" {
 			return nil
@@ -366,13 +417,43 @@ func (e *Engine) validateSpellTarget(playerID int, skill *CardInstance, target S
 
 	opponent := e.State.Players[1-playerID]
 	if opponent.Units[target.Position.Col][target.Position.Row] == nil {
+		if friendly, ok := behaviorForNumber(skill.Card.Number).(FriendlySpellTargetBehavior); ok && friendly.AllowsFriendlySpellTarget() {
+			own := e.State.Players[playerID]
+			if own.Units[target.Position.Col][target.Position.Row] != nil {
+				return nil
+			}
+		}
 		return fmt.Errorf("no enemy unit at target position")
 	}
 
-	hasPierce := cardHasPierce(skill)
 	if !e.IsInSpellRange(playerID, target.Position.Col, target.Position.Row, hasPierce) {
 		return fmt.Errorf("target is not in spell range")
 	}
 
 	return nil
+}
+
+func (e *Engine) validateSpellExtraTarget(playerID int, target SpellTarget) error {
+	if target.Type != "unit" {
+		return fmt.Errorf("unsupported spell target type: %s", target.Type)
+	}
+	if !target.Position.Valid() {
+		return fmt.Errorf("invalid target position")
+	}
+	if e.State.Players[1-playerID].Units[target.Position.Col][target.Position.Row] == nil {
+		return fmt.Errorf("no enemy unit at extra target position")
+	}
+	return nil
+}
+
+func (e *Engine) spellHasPierceWithBoosts(playerID int, skill *CardInstance, boostSkills []*CardInstance) bool {
+	if cardHasPierce(skill) {
+		return true
+	}
+	for _, boostSkill := range boostSkills {
+		if e.skillContributionStats(playerID, boostSkill, skill, skillPurposeAttackBoost).Pierce {
+			return true
+		}
+	}
+	return false
 }

@@ -1,7 +1,8 @@
 package game
 
-// Charge system - 充能/过载 mechanics
-// Charge is global per player (all charge sources contribute to one pool)
+// Legacy charge/overload helpers.
+// Do not use this for 精通. Mastery is a per-card instance mark handled in
+// mastery.go through CardInstance.Statuses[StatusMastery].
 
 // addCharge adds charge counters to a player's charge pool
 func (e *Engine) addCharge(playerID int, amount int) {

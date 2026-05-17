@@ -43,3 +43,29 @@ func addElementsGainBonus(card *CardInstance, elem string, amount int) {
 	}
 	card.ElementsGainBonus[elem] += amount
 }
+
+func totalLoad(card *CardInstance) int {
+	total := 0
+	for _, amount := range effectiveElementsGain(card) {
+		if amount > 0 {
+			total += amount
+		}
+	}
+	return total
+}
+
+func convertLoad(card *CardInstance, from string, to string, maxAmount int) int {
+	if card == nil || maxAmount <= 0 {
+		return 0
+	}
+	current := effectiveElementsGain(card)
+	amount := min(current[from], maxAmount)
+	if amount <= 0 {
+		return 0
+	}
+	current[from] -= amount
+	current[to] += amount
+	setElementsGain(card, current)
+	card.ElementsGainBonus = make(map[string]int)
+	return amount
+}

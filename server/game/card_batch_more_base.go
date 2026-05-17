@@ -146,7 +146,7 @@ func (Card1111003Bifang) ID() string   { return "1111003" }
 func (Card1111003Bifang) Name() string { return "毕方" }
 func (Card1111003Bifang) OnDamaged(ctx *EffectContext) error {
 	if ctx.ExtraData != nil {
-		if damagedPlayer, ok := ctx.ExtraData["damaged_player"].(int); ok && damagedPlayer != ctx.PlayerID && ctx.Target != nil && ctx.Target.Statuses[StatusBurn] > 0 {
+		if damagedPlayer, ok := ctx.ExtraData["damaged_player"].(int); ok && damagedPlayer != ctx.PlayerID && ctx.Target != nil && ctx.ExtraData["status_damage"] == StatusBurn {
 			ctx.Engine.dealDamage(ctx.Target, 1, damagedPlayer)
 		}
 	}
@@ -159,11 +159,8 @@ func (Card1121012FireInsight) ID() string   { return "1121012" }
 func (Card1121012FireInsight) Name() string { return "火焰洞察者" }
 func (Card1121012FireInsight) OnDamaged(ctx *EffectContext) error {
 	if ctx.ExtraData != nil {
-		if damagedPlayer, ok := ctx.ExtraData["damaged_player"].(int); ok {
-			unit := firstUnitFromCandidates(ctx.Engine, damagedPlayer, ctx.Engine.friendlyUnits(damagedPlayer, true, nil))
-			if unit != nil && unit.Card.Category == model.ElementFire {
-				ctx.Engine.State.Players[ctx.PlayerID].DrawCards(1)
-			}
+		if ctx.ExtraData["damage_element"] == model.ElementFire || ctx.ExtraData["status_damage"] == StatusBurn {
+			ctx.Engine.State.Players[ctx.PlayerID].DrawCards(1)
 		}
 	}
 	return nil
@@ -241,21 +238,22 @@ type Card1221010WallKeeper struct{}
 func (Card1221010WallKeeper) ID() string   { return "1221010" }
 func (Card1221010WallKeeper) Name() string { return "护壁者" }
 func (Card1221010WallKeeper) OnEnter(ctx *EffectContext) error {
-	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: "all_spell_attack_zero", RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 2})
+	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModAllSpellDamageZero, RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 2})
 	return nil
-}
-func (Card1221010WallKeeper) ModifySpellStats(ctx *EffectContext, stats *SpellStats) {
-	if ctx.Target != nil {
-		stats.DamageBonus -= 99
-	}
 }
 
 type Card1221012DragonPrinceDescendant struct{}
 
-func (Card1221012DragonPrinceDescendant) ID() string   { return "1221012" }
-func (Card1221012DragonPrinceDescendant) Name() string { return "龙王子裔" }
-func (Card1221012DragonPrinceDescendant) OnPerTurn(ctx *EffectContext) error {
-	searchDeckToHandByPredicate(ctx, "dragon_prince_search", "检索1个水纹伙伴", isWaterCompanion)
+func (Card1221012DragonPrinceDescendant) ID() string      { return "1221012" }
+func (Card1221012DragonPrinceDescendant) Name() string    { return "龙王子裔" }
+func (Card1221012DragonPrinceDescendant) MasteryMax() int { return 2 }
+func (Card1221012DragonPrinceDescendant) OnMastery(ctx *EffectContext, level int) error {
+	if level != 2 {
+		return nil
+	}
+	searchDeckToHandByPredicateWithResult(ctx, "dragon_prince_search", "检索1个水纹伙伴并使其入场费用-1水", isWaterCompanion, func(card *CardInstance) {
+		card.Statuses["入场费用水-1"]++
+	})
 	return nil
 }
 
@@ -304,9 +302,13 @@ func (Card1321015WindSpeaker) OnPerTurn(ctx *EffectContext) error {
 
 type Card1401001LifeSeed struct{}
 
-func (Card1401001LifeSeed) ID() string   { return "1401001" }
-func (Card1401001LifeSeed) Name() string { return "生命种子" }
-func (Card1401001LifeSeed) OnPerTurn(ctx *EffectContext) error {
+func (Card1401001LifeSeed) ID() string      { return "1401001" }
+func (Card1401001LifeSeed) Name() string    { return "生命种子" }
+func (Card1401001LifeSeed) MasteryMax() int { return 2 }
+func (Card1401001LifeSeed) OnMastery(ctx *EffectContext, level int) error {
+	if level != 2 {
+		return nil
+	}
 	if summoned := summonHandCompanionFree(ctx, func(card *CardInstance) bool { return card.Card.Category == model.ElementEarth }); summoned != nil {
 		summoned.CurrentLife += max(ctx.Source.CurrentLife-1, 0)
 		ctx.Engine.destroyUnit(ctx.Source, ctx.PlayerID)
@@ -318,12 +320,28 @@ type Card1401002SpiritBeastXinke struct{}
 
 func (Card1401002SpiritBeastXinke) ID() string   { return "1401002" }
 func (Card1401002SpiritBeastXinke) Name() string { return "灵兽 辛柯" }
-func (Card1401002SpiritBeastXinke) OnDamaged(ctx *EffectContext) error {
+func (Card1401002SpiritBeastXinke) OnFriendlyDamagedFromHidden(ctx *EffectContext) error {
 	if ctx.ExtraData == nil {
 		return nil
 	}
 	if damagedPlayer, ok := ctx.ExtraData["damaged_player"].(int); ok && damagedPlayer == ctx.PlayerID {
-		searchDeckToHandByPredicate(ctx, "xinke_search", "检索灵兽 辛柯", func(card *CardInstance) bool { return card.Card.Number == "1401002" })
+		if ctx.Engine.State.PendingAction != nil {
+			return nil
+		}
+		ps := ctx.Engine.State.Players[ctx.PlayerID]
+		candidates := make([]map[string]any, 0)
+		for _, card := range ps.Hand {
+			if card != nil && card.Card.Number == "1401002" {
+				candidates = append(candidates, candidateInfo(card, "hand", "own"))
+			}
+		}
+		candidates = append(candidates, ctx.Engine.friendlyDeckCards(ctx.PlayerID, func(card *CardInstance) bool { return card.Card.Number == "1401002" })...)
+		ctx.Engine.SetPendingAction(ctx.PlayerID, "xinke_summon", "免费召唤灵兽 辛柯", candidates, 0, 1,
+			func(selected []string) {
+				if len(selected) > 0 {
+					summonCardFreeFromHandOrDeck(ctx, selected[0])
+				}
+			})
 	}
 	return nil
 }
@@ -332,8 +350,37 @@ type Card1411001GreatDruidCycle struct{}
 
 func (Card1411001GreatDruidCycle) ID() string   { return "1411001" }
 func (Card1411001GreatDruidCycle) Name() string { return "\"轮回不息\" 大德鲁伊 烟尘" }
+func (Card1411001GreatDruidCycle) OnUltimate(ctx *EffectContext) error {
+	ctx.Source.Statuses["轮回不息"] = 1
+	return nil
+}
 func (Card1411001GreatDruidCycle) OnFriendlyDeath(ctx *EffectContext) error {
-	addGeneratedCardToHand(ctx, "1401001")
+	if ctx.Source.Statuses["轮回不息"] == 0 || ctx.Target == nil || !ctx.Target.Card.IsCompanion() {
+		return nil
+	}
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	pos := ps.FindEmptyPosition()
+	seedCard := getCardDB()["1401001"]
+	if pos == nil || seedCard == nil {
+		return nil
+	}
+	seed := NewCardInstance(seedCard, ctx.PlayerID, ctx.Engine.State.TurnNumber)
+	seed.Position = pos
+	seed.EnterTurn = ctx.Engine.State.TurnNumber
+	seed.IsHorizontal = true
+	if bonusLife := ctx.Target.CurrentLife - ctx.Target.Card.Life; bonusLife > 0 {
+		seed.CurrentLife += bonusLife
+	}
+	for elem, amount := range ctx.Target.ElementsGainBonus {
+		addElementsGainBonus(seed, elem, amount)
+	}
+	if len(ctx.Target.ElementsGainSet) > 0 {
+		seed.ElementsGainSet = copyElementCost(ctx.Target.ElementsGainSet)
+	}
+	ps.Units[pos.Col][pos.Row] = seed
+	ctx.Engine.triggerEffects(TriggerOnEnter, seed, nil, nil)
+	ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.PlayerID, seed, map[string]any{"entered_player": ctx.PlayerID})
+	ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.OpponentID, seed, map[string]any{"entered_player": ctx.PlayerID})
 	return nil
 }
 
@@ -342,7 +389,7 @@ type Card1411002KnowledgeTreeDeepRoot struct{}
 func (Card1411002KnowledgeTreeDeepRoot) ID() string   { return "1411002" }
 func (Card1411002KnowledgeTreeDeepRoot) Name() string { return "\"知识古树\" 深耕" }
 func (Card1411002KnowledgeTreeDeepRoot) OnEnter(ctx *EffectContext) error {
-	ctx.Engine.State.Players[ctx.PlayerID].Charge = 5
+	ctx.Engine.advanceAllMasteryToMax(ctx.Engine.State.Players[ctx.PlayerID])
 	return nil
 }
 
@@ -350,30 +397,38 @@ type Card1411003SandWitchSommer struct{}
 
 func (Card1411003SandWitchSommer) ID() string   { return "1411003" }
 func (Card1411003SandWitchSommer) Name() string { return "沙之魔巫 梭默" }
-func (Card1411003SandWitchSommer) ModifySpellStats(ctx *EffectContext, stats *SpellStats) {
-	if ctx.Target != nil && ctx.Target.Card.Category == model.ElementEarth {
-		stats.PowerBonus++
+func (Card1411003SandWitchSommer) ModifySpellArea(ctx *EffectContext, area *SpellArea) {
+	if ctx.Source != nil && ctx.Source.Card.Category == model.ElementEarth && *area == SpellAreaSingle {
+		*area = SpellAreaSquare
 	}
 }
 
 type Card1421003GrowingTreant struct{}
 
-func (Card1421003GrowingTreant) ID() string   { return "1421003" }
-func (Card1421003GrowingTreant) Name() string { return "成长的树人" }
-func (Card1421003GrowingTreant) OnTurnStart(ctx *EffectContext) error {
-	addElementsGainBonus(ctx.Source, model.ElementEarth, 1)
-	healUnit(ctx.Source, 1)
+func (Card1421003GrowingTreant) ID() string      { return "1421003" }
+func (Card1421003GrowingTreant) Name() string    { return "成长的树人" }
+func (Card1421003GrowingTreant) MasteryMax() int { return 4 }
+func (Card1421003GrowingTreant) OnMastery(ctx *EffectContext, level int) error {
+	if level == 2 || level == 4 {
+		addElementsGainBonus(ctx.Source, model.ElementEarth, 1)
+	}
 	return nil
 }
 
 type Card1421004ForestGuard struct{}
 
-func (Card1421004ForestGuard) ID() string   { return "1421004" }
-func (Card1421004ForestGuard) Name() string { return "森林守卫" }
-func (Card1421004ForestGuard) OnTurnStart(ctx *EffectContext) error {
-	healUnit(ctx.Source, 1)
-	addElementsGainBonus(ctx.Source, model.ElementEarth, 1)
-	ctx.Source.AttackBonus += 2
+func (Card1421004ForestGuard) ID() string      { return "1421004" }
+func (Card1421004ForestGuard) Name() string    { return "森林守卫" }
+func (Card1421004ForestGuard) MasteryMax() int { return 5 }
+func (Card1421004ForestGuard) OnMastery(ctx *EffectContext, level int) error {
+	switch level {
+	case 1:
+		ctx.Source.CurrentLife++
+	case 3:
+		addElementsGainBonus(ctx.Source, model.ElementEarth, 1)
+	case 5:
+		ctx.Source.AttackBonus += 2
+	}
 	return nil
 }
 
@@ -382,7 +437,10 @@ type Card1421007HighlandTitan struct{}
 func (Card1421007HighlandTitan) ID() string   { return "1421007" }
 func (Card1421007HighlandTitan) Name() string { return "高地泰坦" }
 func (Card1421007HighlandTitan) OnDamaged(ctx *EffectContext) error {
-	if ctx.Target == ctx.Source {
+	if (ctx.Target == nil || ctx.Target == ctx.Source) &&
+		ctx.ExtraData != nil &&
+		ctx.ExtraData["damage_source"] == "spell" &&
+		ctx.ExtraData["boost_count"] == 0 {
 		ctx.Source.CurrentLife--
 	}
 	return nil
@@ -406,12 +464,18 @@ func (Card1421010PlantationGardener) OnPerTurn(ctx *EffectContext) error {
 
 type Card1421011GreatElder struct{}
 
-func (Card1421011GreatElder) ID() string   { return "1421011" }
-func (Card1421011GreatElder) Name() string { return "大长老" }
-func (Card1421011GreatElder) ModifySkillUseCost(ctx *EffectContext, cost map[string]int) {
-	if ctx.Source != nil && ctx.Source.Card.Category == model.ElementEarth {
-		reduceCost(cost, model.ElementEarth, 2)
+func (Card1421011GreatElder) ID() string      { return "1421011" }
+func (Card1421011GreatElder) Name() string    { return "大长老" }
+func (Card1421011GreatElder) MasteryMax() int { return 3 }
+func (Card1421011GreatElder) OnMastery(ctx *EffectContext, level int) error {
+	if level == 1 || level == 3 {
+		ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
+			Type:          TempModNextEarthSkillLearnCostMinus,
+			Amount:        2,
+			RemainingUses: 1,
+		})
 	}
+	return nil
 }
 
 type Card1511001WhiteRobeSage struct{}
@@ -484,7 +548,15 @@ type Card1621013WordSpirit struct{}
 func (Card1621013WordSpirit) ID() string   { return "1621013" }
 func (Card1621013WordSpirit) Name() string { return "言灵" }
 func (Card1621013WordSpirit) OnSpellCast(ctx *EffectContext) error {
-	if isEnemySpellCast(ctx) && ctx.Target != nil {
+	if !isEnemySpellCast(ctx) || ctx.Target == nil {
+		return nil
+	}
+	castPlayer, _ := ctx.ExtraData["cast_player"].(int)
+	total := 0
+	for _, count := range ctx.Engine.State.Players[castPlayer].SpellsCastThisTurn {
+		total += count
+	}
+	if total >= 3 {
 		ctx.Target.Statuses[StatusWeaken]++
 	}
 	return nil
@@ -520,7 +592,7 @@ type Card2011003KingRobe struct{}
 
 func (Card2011003KingRobe) ID() string   { return "2011003" }
 func (Card2011003KingRobe) Name() string { return "君王法袍 至贤" }
-func (Card2011003KingRobe) ModifySpellStats(ctx *EffectContext, stats *SpellStats) {
+func (Card2011003KingRobe) ModifyEnemySpellStats(ctx *EffectContext, stats *SpellStats) {
 	if totalFieldLoad(ctx.Engine.State.Players[ctx.PlayerID]) > totalFieldLoad(ctx.Engine.State.Players[ctx.OpponentID]) {
 		stats.DamageBonus--
 	}
@@ -609,6 +681,9 @@ type Card2111002NurEye struct{}
 func (Card2111002NurEye) ID() string   { return "2111002" }
 func (Card2111002NurEye) Name() string { return "努尔之眼" }
 func (Card2111002NurEye) OnDamaged(ctx *EffectContext) error {
+	if ctx.ExtraData == nil || (ctx.ExtraData["damage_element"] != model.ElementFire && ctx.ExtraData["status_damage"] != StatusBurn) {
+		return nil
+	}
 	ctx.Source.Statuses["火焰标记"]++
 	return nil
 }
@@ -648,9 +723,10 @@ type Card2221001FrostHeart struct{}
 
 func (Card2221001FrostHeart) ID() string   { return "2221001" }
 func (Card2221001FrostHeart) Name() string { return "冰霜之心" }
-func (Card2221001FrostHeart) ModifySpellStats(ctx *EffectContext, stats *SpellStats) {
-	if isEnemySpellCast(ctx) {
+func (Card2221001FrostHeart) ModifyEnemySpellStats(ctx *EffectContext, stats *SpellStats) {
+	if isEnemySpellCast(ctx) && ctx.ExtraData["stat"] == "damage" {
 		stats.DamageBonus -= 99
+		ctx.Engine.discardFriendlyCandidate(ctx.PlayerID, ctx.Source.InstanceID)
 	}
 }
 
