@@ -44,6 +44,7 @@
                 <h2>游戏房间</h2>
                 <div class="room-actions">
                     <button @click="createRoom" class="btn btn-success">创建房间</button>
+                    <button @click="createTestRoom" class="btn btn-warning">创建测试房间</button>
                     <div class="join-room">
                         <input type="text" v-model="joinRoomID" placeholder="房间号" class="input-field input-small">
                         <button @click="joinRoom" class="btn btn-info">加入房间</button>
@@ -132,7 +133,18 @@
                 }
             }
 
-            function joinRoom() {
+            async function createTestRoom() {
+                try {
+                    const resp = await fetch('/api/test-room/create', { method: 'POST' });
+                    const data = await resp.json();
+                    joinRoomID.value = data.room_id;
+                    joinRoom({ testMode: true });
+                } catch (e) {
+                    alert('创建测试房间失败: ' + e.message);
+                }
+            }
+
+            function joinRoom(options = {}) {
                 if (!joinRoomID.value) {
                     alert('请输入房间号');
                     return;
@@ -149,6 +161,9 @@
                     player_name: playerName.value,
                     deck_code: deckCode.value
                 });
+                if (options.testMode) {
+                    params.set('test_mode', '1');
+                }
                 window.location.href = '/game.html?' + params.toString();
             }
 
@@ -168,7 +183,7 @@
             return {
                 playerName, deckCode, deckInfo, deckError,
                 joinRoomID, currentRoom, rooms,
-                validateDeck, createRoom, joinRoom, refreshRooms, useSampleDeck
+                validateDeck, createRoom, createTestRoom, joinRoom, refreshRooms, useSampleDeck
             };
         }
     }).mount('#app');
