@@ -1,0 +1,78 @@
+name: Bug Report
+description: Report a gameplay, backend, or rules implementation bug.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for behavior that is implemented but wrong. If the issue is about a specific card effect, prefer the Card Effect template.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Use the app version if one exists. Otherwise paste the commit hash you tested.
+      placeholder: "e.g. 8d0288c or v0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - Frontend match UI
+        - Backend engine
+        - Card/rules behavior
+        - Deck/lobby/test room
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: One or two sentences describing the bug.
+      placeholder: "What went wrong?"
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Reproduction steps
+      description: Include room/test setup, cards involved, actions taken, and turn/phase if relevant.
+      placeholder: |
+        1. Start a test room with ...
+        2. Play ...
+        3. Click ...
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: Actual behavior
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Evidence
+      description: Screenshots, logs, console output, or short notes from a frontend test.
+      placeholder: "Attach screenshots or paste relevant logs here."
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I tested this from the frontend, or explained why frontend testing is not applicable.
+          required: true
+        - label: I included the version or commit where this happened.
+          required: true

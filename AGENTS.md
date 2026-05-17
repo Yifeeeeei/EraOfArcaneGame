@@ -208,3 +208,10 @@ Do not hardcode frontend API calls to `localhost`; in the browser, localhost mea
 - Do not commit generated binaries.
 - Do not commit stale progress notes unless they are updated to current facts.
 - If adding a new playable card behavior, add or update tests.
+
+## Issue Workflow
+
+- Long-term bug and feature tracking should go through GitHub Issues, not only chat history.
+- Only use the supported issue forms: Bug Report, Card Effect, and Frontend UX. Blank issues are disabled intentionally.
+- Every issue must include a version or commit hash. If there is no formal version number yet, use the exact commit tested.
+- Do not require every PR to close an issue; normal iteration PRs are allowed. When a PR does fix a tracked issue, mention it in the PR description.
