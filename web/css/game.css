@@ -183,9 +183,10 @@ body::before {
 .hero-portrait img {
     width: 46px;
     height: 64px;
-    object-fit: cover;
+    object-fit: contain;
     border-radius: 0;
     border: 2px solid var(--gold-dim);
+    background: rgba(8,6,5,0.8);
     transition: border-color 0.2s;
 }
 .hero-portrait:hover img { border-color: var(--gold); }
@@ -276,8 +277,9 @@ body::before {
 .revealed-card img {
     width: 26px;
     height: 36px;
-    object-fit: cover;
+    object-fit: contain;
     border: 1px solid rgba(198,174,116,0.28);
+    background: rgba(8,6,5,0.8);
 }
 
 .revealed-card span {
@@ -622,8 +624,9 @@ body::before {
 .slot-img {
     width: calc(var(--slot-w) - 4px);
     height: calc(var(--slot-w) * 1.4 - 4px);
-    object-fit: cover;
+    object-fit: contain;
     border-radius: 3px;
+    background: rgba(8,6,5,0.8);
 }
 .slot-img.horizontal {
     opacity: 0.35;
@@ -754,7 +757,7 @@ body::before {
 .terrain-img {
     width: 100%;
     height: 100%;
-    object-fit: cover;
+    object-fit: contain;
     border-radius: 3px;
     filter: saturate(0.7);
 }
@@ -1028,8 +1031,8 @@ body::before {
 
 .inspection-card img {
     width: 154px;
-    height: 216px;
-    object-fit: cover;
+    height: auto;
+    object-fit: contain;
     border: 2px solid rgba(211,180,106,0.5);
     box-shadow: 0 12px 30px rgba(0,0,0,0.58), 0 0 22px rgba(211,180,106,0.1);
     background: rgba(8,6,5,0.8);
@@ -1239,8 +1242,9 @@ body::before {
 .sp-card img {
     width: 100%;
     aspect-ratio: 1 / 1.4;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
+    background: rgba(8,6,5,0.8);
 }
 .sp-name {
     font-size: 11px;
@@ -1443,8 +1447,9 @@ body::before {
 .hand-card-img {
     width: 100%;
     aspect-ratio: 1 / 1.4;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
+    background: rgba(8,6,5,0.8);
 }
 .hand-card-info {
     min-height: 34px;
@@ -1565,8 +1570,9 @@ body::before {
 .card-img-small {
     width: 100%;
     aspect-ratio: 1 / 1.4;
-    object-fit: cover;
+    object-fit: contain;
     display: block;
+    background: rgba(8,6,5,0.8);
 }
 .card-mini-name {
     padding: 3px;
@@ -1636,8 +1642,7 @@ body::before {
 .card-img-large {
     width: min(380px, 42vw);
     height: auto;
-    aspect-ratio: 1 / 1.4;
-    object-fit: cover;
+    object-fit: contain;
     border-radius: var(--radius-md);
     border: 2px solid var(--gold-dim);
     flex-shrink: 0;
@@ -1788,8 +1793,9 @@ body::before {
 .pile-entry img {
     width: 42px;
     height: 58px;
-    object-fit: cover;
+    object-fit: contain;
     border: 1px solid rgba(198,174,116,0.22);
+    background: rgba(8,6,5,0.8);
 }
 
 .pile-entry-main {
@@ -1996,8 +2002,9 @@ body::before {
 .defense-skill-img {
     width: 40px;
     height: 56px;
-    object-fit: cover;
+    object-fit: contain;
     border-radius: 3px;
+    background: rgba(8,6,5,0.8);
 }
 .defense-skill-info {
     font-size: 11px;
@@ -2141,8 +2148,9 @@ body::before {
 .pending-card-img {
     width: 64px;
     height: 90px;
-    object-fit: cover;
+    object-fit: contain;
     border-radius: 3px;
+    background: rgba(8,6,5,0.8);
 }
 .pending-card-name {
     font-size: 10px;
