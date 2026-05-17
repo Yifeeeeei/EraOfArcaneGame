@@ -1,6 +1,6 @@
 package game
 
-type Card1021012BlackMarketVendor struct{}
+type Card1021012BlackMarketVendor struct{ AlwaysActive }
 
 func (Card1021012BlackMarketVendor) ID() string   { return "1021012" }
 func (Card1021012BlackMarketVendor) Name() string { return "黑市商贩" }

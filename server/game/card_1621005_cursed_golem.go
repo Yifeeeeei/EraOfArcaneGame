@@ -1,6 +1,6 @@
 package game
 
-type Card1621005CursedGolem struct{}
+type Card1621005CursedGolem struct{ AlwaysActive }
 
 func (Card1621005CursedGolem) ID() string   { return "1621005" }
 func (Card1621005CursedGolem) Name() string { return "诅咒魔像" }

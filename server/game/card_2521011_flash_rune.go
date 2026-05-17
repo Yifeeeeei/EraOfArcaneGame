@@ -1,6 +1,6 @@
 package game
 
-type Card2521011FlashRune struct{}
+type Card2521011FlashRune struct{ AlwaysActive }
 
 func (Card2521011FlashRune) ID() string   { return "2521011" }
 func (Card2521011FlashRune) Name() string { return "闪光符文" }

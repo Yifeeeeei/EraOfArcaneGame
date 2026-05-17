@@ -1,6 +1,6 @@
 package game
 
-type Card1221011WinterfellWarlock struct{}
+type Card1221011WinterfellWarlock struct{ AlwaysActive }
 
 func (Card1221011WinterfellWarlock) ID() string   { return "1221011" }
 func (Card1221011WinterfellWarlock) Name() string { return "凛冬城术士" }

@@ -1,6 +1,6 @@
 package game
 
-type Card1021007RecyclingSprite struct{}
+type Card1021007RecyclingSprite struct{ AlwaysActive }
 
 func (Card1021007RecyclingSprite) ID() string   { return "1021007" }
 func (Card1021007RecyclingSprite) Name() string { return "回收小精灵" }

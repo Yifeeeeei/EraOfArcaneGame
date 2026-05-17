@@ -1,6 +1,6 @@
 package game
 
-type Card2121004FireArrowItem struct{}
+type Card2121004FireArrowItem struct{ AlwaysActive }
 
 func (Card2121004FireArrowItem) ID() string   { return "2121004" }
 func (Card2121004FireArrowItem) Name() string { return "火焰箭" }

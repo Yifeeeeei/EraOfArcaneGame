@@ -1,6 +1,6 @@
 package game
 
-type Card3021007ElementalEnchant struct{}
+type Card3021007ElementalEnchant struct{ AlwaysActive }
 
 func (Card3021007ElementalEnchant) ID() string   { return "3021007" }
 func (Card3021007ElementalEnchant) Name() string { return "元素附魔" }

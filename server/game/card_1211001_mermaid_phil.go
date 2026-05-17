@@ -1,6 +1,6 @@
 package game
 
-type Card1211001MermaidPhil struct{}
+type Card1211001MermaidPhil struct{ AlwaysActive }
 
 func (Card1211001MermaidPhil) ID() string   { return "1211001" }
 func (Card1211001MermaidPhil) Name() string { return "人鱼 菲尔" }

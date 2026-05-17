@@ -1,6 +1,6 @@
 package game
 
-type Card1221004FrostPuppet struct{}
+type Card1221004FrostPuppet struct{ AlwaysActive }
 
 func (Card1221004FrostPuppet) ID() string   { return "1221004" }
 func (Card1221004FrostPuppet) Name() string { return "寒霜傀儡" }

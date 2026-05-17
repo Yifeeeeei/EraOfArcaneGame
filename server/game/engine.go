@@ -176,6 +176,9 @@ func (e *Engine) handleReactSpell(playerID int, action ActionMessage) error {
 	e.consumeNextSkillUseModifiers(ps, skill)
 
 	behavior := behaviorForNumber(skill.Card.Number).(SpellReactionBehavior)
+	if !behavior.HasActiveSpellReaction(skill) {
+		return fmt.Errorf("skill cannot react to spells")
+	}
 	ctx := &EffectContext{
 		Engine:     e,
 		Source:     skill,
@@ -850,7 +853,7 @@ func (e *Engine) cancelPendingSpell(playerID int, source *CardInstance, reason s
 // resolveSpellHit applies spell damage to the target
 func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target SpellTarget, boostSkills []*CardInstance, extraTargets []SpellTarget) {
 	defenderID := 1 - attackerID
-	if friendly, ok := behaviorForNumber(skill.Card.Number).(FriendlySpellTargetBehavior); ok && friendly.AllowsFriendlySpellTarget() && target.Type == "unit" && target.Position.Valid() {
+	if friendly, ok := behaviorForNumber(skill.Card.Number).(FriendlySpellTargetBehavior); ok && friendly.HasActiveFriendlySpellTarget(skill) && friendly.AllowsFriendlySpellTarget() && target.Type == "unit" && target.Position.Valid() {
 		if e.State.Players[attackerID].Units[target.Position.Col][target.Position.Row] != nil {
 			defenderID = attackerID
 		}
@@ -1011,7 +1014,7 @@ func (e *Engine) effectiveSpellArea(skill *CardInstance) SpellArea {
 			continue
 		}
 		behavior := globalRegistry.GetBehavior(fieldCard.Card.Number)
-		if modifier, ok := behavior.(SpellAreaModifier); ok {
+		if modifier, ok := behavior.(SpellAreaModifier); ok && modifier.HasActiveSpellAreaModifier(fieldCard) {
 			ctx.Target = fieldCard
 			modifier.ModifySpellArea(ctx, &area)
 		}
@@ -1121,7 +1124,7 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 	for key, value := range extraData {
 		damageData[key] = value
 	}
-	if behavior, ok := globalRegistry.GetBehavior(target.Card.Number).(DamagePreventionBehavior); ok {
+	if behavior, ok := globalRegistry.GetBehavior(target.Card.Number).(DamagePreventionBehavior); ok && behavior.HasActiveDamagePrevention(target) {
 		ctx := &EffectContext{
 			Engine:     e,
 			Source:     target,
@@ -1217,7 +1220,7 @@ func (e *Engine) triggerHiddenFriendlyDamaged(playerID int, target *CardInstance
 			continue
 		}
 		behavior, ok := globalRegistry.GetBehavior(card.Card.Number).(OnFriendlyDamagedFromHiddenBehavior)
-		if !ok {
+		if !ok || !behavior.HasActiveFriendlyDamagedFromHidden(card) {
 			continue
 		}
 		ctx := &EffectContext{
@@ -1613,11 +1616,17 @@ func (e *Engine) handleUseAbility(playerID int, action ActionMessage) error {
 	var trigger EffectTrigger
 	if abilityType == "ultimate" {
 		trigger = TriggerUltimate
+		if !cardHasActiveUltimate(card) {
+			return fmt.Errorf("card has no active ultimate ability")
+		}
 		if card.UltimateUsed {
 			return fmt.Errorf("ultimate already used")
 		}
 	} else {
 		trigger = TriggerPerTurn
+		if !cardHasActivePerTurn(card) {
+			return fmt.Errorf("card has no active per-turn ability")
+		}
 		// Check if already used this turn (回合技 limit)
 		maxUses := perTurnLimit(card)
 		if card.UsedThisTurn >= maxUses {
@@ -2143,10 +2152,12 @@ func cardToInfo(ci *CardInstance) map[string]any {
 	if len(ci.BoundSkills) > 0 {
 		info["bound_skills"] = cardsToInfo(ci.BoundSkills)
 	}
+	if attached := attachedBehaviorsInfo(ci); len(attached) > 0 {
+		info["attached_behaviors"] = attached
+	}
 
-	// Expose ability availability without materializing lazy behavior objects.
-	hasPerTurn := hasPerTurnAbilityNumber(ci.Card.Number)
-	hasUltimate := hasUltimateAbilityNumber(ci.Card.Number)
+	hasPerTurn := cardHasActivePerTurn(ci)
+	hasUltimate := cardHasActiveUltimate(ci)
 	info["has_per_turn"] = hasPerTurn
 	info["has_ultimate"] = hasUltimate
 
@@ -2163,14 +2174,14 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		info["is_sorcery"] = isSorcerySkill(ci.Card)
 		info["needs_target"] = skillNeedsTargetInstance(ci)
 		info["has_pierce"] = cardHasPierce(ci)
-		if friendly, ok := behaviorForNumber(ci.Card.Number).(FriendlySpellTargetBehavior); ok && friendly.AllowsFriendlySpellTarget() {
+		if friendly, ok := behaviorForNumber(ci.Card.Number).(FriendlySpellTargetBehavior); ok && friendly.HasActiveFriendlySpellTarget(ci) && friendly.AllowsFriendlySpellTarget() {
 			info["allows_friendly_target"] = true
 		}
 		info["can_attack"] = canUseSkillForPurpose(ci.Card, skillPurposeAttack)
 		info["can_defend"] = canUseSkillForPurpose(ci.Card, skillPurposeDefend)
 		info["can_attack_boost"] = canUseSkillForPurpose(ci.Card, skillPurposeAttackBoost)
 		info["can_defense_boost"] = canUseSkillForPurpose(ci.Card, skillPurposeDefenseBoost)
-		info["can_react"] = hasSpellReactionNumber(ci.Card.Number)
+		info["can_react"] = cardHasActiveSpellReaction(ci)
 		info["can_boost"] = info["can_attack_boost"]
 		info["spell_area"] = spellArea(ci)
 	}

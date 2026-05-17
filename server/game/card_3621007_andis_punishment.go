@@ -1,6 +1,6 @@
 package game
 
-type Card3621007AndisPunishment struct{}
+type Card3621007AndisPunishment struct{ AlwaysActive }
 
 func (Card3621007AndisPunishment) ID() string   { return "3621007" }
 func (Card3621007AndisPunishment) Name() string { return "安迪斯的惩罚" }

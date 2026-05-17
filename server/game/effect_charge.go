@@ -51,7 +51,7 @@ func (e *Engine) checkOverload(playerID int) {
 
 	for _, card := range allCards {
 		behavior, ok := globalRegistry.GetBehavior(card.Card.Number).(OverloadBehavior)
-		if !ok {
+		if !ok || !behavior.HasActiveOverload(card) {
 			continue
 		}
 		threshold := behavior.OverloadThreshold()

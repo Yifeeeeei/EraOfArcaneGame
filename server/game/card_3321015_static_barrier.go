@@ -1,6 +1,6 @@
 package game
 
-type Card3321015StaticBarrier struct{}
+type Card3321015StaticBarrier struct{ AlwaysActive }
 
 func (Card3321015StaticBarrier) ID() string   { return "3321015" }
 func (Card3321015StaticBarrier) Name() string { return "静电屏障" }

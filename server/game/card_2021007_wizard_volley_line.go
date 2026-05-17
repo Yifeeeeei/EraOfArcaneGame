@@ -1,6 +1,6 @@
 package game
 
-type Card2021007WizardVolleyLine struct{}
+type Card2021007WizardVolleyLine struct{ AlwaysActive }
 
 func (Card2021007WizardVolleyLine) ID() string   { return "2021007" }
 func (Card2021007WizardVolleyLine) Name() string { return "巫师齐射线列" }

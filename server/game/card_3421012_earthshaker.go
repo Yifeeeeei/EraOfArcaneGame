@@ -2,7 +2,7 @@ package game
 
 import "eraofarcane/model"
 
-type Card3421012Earthshaker struct{}
+type Card3421012Earthshaker struct{ AlwaysActive }
 
 func (Card3421012Earthshaker) ID() string   { return "3421012" }
 func (Card3421012Earthshaker) Name() string { return "石破天惊" }

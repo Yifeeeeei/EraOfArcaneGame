@@ -1,6 +1,6 @@
 package game
 
-type Card1011003ArchleaderFarolank struct{}
+type Card1011003ArchleaderFarolank struct{ AlwaysActive }
 
 func (Card1011003ArchleaderFarolank) ID() string   { return "1011003" }
 func (Card1011003ArchleaderFarolank) Name() string { return "盟主 法罗兰克" }

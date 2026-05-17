@@ -1,6 +1,6 @@
 package game
 
-type Card2221005EnergyPotion struct{}
+type Card2221005EnergyPotion struct{ AlwaysActive }
 
 func (Card2221005EnergyPotion) ID() string   { return "2221005" }
 func (Card2221005EnergyPotion) Name() string { return "精力药剂" }

@@ -1,6 +1,6 @@
 package game
 
-type Card2601002Spellbook struct{}
+type Card2601002Spellbook struct{ AlwaysActive }
 
 func (Card2601002Spellbook) ID() string   { return "2601002" }
 func (Card2601002Spellbook) Name() string { return "咒言书" }

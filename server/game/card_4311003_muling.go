@@ -2,7 +2,7 @@ package game
 
 import "eraofarcane/model"
 
-type Card4311003Muling struct{}
+type Card4311003Muling struct{ AlwaysActive }
 
 func (Card4311003Muling) ID() string   { return "4311003" }
 func (Card4311003Muling) Name() string { return "掌门 穆伶" }

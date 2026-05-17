@@ -263,6 +263,15 @@ func (e *Engine) triggerEffects(trigger EffectTrigger, source *CardInstance, tar
 				triggerName(trigger), source.Card.Name, err)
 		}
 	}
+
+	if trigger == TriggerOnDeath {
+		for _, deathrattle := range attachedDeathrattles(source) {
+			if err := deathrattle.OnDeath(ctx); err != nil {
+				log.Printf("[Effect] Error executing attached deathrattle %s for %s: %v",
+					deathrattle.AttachedID(), source.Card.Name, err)
+			}
+		}
+	}
 }
 
 // triggerFieldEffects fires effects for all cards on a player's field

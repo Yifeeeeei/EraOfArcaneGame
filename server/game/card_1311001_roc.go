@@ -1,6 +1,6 @@
 package game
 
-type Card1311001Roc struct{}
+type Card1311001Roc struct{ AlwaysActive }
 
 func (Card1311001Roc) ID() string   { return "1311001" }
 func (Card1311001Roc) Name() string { return "大鹏" }

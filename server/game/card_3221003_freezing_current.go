@@ -2,7 +2,7 @@ package game
 
 import "eraofarcane/model"
 
-type Card3221003FreezingCurrent struct{}
+type Card3221003FreezingCurrent struct{ AlwaysActive }
 
 func (Card3221003FreezingCurrent) ID() string   { return "3221003" }
 func (Card3221003FreezingCurrent) Name() string { return "激冻寒流" }

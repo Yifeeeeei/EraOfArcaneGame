@@ -1,6 +1,6 @@
 package game
 
-type Card2221008WaterformBindScroll struct{}
+type Card2221008WaterformBindScroll struct{ AlwaysActive }
 
 func (Card2221008WaterformBindScroll) ID() string   { return "2221008" }
 func (Card2221008WaterformBindScroll) Name() string { return "水形之束卷轴" }

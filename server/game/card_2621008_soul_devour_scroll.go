@@ -1,6 +1,6 @@
 package game
 
-type Card2621008SoulDevourScroll struct{}
+type Card2621008SoulDevourScroll struct{ AlwaysActive }
 
 func (Card2621008SoulDevourScroll) ID() string   { return "2621008" }
 func (Card2621008SoulDevourScroll) Name() string { return "魂噬卷轴" }

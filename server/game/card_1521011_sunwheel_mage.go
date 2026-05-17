@@ -1,6 +1,6 @@
 package game
 
-type Card1521011SunwheelMage struct{}
+type Card1521011SunwheelMage struct{ AlwaysActive }
 
 func (Card1521011SunwheelMage) ID() string   { return "1521011" }
 func (Card1521011SunwheelMage) Name() string { return "日轮法师" }

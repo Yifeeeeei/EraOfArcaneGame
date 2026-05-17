@@ -1,6 +1,6 @@
 package game
 
-type Card1521006LifeFlower struct{}
+type Card1521006LifeFlower struct{ AlwaysActive }
 
 func (Card1521006LifeFlower) ID() string   { return "1521006" }
 func (Card1521006LifeFlower) Name() string { return "生命之花" }

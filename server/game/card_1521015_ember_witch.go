@@ -1,6 +1,6 @@
 package game
 
-type Card1521015EmberWitch struct{}
+type Card1521015EmberWitch struct{ AlwaysActive }
 
 func (Card1521015EmberWitch) ID() string   { return "1521015" }
 func (Card1521015EmberWitch) Name() string { return "烬之女巫" }

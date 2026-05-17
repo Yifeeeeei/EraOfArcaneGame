@@ -1,6 +1,6 @@
 package game
 
-type Card2121005DivineFlamePotion struct{}
+type Card2121005DivineFlamePotion struct{ AlwaysActive }
 
 func (Card2121005DivineFlamePotion) ID() string   { return "2121005" }
 func (Card2121005DivineFlamePotion) Name() string { return "神炎魔咒药剂" }

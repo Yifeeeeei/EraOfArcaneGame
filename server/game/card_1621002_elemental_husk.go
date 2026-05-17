@@ -2,7 +2,7 @@ package game
 
 import "eraofarcane/model"
 
-type Card1621002ElementalHusk struct{}
+type Card1621002ElementalHusk struct{ AlwaysActive }
 
 func (Card1621002ElementalHusk) ID() string   { return "1621002" }
 func (Card1621002ElementalHusk) Name() string { return "元素躯壳" }

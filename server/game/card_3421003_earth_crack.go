@@ -1,6 +1,6 @@
 package game
 
-type Card3421003EarthCrack struct{}
+type Card3421003EarthCrack struct{ AlwaysActive }
 
 func (Card3421003EarthCrack) ID() string      { return "3421003" }
 func (Card3421003EarthCrack) Name() string    { return "裂地重击" }

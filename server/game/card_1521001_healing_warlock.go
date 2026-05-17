@@ -1,6 +1,6 @@
 package game
 
-type Card1521001HealingWarlock struct{}
+type Card1521001HealingWarlock struct{ AlwaysActive }
 
 func (Card1521001HealingWarlock) ID() string   { return "1521001" }
 func (Card1521001HealingWarlock) Name() string { return "治疗术士" }

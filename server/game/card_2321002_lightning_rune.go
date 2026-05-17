@@ -1,6 +1,6 @@
 package game
 
-type Card2321002LightningRune struct{}
+type Card2321002LightningRune struct{ AlwaysActive }
 
 func (Card2321002LightningRune) ID() string   { return "2321002" }
 func (Card2321002LightningRune) Name() string { return "闪电符文" }

@@ -133,13 +133,13 @@ func setupCoreRulesEngine(t *testing.T) *Engine {
 	return engine
 }
 
-type testPierceSkill struct{}
+type testPierceSkill struct{ AlwaysActive }
 
 func (testPierceSkill) ID() string      { return "spell_pierce" }
 func (testPierceSkill) Name() string    { return "Piercing Bolt" }
 func (testPierceSkill) HasPierce() bool { return true }
 
-type testDefenseSkill struct{}
+type testDefenseSkill struct{ AlwaysActive }
 
 func (testDefenseSkill) ID() string               { return "spell_defense" }
 func (testDefenseSkill) Name() string             { return "Wall" }

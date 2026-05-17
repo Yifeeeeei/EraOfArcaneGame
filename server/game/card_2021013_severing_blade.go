@@ -2,7 +2,7 @@ package game
 
 import "fmt"
 
-type Card2021013SeveringBlade struct{}
+type Card2021013SeveringBlade struct{ AlwaysActive }
 
 func (Card2021013SeveringBlade) ID() string   { return "2021013" }
 func (Card2021013SeveringBlade) Name() string { return "断绝之刃" }

@@ -1,6 +1,6 @@
 package game
 
-type Card1111002InfernoGeneral struct{}
+type Card1111002InfernoGeneral struct{ AlwaysActive }
 
 func (Card1111002InfernoGeneral) ID() string   { return "1111002" }
 func (Card1111002InfernoGeneral) Name() string { return "炎狱大将军 狄斯托德" }

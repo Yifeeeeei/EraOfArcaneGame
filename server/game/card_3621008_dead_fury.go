@@ -1,6 +1,6 @@
 package game
 
-type Card3621008DeadFury struct{}
+type Card3621008DeadFury struct{ AlwaysActive }
 
 func (Card3621008DeadFury) ID() string   { return "3621008" }
 func (Card3621008DeadFury) Name() string { return "亡者之怒" }

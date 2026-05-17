@@ -1,6 +1,6 @@
 package game
 
-type Card3021005ArcaneArrow struct{}
+type Card3021005ArcaneArrow struct{ AlwaysActive }
 
 func (Card3021005ArcaneArrow) ID() string   { return "3021005" }
 func (Card3021005ArcaneArrow) Name() string { return "奥术箭矢" }

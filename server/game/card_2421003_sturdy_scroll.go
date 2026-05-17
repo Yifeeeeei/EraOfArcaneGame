@@ -1,6 +1,6 @@
 package game
 
-type Card2421003SturdyScroll struct{}
+type Card2421003SturdyScroll struct{ AlwaysActive }
 
 func (Card2421003SturdyScroll) ID() string   { return "2421003" }
 func (Card2421003SturdyScroll) Name() string { return "坚固卷轴" }

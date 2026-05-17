@@ -1,6 +1,6 @@
 package game
 
-type Card2221002FrostRune struct{}
+type Card2221002FrostRune struct{ AlwaysActive }
 
 func (Card2221002FrostRune) ID() string   { return "2221002" }
 func (Card2221002FrostRune) Name() string { return "冰霜符文" }

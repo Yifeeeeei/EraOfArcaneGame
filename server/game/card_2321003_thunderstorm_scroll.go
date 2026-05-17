@@ -1,6 +1,6 @@
 package game
 
-type Card2321003ThunderstormScroll struct{}
+type Card2321003ThunderstormScroll struct{ AlwaysActive }
 
 func (Card2321003ThunderstormScroll) ID() string   { return "2321003" }
 func (Card2321003ThunderstormScroll) Name() string { return "雷暴卷轴" }
