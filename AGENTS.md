@@ -204,6 +204,7 @@ Do not hardcode frontend API calls to `localhost`; in the browser, localhost mea
 
 ## Git Hygiene
 
+- This project is changing quickly. Before investigating a bug or starting new implementation work, sync with the latest `main` when possible; the issue may already be fixed. If the worktree is dirty, inspect the changes first and do not overwrite user work.
 - Keep commits small and descriptive.
 - Do not commit generated binaries.
 - Do not commit stale progress notes unless they are updated to current facts.
