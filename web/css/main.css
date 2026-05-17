@@ -128,3 +128,4 @@ header h1 small {
 }
 .tag-active { background: rgba(125,168,119,0.16); color: #bfe4b6; }
 .tag-waiting { background: rgba(211,180,106,0.12); color: var(--arcane-gold-bright); }
+.tag-test { background: rgba(130, 42, 32, 0.28); color: #f1c48f; border-color: rgba(211, 120, 80, 0.55); }
