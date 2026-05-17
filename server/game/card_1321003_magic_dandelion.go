@@ -1,6 +1,6 @@
 package game
 
-type Card1321003MagicDandelion struct{}
+type Card1321003MagicDandelion struct{ AlwaysActive }
 
 func (Card1321003MagicDandelion) ID() string   { return "1321003" }
 func (Card1321003MagicDandelion) Name() string { return "魔法蒲公英" }

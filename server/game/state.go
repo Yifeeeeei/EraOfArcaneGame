@@ -27,18 +27,19 @@ type CardInstance struct {
 	OwnerID    int         `json:"owner_id"` // 0 or 1
 
 	// Runtime state
-	CurrentLife       int             `json:"current_life"`
-	CurrentAttack     int             `json:"current_attack"`
-	IsHorizontal      bool            `json:"is_horizontal"` // 横置=true, 竖置=false
-	Statuses          map[string]int  `json:"statuses"`      // status -> stack count
-	ElementsGainBonus map[string]int  `json:"elements_gain_bonus,omitempty"`
-	ElementsGainSet   map[string]int  `json:"elements_gain_set,omitempty"`
-	PowerBonus        int             `json:"power_bonus,omitempty"`
-	AttackBonus       int             `json:"attack_bonus,omitempty"`
-	Position          *Position       `json:"position"`               // nil if not on unit grid
-	SlotIndex         int             `json:"slot_index"`             // for skill/equipment slots
-	EnterTurn         int             `json:"enter_turn"`             // which turn this card entered the field
-	BoundSkills       []*CardInstance `json:"bound_skills,omitempty"` // skills attached to this card, not skill slots
+	CurrentLife       int                `json:"current_life"`
+	CurrentAttack     int                `json:"current_attack"`
+	IsHorizontal      bool               `json:"is_horizontal"` // 横置=true, 竖置=false
+	Statuses          map[string]int     `json:"statuses"`      // status -> stack count
+	ElementsGainBonus map[string]int     `json:"elements_gain_bonus,omitempty"`
+	ElementsGainSet   map[string]int     `json:"elements_gain_set,omitempty"`
+	PowerBonus        int                `json:"power_bonus,omitempty"`
+	AttackBonus       int                `json:"attack_bonus,omitempty"`
+	Position          *Position          `json:"position"`               // nil if not on unit grid
+	SlotIndex         int                `json:"slot_index"`             // for skill/equipment slots
+	EnterTurn         int                `json:"enter_turn"`             // which turn this card entered the field
+	BoundSkills       []*CardInstance    `json:"bound_skills,omitempty"` // skills attached to this card, not skill slots
+	AttachedBehaviors []AttachedBehavior `json:"-"`                      // runtime-granted behavior objects
 
 	// Skill-specific
 	UsedThisTurn int  `json:"used_this_turn"` // for 回合技

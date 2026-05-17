@@ -65,7 +65,7 @@ func summonDevourRequirement(card *CardInstance) map[string]int {
 	}
 	behavior := GetEffectRegistry().GetBehavior(card.Card.Number)
 	devour, ok := behavior.(SummonDevourRequirementBehavior)
-	if !ok {
+	if !ok || !devour.HasActiveDevourRequirement(card) {
 		return nil
 	}
 	return devour.DevourRequirement()

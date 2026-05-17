@@ -1,6 +1,6 @@
 package game
 
-type Card2021010SealingScroll struct{}
+type Card2021010SealingScroll struct{ AlwaysActive }
 
 func (Card2021010SealingScroll) ID() string   { return "2021010" }
 func (Card2021010SealingScroll) Name() string { return "封印卷轴" }

@@ -1,6 +1,6 @@
 package game
 
-type Card3521002HolyFire struct{}
+type Card3521002HolyFire struct{ AlwaysActive }
 
 func (Card3521002HolyFire) ID() string   { return "3521002" }
 func (Card3521002HolyFire) Name() string { return "神圣之火" }

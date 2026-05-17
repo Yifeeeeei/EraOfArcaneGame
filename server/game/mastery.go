@@ -5,7 +5,10 @@ func masteryBehavior(card *CardInstance) (MasteryBehavior, bool) {
 		return nil, false
 	}
 	behavior, ok := globalRegistry.GetBehavior(card.Card.Number).(MasteryBehavior)
-	return behavior, ok
+	if !ok || !behavior.HasActiveMastery(card) {
+		return nil, false
+	}
+	return behavior, true
 }
 
 func (e *Engine) advanceMastery(card *CardInstance, playerID int, amount int) {

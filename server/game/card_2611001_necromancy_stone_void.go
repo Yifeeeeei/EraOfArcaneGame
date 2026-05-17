@@ -2,7 +2,7 @@ package game
 
 import "eraofarcane/model"
 
-type Card2611001NecromancyStoneVoid struct{}
+type Card2611001NecromancyStoneVoid struct{ AlwaysActive }
 
 func (Card2611001NecromancyStoneVoid) ID() string   { return "2611001" }
 func (Card2611001NecromancyStoneVoid) Name() string { return "死灵魔石 虚无" }

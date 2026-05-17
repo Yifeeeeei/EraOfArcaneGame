@@ -4,7 +4,7 @@ import "eraofarcane/model"
 
 const phoenixFeatherCounter = "火焰标记物"
 
-type Card2121001PhoenixFeather struct{}
+type Card2121001PhoenixFeather struct{ AlwaysActive }
 
 func (Card2121001PhoenixFeather) ID() string   { return "2121001" }
 func (Card2121001PhoenixFeather) Name() string { return "凤凰之羽" }

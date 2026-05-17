@@ -2,7 +2,7 @@ package game
 
 var negativeStatuses = []string{StatusBurn, StatusFreeze, StatusStun, StatusPetrify, StatusWeaken}
 
-type Card2521003PurificationScroll struct{}
+type Card2521003PurificationScroll struct{ AlwaysActive }
 
 func (Card2521003PurificationScroll) ID() string   { return "2521003" }
 func (Card2521003PurificationScroll) Name() string { return "净化卷轴" }

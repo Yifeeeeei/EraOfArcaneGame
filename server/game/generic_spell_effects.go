@@ -5,7 +5,7 @@ func (e *Engine) applyGenericElementGain(playerID int, skill *CardInstance) {
 		return
 	}
 	behavior, ok := globalRegistry.GetBehavior(skill.Card.Number).(SpellElementGainBehavior)
-	if !ok {
+	if !ok || !behavior.HasActiveSpellElementGain(skill) {
 		return
 	}
 	ctx := &EffectContext{Engine: e, Source: skill, PlayerID: playerID, OpponentID: 1 - playerID}
@@ -35,7 +35,7 @@ func (e *Engine) applyGenericStatusFromDescription(skill *CardInstance, target *
 	}
 	behavior, ok := globalRegistry.GetBehavior(skill.Card.Number).(SpellHitStatusBehavior)
 	statuses := traitsForCardNumber(skill.Card.Number).statuses
-	if ok {
+	if ok && behavior.HasActiveSpellHitStatus(skill) {
 		ctx := &EffectContext{Engine: e, Source: skill, Target: target, PlayerID: skill.OwnerID, OpponentID: 1 - skill.OwnerID}
 		statuses = behavior.SpellHitStatuses(ctx)
 	}

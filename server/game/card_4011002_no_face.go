@@ -1,6 +1,6 @@
 package game
 
-type Card4011002NoFace struct{}
+type Card4011002NoFace struct{ AlwaysActive }
 
 func (Card4011002NoFace) ID() string   { return "4011002" }
 func (Card4011002NoFace) Name() string { return "\"无面\"" }

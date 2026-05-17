@@ -2,7 +2,7 @@ package game
 
 const recentFriendlyDeathStatus = "recent_friendly_death"
 
-type Card3621013UndeadWall struct{}
+type Card3621013UndeadWall struct{ AlwaysActive }
 
 func (Card3621013UndeadWall) ID() string   { return "3621013" }
 func (Card3621013UndeadWall) Name() string { return "亡灵护壁" }

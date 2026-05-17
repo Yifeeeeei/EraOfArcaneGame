@@ -20,7 +20,7 @@ func (e *Engine) negativeStatusIneffective(card *CardInstance, status string) bo
 	if card == nil || card.Card == nil || !isNegativeStatus(status) {
 		return false
 	}
-	if immune, ok := behaviorForNumber(card.Card.Number).(NegativeStatusImmunityBehavior); ok && immune.HasNegativeStatusImmunity() {
+	if immune, ok := behaviorForNumber(card.Card.Number).(NegativeStatusImmunityBehavior); ok && immune.HasActiveNegativeStatusImmunity(card) && immune.HasNegativeStatusImmunity() {
 		return true
 	}
 	ps := e.State.Players[card.OwnerID]
@@ -34,7 +34,7 @@ func (e *Engine) negativeStatusIneffective(card *CardInstance, status string) bo
 				continue
 			}
 			behavior, ok := behaviorForNumber(protector.Card.Number).(AdjacentNegativeStatusProtectionBehavior)
-			if !ok || !behavior.ProtectsAdjacentFromNegativeStatus() {
+			if !ok || !behavior.HasActiveAdjacentNegativeStatusProtection(protector) || !behavior.ProtectsAdjacentFromNegativeStatus() {
 				continue
 			}
 			if abs(protector.Position.Col-card.Position.Col)+abs(protector.Position.Row-card.Position.Row) <= 1 {

@@ -2,13 +2,17 @@ package game
 
 const boneKnightRebornStatus = "失去遗言"
 
-type Card1621011BoneKnight struct{}
+type Card1621011BoneKnight struct{ AlwaysActive }
 
 func (Card1621011BoneKnight) ID() string   { return "1621011" }
 func (Card1621011BoneKnight) Name() string { return "白骨骑士" }
 
+func (Card1621011BoneKnight) HasActiveDeathrattle(card *CardInstance) bool {
+	return card != nil && card.Statuses[boneKnightRebornStatus] <= 0
+}
+
 func (Card1621011BoneKnight) OnDeath(ctx *EffectContext) error {
-	if ctx.Source == nil || ctx.Source.Statuses[boneKnightRebornStatus] > 0 || ctx.Source.Position == nil {
+	if ctx.Source == nil || ctx.Source.Position == nil {
 		return nil
 	}
 	ps := ctx.Engine.State.Players[ctx.PlayerID]

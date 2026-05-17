@@ -1,6 +1,6 @@
 package game
 
-type Card2021011LifeAmulet struct{}
+type Card2021011LifeAmulet struct{ AlwaysActive }
 
 func (Card2021011LifeAmulet) ID() string   { return "2021011" }
 func (Card2021011LifeAmulet) Name() string { return "生命护符" }

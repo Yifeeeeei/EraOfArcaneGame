@@ -1,6 +1,6 @@
 package game
 
-type Card1521013DivineFireBeast struct{}
+type Card1521013DivineFireBeast struct{ AlwaysActive }
 
 func (Card1521013DivineFireBeast) ID() string   { return "1521013" }
 func (Card1521013DivineFireBeast) Name() string { return "神火兽" }

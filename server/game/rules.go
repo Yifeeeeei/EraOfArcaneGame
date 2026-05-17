@@ -54,7 +54,7 @@ func (e *Engine) effectiveSkillUseCost(ps *PlayerState, skill *CardInstance) map
 			continue
 		}
 		behavior := globalRegistry.GetBehavior(fieldCard.Card.Number)
-		if modifier, ok := behavior.(SkillUseCostModifier); ok {
+		if modifier, ok := behavior.(SkillUseCostModifier); ok && modifier.HasActiveSkillUseCostModifier(fieldCard) {
 			ctx.Target = fieldCard
 			modifier.ModifySkillUseCost(ctx, cost)
 		}
@@ -83,7 +83,7 @@ func (e *Engine) effectiveCardPlayCost(ps *PlayerState, card *CardInstance) map[
 			continue
 		}
 		behavior := globalRegistry.GetBehavior(fieldCard.Card.Number)
-		if modifier, ok := behavior.(CardPlayCostModifier); ok {
+		if modifier, ok := behavior.(CardPlayCostModifier); ok && modifier.HasActiveCardPlayCostModifier(fieldCard) {
 			ctx.Source = fieldCard
 			modifier.ModifyCardPlayCost(ctx, card, cost)
 		}
@@ -177,7 +177,7 @@ func (e *Engine) validateSkillForPurpose(skill *CardInstance, purpose skillPurpo
 		}
 	case skillPurposeReaction:
 		behavior, ok := behaviorForNumber(skill.Card.Number).(SpellReactionBehavior)
-		if !ok {
+		if !ok || !behavior.HasActiveSpellReaction(skill) {
 			return fmt.Errorf("skill cannot react to spells")
 		}
 		ctx := &EffectContext{
@@ -206,7 +206,7 @@ func (e *Engine) validateSkillForPurpose(skill *CardInstance, purpose skillPurpo
 		}
 		behavior := globalRegistry.GetBehavior(fieldCard.Card.Number)
 		modifier, ok := behavior.(SkillUsePermissionModifier)
-		if !ok {
+		if !ok || !modifier.HasActiveSkillUsePermissionModifier(fieldCard) {
 			continue
 		}
 		ctx.Source = fieldCard
@@ -294,7 +294,7 @@ func (e *Engine) skillContributionStatsWithData(playerID int, skill *CardInstanc
 		stats.PowerBonus = max(stats.PowerBonus-weak, 0)
 	}
 	behavior := globalRegistry.GetBehavior(skill.Card.Number)
-	if modifier, ok := behavior.(SkillContributionModifier); ok {
+	if modifier, ok := behavior.(SkillContributionModifier); ok && modifier.HasActiveSkillContributionModifier(skill) {
 		data := map[string]any{"purpose": string(purpose)}
 		for key, value := range extra {
 			data[key] = value
@@ -348,7 +348,7 @@ func (e *Engine) spellStatBonusesWithData(playerID int, skill *CardInstance, pur
 		}
 		behavior := globalRegistry.GetBehavior(fieldCard.Card.Number)
 		modifier, ok := behavior.(SpellStatModifier)
-		if !ok {
+		if !ok || !modifier.HasActiveSpellStatModifier(fieldCard) {
 			continue
 		}
 		ctx.Source = fieldCard
@@ -369,7 +369,7 @@ func (e *Engine) spellStatBonusesWithData(playerID int, skill *CardInstance, pur
 		}
 		behavior := globalRegistry.GetBehavior(fieldCard.Card.Number)
 		modifier, ok := behavior.(EnemySpellStatModifier)
-		if !ok {
+		if !ok || !modifier.HasActiveEnemySpellStatModifier(fieldCard) {
 			continue
 		}
 		enemyCtx.Source = fieldCard
@@ -417,7 +417,7 @@ func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance
 
 	opponent := e.State.Players[1-playerID]
 	if opponent.Units[target.Position.Col][target.Position.Row] == nil {
-		if friendly, ok := behaviorForNumber(skill.Card.Number).(FriendlySpellTargetBehavior); ok && friendly.AllowsFriendlySpellTarget() {
+		if friendly, ok := behaviorForNumber(skill.Card.Number).(FriendlySpellTargetBehavior); ok && friendly.HasActiveFriendlySpellTarget(skill) && friendly.AllowsFriendlySpellTarget() {
 			own := e.State.Players[playerID]
 			if own.Units[target.Position.Col][target.Position.Row] != nil {
 				return nil

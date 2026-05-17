@@ -2,7 +2,7 @@ package game
 
 import "fmt"
 
-type Card1521005TwinAngel struct{}
+type Card1521005TwinAngel struct{ AlwaysActive }
 
 func (Card1521005TwinAngel) ID() string   { return "1521005" }
 func (Card1521005TwinAngel) Name() string { return "双生天使" }

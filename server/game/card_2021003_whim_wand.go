@@ -1,6 +1,6 @@
 package game
 
-type Card2021003WhimWand struct{}
+type Card2021003WhimWand struct{ AlwaysActive }
 
 func (Card2021003WhimWand) ID() string   { return "2021003" }
 func (Card2021003WhimWand) Name() string { return "随心魔杖" }

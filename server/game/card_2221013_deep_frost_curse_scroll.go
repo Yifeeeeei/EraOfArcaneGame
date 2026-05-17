@@ -1,6 +1,6 @@
 package game
 
-type Card2221013DeepFrostCurseScroll struct{}
+type Card2221013DeepFrostCurseScroll struct{ AlwaysActive }
 
 func (Card2221013DeepFrostCurseScroll) ID() string   { return "2221013" }
 func (Card2221013DeepFrostCurseScroll) Name() string { return "深寒诅咒卷轴" }

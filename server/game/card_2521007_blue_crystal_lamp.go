@@ -6,7 +6,7 @@ import (
 	"eraofarcane/model"
 )
 
-type Card2521007BlueCrystalLamp struct{}
+type Card2521007BlueCrystalLamp struct{ AlwaysActive }
 
 func (Card2521007BlueCrystalLamp) ID() string   { return "2521007" }
 func (Card2521007BlueCrystalLamp) Name() string { return "蓝晶灯盏" }

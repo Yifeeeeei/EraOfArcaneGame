@@ -2,7 +2,7 @@ package game
 
 import "eraofarcane/model"
 
-type Card2021020Mask struct{}
+type Card2021020Mask struct{ AlwaysActive }
 
 func (Card2021020Mask) ID() string   { return "2021020" }
 func (Card2021020Mask) Name() string { return "假面" }

@@ -1,6 +1,6 @@
 package game
 
-type Card2611002DemonContract struct{}
+type Card2611002DemonContract struct{ AlwaysActive }
 
 func (Card2611002DemonContract) ID() string   { return "2611002" }
 func (Card2611002DemonContract) Name() string { return "与恶魔的契约书" }

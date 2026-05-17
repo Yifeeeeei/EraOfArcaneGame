@@ -1,6 +1,6 @@
 package game
 
-type Card1121010FireArtist struct{}
+type Card1121010FireArtist struct{ AlwaysActive }
 
 func (Card1121010FireArtist) ID() string   { return "1121010" }
 func (Card1121010FireArtist) Name() string { return "火焰艺人" }

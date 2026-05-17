@@ -1,6 +1,6 @@
 package game
 
-type Card1221005WesternSiren struct{}
+type Card1221005WesternSiren struct{ AlwaysActive }
 
 func (Card1221005WesternSiren) ID() string   { return "1221005" }
 func (Card1221005WesternSiren) Name() string { return "西境海妖" }

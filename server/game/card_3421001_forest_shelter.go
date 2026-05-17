@@ -1,6 +1,6 @@
 package game
 
-type Card3421001ForestShelter struct{}
+type Card3421001ForestShelter struct{ AlwaysActive }
 
 func (Card3421001ForestShelter) ID() string      { return "3421001" }
 func (Card3421001ForestShelter) Name() string    { return "森林的庇护" }

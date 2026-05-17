@@ -1,6 +1,6 @@
 package game
 
-type Card2121012HellfireRune struct{}
+type Card2121012HellfireRune struct{ AlwaysActive }
 
 func (Card2121012HellfireRune) ID() string   { return "2121012" }
 func (Card2121012HellfireRune) Name() string { return "狱火符文" }

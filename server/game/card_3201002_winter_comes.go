@@ -6,7 +6,7 @@ import (
 	"eraofarcane/model"
 )
 
-type Card3201002WinterComes struct{}
+type Card3201002WinterComes struct{ AlwaysActive }
 
 func (Card3201002WinterComes) ID() string   { return "3201002" }
 func (Card3201002WinterComes) Name() string { return "凛冬将至" }

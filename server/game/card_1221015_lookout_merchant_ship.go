@@ -1,6 +1,6 @@
 package game
 
-type Card1221015LookoutMerchantShip struct{}
+type Card1221015LookoutMerchantShip struct{ AlwaysActive }
 
 func (Card1221015LookoutMerchantShip) ID() string   { return "1221015" }
 func (Card1221015LookoutMerchantShip) Name() string { return "眺望者商舰" }

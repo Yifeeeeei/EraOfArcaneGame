@@ -1,6 +1,6 @@
 package game
 
-type Card1021015EnergeticSenior struct{}
+type Card1021015EnergeticSenior struct{ AlwaysActive }
 
 func (Card1021015EnergeticSenior) ID() string   { return "1021015" }
 func (Card1021015EnergeticSenior) Name() string { return "精力充沛的大师兄" }

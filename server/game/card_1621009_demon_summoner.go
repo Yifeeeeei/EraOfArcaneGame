@@ -2,7 +2,7 @@ package game
 
 const demonSummonerDeathReady = "death_search_ready"
 
-type Card1621009DemonSummoner struct{}
+type Card1621009DemonSummoner struct{ AlwaysActive }
 
 func (Card1621009DemonSummoner) ID() string   { return "1621009" }
 func (Card1621009DemonSummoner) Name() string { return "唤魔邪术士" }

@@ -2,7 +2,7 @@ package game
 
 import "eraofarcane/model"
 
-type Card2021021FocusScroll struct{}
+type Card2021021FocusScroll struct{ AlwaysActive }
 
 func (Card2021021FocusScroll) ID() string   { return "2021021" }
 func (Card2021021FocusScroll) Name() string { return "聚能卷轴" }

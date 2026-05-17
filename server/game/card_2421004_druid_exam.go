@@ -2,7 +2,7 @@ package game
 
 import "eraofarcane/model"
 
-type Card2421004DruidTest struct{}
+type Card2421004DruidTest struct{ AlwaysActive }
 
 func (Card2421004DruidTest) ID() string   { return "2421004" }
 func (Card2421004DruidTest) Name() string { return "德鲁伊水平测试" }

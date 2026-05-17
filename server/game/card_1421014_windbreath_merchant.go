@@ -1,6 +1,6 @@
 package game
 
-type Card1421014WindbreathMerchant struct{}
+type Card1421014WindbreathMerchant struct{ AlwaysActive }
 
 func (Card1421014WindbreathMerchant) ID() string   { return "1421014" }
 func (Card1421014WindbreathMerchant) Name() string { return "风息谷旅商" }

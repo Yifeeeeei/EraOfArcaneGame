@@ -1,6 +1,6 @@
 package game
 
-type Card3001002PureArcane struct{}
+type Card3001002PureArcane struct{ AlwaysActive }
 
 func (Card3001002PureArcane) ID() string   { return "3001002" }
 func (Card3001002PureArcane) Name() string { return "纯净奥术" }

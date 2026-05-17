@@ -105,7 +105,7 @@ func totalFieldLoad(ps *PlayerState) int {
 	return total
 }
 
-type Card1011002WizardTower struct{}
+type Card1011002WizardTower struct{ AlwaysActive }
 
 func (Card1011002WizardTower) ID() string   { return "1011002" }
 func (Card1011002WizardTower) Name() string { return "巫师之塔 通天阁" }
@@ -117,7 +117,7 @@ func (Card1011002WizardTower) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1021008ForesightProphet struct{}
+type Card1021008ForesightProphet struct{ AlwaysActive }
 
 func (Card1021008ForesightProphet) ID() string   { return "1021008" }
 func (Card1021008ForesightProphet) Name() string { return "预见先知" }
@@ -131,7 +131,7 @@ func (Card1021008ForesightProphet) OnTurnStart(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1021014ImpatientJunior struct{}
+type Card1021014ImpatientJunior struct{ AlwaysActive }
 
 func (Card1021014ImpatientJunior) ID() string   { return "1021014" }
 func (Card1021014ImpatientJunior) Name() string { return "急不可耐的小师弟" }
@@ -140,7 +140,7 @@ func (Card1021014ImpatientJunior) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1111003Bifang struct{}
+type Card1111003Bifang struct{ AlwaysActive }
 
 func (Card1111003Bifang) ID() string   { return "1111003" }
 func (Card1111003Bifang) Name() string { return "毕方" }
@@ -153,7 +153,7 @@ func (Card1111003Bifang) OnDamaged(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1121012FireInsight struct{}
+type Card1121012FireInsight struct{ AlwaysActive }
 
 func (Card1121012FireInsight) ID() string   { return "1121012" }
 func (Card1121012FireInsight) Name() string { return "火焰洞察者" }
@@ -166,7 +166,7 @@ func (Card1121012FireInsight) OnDamaged(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1121013Arsonist struct{}
+type Card1121013Arsonist struct{ AlwaysActive }
 
 func (Card1121013Arsonist) ID() string   { return "1121013" }
 func (Card1121013Arsonist) Name() string { return "纵火者" }
@@ -181,7 +181,7 @@ func (Card1121013Arsonist) OnSpellCast(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1211002Leviathan struct{}
+type Card1211002Leviathan struct{ AlwaysActive }
 
 func (Card1211002Leviathan) ID() string   { return "1211002" }
 func (Card1211002Leviathan) Name() string { return "深渊巨口 利维坦" }
@@ -202,7 +202,7 @@ func (Card1211002Leviathan) OnTurnStart(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1211003SnowWoman struct{}
+type Card1211003SnowWoman struct{ AlwaysActive }
 
 func (Card1211003SnowWoman) ID() string   { return "1211003" }
 func (Card1211003SnowWoman) Name() string { return "\"雪女\" 天户凌" }
@@ -218,7 +218,7 @@ func (Card1211003SnowWoman) OnPerTurn(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1221001DolphinPartner struct{}
+type Card1221001DolphinPartner struct{ AlwaysActive }
 
 func (Card1221001DolphinPartner) ID() string   { return "1221001" }
 func (Card1221001DolphinPartner) Name() string { return "海豚伙伴" }
@@ -233,7 +233,7 @@ func (Card1221001DolphinPartner) OnDamaged(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1221010WallKeeper struct{}
+type Card1221010WallKeeper struct{ AlwaysActive }
 
 func (Card1221010WallKeeper) ID() string   { return "1221010" }
 func (Card1221010WallKeeper) Name() string { return "护壁者" }
@@ -242,7 +242,7 @@ func (Card1221010WallKeeper) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1221012DragonPrinceDescendant struct{}
+type Card1221012DragonPrinceDescendant struct{ AlwaysActive }
 
 func (Card1221012DragonPrinceDescendant) ID() string      { return "1221012" }
 func (Card1221012DragonPrinceDescendant) Name() string    { return "龙王子裔" }
@@ -257,7 +257,7 @@ func (Card1221012DragonPrinceDescendant) OnMastery(ctx *EffectContext, level int
 	return nil
 }
 
-type Card1311003WindBladeKarina struct{}
+type Card1311003WindBladeKarina struct{ AlwaysActive }
 
 func (Card1311003WindBladeKarina) ID() string   { return "1311003" }
 func (Card1311003WindBladeKarina) Name() string { return "\"风刃\" 卡琳娜" }
@@ -267,7 +267,7 @@ func (Card1311003WindBladeKarina) ModifySkillUseCost(ctx *EffectContext, cost ma
 	}
 }
 
-type Card1321013TeleportMage struct{}
+type Card1321013TeleportMage struct{ AlwaysActive }
 
 func (Card1321013TeleportMage) ID() string   { return "1321013" }
 func (Card1321013TeleportMage) Name() string { return "传送法师" }
@@ -291,7 +291,7 @@ func (Card1321013TeleportMage) OnPerTurn(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1321015WindSpeaker struct{}
+type Card1321015WindSpeaker struct{ AlwaysActive }
 
 func (Card1321015WindSpeaker) ID() string   { return "1321015" }
 func (Card1321015WindSpeaker) Name() string { return "风语者" }
@@ -300,7 +300,7 @@ func (Card1321015WindSpeaker) OnPerTurn(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1401001LifeSeed struct{}
+type Card1401001LifeSeed struct{ AlwaysActive }
 
 func (Card1401001LifeSeed) ID() string      { return "1401001" }
 func (Card1401001LifeSeed) Name() string    { return "生命种子" }
@@ -316,7 +316,7 @@ func (Card1401001LifeSeed) OnMastery(ctx *EffectContext, level int) error {
 	return nil
 }
 
-type Card1401002SpiritBeastXinke struct{}
+type Card1401002SpiritBeastXinke struct{ AlwaysActive }
 
 func (Card1401002SpiritBeastXinke) ID() string   { return "1401002" }
 func (Card1401002SpiritBeastXinke) Name() string { return "灵兽 辛柯" }
@@ -346,7 +346,7 @@ func (Card1401002SpiritBeastXinke) OnFriendlyDamagedFromHidden(ctx *EffectContex
 	return nil
 }
 
-type Card1411001GreatDruidCycle struct{}
+type Card1411001GreatDruidCycle struct{ AlwaysActive }
 
 func (Card1411001GreatDruidCycle) ID() string   { return "1411001" }
 func (Card1411001GreatDruidCycle) Name() string { return "\"轮回不息\" 大德鲁伊 烟尘" }
@@ -384,7 +384,7 @@ func (Card1411001GreatDruidCycle) OnFriendlyDeath(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1411002KnowledgeTreeDeepRoot struct{}
+type Card1411002KnowledgeTreeDeepRoot struct{ AlwaysActive }
 
 func (Card1411002KnowledgeTreeDeepRoot) ID() string   { return "1411002" }
 func (Card1411002KnowledgeTreeDeepRoot) Name() string { return "\"知识古树\" 深耕" }
@@ -393,7 +393,7 @@ func (Card1411002KnowledgeTreeDeepRoot) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1411003SandWitchSommer struct{}
+type Card1411003SandWitchSommer struct{ AlwaysActive }
 
 func (Card1411003SandWitchSommer) ID() string   { return "1411003" }
 func (Card1411003SandWitchSommer) Name() string { return "沙之魔巫 梭默" }
@@ -403,7 +403,7 @@ func (Card1411003SandWitchSommer) ModifySpellArea(ctx *EffectContext, area *Spel
 	}
 }
 
-type Card1421003GrowingTreant struct{}
+type Card1421003GrowingTreant struct{ AlwaysActive }
 
 func (Card1421003GrowingTreant) ID() string      { return "1421003" }
 func (Card1421003GrowingTreant) Name() string    { return "成长的树人" }
@@ -415,7 +415,7 @@ func (Card1421003GrowingTreant) OnMastery(ctx *EffectContext, level int) error {
 	return nil
 }
 
-type Card1421004ForestGuard struct{}
+type Card1421004ForestGuard struct{ AlwaysActive }
 
 func (Card1421004ForestGuard) ID() string      { return "1421004" }
 func (Card1421004ForestGuard) Name() string    { return "森林守卫" }
@@ -432,7 +432,7 @@ func (Card1421004ForestGuard) OnMastery(ctx *EffectContext, level int) error {
 	return nil
 }
 
-type Card1421007HighlandTitan struct{}
+type Card1421007HighlandTitan struct{ AlwaysActive }
 
 func (Card1421007HighlandTitan) ID() string   { return "1421007" }
 func (Card1421007HighlandTitan) Name() string { return "高地泰坦" }
@@ -446,7 +446,7 @@ func (Card1421007HighlandTitan) OnDamaged(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1421010PlantationGardener struct{}
+type Card1421010PlantationGardener struct{ AlwaysActive }
 
 func (Card1421010PlantationGardener) ID() string   { return "1421010" }
 func (Card1421010PlantationGardener) Name() string { return "种植园丁" }
@@ -462,7 +462,7 @@ func (Card1421010PlantationGardener) OnPerTurn(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1421011GreatElder struct{}
+type Card1421011GreatElder struct{ AlwaysActive }
 
 func (Card1421011GreatElder) ID() string      { return "1421011" }
 func (Card1421011GreatElder) Name() string    { return "大长老" }
@@ -478,7 +478,7 @@ func (Card1421011GreatElder) OnMastery(ctx *EffectContext, level int) error {
 	return nil
 }
 
-type Card1511001WhiteRobeSage struct{}
+type Card1511001WhiteRobeSage struct{ AlwaysActive }
 
 func (Card1511001WhiteRobeSage) ID() string   { return "1511001" }
 func (Card1511001WhiteRobeSage) Name() string { return "白袍大贤者 掌号使" }
@@ -501,7 +501,7 @@ func (Card1511001WhiteRobeSage) OnUltimate(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1521007RainbowAngel struct{}
+type Card1521007RainbowAngel struct{ AlwaysActive }
 
 func (Card1521007RainbowAngel) ID() string   { return "1521007" }
 func (Card1521007RainbowAngel) Name() string { return "虹之天使" }
@@ -514,7 +514,7 @@ func (Card1521007RainbowAngel) ModifySkillUseCost(ctx *EffectContext, cost map[s
 	}
 }
 
-type Card1611002BlackRobeExecutor struct{}
+type Card1611002BlackRobeExecutor struct{ AlwaysActive }
 
 func (Card1611002BlackRobeExecutor) ID() string   { return "1611002" }
 func (Card1611002BlackRobeExecutor) Name() string { return "黑袍执行官 无心" }
@@ -534,7 +534,7 @@ func (Card1611002BlackRobeExecutor) OnUltimate(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1611003HeartPiercer struct{}
+type Card1611003HeartPiercer struct{ AlwaysActive }
 
 func (Card1611003HeartPiercer) ID() string   { return "1611003" }
 func (Card1611003HeartPiercer) Name() string { return "\"穿心人\"" }
@@ -543,7 +543,7 @@ func (Card1611003HeartPiercer) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
-type Card1621013WordSpirit struct{}
+type Card1621013WordSpirit struct{ AlwaysActive }
 
 func (Card1621013WordSpirit) ID() string   { return "1621013" }
 func (Card1621013WordSpirit) Name() string { return "言灵" }
@@ -562,7 +562,7 @@ func (Card1621013WordSpirit) OnSpellCast(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2011001ArchmageStaff struct{}
+type Card2011001ArchmageStaff struct{ AlwaysActive }
 
 func (Card2011001ArchmageStaff) ID() string   { return "2011001" }
 func (Card2011001ArchmageStaff) Name() string { return "大法师之杖" }
@@ -574,7 +574,7 @@ func (Card2011001ArchmageStaff) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2011002OverlordCrown struct{}
+type Card2011002OverlordCrown struct{ AlwaysActive }
 
 func (Card2011002OverlordCrown) ID() string   { return "2011002" }
 func (Card2011002OverlordCrown) Name() string { return "统御者之冠" }
@@ -588,7 +588,7 @@ func (Card2011002OverlordCrown) OnUnitEnter(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2011003KingRobe struct{}
+type Card2011003KingRobe struct{ AlwaysActive }
 
 func (Card2011003KingRobe) ID() string   { return "2011003" }
 func (Card2011003KingRobe) Name() string { return "君王法袍 至贤" }
@@ -598,7 +598,7 @@ func (Card2011003KingRobe) ModifyEnemySpellStats(ctx *EffectContext, stats *Spel
 	}
 }
 
-type Card2021002MemoryNecklace struct{}
+type Card2021002MemoryNecklace struct{ AlwaysActive }
 
 func (Card2021002MemoryNecklace) ID() string   { return "2021002" }
 func (Card2021002MemoryNecklace) Name() string { return "记忆项链" }
@@ -607,7 +607,7 @@ func (Card2021002MemoryNecklace) OnEquip(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2021012SketchScroll struct{}
+type Card2021012SketchScroll struct{ AlwaysActive }
 
 func (Card2021012SketchScroll) ID() string   { return "2021012" }
 func (Card2021012SketchScroll) Name() string { return "速写卷轴" }
@@ -621,7 +621,7 @@ func (Card2021012SketchScroll) OnUseItem(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2021015ManaBoosterC struct{}
+type Card2021015ManaBoosterC struct{ AlwaysActive }
 
 func (Card2021015ManaBoosterC) ID() string   { return "2021015" }
 func (Card2021015ManaBoosterC) Name() string { return "法力增强剂C型" }
@@ -630,7 +630,7 @@ func (Card2021015ManaBoosterC) OnUseItem(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2021017TravelPack struct{}
+type Card2021017TravelPack struct{ AlwaysActive }
 
 func (Card2021017TravelPack) ID() string   { return "2021017" }
 func (Card2021017TravelPack) Name() string { return "旅行行囊" }
@@ -639,7 +639,7 @@ func (Card2021017TravelPack) OnEquip(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2021018ArcaneRune struct{}
+type Card2021018ArcaneRune struct{ AlwaysActive }
 
 func (Card2021018ArcaneRune) ID() string   { return "2021018" }
 func (Card2021018ArcaneRune) Name() string { return "奥术符文" }
@@ -653,7 +653,7 @@ func (Card2021018ArcaneRune) OnUseItem(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2021022CounterRune struct{}
+type Card2021022CounterRune struct{ AlwaysActive }
 
 func (Card2021022CounterRune) ID() string   { return "2021022" }
 func (Card2021022CounterRune) Name() string { return "反制符文" }
@@ -662,7 +662,7 @@ func (Card2021022CounterRune) OnUseItem(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2111001FireDragonHeart struct{}
+type Card2111001FireDragonHeart struct{ AlwaysActive }
 
 func (Card2111001FireDragonHeart) ID() string   { return "2111001" }
 func (Card2111001FireDragonHeart) Name() string { return "火龙之心" }
@@ -676,7 +676,7 @@ func (Card2111001FireDragonHeart) OnPerTurn(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2111002NurEye struct{}
+type Card2111002NurEye struct{ AlwaysActive }
 
 func (Card2111002NurEye) ID() string   { return "2111002" }
 func (Card2111002NurEye) Name() string { return "努尔之眼" }
@@ -703,7 +703,7 @@ func (Card2111002NurEye) OnPerTurn(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2211002WinterBow struct{}
+type Card2211002WinterBow struct{ AlwaysActive }
 
 func (Card2211002WinterBow) ID() string   { return "2211002" }
 func (Card2211002WinterBow) Name() string { return "嗜魔弓 凛冬" }
@@ -719,7 +719,7 @@ func (Card2211002WinterBow) OnSpellCast(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2221001FrostHeart struct{}
+type Card2221001FrostHeart struct{ AlwaysActive }
 
 func (Card2221001FrostHeart) ID() string   { return "2221001" }
 func (Card2221001FrostHeart) Name() string { return "冰霜之心" }
@@ -730,7 +730,7 @@ func (Card2221001FrostHeart) ModifyEnemySpellStats(ctx *EffectContext, stats *Sp
 	}
 }
 
-type Card2221010TideRune struct{}
+type Card2221010TideRune struct{ AlwaysActive }
 
 func (Card2221010TideRune) ID() string   { return "2221010" }
 func (Card2221010TideRune) Name() string { return "潮涌符文" }
@@ -741,7 +741,7 @@ func (Card2221010TideRune) OnUseItem(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2221011RainOfGrace struct{}
+type Card2221011RainOfGrace struct{ AlwaysActive }
 
 func (Card2221011RainOfGrace) ID() string   { return "2221011" }
 func (Card2221011RainOfGrace) Name() string { return "恩惠之雨" }
@@ -752,7 +752,7 @@ func (Card2221011RainOfGrace) OnUseItem(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2311001ThunderSource struct{}
+type Card2311001ThunderSource struct{ AlwaysActive }
 
 func (Card2311001ThunderSource) ID() string   { return "2311001" }
 func (Card2311001ThunderSource) Name() string { return "雷之源" }
@@ -760,7 +760,7 @@ func (Card2311001ThunderSource) ModifySkillUseCost(ctx *EffectContext, cost map[
 	reduceCost(cost, model.ElementAir, 1)
 }
 
-type Card2311002ThunderDrum struct{}
+type Card2311002ThunderDrum struct{ AlwaysActive }
 
 func (Card2311002ThunderDrum) ID() string   { return "2311002" }
 func (Card2311002ThunderDrum) Name() string { return "唤雷震鼓" }
@@ -776,7 +776,7 @@ func (Card2311002ThunderDrum) OnPerTurn(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2321001WindbreathCompass struct{}
+type Card2321001WindbreathCompass struct{ AlwaysActive }
 
 func (Card2321001WindbreathCompass) ID() string   { return "2321001" }
 func (Card2321001WindbreathCompass) Name() string { return "风息罗盘" }
@@ -785,7 +785,7 @@ func (Card2321001WindbreathCompass) OnPerTurn(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2321010IllusionScroll struct{}
+type Card2321010IllusionScroll struct{ AlwaysActive }
 
 func (Card2321010IllusionScroll) ID() string   { return "2321010" }
 func (Card2321010IllusionScroll) Name() string { return "幻术卷轴" }
@@ -794,7 +794,7 @@ func (Card2321010IllusionScroll) OnUseItem(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2321011TeleportRune struct{}
+type Card2321011TeleportRune struct{ AlwaysActive }
 
 func (Card2321011TeleportRune) ID() string   { return "2321011" }
 func (Card2321011TeleportRune) Name() string { return "传送符文" }
@@ -805,7 +805,7 @@ func (Card2321011TeleportRune) OnUseItem(ctx *EffectContext) error {
 	return nil
 }
 
-type Card2321012WindCloak struct{}
+type Card2321012WindCloak struct{ AlwaysActive }
 
 func (Card2321012WindCloak) ID() string   { return "2321012" }
 func (Card2321012WindCloak) Name() string { return "随风斗篷" }

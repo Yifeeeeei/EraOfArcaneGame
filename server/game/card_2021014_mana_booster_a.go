@@ -1,6 +1,6 @@
 package game
 
-type Card2021014ManaBoosterA struct{}
+type Card2021014ManaBoosterA struct{ AlwaysActive }
 
 func (Card2021014ManaBoosterA) ID() string   { return "2021014" }
 func (Card2021014ManaBoosterA) Name() string { return "法力增强剂A型" }

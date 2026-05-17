@@ -1,6 +1,6 @@
 package game
 
-type Card3321014CallLightning struct{}
+type Card3321014CallLightning struct{ AlwaysActive }
 
 func (Card3321014CallLightning) ID() string   { return "3321014" }
 func (Card3321014CallLightning) Name() string { return "引雷" }

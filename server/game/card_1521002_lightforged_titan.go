@@ -1,6 +1,6 @@
 package game
 
-type Card1521002LightforgedTitan struct{}
+type Card1521002LightforgedTitan struct{ AlwaysActive }
 
 func (Card1521002LightforgedTitan) ID() string   { return "1521002" }
 func (Card1521002LightforgedTitan) Name() string { return "光铸泰坦" }

@@ -1,6 +1,6 @@
 package game
 
-type Card2621005SacrificeRune struct{}
+type Card2621005SacrificeRune struct{ AlwaysActive }
 
 func (Card2621005SacrificeRune) ID() string   { return "2621005" }
 func (Card2621005SacrificeRune) Name() string { return "献祭符文" }

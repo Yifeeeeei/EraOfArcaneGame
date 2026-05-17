@@ -179,11 +179,48 @@ func behaviorForNumber(number string) CardBehavior {
 	return globalRegistry.GetBehavior(number)
 }
 
+func cardBehavior(card *CardInstance) CardBehavior {
+	if card == nil || card.Card == nil {
+		return nil
+	}
+	return behaviorForNumber(card.Card.Number)
+}
+
+func cardHasActiveDeathrattle(card *CardInstance) bool {
+	if h, ok := cardBehavior(card).(OnDeathBehavior); ok {
+		if h.HasActiveDeathrattle(card) {
+			return true
+		}
+	}
+	return len(attachedDeathrattles(card)) > 0
+}
+
+func cardHasActivePerTurn(card *CardInstance) bool {
+	if h, ok := cardBehavior(card).(PerTurnAbility); ok {
+		return h.HasActivePerTurn(card)
+	}
+	return false
+}
+
+func cardHasActiveUltimate(card *CardInstance) bool {
+	if h, ok := cardBehavior(card).(UltimateAbility); ok {
+		return h.HasActiveUltimate(card)
+	}
+	return false
+}
+
+func cardHasActiveSpellReaction(card *CardInstance) bool {
+	if h, ok := cardBehavior(card).(SpellReactionBehavior); ok {
+		return h.HasActiveSpellReaction(card)
+	}
+	return false
+}
+
 func cardHasRush(card *CardInstance) bool {
 	if card == nil || card.Card == nil {
 		return false
 	}
-	if h, ok := behaviorForNumber(card.Card.Number).(RushBehavior); ok {
+	if h, ok := behaviorForNumber(card.Card.Number).(RushBehavior); ok && h.HasActiveRush(card) {
 		return h.HasRush()
 	}
 	return traitsForCardNumber(card.Card.Number).rush
@@ -193,7 +230,7 @@ func cardHasPierce(card *CardInstance) bool {
 	if card == nil || card.Card == nil {
 		return false
 	}
-	if h, ok := behaviorForNumber(card.Card.Number).(PierceBehavior); ok {
+	if h, ok := behaviorForNumber(card.Card.Number).(PierceBehavior); ok && h.HasActivePierce(card) {
 		return h.HasPierce()
 	}
 	return traitsForCardNumber(card.Card.Number).pierce
@@ -203,7 +240,7 @@ func cardIsTemporary(card *CardInstance) bool {
 	if card == nil || card.Card == nil {
 		return false
 	}
-	if h, ok := behaviorForNumber(card.Card.Number).(TemporaryBehavior); ok {
+	if h, ok := behaviorForNumber(card.Card.Number).(TemporaryBehavior); ok && h.HasActiveTemporary(card) {
 		return h.IsTemporary()
 	}
 	return traitsForCardNumber(card.Card.Number).temporary
@@ -213,7 +250,7 @@ func cardHasTaunt(card *CardInstance) bool {
 	if card == nil || card.Card == nil {
 		return false
 	}
-	if h, ok := behaviorForNumber(card.Card.Number).(TauntBehavior); ok {
+	if h, ok := behaviorForNumber(card.Card.Number).(TauntBehavior); ok && h.HasActiveTaunt(card) {
 		return h.HasTaunt()
 	}
 	return traitsForCardNumber(card.Card.Number).taunt
@@ -223,7 +260,7 @@ func cardStealthLayers(card *CardInstance) int {
 	if card == nil || card.Card == nil {
 		return 0
 	}
-	if h, ok := behaviorForNumber(card.Card.Number).(StealthBehavior); ok {
+	if h, ok := behaviorForNumber(card.Card.Number).(StealthBehavior); ok && h.HasActiveStealth(card) {
 		return h.StealthLayers()
 	}
 	return traitsForCardNumber(card.Card.Number).stealth
@@ -233,7 +270,7 @@ func cardShieldLayers(card *CardInstance) int {
 	if card == nil || card.Card == nil {
 		return 0
 	}
-	if h, ok := behaviorForNumber(card.Card.Number).(ShieldBehavior); ok {
+	if h, ok := behaviorForNumber(card.Card.Number).(ShieldBehavior); ok && h.HasActiveShield(card) {
 		return h.ShieldLayers()
 	}
 	return traitsForCardNumber(card.Card.Number).shield
@@ -243,7 +280,7 @@ func cardHasShielding(card *CardInstance) bool {
 	if card == nil || card.Card == nil {
 		return false
 	}
-	if h, ok := behaviorForNumber(card.Card.Number).(ShieldingBehavior); ok {
+	if h, ok := behaviorForNumber(card.Card.Number).(ShieldingBehavior); ok && h.HasActiveShielding(card) {
 		return h.HasShielding()
 	}
 	return traitsForCardNumber(card.Card.Number).shielding
@@ -253,7 +290,7 @@ func skillCooldown(skill *CardInstance) int {
 	if skill == nil || skill.Card == nil {
 		return 0
 	}
-	if h, ok := behaviorForNumber(skill.Card.Number).(CooldownBehavior); ok {
+	if h, ok := behaviorForNumber(skill.Card.Number).(CooldownBehavior); ok && h.HasActiveCooldown(skill) {
 		return h.Cooldown()
 	}
 	return traitsForCardNumber(skill.Card.Number).cooldown
@@ -263,7 +300,7 @@ func perTurnLimit(card *CardInstance) int {
 	if card == nil || card.Card == nil {
 		return 1
 	}
-	if h, ok := behaviorForNumber(card.Card.Number).(PerTurnLimitBehavior); ok {
+	if h, ok := behaviorForNumber(card.Card.Number).(PerTurnLimitBehavior); ok && h.HasActivePerTurnLimit(card) {
 		if n := h.PerTurnLimit(); n > 0 {
 			return n
 		}
@@ -278,7 +315,7 @@ func spellArea(skill *CardInstance) SpellArea {
 	if skill == nil || skill.Card == nil {
 		return SpellAreaSingle
 	}
-	if h, ok := behaviorForNumber(skill.Card.Number).(SpellAreaBehavior); ok {
+	if h, ok := behaviorForNumber(skill.Card.Number).(SpellAreaBehavior); ok && h.HasActiveSpellArea(skill) {
 		if area := h.SpellArea(); area != "" {
 			return area
 		}
@@ -294,14 +331,14 @@ func cardRevealsOnDraw(card *CardInstance) bool {
 		return false
 	}
 	reveal, ok := behaviorForNumber(card.Card.Number).(DrawRevealBehavior)
-	return ok && reveal.RevealsOnDraw()
+	return ok && reveal.HasActiveDrawReveal(card) && reveal.RevealsOnDraw()
 }
 
 func skillNeedsTargetInstance(skill *CardInstance) bool {
 	if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
 		return false
 	}
-	if h, ok := behaviorForNumber(skill.Card.Number).(SpellTargetingBehavior); ok {
+	if h, ok := behaviorForNumber(skill.Card.Number).(SpellTargetingBehavior); ok && h.HasActiveSpellTargeting(skill) {
 		return h.NeedsSpellTarget()
 	}
 	t := traitsForCardNumber(skill.Card.Number)
@@ -322,7 +359,8 @@ func canUseSkillForPurpose(card *model.Card, purpose skillPurpose) bool {
 	if card == nil || !card.IsSkill() {
 		return false
 	}
-	if h, ok := behaviorForNumber(card.Number).(SkillUsabilityBehavior); ok {
+	instance := &CardInstance{Card: card}
+	if h, ok := behaviorForNumber(card.Number).(SkillUsabilityBehavior); ok && h.HasActiveSkillUsability(instance) {
 		return h.CanUseForSkillPurpose(purpose)
 	}
 	return staticCanUseSkillForPurpose(card, traitsForCardNumber(card.Number), purpose)
@@ -350,7 +388,8 @@ func isDefenseOnlySkill(card *model.Card) bool {
 	if card == nil || !card.IsSkill() {
 		return false
 	}
-	if h, ok := behaviorForNumber(card.Number).(DefenseOnlySkillBehavior); ok {
+	instance := &CardInstance{Card: card}
+	if h, ok := behaviorForNumber(card.Number).(DefenseOnlySkillBehavior); ok && h.HasActiveDefenseOnlySkill(instance) {
 		return h.IsDefenseOnlySkill()
 	}
 	return traitsForCardNumber(card.Number).defenseOnly
@@ -360,7 +399,8 @@ func isSorcerySkill(card *model.Card) bool {
 	if card == nil || !card.IsSkill() {
 		return false
 	}
-	if h, ok := behaviorForNumber(card.Number).(SorcerySkillBehavior); ok {
+	instance := &CardInstance{Card: card}
+	if h, ok := behaviorForNumber(card.Number).(SorcerySkillBehavior); ok && h.HasActiveSorcerySkill(instance) {
 		return h.IsSorcerySkill()
 	}
 	return traitsForCardNumber(card.Number).sorcery

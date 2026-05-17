@@ -1,6 +1,6 @@
 package game
 
-type Card2621003KillingInstinct struct{}
+type Card2621003KillingInstinct struct{ AlwaysActive }
 
 func (Card2621003KillingInstinct) ID() string   { return "2621003" }
 func (Card2621003KillingInstinct) Name() string { return "杀戮本能" }

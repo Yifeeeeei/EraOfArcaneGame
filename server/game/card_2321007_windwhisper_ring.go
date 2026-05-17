@@ -1,6 +1,6 @@
 package game
 
-type Card2321007WindwhisperRing struct{}
+type Card2321007WindwhisperRing struct{ AlwaysActive }
 
 func (Card2321007WindwhisperRing) ID() string   { return "2321007" }
 func (Card2321007WindwhisperRing) Name() string { return "风语之戒" }

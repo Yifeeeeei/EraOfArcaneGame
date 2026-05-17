@@ -2540,6 +2540,9 @@ func TestDarkDeathEffects(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		knight := placeUnit(baseCard(t, "1621011"), 0, 0, 0, engine)
 
+		if !cardHasActiveDeathrattle(knight) {
+			t.Fatalf("bone knight should start with an active deathrattle")
+		}
 		engine.dealDamage(knight, 99, 0)
 		if engine.State.Players[0].Units[0][0] != knight {
 			t.Fatalf("bone knight should return to its position")
@@ -2547,9 +2550,33 @@ func TestDarkDeathEffects(t *testing.T) {
 		if knight.Statuses[boneKnightRebornStatus] != 1 {
 			t.Fatalf("bone knight should lose deathrattle after return, statuses=%v", knight.Statuses)
 		}
+		if cardHasActiveDeathrattle(knight) {
+			t.Fatalf("bone knight should no longer count as a deathrattle unit after returning")
+		}
 		engine.dealDamage(knight, 99, 0)
 		if engine.State.Players[0].Units[0][0] != nil {
 			t.Fatalf("bone knight should not return a second time")
+		}
+	})
+
+	t.Run("runtime attached deathrattle counts as deathrattle and resolves", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p1 := engine.State.Players[1]
+		p1.Hero = NewCardInstance(baseCard(t, "4311003"), 1, engine.State.TurnNumber)
+		unit := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+
+		if cardHasActiveDeathrattle(unit) {
+			t.Fatalf("plain apprentice should not start as a deathrattle unit")
+		}
+		unit.AddAttachedBehavior(AttachedDeathrattleDamageEnemyHero{Amount: 1})
+		if !cardHasActiveDeathrattle(unit) {
+			t.Fatalf("attached deathrattle should make the unit count as a deathrattle unit")
+		}
+		startLife := p1.Hero.CurrentLife
+
+		engine.destroyUnit(unit, 0)
+		if p1.Hero.CurrentLife != startLife-1 {
+			t.Fatalf("attached deathrattle should damage enemy hero by 1, got %d want %d", p1.Hero.CurrentLife, startLife-1)
 		}
 	})
 }

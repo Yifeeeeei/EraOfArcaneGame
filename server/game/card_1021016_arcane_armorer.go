@@ -1,6 +1,6 @@
 package game
 
-type Card1021016ArcaneArmorer struct{}
+type Card1021016ArcaneArmorer struct{ AlwaysActive }
 
 func (Card1021016ArcaneArmorer) ID() string   { return "1021016" }
 func (Card1021016ArcaneArmorer) Name() string { return "奥术盔甲匠" }

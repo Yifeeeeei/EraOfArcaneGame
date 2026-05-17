@@ -2,7 +2,7 @@ package game
 
 import "eraofarcane/model"
 
-type Card2421002GrowthPotion struct{}
+type Card2421002GrowthPotion struct{ AlwaysActive }
 
 func (Card2421002GrowthPotion) ID() string   { return "2421002" }
 func (Card2421002GrowthPotion) Name() string { return "生长药水" }
