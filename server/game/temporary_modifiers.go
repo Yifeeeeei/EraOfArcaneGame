@@ -1,13 +1,25 @@
 package game
 
+import (
+	"fmt"
+	"strconv"
+	"strings"
+
+	"eraofarcane/model"
+)
+
 const (
 	TempModNextSkillCostZero            = "next_skill_cost_zero"
 	TempModNextLearnedSkillHaste        = "next_learned_skill_haste"
 	TempModSkillPowerBonus              = "skill_power_bonus"
 	TempModNextNoCooldown               = "next_skill_no_cooldown"
 	TempModNextSpellHitStatus           = "next_spell_hit_status"
+	TempModNextElementSpellPowerBonus   = "next_element_spell_power_bonus"
 	TempModDelayedElementGain           = "delayed_element_gain"
 	TempModResetSkillsOnOpponentTurnEnd = "reset_skills_on_opponent_turn_end"
+	TempModNextEarthSkillLearnCostMinus = "next_earth_skill_learn_cost_minus"
+	TempModAllSpellDamageZero           = "all_spell_attack_zero"
+	TempModFriendlySpellDamageMinus     = "friendly_spell_damage_minus"
 )
 
 type TemporaryModifier struct {
@@ -113,14 +125,108 @@ func (e *Engine) shouldSkipCooldown(ps *PlayerState, skill *CardInstance) bool {
 func (e *Engine) temporarySpellPowerBonus(playerID int, skill *CardInstance) int {
 	total := 0
 	for _, modifier := range e.State.Players[playerID].TempModifiers {
-		if modifier.Type != TempModSkillPowerBonus {
-			continue
-		}
-		if modifier.TargetInstanceID == "" || modifier.TargetInstanceID == skill.InstanceID {
-			total += modifier.Amount
+		switch modifier.Type {
+		case TempModSkillPowerBonus:
+			if modifier.TargetInstanceID == "" || modifier.TargetInstanceID == skill.InstanceID {
+				total += modifier.Amount
+			}
+		case TempModNextElementSpellPowerBonus:
+			if modifier.RemainingUses != 0 && modifier.Status == skill.Card.Category {
+				total += modifier.Amount
+			}
 		}
 	}
 	return total
+}
+
+func (e *Engine) consumeNextElementSpellPowerBonus(ps *PlayerState, skill *CardInstance) {
+	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
+		if modifier.Type != TempModNextElementSpellPowerBonus {
+			continue
+		}
+		if modifier.RemainingUses == 0 || modifier.Status != skill.Card.Category {
+			continue
+		}
+		modifier.RemainingUses--
+		if modifier.RemainingUses <= 0 {
+			e.removeTemporaryModifier(ps.PlayerID, modifier.ID)
+		}
+	}
+}
+
+func (e *Engine) addNextElementSpellPowerBonus(playerID int, elem string, amount int) {
+	if amount <= 0 {
+		return
+	}
+	e.addTemporaryModifier(playerID, TemporaryModifier{
+		Type:          TempModNextElementSpellPowerBonus,
+		Status:        elem,
+		Amount:        amount,
+		RemainingUses: 1,
+		ExpiresTurn:   e.State.TurnNumber + 2,
+	})
+}
+
+func (e *Engine) pureArcaneChoices(playerID int) []map[string]any {
+	ps := e.State.Players[playerID]
+	choices := make([]map[string]any, 0)
+	for _, elem := range []string{model.ElementFire, model.ElementWater, model.ElementAir, model.ElementEarth, model.ElementLight, model.ElementShadow, model.ElementArcane} {
+		available := ps.Elements[elem]
+		if available <= 0 {
+			continue
+		}
+		for amount := 1; amount <= min(available, 10); amount++ {
+			id := elem + ":" + fmt.Sprintf("%d", amount)
+			choices = append(choices, map[string]any{
+				"instance_id": id,
+				"number":      "3001002",
+				"name":        elem + " " + fmt.Sprintf("%d", amount),
+				"type":        "元素选择",
+				"zone":        "choice",
+				"side":        "own",
+				"element":     elem,
+				"amount":      amount,
+			})
+		}
+	}
+	return choices
+}
+
+func parsePureArcaneChoice(choice string) (string, int, bool) {
+	parts := strings.Split(choice, ":")
+	if len(parts) != 2 {
+		return "", 0, false
+	}
+	amount, err := strconv.Atoi(parts[1])
+	if err != nil || amount <= 0 || amount > 10 {
+		return "", 0, false
+	}
+	return parts[0], amount, true
+}
+
+func (e *Engine) nextEarthSkillLearnCostMinus(ps *PlayerState, skill *CardInstance) *TemporaryModifier {
+	if skill == nil || skill.Card == nil || !skill.Card.IsSkill() || skill.Card.Category != model.ElementEarth {
+		return nil
+	}
+	for i := range ps.TempModifiers {
+		modifier := &ps.TempModifiers[i]
+		if modifier.Type != TempModNextEarthSkillLearnCostMinus || modifier.RemainingUses == 0 {
+			continue
+		}
+		return modifier
+	}
+	return nil
+}
+
+func (e *Engine) consumeEarthSkillLearnCostModifier(ps *PlayerState, skill *CardInstance) {
+	modifier := e.nextEarthSkillLearnCostMinus(ps, skill)
+	if modifier == nil {
+		return
+	}
+	modifier.RemainingUses--
+	if modifier.RemainingUses <= 0 {
+		e.removeTemporaryModifier(ps.PlayerID, modifier.ID)
+	}
 }
 
 func (e *Engine) applyTemporarySpellHitStatus(playerID int, skill *CardInstance, affectedUnits []*CardInstance) {

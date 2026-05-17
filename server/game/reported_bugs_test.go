@@ -26,6 +26,1176 @@ func setupReportedBugEngine(t *testing.T) *Engine {
 	return engine
 }
 
+func TestHighRiskWaterAndAirCompanionSemantics(t *testing.T) {
+	t.Run("1221008 冰域恶魔 freezes every enemy field unit", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		demon := placeUnit(baseCard(t, "1221008"), 0, 1, 1, engine)
+		enemyA := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		enemyB := placeUnit(baseCard(t, "1021002"), 1, 2, 1, engine)
+
+		engine.triggerEffects(TriggerOnEnter, demon, nil, nil)
+
+		if enemyA.Statuses[StatusFreeze] != 1 || enemyB.Statuses[StatusFreeze] != 1 {
+			t.Fatalf("icefield demon should freeze all enemy units, a=%v b=%v", enemyA.Statuses, enemyB.Statuses)
+		}
+	})
+
+	t.Run("1221004 寒霜傀儡 freezes selected target or enemy front row fallback", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		puppet := placeUnit(baseCard(t, "1221004"), 0, 1, 1, engine)
+		selected := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		front := placeUnit(baseCard(t, "1021002"), 1, 2, 1, engine)
+
+		engine.triggerEffects(TriggerOnEnter, puppet, selected, nil)
+		if selected.Statuses[StatusFreeze] != 1 || front.Statuses[StatusFreeze] != 0 {
+			t.Fatalf("selected target should be frozen exclusively, selected=%v front=%v", selected.Statuses, front.Statuses)
+		}
+
+		engine.triggerEffects(TriggerOnEnter, puppet, nil, nil)
+		if selected.Statuses[StatusFreeze] != 2 {
+			t.Fatalf("fallback should freeze first enemy front-row unit, selected=%v", selected.Statuses)
+		}
+	})
+
+	t.Run("1221005 西境海妖 exhausts a chosen friendly companion", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		siren := placeUnit(baseCard(t, "1221005"), 0, 1, 1, engine)
+		target := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  siren.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use western siren: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "western_siren_consume" {
+			t.Fatalf("western siren should ask for a companion to exhaust, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve western siren: %v", err)
+		}
+		if !target.IsHorizontal {
+			t.Fatalf("western siren should turn selected companion horizontal")
+		}
+	})
+
+	t.Run("1211001 人鱼菲尔 searches water companion only when not adjacent to companions", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		phil := placeUnit(baseCard(t, "1211001"), 0, 1, 1, engine)
+		waterCompanion := NewCardInstance(baseCard(t, "1221001"), 0, 1)
+		nonWater := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Deck = []*CardInstance{nonWater, waterCompanion}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  phil.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use mermaid phil: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "mermaid_search_water_companion" {
+			t.Fatalf("phil should search water companion, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{waterCompanion.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve mermaid phil: %v", err)
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0].InstanceID != waterCompanion.InstanceID {
+			t.Fatalf("phil should move selected water companion to hand, hand=%+v", cardsToInfo(p0.Hand))
+		}
+
+		placeUnit(baseCard(t, "1021002"), 0, 1, 0, engine)
+		phil.IsHorizontal = false
+		phil.UsedThisTurn = 0
+		engine.State.Phase = PhaseMain
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  phil.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use mermaid phil with adjacent companion: %v", err)
+		}
+		if engine.State.PendingAction != nil {
+			t.Fatalf("phil should not search while adjacent to a companion, pending=%+v", engine.State.PendingAction)
+		}
+	})
+
+	t.Run("1221006 水栖狸猫 gains water load when adjacent to two water companions", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		tanuki := placeUnit(baseCard(t, "1221006"), 0, 1, 1, engine)
+		placeUnit(baseCard(t, "1221001"), 0, 0, 1, engine)
+		placeUnit(baseCard(t, "1221003"), 0, 1, 0, engine)
+
+		engine.triggerEffects(TriggerOnTurnStart, tanuki, nil, nil)
+
+		if tanuki.ElementsGainBonus[model.ElementWater] != 1 {
+			t.Fatalf("aquatic tanuki should gain +1 water load, bonuses=%v", tanuki.ElementsGainBonus)
+		}
+	})
+
+	t.Run("1221015 眺望者商舰 searches water card then shuffles a hand card back", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		ship := placeUnit(baseCard(t, "1221015"), 0, 1, 1, engine)
+		waterCard := NewCardInstance(baseCard(t, "1221001"), 0, 1)
+		handCard := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Deck = []*CardInstance{waterCard}
+		p0.Hand = []*CardInstance{handCard}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  ship.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use merchant ship: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "merchant_ship_search" {
+			t.Fatalf("merchant ship should first search water card, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{waterCard.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve merchant ship search: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "merchant_ship_shuffle_hand" {
+			t.Fatalf("merchant ship should then require hand card shuffle, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{handCard.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve merchant ship shuffle: %v", err)
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0].InstanceID != waterCard.InstanceID || len(p0.Deck) != 1 || p0.Deck[0].InstanceID != handCard.InstanceID {
+			t.Fatalf("merchant ship should keep searched card and put chosen hand card into deck, hand=%+v deck=%+v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
+		}
+	})
+
+	t.Run("1321002 随风旅行者 gains air on enter and draws on death", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		traveler := placeUnit(baseCard(t, "1321002"), 0, 1, 1, engine)
+		draw := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Deck = []*CardInstance{draw}
+
+		engine.triggerEffects(TriggerOnEnter, traveler, nil, nil)
+		if p0.Elements[model.ElementAir] != 2 {
+			t.Fatalf("wind traveler should gain 2 air on enter, elements=%v", p0.Elements)
+		}
+		engine.destroyUnit(traveler, 0)
+		if len(p0.Hand) != 1 || p0.Hand[0].InstanceID != draw.InstanceID {
+			t.Fatalf("wind traveler deathrattle should draw 1, hand=%+v", cardsToInfo(p0.Hand))
+		}
+	})
+
+	t.Run("1321004 雷电元素 stuns selected enemy on enter", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		elemental := placeUnit(baseCard(t, "1321004"), 0, 1, 1, engine)
+		target := placeUnit(baseCard(t, "1011002"), 1, 1, 0, engine)
+
+		engine.triggerEffects(TriggerOnEnter, elemental, target, nil)
+
+		if target.Statuses[StatusStun] != 1 {
+			t.Fatalf("lightning elemental should stun selected target, statuses=%v", target.Statuses)
+		}
+	})
+
+	t.Run("1221014 北海飞鱼 changes its load to one air", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		fish := placeUnit(baseCard(t, "1221014"), 0, 1, 1, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  fish.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use north sea flying fish: %v", err)
+		}
+		if effectiveElementsGain(fish)[model.ElementAir] != 1 || totalLoad(fish) != 1 {
+			t.Fatalf("north sea flying fish should become load 1 air, load=%v", effectiveElementsGain(fish))
+		}
+	})
+
+	t.Run("1311001 大鹏 draws low-cost cards from the top eight and marks them for turn-end discard", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		roc := placeUnit(baseCard(t, "1311001"), 0, 1, 1, engine)
+		lowA := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		high := NewCardInstance(baseCard(t, "1021013"), 0, 1)
+		lowB := NewCardInstance(baseCard(t, "1021004"), 0, 1)
+		p0.Deck = []*CardInstance{lowA, high, lowB}
+
+		engine.triggerEffects(TriggerOnEnter, roc, nil, nil)
+
+		if len(p0.Hand) != 2 || p0.Hand[0].InstanceID != lowA.InstanceID || p0.Hand[1].InstanceID != lowB.InstanceID {
+			t.Fatalf("roc should draw low-cost cards from top eight, hand=%+v", cardsToInfo(p0.Hand))
+		}
+		if len(p0.Deck) != 1 || p0.Deck[0].InstanceID != high.InstanceID {
+			t.Fatalf("roc should leave high-cost cards in deck, deck=%+v", cardsToInfo(p0.Deck))
+		}
+		if !p0.DiscardAtTurnEnd[lowA.InstanceID] || !p0.DiscardAtTurnEnd[lowB.InstanceID] {
+			t.Fatalf("roc drawn cards should be marked for discard, marks=%v", p0.DiscardAtTurnEnd)
+		}
+	})
+}
+
+func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
+	t.Run("1121012 火焰洞察者 draws when a unit takes fire damage", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		placeUnit(baseCard(t, "1121012"), 0, 0, 0, engine)
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		draw := NewCardInstance(baseCard(t, "1021002"), 0, 1)
+		p0.Deck = []*CardInstance{draw}
+
+		engine.dealDamageWithExtra(target, 1, 1, map[string]any{"damage_element": model.ElementAir})
+		if len(p0.Hand) != 0 {
+			t.Fatalf("fire insight should not draw for non-fire damage, hand=%+v", cardsToInfo(p0.Hand))
+		}
+		engine.dealDamageWithExtra(target, 1, 1, map[string]any{"damage_element": model.ElementFire})
+		if len(p0.Hand) != 1 || p0.Hand[0].InstanceID != draw.InstanceID {
+			t.Fatalf("fire insight should draw for fire damage, hand=%+v", cardsToInfo(p0.Hand))
+		}
+	})
+
+	t.Run("1121013 纵火者 burns an enemy after friendly fire spell cast", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		arsonist := placeUnit(baseCard(t, "1121013"), 0, 0, 0, engine)
+		enemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		fireSkill := readySkill(baseCard(t, "3121001"), 0)
+		airSkill := readySkill(baseCard(t, "3321005"), 0)
+
+		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, airSkill, map[string]any{"cast_player": 0})
+		if enemy.Statuses[StatusBurn] != 0 {
+			t.Fatalf("arsonist should ignore non-fire friendly spells, enemy=%v source=%v", enemy.Statuses, arsonist.Statuses)
+		}
+		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, fireSkill, map[string]any{"cast_player": 0})
+		if enemy.Statuses[StatusBurn] != 1 {
+			t.Fatalf("arsonist should burn an enemy after fire spell, enemy=%v", enemy.Statuses)
+		}
+	})
+
+	t.Run("1121014 火荆 deathrattle burns an enemy", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		firethorn := placeUnit(baseCard(t, "1121014"), 0, 0, 0, engine)
+		enemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		engine.destroyUnit(firethorn, 0)
+
+		if enemy.Statuses[StatusBurn] != 1 {
+			t.Fatalf("firethorn deathrattle should burn an enemy, enemy=%v", enemy.Statuses)
+		}
+	})
+
+	t.Run("1421007 高地泰坦 takes extra damage only from unboosted spells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		titan := placeUnit(baseCard(t, "1421007"), 1, 1, 0, engine)
+		titan.CurrentLife = 6
+
+		engine.dealDamageWithExtra(titan, 1, 1, map[string]any{"damage_source": "attack"})
+		if titan.CurrentLife != 5 {
+			t.Fatalf("attack damage should not be amplified, life=%d", titan.CurrentLife)
+		}
+		engine.dealDamageWithExtra(titan, 1, 1, map[string]any{"damage_source": "spell", "boost_count": 1})
+		if titan.CurrentLife != 4 {
+			t.Fatalf("boosted spell damage should not be amplified, life=%d", titan.CurrentLife)
+		}
+		engine.dealDamageWithExtra(titan, 1, 1, map[string]any{"damage_source": "spell", "boost_count": 0})
+		if titan.CurrentLife != 2 {
+			t.Fatalf("unboosted spell damage should be amplified by 1, life=%d", titan.CurrentLife)
+		}
+	})
+
+	t.Run("1511001 白袍大贤者 steals an enemy companion with ultimate", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		sage := placeUnit(baseCard(t, "1511001"), 0, 1, 1, engine)
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  sage.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("use white robe sage ultimate: %v", err)
+		}
+
+		if target.OwnerID != 0 || target.Position == nil || engine.State.Players[1].Units[1][0] != nil {
+			t.Fatalf("sage should take control of target, owner=%d pos=%v enemy_slot=%v", target.OwnerID, target.Position, engine.State.Players[1].Units[1][0])
+		}
+		if engine.State.Players[0].Units[target.Position.Col][target.Position.Row] != target {
+			t.Fatalf("stolen target should be on friendly board")
+		}
+	})
+
+	t.Run("1521007 虹之天使 lets light pay non-light skill costs", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		placeUnit(baseCard(t, "1521007"), 0, 0, 0, engine)
+		waterSkill := readySkill(baseCard(t, "3221001"), 0)
+
+		cost := engine.effectiveSkillUseCost(p0, waterSkill)
+
+		if cost[model.ElementWater] != 0 || cost[model.ElementLight] == 0 {
+			t.Fatalf("rainbow angel should convert non-light skill cost to light, cost=%v", cost)
+		}
+	})
+
+	t.Run("1521014 and 1521015 witches burn themselves on enter", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		torch := placeUnit(baseCard(t, "1521014"), 0, 0, 0, engine)
+		ember := placeUnit(baseCard(t, "1521015"), 0, 1, 0, engine)
+
+		engine.triggerEffects(TriggerOnEnter, torch, nil, nil)
+		engine.triggerEffects(TriggerOnEnter, ember, nil, nil)
+
+		if torch.Statuses[StatusBurn] != 2 || ember.Statuses[StatusBurn] != 3 {
+			t.Fatalf("witches should enter burning, torch=%v ember=%v", torch.Statuses, ember.Statuses)
+		}
+	})
+
+	t.Run("1611001 观察者 draws one and damages own hero", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		hero := placeUnit(baseCard(t, "4611001"), 0, 1, 1, engine)
+		p0.Hero = hero
+		okoru := placeUnit(baseCard(t, "1611001"), 0, 0, 0, engine)
+		draw := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Deck = []*CardInstance{draw}
+
+		engine.triggerEffects(TriggerOnEnter, okoru, nil, nil)
+
+		if len(p0.Hand) != 1 || p0.Hand[0].InstanceID != draw.InstanceID {
+			t.Fatalf("observer should draw one, hand=%+v", cardsToInfo(p0.Hand))
+		}
+		if hero.CurrentLife != hero.Card.Life-1 {
+			t.Fatalf("observer should damage own hero by 1, life=%d", hero.CurrentLife)
+		}
+	})
+
+	t.Run("1611003 穿心人 adds phantom pain to hand", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		piercer := placeUnit(baseCard(t, "1611003"), 0, 0, 0, engine)
+
+		engine.triggerEffects(TriggerOnEnter, piercer, nil, nil)
+
+		if len(p0.Hand) != 1 || p0.Hand[0].Card.Number != "2601001" {
+			t.Fatalf("heart piercer should add phantom pain to hand, hand=%+v", cardsToInfo(p0.Hand))
+		}
+	})
+
+	t.Run("1621001 冥界信鸽 draws on death", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		pigeon := placeUnit(baseCard(t, "1621001"), 0, 0, 0, engine)
+		draw := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Deck = []*CardInstance{draw}
+
+		engine.destroyUnit(pigeon, 0)
+
+		if len(p0.Hand) != 1 || p0.Hand[0].InstanceID != draw.InstanceID {
+			t.Fatalf("underworld pigeon should draw on death, hand=%+v", cardsToInfo(p0.Hand))
+		}
+	})
+
+	t.Run("1621005 诅咒魔像 weakens the first enemy skill on enter", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p1 := engine.State.Players[1]
+		p1.Skills[0] = readySkill(baseCard(t, "3021005"), 1)
+		golem := placeUnit(baseCard(t, "1621005"), 0, 0, 0, engine)
+
+		engine.triggerEffects(TriggerOnEnter, golem, nil, nil)
+
+		if p1.Skills[0].Statuses[StatusWeaken] != 2 {
+			t.Fatalf("cursed golem should weaken enemy skill by 2, skill=%v", p1.Skills[0].Statuses)
+		}
+	})
+
+	t.Run("1621009 唤魔邪术士 searches shadow construct or demon after friendly death", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		summoner := placeUnit(baseCard(t, "1621009"), 0, 0, 0, engine)
+		ally := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		demon := NewCardInstance(baseCard(t, "1621010"), 0, 1)
+		p0.Deck = []*CardInstance{demon}
+
+		engine.destroyUnit(ally, 0)
+		if summoner.Statuses[demonSummonerDeathReady] != 1 {
+			t.Fatalf("summoner should arm search after friendly death, statuses=%v", summoner.Statuses)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  summoner.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use demon summoner: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "demon_summoner_search" {
+			t.Fatalf("demon summoner should open search, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{demon.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve demon summoner search: %v", err)
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0].InstanceID != demon.InstanceID || summoner.Statuses[demonSummonerDeathReady] != 0 {
+			t.Fatalf("demon summoner should search demon and clear ready mark, hand=%+v statuses=%v", cardsToInfo(p0.Hand), summoner.Statuses)
+		}
+	})
+}
+
+func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
+	t.Run("1211002 深渊巨口利维坦 consumes to destroy an enemy companion and sets cooldown", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		leviathan := placeUnit(baseCard(t, "1211002"), 0, 1, 1, engine)
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "consume", Data: map[string]any{
+			"instance_id": leviathan.InstanceID,
+		}}); err != nil {
+			t.Fatalf("consume leviathan: %v", err)
+		}
+		if engine.State.Players[1].Units[1][0] != nil || len(engine.State.Players[1].Graveyard) != 1 || engine.State.Players[1].Graveyard[0].InstanceID != target.InstanceID {
+			t.Fatalf("leviathan should destroy enemy companion, units=%v grave=%+v", engine.State.Players[1].Units[1][0], cardsToInfo(engine.State.Players[1].Graveyard))
+		}
+		if leviathan.Statuses["利维坦冷却"] != 1 {
+			t.Fatalf("leviathan should set cooldown marker, statuses=%v", leviathan.Statuses)
+		}
+		engine.triggerEffects(TriggerOnTurnStart, leviathan, nil, nil)
+		if leviathan.Statuses["利维坦冷却"] != 0 {
+			t.Fatalf("leviathan cooldown should clear on owner turn start, statuses=%v", leviathan.Statuses)
+		}
+	})
+
+	t.Run("1211003 雪女 has taunt/global range marker and freezes enemy with limited per-turn ability", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		snow := placeUnit(baseCard(t, "1211003"), 0, 1, 1, engine)
+		enemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		engine.triggerEffects(TriggerOnEnter, snow, nil, nil)
+		if snow.Statuses["引魔"] != 1 || !traitsForCardNumber("1211003").taunt || traitsForCardNumber("1211003").perTurnLimit != 3 {
+			t.Fatalf("snow woman should expose taunt/global-range/per-turn-3 markers, traits=%+v statuses=%v", traitsForCardNumber("1211003"), snow.Statuses)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  snow.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use snow woman: %v", err)
+		}
+		if enemy.Statuses[StatusFreeze] != 1 {
+			t.Fatalf("snow woman should freeze an enemy, statuses=%v", enemy.Statuses)
+		}
+	})
+
+	t.Run("1311003 风刃 makes non-piercing air skill cost one extra air", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		placeUnit(baseCard(t, "1311003"), 0, 0, 0, engine)
+		nonPierceAir := readySkill(baseCard(t, "3321005"), 0)
+		pierceAir := readySkill(baseCard(t, "3321009"), 0)
+
+		nonPierceCost := engine.effectiveSkillUseCost(p0, nonPierceAir)
+		pierceCost := engine.effectiveSkillUseCost(p0, pierceAir)
+
+		if nonPierceCost[model.ElementAir] != skillUseCost(nonPierceAir.Card)[model.ElementAir]+1 {
+			t.Fatalf("karina should add one air to non-piercing air skill, cost=%v", nonPierceCost)
+		}
+		if pierceCost[model.ElementAir] != skillUseCost(pierceAir.Card)[model.ElementAir] {
+			t.Fatalf("karina should not tax already-piercing air skill, cost=%v base=%v", pierceCost, skillUseCost(pierceAir.Card))
+		}
+	})
+
+	t.Run("1321013 传送法师 moves a friendly companion to an empty position", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		mage := placeUnit(baseCard(t, "1321013"), 0, 1, 1, engine)
+		ally := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		old := *ally.Position
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  mage.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use teleport mage: %v", err)
+		}
+
+		if ally.Position == nil || (ally.Position.Col == old.Col && ally.Position.Row == old.Row) || engine.State.Players[0].Units[old.Col][old.Row] != nil {
+			t.Fatalf("teleport mage should move ally from old slot, old=%+v new=%+v", old, ally.Position)
+		}
+	})
+
+	t.Run("1321015 风语者 gains one air with current active implementation", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		speaker := placeUnit(baseCard(t, "1321015"), 0, 1, 1, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  speaker.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use wind speaker: %v", err)
+		}
+		if p0.Elements[model.ElementAir] != 1 {
+			t.Fatalf("wind speaker should gain one air, elements=%v", p0.Elements)
+		}
+	})
+
+	t.Run("1411003 沙之魔巫 gives single-target earth spells square area", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		placeUnit(baseCard(t, "1411003"), 0, 0, 0, engine)
+		earthSkill := readySkill(baseCard(t, "3421001"), 0)
+		earthSkill.OwnerID = 0
+		targetA := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		targetB := placeUnit(baseCard(t, "1021002"), 1, 2, 2, engine)
+
+		affected := engine.spellAffectedUnits(1, earthSkill, SpellTarget{Type: "unit", Position: Position{Col: 1, Row: 0}})
+
+		if len(affected) != 2 || affected[0] != targetA || affected[1] != targetB {
+			t.Fatalf("sommer should make single earth spell affect square battlefield, affected=%+v", cardsToInfo(affected))
+		}
+	})
+
+	t.Run("1421012 林地飞鼠 changes its load to one air", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		squirrel := placeUnit(baseCard(t, "1421012"), 0, 1, 1, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  squirrel.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use woodland flying squirrel: %v", err)
+		}
+		if effectiveElementsGain(squirrel)[model.ElementAir] != 1 || totalLoad(squirrel) != 1 {
+			t.Fatalf("squirrel should become load 1 air, load=%v", effectiveElementsGain(squirrel))
+		}
+	})
+
+	t.Run("1421014 风息谷旅商 draws up to three for allied beast plant or spirit companions", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		merchant := placeUnit(baseCard(t, "1421014"), 0, 1, 1, engine)
+		placeUnit(baseCard(t, "1401002"), 0, 0, 0, engine)
+		placeUnit(baseCard(t, "1421003"), 0, 0, 1, engine)
+		placeUnit(baseCard(t, "1221001"), 0, 2, 0, engine)
+		p0.Deck = []*CardInstance{
+			NewCardInstance(baseCard(t, "1021001"), 0, 1),
+			NewCardInstance(baseCard(t, "1021002"), 0, 1),
+			NewCardInstance(baseCard(t, "1021004"), 0, 1),
+			NewCardInstance(baseCard(t, "1021006"), 0, 1),
+		}
+
+		engine.triggerEffects(TriggerOnEnter, merchant, nil, nil)
+
+		if len(p0.Hand) != 3 || len(p0.Deck) != 1 {
+			t.Fatalf("merchant should draw max three, hand=%d deck=%d", len(p0.Hand), len(p0.Deck))
+		}
+	})
+
+	t.Run("1611002 黑袍执行官 gains marks from friendly death and spends them to destroy enemy", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		executor := placeUnit(baseCard(t, "1611002"), 0, 0, 0, engine)
+		ally := placeUnit(baseCard(t, "1021002"), 0, 1, 0, engine)
+		enemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		engine.destroyUnit(ally, 0)
+		if executor.Statuses["暗影标记"] != ally.Card.Life {
+			t.Fatalf("executor should gain marks equal to dead companion life, statuses=%v", executor.Statuses)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  executor.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("use executor ultimate: %v", err)
+		}
+		if engine.State.Players[1].Units[1][0] != nil || len(engine.State.Players[1].Graveyard) != 1 || engine.State.Players[1].Graveyard[0].InstanceID != enemy.InstanceID {
+			t.Fatalf("executor should destroy enemy companion, units=%v grave=%+v", engine.State.Players[1].Units[1][0], cardsToInfo(engine.State.Players[1].Graveyard))
+		}
+	})
+
+	t.Run("1621003 恐惧魔 loses three life with active devour-like ability", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		demon := placeUnit(baseCard(t, "1621003"), 0, 1, 1, engine)
+		start := demon.CurrentLife
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  demon.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use fear demon: %v", err)
+		}
+		if demon.CurrentLife != start-3 {
+			t.Fatalf("fear demon should lose three life, life=%d start=%d", demon.CurrentLife, start)
+		}
+	})
+
+	t.Run("1621004 巫术祭司 sacrifices a companion then gives its life to another character", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		priest := placeUnit(baseCard(t, "1621004"), 0, 0, 0, engine)
+		sacrifice := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		target := placeUnit(baseCard(t, "1021002"), 0, 2, 0, engine)
+		target.CurrentLife = 1
+		life := sacrifice.CurrentLife
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  priest.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("use witch priest ultimate: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "witch_priest_sacrifice" {
+			t.Fatalf("witch priest should ask for sacrifice, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{sacrifice.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve witch priest sacrifice: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "witch_priest_heal" {
+			t.Fatalf("witch priest should ask for recipient, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve witch priest recipient: %v", err)
+		}
+		if engine.State.Players[0].Units[1][0] != nil || target.CurrentLife != 1+life {
+			t.Fatalf("witch priest should sacrifice and add life, sacrificed=%v target_life=%d", engine.State.Players[0].Units[1][0], target.CurrentLife)
+		}
+	})
+}
+
+func TestHighRiskItemSemanticsBatch(t *testing.T) {
+	t.Run("2011002 统御者之冠 clears load of newly summoned friendly companions", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		crown := NewCardInstance(baseCard(t, "2011002"), 0, 1)
+		engine.State.Players[0].Equipment[0] = crown
+		companion := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+
+		engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, 0, companion, map[string]any{"entered_player": 0})
+
+		if totalLoad(companion) != 0 {
+			t.Fatalf("overlord crown should clear companion load, load=%v", effectiveElementsGain(companion))
+		}
+	})
+
+	t.Run("2021002 and 2021017 expose slot expansion markers on equip", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		necklace := NewCardInstance(baseCard(t, "2021002"), 0, 1)
+		pack := NewCardInstance(baseCard(t, "2021017"), 0, 1)
+
+		engine.triggerEffects(TriggerOnEnter, necklace, nil, nil)
+		engine.triggerEffects(TriggerOnEnter, pack, nil, nil)
+		engine.triggerEffects(TriggerOnUseItem, necklace, nil, nil)
+		engine.triggerEffects(TriggerOnUseItem, pack, nil, nil)
+		engine.triggerEffects(TriggerOnUnitEnter, necklace, nil, nil)
+		engine.triggerEffects(TriggerOnUnitEnter, pack, nil, nil)
+		engine.triggerEffects(TriggerOnDefend, necklace, nil, nil)
+		engine.triggerEffects(TriggerOnDefend, pack, nil, nil)
+		engine.triggerEffects(TriggerOnSpellHit, necklace, nil, nil)
+		engine.triggerEffects(TriggerOnSpellHit, pack, nil, nil)
+		engine.triggerEffects(TriggerOnSpellCast, necklace, nil, nil)
+		engine.triggerEffects(TriggerOnSpellCast, pack, nil, nil)
+		engine.triggerEffects(TriggerOnTurnStart, necklace, nil, nil)
+		engine.triggerEffects(TriggerOnTurnStart, pack, nil, nil)
+		engine.triggerEffects(TriggerOnTurnEnd, necklace, nil, nil)
+		engine.triggerEffects(TriggerOnTurnEnd, pack, nil, nil)
+		engine.triggerEffects(TriggerOnConsume, necklace, nil, nil)
+		engine.triggerEffects(TriggerOnConsume, pack, nil, nil)
+		engine.triggerEffects(TriggerOnAttack, necklace, nil, nil)
+		engine.triggerEffects(TriggerOnAttack, pack, nil, nil)
+		engine.triggerEffects(TriggerOnDamaged, necklace, nil, nil)
+		engine.triggerEffects(TriggerOnDamaged, pack, nil, nil)
+		engine.triggerEffects(TriggerPerTurn, necklace, nil, nil)
+		engine.triggerEffects(TriggerPerTurn, pack, nil, nil)
+		engine.triggerEffects(TriggerUltimate, necklace, nil, nil)
+		engine.triggerEffects(TriggerUltimate, pack, nil, nil)
+		engine.triggerEffects(TriggerOnUseItem, necklace, nil, nil)
+		engine.triggerEffects(TriggerOnUseItem, pack, nil, nil)
+		behaviorNecklace := globalRegistry.GetBehavior("2021002")
+		behaviorPack := globalRegistry.GetBehavior("2021017")
+		if equip, ok := behaviorNecklace.(OnEquipBehavior); ok {
+			if err := equip.OnEquip(&EffectContext{Engine: engine, Source: necklace, PlayerID: 0, OpponentID: 1}); err != nil {
+				t.Fatalf("equip necklace: %v", err)
+			}
+		}
+		if equip, ok := behaviorPack.(OnEquipBehavior); ok {
+			if err := equip.OnEquip(&EffectContext{Engine: engine, Source: pack, PlayerID: 0, OpponentID: 1}); err != nil {
+				t.Fatalf("equip pack: %v", err)
+			}
+		}
+
+		if necklace.Statuses["技能槽位+1"] != 1 || pack.Statuses["道具槽位+3"] != 1 {
+			t.Fatalf("slot expansion markers wrong, necklace=%v pack=%v", necklace.Statuses, pack.Statuses)
+		}
+	})
+
+	t.Run("2021010 封印卷轴 seals one enemy skill only when enemy has at least four skills", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p1 := engine.State.Players[1]
+		for i := 0; i < 4; i++ {
+			p1.Skills[i] = readySkill(baseCard(t, "3021005"), 1)
+		}
+		scroll := NewCardInstance(baseCard(t, "2021010"), 0, 1)
+
+		engine.triggerEffects(TriggerOnUseItem, scroll, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "sealing_scroll" {
+			t.Fatalf("sealing scroll should open enemy skill selection, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{p1.Skills[2].InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve sealing scroll: %v", err)
+		}
+		if p1.Skills[2].Statuses[StatusSeal] != 2 {
+			t.Fatalf("selected enemy skill should be sealed to next turn end, statuses=%v", p1.Skills[2].Statuses)
+		}
+	})
+
+	t.Run("2021012 速写卷轴 resets a learned skill", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		skill := readySkill(baseCard(t, "3021005"), 0)
+		skill.IsHorizontal = true
+		engine.State.Players[0].Skills[0] = skill
+		scroll := NewCardInstance(baseCard(t, "2021012"), 0, 1)
+
+		engine.triggerEffects(TriggerOnUseItem, scroll, nil, nil)
+
+		if skill.IsHorizontal {
+			t.Fatalf("sketch scroll should reset first learned skill")
+		}
+	})
+
+	t.Run("2021015 法力增强剂C makes next skill use cost zero", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		booster := NewCardInstance(baseCard(t, "2021015"), 0, 1)
+		skill := readySkill(baseCard(t, "3021005"), 0)
+
+		engine.triggerEffects(TriggerOnUseItem, booster, nil, nil)
+		cost := engine.effectiveSkillUseCost(p0, skill)
+
+		if totalCost(cost) != 0 || len(p0.TempModifiers) == 0 {
+			t.Fatalf("mana booster C should make next skill free, cost=%v modifiers=%v", cost, p0.TempModifiers)
+		}
+	})
+
+	t.Run("2021018 奥术符文 gives one friendly skill +3 power", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		skill := readySkill(baseCard(t, "3021005"), 0)
+		engine.State.Players[0].Skills[0] = skill
+		rune := NewCardInstance(baseCard(t, "2021018"), 0, 1)
+
+		engine.triggerEffects(TriggerOnUseItem, rune, nil, nil)
+
+		if skill.PowerBonus != 3 {
+			t.Fatalf("arcane rune should add +3 power to a friendly skill, bonus=%d", skill.PowerBonus)
+		}
+	})
+
+	t.Run("2111001 火龙之心 spends up to three fire for next spell power", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		heart := NewCardInstance(baseCard(t, "2111001"), 0, 1)
+		p0.Equipment[0] = heart
+		p0.Elements[model.ElementFire] = 5
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  heart.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use fire dragon heart: %v", err)
+		}
+		if p0.Elements[model.ElementFire] != 2 || len(p0.TempModifiers) == 0 || p0.TempModifiers[0].Amount != 9 {
+			t.Fatalf("fire dragon heart should spend 3 fire for +9 power modifier, elements=%v modifiers=%v", p0.Elements, p0.TempModifiers)
+		}
+	})
+
+	t.Run("2111002 努尔之眼 counts only fire damage and converts markers", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		eye := NewCardInstance(baseCard(t, "2111002"), 0, 1)
+		p0.Equipment[0] = eye
+
+		engine.triggerEffects(TriggerOnDamaged, eye, nil, map[string]any{"damage_element": model.ElementAir})
+		engine.triggerEffects(TriggerOnDamaged, eye, nil, map[string]any{"damage_element": model.ElementFire})
+		if eye.Statuses["火焰标记"] != 1 {
+			t.Fatalf("nur eye should count only fire damage, statuses=%v", eye.Statuses)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  eye.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use nur eye: %v", err)
+		}
+		if eye.Statuses["火焰标记"] != 0 || p0.Elements[model.ElementFire] != 2 {
+			t.Fatalf("one marker should become 2 fire, statuses=%v elements=%v", eye.Statuses, p0.Elements)
+		}
+	})
+
+	t.Run("2211002 嗜魔弓 adds winter skill and pays water for bow load on spell cast", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		bow := NewCardInstance(baseCard(t, "2211002"), 0, 1)
+		p0.Equipment[0] = bow
+		p0.Elements[model.ElementWater] = 1
+
+		engine.triggerEffects(TriggerOnEnter, bow, nil, nil)
+		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, readySkill(baseCard(t, "3021005"), 0), map[string]any{"cast_player": 0})
+
+		if len(p0.SkillPool) != 1 || p0.SkillPool[0].Card.Number != "3201002" {
+			t.Fatalf("winter bow should add bound winter skill to pool adapter, skill_pool=%+v", cardsToInfo(p0.SkillPool))
+		}
+		if p0.Elements[model.ElementWater] != 0 || effectiveElementsGain(bow)[model.ElementWater] != bow.Card.ElementsGain[model.ElementWater]+1 {
+			t.Fatalf("winter bow should pay 1 water for +1 water load, elements=%v load=%v", p0.Elements, effectiveElementsGain(bow))
+		}
+	})
+
+	t.Run("2221010 and 2221011 water runes buff water companion or heal allies", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		water := placeUnit(baseCard(t, "1221003"), 0, 0, 0, engine)
+		ally := placeUnit(baseCard(t, "1021002"), 0, 1, 0, engine)
+		water.CurrentLife = 1
+		ally.CurrentLife = 1
+		tide := NewCardInstance(baseCard(t, "2221010"), 0, 1)
+		rain := NewCardInstance(baseCard(t, "2221011"), 0, 1)
+
+		engine.triggerEffects(TriggerOnUseItem, tide, nil, nil)
+		engine.triggerEffects(TriggerOnUseItem, rain, nil, nil)
+
+		if effectiveElementsGain(water)[model.ElementWater] != water.Card.ElementsGain[model.ElementWater]+2 {
+			t.Fatalf("tide rune should add +2 water load, load=%v", effectiveElementsGain(water))
+		}
+		if water.CurrentLife <= 1 || ally.CurrentLife <= 1 {
+			t.Fatalf("rain of grace should heal all friendly units, water=%d ally=%d", water.CurrentLife, ally.CurrentLife)
+		}
+	})
+
+	t.Run("2221012 水行之靴 gains water load near three water companions", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		hero := placeUnit(baseCard(t, "4211001"), 0, 1, 1, engine)
+		p0.Hero = hero
+		boots := NewCardInstance(baseCard(t, "2221012"), 0, 1)
+		p0.Equipment[0] = boots
+		placeUnit(baseCard(t, "1221001"), 0, 0, 1, engine)
+		placeUnit(baseCard(t, "1221003"), 0, 1, 0, engine)
+		placeUnit(baseCard(t, "1221006"), 0, 2, 1, engine)
+
+		engine.triggerEffects(TriggerOnTurnStart, boots, nil, nil)
+
+		if effectiveElementsGain(boots)[model.ElementWater] != boots.Card.ElementsGain[model.ElementWater]+1 {
+			t.Fatalf("water walking boots should gain +1 water load, load=%v", effectiveElementsGain(boots))
+		}
+	})
+
+	t.Run("2311001 雷之源 reduces air skill use cost", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		placeUnit(baseCard(t, "2311001"), 0, 0, 0, engine)
+		skill := readySkill(baseCard(t, "3321005"), 0)
+		cost := engine.effectiveSkillUseCost(engine.State.Players[0], skill)
+
+		if cost[model.ElementAir] != max(skillUseCost(skill.Card)[model.ElementAir]-1, 0) {
+			t.Fatalf("thunder source should reduce air skill cost, cost=%v base=%v", cost, skillUseCost(skill.Card))
+		}
+	})
+
+	t.Run("2311002 and 2321001 air items convert counters into power or load", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		drum := NewCardInstance(baseCard(t, "2311002"), 0, 1)
+		compass := NewCardInstance(baseCard(t, "2321001"), 0, 1)
+		p0.Equipment[0] = drum
+		p0.Equipment[1] = compass
+		drum.Statuses["雷鼓标记"] = 3
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  drum.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use thunder drum: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  compass.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use windbreath compass: %v", err)
+		}
+		if drum.Statuses["雷鼓标记"] != 0 || len(p0.TempModifiers) == 0 || p0.TempModifiers[0].Amount != 3 {
+			t.Fatalf("thunder drum should spend 3 marks for +3 power, statuses=%v modifiers=%v", drum.Statuses, p0.TempModifiers)
+		}
+		if effectiveElementsGain(compass)[model.ElementAir] != compass.Card.ElementsGain[model.ElementAir]+1 {
+			t.Fatalf("windbreath compass should gain temporary air load, load=%v", effectiveElementsGain(compass))
+		}
+	})
+
+	t.Run("2321012 随风斗篷 moves hero to empty position", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		hero := placeUnit(baseCard(t, "4311003"), 0, 1, 1, engine)
+		p0.Hero = hero
+		cloak := NewCardInstance(baseCard(t, "2321012"), 0, 1)
+		p0.Equipment[0] = cloak
+		old := *hero.Position
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  cloak.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("use wind cloak ultimate: %v", err)
+		}
+		if hero.Position == nil || (hero.Position.Col == old.Col && hero.Position.Row == old.Row) || p0.Units[old.Col][old.Row] != nil {
+			t.Fatalf("wind cloak should move hero, old=%+v new=%+v", old, hero.Position)
+		}
+	})
+
+	t.Run("2411001, 2421001, 2421004, 2421013 earth items apply current support effects", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		unit := placeUnit(baseCard(t, "1021002"), 0, 0, 0, engine)
+		unit.CurrentLife = 1
+		addElementsGainBonus(unit, model.ElementEarth, 3)
+		treeHeart := NewCardInstance(baseCard(t, "2411001"), 0, 1)
+		care := NewCardInstance(baseCard(t, "2421001"), 0, 1)
+		exam := NewCardInstance(baseCard(t, "2421004"), 0, 1)
+		primer := NewCardInstance(baseCard(t, "2421013"), 0, 1)
+		p0.Equipment[0] = treeHeart
+		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1), NewCardInstance(baseCard(t, "1021002"), 0, 1)}
+		highCost := NewCardInstance(baseCard(t, "1021013"), 0, 1)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  treeHeart.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use ancient tree heart: %v", err)
+		}
+		engine.triggerEffects(TriggerOnConsume, care, nil, nil)
+		engine.triggerEffects(TriggerOnUseItem, exam, nil, nil)
+		cost := copyElementCost(highCost.Card.ElementsCost)
+		if modifier, ok := globalRegistry.GetBehavior("2421013").(CardPlayCostModifier); ok {
+			modifier.ModifyCardPlayCost(&EffectContext{Engine: engine, Source: primer, PlayerID: 0, OpponentID: 1}, highCost, cost)
+		}
+
+		if unit.CurrentLife <= 1 || effectiveElementsGain(unit)[model.ElementEarth] < unit.Card.ElementsGain[model.ElementEarth]+4 {
+			t.Fatalf("earth support items should heal and add earth load, life=%d load=%v", unit.CurrentLife, effectiveElementsGain(unit))
+		}
+		if len(p0.Hand) != 1 || p0.Elements[model.ElementEarth] != 1 {
+			t.Fatalf("knowledge tree care should draw and gain earth, hand=%d elements=%v", len(p0.Hand), p0.Elements)
+		}
+		if cost[model.ElementEarth] != max(highCost.Card.ElementsCost[model.ElementEarth]-2, 0) {
+			t.Fatalf("geography primer should reduce high-cost card earth cost by 2, cost=%v base=%v", cost, highCost.Card.ElementsCost)
+		}
+	})
+
+	t.Run("2511001 万灵药 supports draw and gain choices", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		panacea := NewCardInstance(baseCard(t, "2511001"), 0, 1)
+		for i := 0; i < 4; i++ {
+			p0.Deck = append(p0.Deck, NewCardInstance(baseCard(t, "1021001"), 0, 1))
+		}
+
+		engine.triggerEffects(TriggerOnUseItem, panacea, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "panacea_mode" {
+			t.Fatalf("panacea should ask for mode, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{"draw"},
+		}}); err != nil {
+			t.Fatalf("resolve panacea draw: %v", err)
+		}
+		if len(p0.Hand) != 4 {
+			t.Fatalf("panacea draw mode should draw four, hand=%d", len(p0.Hand))
+		}
+
+		engine.triggerEffects(TriggerOnUseItem, panacea, nil, nil)
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{"gain"},
+		}}); err != nil {
+			t.Fatalf("resolve panacea gain: %v", err)
+		}
+		if p0.Elements[model.ElementArcane] != 5 {
+			t.Fatalf("panacea gain mode should grant 5 arcane, elements=%v", p0.Elements)
+		}
+	})
+
+	t.Run("2511002 and 2601002 modify defense or weaken enemy skills", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		shield := NewCardInstance(baseCard(t, "2511002"), 0, 1)
+		book := NewCardInstance(baseCard(t, "2601002"), 0, 1)
+		enemyA := readySkill(baseCard(t, "3021005"), 1)
+		enemyB := readySkill(baseCard(t, "3021008"), 1)
+		engine.State.Players[1].Skills[0] = enemyA
+		engine.State.Players[1].Skills[1] = enemyB
+		stats := &SpellStats{}
+
+		if modifier, ok := globalRegistry.GetBehavior("2511002").(SpellStatModifier); ok {
+			modifier.ModifySpellStats(&EffectContext{Engine: engine, Source: shield, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"purpose": string(skillPurposeDefend)}}, stats)
+		}
+		engine.triggerEffects(TriggerOnEnter, book, nil, nil)
+
+		if stats.PowerBonus != 2 {
+			t.Fatalf("shining shield should add +2 defense power, stats=%+v", stats)
+		}
+		if enemyA.Statuses[StatusWeaken] != 1 || enemyB.Statuses[StatusWeaken] != 1 {
+			t.Fatalf("spellbook should weaken all enemy skills, a=%v b=%v", enemyA.Statuses, enemyB.Statuses)
+		}
+	})
+}
+
+func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
+	t.Run("2011001 大法师之杖 records stored skill marker on enter", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		staff := NewCardInstance(baseCard(t, "2011001"), 0, 1)
+		p0.SkillPool = []*CardInstance{readySkill(baseCard(t, "3021005"), 0)}
+
+		engine.triggerEffects(TriggerOnEnter, staff, nil, nil)
+
+		if staff.Statuses["存储技能"] != 1 {
+			t.Fatalf("archmage staff should record stored skill marker when skill pool has cards, statuses=%v", staff.Statuses)
+		}
+	})
+
+	t.Run("2011003 君王法袍 lowers enemy spell damage when owner has more field load", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		robe := NewCardInstance(baseCard(t, "2011003"), 1, 1)
+		engine.State.Players[1].Equipment[0] = robe
+		loaded := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
+		addElementsGainBonus(loaded, model.ElementArcane, 4)
+		skill := readySkill(baseCard(t, "3021005"), 0)
+
+		damage := engine.effectiveSpellDamage(0, skill, 3, nil)
+
+		if damage != 2 {
+			t.Fatalf("king robe should reduce enemy spell damage by 1 when owner has more load, damage=%d", damage)
+		}
+	})
+
+	t.Run("2021022, 2321010, 2521002, 2521004 reactive items create current temporary readiness markers", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		counter := NewCardInstance(baseCard(t, "2021022"), 0, 1)
+		illusion := NewCardInstance(baseCard(t, "2321010"), 0, 1)
+		shelter := NewCardInstance(baseCard(t, "2521002"), 0, 1)
+		sanction := NewCardInstance(baseCard(t, "2521004"), 0, 1)
+
+		engine.triggerEffects(TriggerOnUseItem, counter, nil, nil)
+		engine.triggerEffects(TriggerOnUseItem, illusion, nil, nil)
+		engine.triggerEffects(TriggerOnUseItem, shelter, nil, nil)
+		engine.triggerEffects(TriggerOnUseItem, sanction, nil, nil)
+
+		types := map[string]bool{}
+		for _, modifier := range p0.TempModifiers {
+			types[modifier.Type] = true
+		}
+		if !types["shelter_rune"] || !types["holy_sanction"] {
+			t.Fatalf("shelter and sanction should create temporary modifiers, modifiers=%v", p0.TempModifiers)
+		}
+	})
+
+	t.Run("2321011 传送符文 resets a friendly unit with current adapter effect", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		target := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		target.IsHorizontal = true
+		target.Statuses[StatusCooldown] = 1
+		rune := NewCardInstance(baseCard(t, "2321011"), 0, 1)
+
+		engine.triggerEffects(TriggerOnUseItem, rune, nil, nil)
+
+		if target.IsHorizontal || target.Statuses[StatusCooldown] != 0 {
+			t.Fatalf("teleport rune should reset selected friendly unit in current adapter, horizontal=%v statuses=%v", target.IsHorizontal, target.Statuses)
+		}
+	})
+
+	t.Run("2411002 裂地巨剑 consumes into next spell power modifier", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		sword := NewCardInstance(baseCard(t, "2411002"), 0, 1)
+
+		engine.triggerEffects(TriggerOnConsume, sword, nil, nil)
+
+		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != TempModSkillPowerBonus || p0.TempModifiers[0].Amount != 4 {
+			t.Fatalf("earthsplitter sword should add +4 next spell power in current adapter, modifiers=%v", p0.TempModifiers)
+		}
+	})
+
+	t.Run("2501001 桎梏 use adapter draws one replacement card", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		shackle := NewCardInstance(baseCard(t, "2501001"), 0, 1)
+		draw := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Deck = []*CardInstance{draw}
+
+		engine.triggerEffects(TriggerOnUseItem, shackle, nil, nil)
+
+		if len(p0.Hand) != 1 || p0.Hand[0].InstanceID != draw.InstanceID {
+			t.Fatalf("shackle should draw one replacement card in current adapter, hand=%+v", cardsToInfo(p0.Hand))
+		}
+	})
+
+	t.Run("2611002 与恶魔的契约书 sacrifices friendly unit and starts enemy-destroy selection", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		contract := NewCardInstance(baseCard(t, "2611002"), 0, 1)
+		sacrifice := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		enemy := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
+
+		engine.triggerEffects(TriggerOnUseItem, contract, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "demon_contract_sacrifice" {
+			t.Fatalf("demon contract should ask for sacrifice, pending=%+v enemy=%v", engine.State.PendingAction, enemy.InstanceID)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{sacrifice.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve demon contract sacrifice: %v", err)
+		}
+		if engine.State.Players[0].Units[1][0] != nil || engine.State.PendingAction == nil || engine.State.PendingAction.Type != "demon_contract_destroy" {
+			t.Fatalf("demon contract should sacrifice then ask for enemy destroy, unit=%v pending=%+v", engine.State.Players[0].Units[1][0], engine.State.PendingAction)
+		}
+	})
+
+	t.Run("2621002 巫毒娃娃 starts with three shadow marks and retaliates when linked side is damaged", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		doll := NewCardInstance(baseCard(t, "2621002"), 0, 1)
+		engine.State.Players[0].Equipment[0] = doll
+		friendly := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		enemy := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
+
+		engine.triggerEffects(TriggerOnEquip, doll, nil, nil)
+		engine.triggerEffects(TriggerOnDamaged, doll, friendly, map[string]any{"damage": 1})
+
+		if doll.Statuses["暗影标记"] != 2 || enemy.CurrentLife != enemy.Card.Life-1 {
+			t.Fatalf("voodoo doll should spend one mark to damage enemy, statuses=%v enemy_life=%d", doll.Statuses, enemy.CurrentLife)
+		}
+	})
+
+	t.Run("2621004, 2621010, 2621011, 2621013 shadow item adapters apply current defensive effects", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		hero := placeUnit(baseCard(t, "4611001"), 0, 1, 1, engine)
+		p0.Hero = hero
+		enemy := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
+		enemy.CurrentLife = 5
+		veil := NewCardInstance(baseCard(t, "2621004"), 0, 1)
+		abyss := NewCardInstance(baseCard(t, "2621010"), 0, 1)
+		frenzy := NewCardInstance(baseCard(t, "2621011"), 0, 1)
+		ring := NewCardInstance(baseCard(t, "2621013"), 0, 1)
+		p0.Equipment[0] = ring
+		enemySkill := readySkill(baseCard(t, "3021005"), 1)
+		enemySkill.Statuses[StatusWeaken] = 1
+		engine.State.Players[1].Skills[0] = enemySkill
+
+		engine.triggerEffects(TriggerOnSpellHit, veil, nil, map[string]any{"cast_player": 1})
+		engine.triggerEffects(TriggerOnUseItem, abyss, nil, nil)
+		engine.triggerEffects(TriggerOnUseItem, frenzy, nil, nil)
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  ring.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use witchcraft ring: %v", err)
+		}
+
+		if hero.Statuses["引魔"] != 1 || enemy.CurrentLife != 3 || enemy.Statuses[StatusStun] != 1 || enemySkill.Statuses[StatusWeaken] != 2 {
+			t.Fatalf("shadow item adapters wrong, hero=%v enemy_life=%d enemy_status=%v skill=%v", hero.Statuses, enemy.CurrentLife, enemy.Statuses, enemySkill.Statuses)
+		}
+	})
+}
+
 func baseCard(t *testing.T, id string) *model.Card {
 	t.Helper()
 	card, ok := cards.CardDB[id]
@@ -41,6 +1211,16 @@ func placeUnit(card *model.Card, ownerID int, col int, row int, engine *Engine) 
 	unit.Position = &Position{Col: col, Row: row}
 	engine.State.Players[ownerID].Units[col][row] = unit
 	return unit
+}
+
+func countCardNumber(cards []*CardInstance, number string) int {
+	count := 0
+	for _, card := range cards {
+		if card != nil && card.Card != nil && card.Card.Number == number {
+			count++
+		}
+	}
+	return count
 }
 
 func TestBoundSkillAttachesToHostInsteadOfSkillPool(t *testing.T) {
@@ -3292,6 +4472,1451 @@ func TestCompanionUtilityEffects(t *testing.T) {
 		}
 		if targetSkill.AttackBonus != 1 {
 			t.Fatalf("lundesal should add +1 attack, bonus=%d", targetSkill.AttackBonus)
+		}
+	})
+}
+
+func TestMasteryIsPerCardAndSettlesAsMark(t *testing.T) {
+	t.Run("knowledge tree maxes friendly mastery cards without changing player charge", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		tree := placeUnit(baseCard(t, "1421003"), 0, 0, 0, engine)
+		guard := placeUnit(baseCard(t, "1421004"), 0, 1, 0, engine)
+		knowledgeTree := placeUnit(baseCard(t, "1411002"), 0, 2, 0, engine)
+
+		engine.triggerEffects(TriggerOnEnter, knowledgeTree, nil, nil)
+
+		if p0.Charge != 0 {
+			t.Fatalf("精通 must not be stored as player charge, charge=%d", p0.Charge)
+		}
+		if tree.Statuses[StatusMastery] != 4 || guard.Statuses[StatusMastery] != 5 {
+			t.Fatalf("knowledge tree should max per-card mastery, tree=%v guard=%v", tree.Statuses, guard.Statuses)
+		}
+		if effectiveElementsGain(tree)[model.ElementEarth] != tree.Card.ElementsGain[model.ElementEarth]+2 {
+			t.Fatalf("growing treant should receive both mastery load bonuses, load=%v", effectiveElementsGain(tree))
+		}
+		if guard.CurrentLife != guard.Card.Life+1 || effectiveElementsGain(guard)[model.ElementEarth] != guard.Card.ElementsGain[model.ElementEarth]+1 || guard.AttackBonus != 2 {
+			t.Fatalf("forest guard mastery bonuses wrong, life=%d load=%v attack_bonus=%d", guard.CurrentLife, effectiveElementsGain(guard), guard.AttackBonus)
+		}
+	})
+
+	t.Run("mark settlement advances mastery after reset and triggers thresholds once", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		tree := placeUnit(baseCard(t, "1421003"), 0, 0, 0, engine)
+
+		engine.processEndOfTurnStatuses(engine.State.Players[0])
+		engine.settleMastery(engine.State.Players[0])
+		if tree.Statuses[StatusMastery] != 1 || effectiveElementsGain(tree)[model.ElementEarth] != tree.Card.ElementsGain[model.ElementEarth] {
+			t.Fatalf("mastery 1 should not trigger treant threshold, statuses=%v load=%v", tree.Statuses, effectiveElementsGain(tree))
+		}
+
+		engine.processEndOfTurnStatuses(engine.State.Players[0])
+		engine.settleMastery(engine.State.Players[0])
+		if tree.Statuses[StatusMastery] != 2 || effectiveElementsGain(tree)[model.ElementEarth] != tree.Card.ElementsGain[model.ElementEarth]+1 {
+			t.Fatalf("mastery 2 should trigger exactly one treant load bonus, statuses=%v load=%v", tree.Statuses, effectiveElementsGain(tree))
+		}
+	})
+
+	t.Run("dragon prince searches water companion with play cost discount at mastery 2", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		dragon := placeUnit(baseCard(t, "1221012"), 0, 0, 0, engine)
+		target := NewCardInstance(baseCard(t, "1221010"), 0, 1)
+		p0.Deck = []*CardInstance{target}
+
+		engine.advanceMastery(dragon, 0, 2)
+
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "dragon_prince_search" {
+			t.Fatalf("dragon prince mastery should open search action, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose dragon prince search: %v", err)
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != target || target.Statuses["入场费用水-1"] != 1 {
+			t.Fatalf("searched water companion should enter hand with discount, hand=%v statuses=%v", cardsToInfo(p0.Hand), target.Statuses)
+		}
+		cost := engine.effectiveCardPlayCost(p0, target)
+		if cost[model.ElementWater] != max(target.Card.ElementsCost[model.ElementWater]-1, 0) {
+			t.Fatalf("discounted water play cost wrong, cost=%v base=%v", cost, target.Card.ElementsCost)
+		}
+	})
+
+	t.Run("earth mastery skills read their own mastery markers", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		earthCrack := readySkill(baseCard(t, "3421003"), 0)
+		forestShelter := readySkill(baseCard(t, "3421001"), 0)
+
+		stats := engine.skillContributionStats(0, earthCrack, earthCrack, skillPurposeAttack)
+		if stats.PowerBonus != 4 || stats.DamageBonus != 0 {
+			t.Fatalf("earth crack without mastery should be base only, stats=%+v", stats)
+		}
+		earthCrack.Statuses[StatusMastery] = 3
+		stats = engine.skillContributionStats(0, earthCrack, earthCrack, skillPurposeAttack)
+		if stats.PowerBonus != 6 || stats.DamageBonus != 2 {
+			t.Fatalf("earth crack mastery 3 should add +2 power/+2 damage, stats=%+v", stats)
+		}
+
+		stats = engine.skillContributionStats(0, forestShelter, nil, skillPurposeDefend)
+		if stats.PowerBonus != 2 {
+			t.Fatalf("forest shelter without mastery should be base 2 power, stats=%+v", stats)
+		}
+		forestShelter.Statuses[StatusMastery] = 1
+		stats = engine.skillContributionStats(0, forestShelter, nil, skillPurposeDefend)
+		if stats.PowerBonus != 4 {
+			t.Fatalf("forest shelter mastery 1 should become 4 power, stats=%+v", stats)
+		}
+		forestShelter.Statuses[StatusMastery] = 3
+		stats = engine.skillContributionStats(0, forestShelter, nil, skillPurposeDefend)
+		if stats.PowerBonus != 6 {
+			t.Fatalf("forest shelter mastery 3 should become 6 power, stats=%+v", stats)
+		}
+	})
+
+	t.Run("great elder mastery discounts only the next earth skill learn", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		elder := placeUnit(baseCard(t, "1421011"), 0, 0, 0, engine)
+		earthSkill := NewCardInstance(baseCard(t, "3421003"), 0, 1)
+		p0.SkillPool = []*CardInstance{earthSkill}
+		p0.Elements[model.ElementEarth] = 3
+
+		engine.advanceMastery(elder, 0, 1)
+		cost := engine.effectiveSkillLearnCost(p0, earthSkill)
+		if cost[model.ElementEarth] != 1 {
+			t.Fatalf("great elder mastery should reduce next earth skill learn by 2, cost=%v", cost)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "learn_skill", Data: map[string]any{
+			"instance_id": earthSkill.InstanceID,
+		}}); err != nil {
+			t.Fatalf("learn discounted earth skill: %v", err)
+		}
+		if p0.Elements[model.ElementEarth] != 2 || len(p0.TempModifiers) != 0 {
+			t.Fatalf("discount should be consumed after learning once, elements=%v modifiers=%v", p0.Elements, p0.TempModifiers)
+		}
+	})
+
+	t.Run("parasitic touch gains load from its own mastery marker", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		item := NewCardInstance(baseCard(t, "2421007"), 0, 1)
+		engine.State.Players[0].Equipment[0] = item
+
+		if effectiveElementsGain(item)[model.ElementEarth] != item.Card.ElementsGain[model.ElementEarth] {
+			t.Fatalf("parasitic touch should not gain mastery load before mark settlement")
+		}
+		engine.advanceMastery(item, 0, 1)
+		if item.Statuses[StatusMastery] != 1 || effectiveElementsGain(item)[model.ElementEarth] != item.Card.ElementsGain[model.ElementEarth]+1 {
+			t.Fatalf("parasitic touch mastery should add earth load, statuses=%v load=%v", item.Statuses, effectiveElementsGain(item))
+		}
+	})
+}
+
+func TestEnemyAndGlobalSpellDamageReducers(t *testing.T) {
+	t.Run("wall keeper entry makes every player's spell damage zero", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		wallKeeper := placeUnit(baseCard(t, "1221010"), 0, 0, 0, engine)
+		engine.triggerEffects(TriggerOnEnter, wallKeeper, nil, nil)
+
+		p0Skill := readySkill(baseCard(t, "3021005"), 0)
+		p1Skill := readySkill(baseCard(t, "3021005"), 1)
+
+		if damage := engine.effectiveSpellDamage(0, p0Skill, 1, nil); damage != 0 {
+			t.Fatalf("wall keeper should reduce friendly spell damage to 0 too, damage=%d", damage)
+		}
+		if damage := engine.effectiveSpellDamage(1, p1Skill, 1, nil); damage != 0 {
+			t.Fatalf("wall keeper should reduce enemy spell damage to 0, damage=%d", damage)
+		}
+	})
+
+	t.Run("frost heart sacrifices itself to zero an enemy spell hit", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		target.CurrentLife = 3
+		frostHeart := NewCardInstance(baseCard(t, "2221001"), 1, 1)
+		p1.Equipment[0] = frostHeart
+		p0.Skills[0] = readySkill(baseCard(t, "3021005"), 0)
+		p0.Elements[model.ElementArcane] = 2
+		if _, ok := globalRegistry.GetBehavior("2221001").(EnemySpellStatModifier); !ok {
+			t.Fatalf("frost heart should expose enemy spell stat modifier")
+		}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast arcane arrow into frost heart: %v", err)
+		}
+		if target.CurrentLife != 3 {
+			t.Fatalf("frost heart should zero the incoming spell damage, life=%d", target.CurrentLife)
+		}
+		if p1.Equipment[0] != nil || len(p1.Graveyard) != 1 || p1.Graveyard[0] != frostHeart {
+			t.Fatalf("frost heart should sacrifice to graveyard, equipment=%v graveyard=%v", p1.Equipment[0], cardsToInfo(p1.Graveyard))
+		}
+	})
+
+	t.Run("shadow cloak prevents only the first enemy spell hit", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		target.CurrentLife = 3
+		cloak := NewCardInstance(baseCard(t, "2621012"), 1, 1)
+		p1.Equipment[0] = cloak
+		p0.Skills[0] = readySkill(baseCard(t, "3021005"), 0)
+		p0.Skills[1] = readySkill(baseCard(t, "3021005"), 0)
+		p0.Elements[model.ElementArcane] = 4
+
+		for i := 0; i < 2; i++ {
+			if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+				"instance_id": p0.Skills[i].InstanceID,
+				"target_type": "unit",
+				"target_col":  float64(1),
+				"target_row":  float64(0),
+			}}); err != nil {
+				t.Fatalf("cast arcane arrow %d into shadow cloak: %v", i+1, err)
+			}
+		}
+		if target.CurrentLife != 2 || cloak.Statuses["已防护"] != 1 {
+			t.Fatalf("shadow cloak should block first hit only, life=%d statuses=%v", target.CurrentLife, cloak.Statuses)
+		}
+	})
+}
+
+func TestReviewCardsDamagePreventionAndEarthLightActives(t *testing.T) {
+	t.Run("arena phantom only takes spell damage", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		phantom := placeUnit(baseCard(t, "1021009"), 1, 1, 0, engine)
+		attacker := placeUnit(baseCard(t, "1021013"), 0, 1, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "attack", Data: map[string]any{
+			"attacker_id": attacker.InstanceID,
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("attack arena phantom: %v", err)
+		}
+		if phantom.CurrentLife != phantom.Card.Life {
+			t.Fatalf("arena phantom should ignore attack damage, life=%d", phantom.CurrentLife)
+		}
+
+		p0.Skills[0] = readySkill(baseCard(t, "3021005"), 0)
+		p0.Elements[model.ElementArcane] = 2
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast arcane arrow at arena phantom: %v", err)
+		}
+		if phantom.CurrentLife != phantom.Card.Life-1 {
+			t.Fatalf("arena phantom should take spell damage, life=%d", phantom.CurrentLife)
+		}
+	})
+
+	t.Run("healing warlock heals a selected friendly unit", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		warlock := placeUnit(baseCard(t, "1521001"), 0, 0, 0, engine)
+		target := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		target.CurrentLife = target.Card.Life - 1
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  warlock.InstanceID,
+			"ability_type": "per_turn",
+			"target_id":    target.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use healing warlock: %v", err)
+		}
+		if target.CurrentLife != target.Card.Life {
+			t.Fatalf("healing warlock should heal target to max, life=%d", target.CurrentLife)
+		}
+	})
+
+	t.Run("growth potion resets an earth companion", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		target := placeUnit(baseCard(t, "1421003"), 0, 1, 0, engine)
+		target.IsHorizontal = true
+		target.Statuses[StatusCooldown] = 1
+		potion := NewCardInstance(baseCard(t, "2421002"), 0, 1)
+		p0.Hand = append(p0.Hand, potion)
+		p0.Elements[model.ElementEarth] = 2
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": potion.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use growth potion: %v", err)
+		}
+		if target.IsHorizontal || target.Statuses[StatusCooldown] != 0 {
+			t.Fatalf("growth potion should reset earth companion, horizontal=%v statuses=%v", target.IsHorizontal, target.Statuses)
+		}
+	})
+
+	t.Run("sturdy and nature seal scrolls reduce spell damage", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		sturdy := NewCardInstance(baseCard(t, "2421003"), 1, 1)
+		p1.Hand = append(p1.Hand, sturdy)
+		p1.Elements[model.ElementEarth] = 2
+		engine.State.CurrentTurn = 1
+		if err := engine.HandleAction(1, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": sturdy.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use sturdy scroll: %v", err)
+		}
+		engine.State.CurrentTurn = 0
+
+		damageSkill := baseCard(t, "3121002")
+		p0.Skills[0] = readySkill(damageSkill, 0)
+		p0.Elements[model.ElementFire] = 10
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast fireball into sturdy scroll: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve fireball into sturdy scroll: %v", err)
+		}
+		wantLife := target.Card.Life - max(damageSkill.Attack-1, 0)
+		if target.CurrentLife != wantLife {
+			t.Fatalf("sturdy scroll should reduce spell damage by 1, life=%d want=%d", target.CurrentLife, wantLife)
+		}
+
+		engine = setupReportedBugEngine(t)
+		p0 = engine.State.Players[0]
+		p1 = engine.State.Players[1]
+		target = placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		seal := NewCardInstance(baseCard(t, "2421010"), 1, 1)
+		p1.Hand = append(p1.Hand, seal)
+		p1.Elements[model.ElementEarth] = 2
+		engine.State.CurrentTurn = 1
+		if err := engine.HandleAction(1, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": seal.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use nature seal scroll: %v", err)
+		}
+		engine.State.CurrentTurn = 0
+		p0.Skills[0] = readySkill(damageSkill, 0)
+		p0.Elements[model.ElementFire] = 10
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast fireball into nature seal: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve fireball into nature seal: %v", err)
+		}
+		if target.CurrentLife != target.Card.Life {
+			t.Fatalf("nature seal should reduce spell damage to zero, life=%d", target.CurrentLife)
+		}
+	})
+
+	t.Run("elf armor per-turn ability heals hero", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p0.Hero = placeUnit(baseCard(t, "4311003"), 0, 1, 1, engine)
+		p0.Hero.CurrentLife = p0.Hero.Card.Life - 1
+		armor := NewCardInstance(baseCard(t, "2421011"), 0, 1)
+		p0.Equipment[0] = armor
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  armor.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use elf armor ability: %v", err)
+		}
+		if p0.Hero.CurrentLife != p0.Hero.Card.Life {
+			t.Fatalf("elf armor should heal hero, life=%d", p0.Hero.CurrentLife)
+		}
+	})
+}
+
+func TestReviewCardsLoadReviveAndFriendlyTargetSpells(t *testing.T) {
+	t.Run("mask changes hero load to same total arcane load", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		hero := placeUnit(baseCard(t, "4311003"), 0, 1, 1, engine)
+		p0.Hero = hero
+		setElementsGain(hero, map[string]int{model.ElementFire: 1, model.ElementWater: 2})
+		mask := NewCardInstance(baseCard(t, "2021020"), 0, 1)
+		p0.Hand = append(p0.Hand, mask)
+		p0.Elements[model.ElementArcane] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "equip", Data: map[string]any{
+			"instance_id": mask.InstanceID,
+		}}); err != nil {
+			t.Fatalf("equip mask: %v", err)
+		}
+		load := effectiveElementsGain(hero)
+		if load[model.ElementArcane] != 3 || load[model.ElementFire] != 0 || load[model.ElementWater] != 0 {
+			t.Fatalf("mask should convert hero load to arcane with same total, load=%v", load)
+		}
+	})
+
+	t.Run("mermaid tear removes itself and revives one companion at one life", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		tear := NewCardInstance(baseCard(t, "2211001"), 0, 1)
+		p0.Equipment[0] = tear
+		dead := NewCardInstance(baseCard(t, "1021013"), 0, 1)
+		dead.CurrentLife = 0
+		p0.Graveyard = []*CardInstance{dead}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  tear.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("use mermaid tear: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{dead.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve mermaid tear: %v", err)
+		}
+		if p0.Equipment[0] != nil || len(p0.Graveyard) != 0 || dead.CurrentLife != 1 || dead.Position == nil {
+			t.Fatalf("mermaid tear should leave play and revive at one life, equipment=%v grave=%d life=%d pos=%v", p0.Equipment[0], len(p0.Graveyard), dead.CurrentLife, dead.Position)
+		}
+	})
+
+	t.Run("iridescent paint converts up to four light load to arcane", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		a := placeUnit(baseCard(t, "1521002"), 0, 0, 0, engine)
+		b := placeUnit(baseCard(t, "1521005"), 0, 1, 0, engine)
+		setElementsGain(a, map[string]int{model.ElementLight: 3})
+		setElementsGain(b, map[string]int{model.ElementLight: 3})
+		paint := NewCardInstance(baseCard(t, "2521012"), 0, 1)
+		p0.Hand = append(p0.Hand, paint)
+		p0.Elements[model.ElementLight] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": paint.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use iridescent paint: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{a.InstanceID, b.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve iridescent paint: %v", err)
+		}
+		totalLight := effectiveElementsGain(a)[model.ElementLight] + effectiveElementsGain(b)[model.ElementLight]
+		totalArcane := effectiveElementsGain(a)[model.ElementArcane] + effectiveElementsGain(b)[model.ElementArcane]
+		if totalLight != 2 || totalArcane != 4 {
+			t.Fatalf("iridescent paint should convert exactly four light load, light=%d arcane=%d", totalLight, totalArcane)
+		}
+	})
+
+	t.Run("regeneration resets a selected earth companion", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		target := placeUnit(baseCard(t, "1421003"), 0, 1, 0, engine)
+		target.IsHorizontal = true
+		target.Statuses[StatusCooldown] = 1
+		p0.Skills[0] = readySkill(baseCard(t, "3421004"), 0)
+		p0.Elements[model.ElementEarth] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "none",
+		}}); err != nil {
+			t.Fatalf("cast regeneration: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve regeneration: %v", err)
+		}
+		if target.IsHorizontal || target.Statuses[StatusCooldown] != 0 {
+			t.Fatalf("regeneration should reset earth companion, horizontal=%v statuses=%v", target.IsHorizontal, target.Statuses)
+		}
+	})
+
+	t.Run("holy fire cleanses friendly target and damages enemy target", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		ally := placeUnit(baseCard(t, "1021013"), 0, 1, 0, engine)
+		ally.Statuses[StatusBurn] = 1
+		ally.Statuses[StatusStun] = 1
+		p0.Skills[0] = readySkill(baseCard(t, "3521002"), 0)
+		p0.Elements[model.ElementLight] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast holy fire on ally: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve holy fire on ally: %v", err)
+		}
+		if ally.CurrentLife != ally.Card.Life || ally.Statuses[StatusBurn] != 0 || ally.Statuses[StatusStun] != 0 {
+			t.Fatalf("holy fire should cleanse friendly target without damage, life=%d statuses=%v", ally.CurrentLife, ally.Statuses)
+		}
+
+		engine = setupReportedBugEngine(t)
+		p0 = engine.State.Players[0]
+		enemy := placeUnit(baseCard(t, "1021013"), 1, 1, 0, engine)
+		p0.Skills[0] = readySkill(baseCard(t, "3521002"), 0)
+		p0.Elements[model.ElementLight] = 10
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast holy fire on enemy: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve holy fire on enemy: %v", err)
+		}
+		if enemy.CurrentLife != enemy.Card.Life-1 {
+			t.Fatalf("holy fire should damage enemy target, life=%d", enemy.CurrentLife)
+		}
+	})
+}
+
+func TestReviewCardsNegativeStatusImmunity(t *testing.T) {
+	t.Run("divine guardian ignores negative status effects", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		guardian := placeUnit(baseCard(t, "1521010"), 0, 1, 0, engine)
+		guardian.Statuses[StatusStun] = 1
+		guardian.Statuses[StatusFreeze] = 1
+
+		if !engine.canConsumeCard(guardian) {
+			t.Fatalf("divine guardian should ignore stun for consume")
+		}
+		guardian.IsHorizontal = true
+		engine.resetCards(engine.State.Players[0])
+		if guardian.IsHorizontal {
+			t.Fatalf("divine guardian should ignore freeze while resetting")
+		}
+	})
+
+	t.Run("blessing priest protects itself and adjacent units while marks remain visible", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		priest := placeUnit(baseCard(t, "1421002"), 0, 1, 1, engine)
+		adjacent := placeUnit(baseCard(t, "1021013"), 0, 1, 0, engine)
+		far := placeUnit(baseCard(t, "1021013"), 0, 0, 0, engine)
+		for _, unit := range []*CardInstance{priest, adjacent, far} {
+			unit.Statuses[StatusStun] = 1
+			unit.Statuses[StatusFreeze] = 1
+		}
+
+		if !engine.canConsumeCard(priest) || !engine.canConsumeCard(adjacent) {
+			t.Fatalf("priest and adjacent unit should ignore stun")
+		}
+		if engine.canConsumeCard(far) {
+			t.Fatalf("non-adjacent unit should still be affected by stun")
+		}
+		for _, unit := range []*CardInstance{priest, adjacent, far} {
+			unit.IsHorizontal = true
+		}
+		engine.resetCards(engine.State.Players[0])
+		if priest.IsHorizontal || adjacent.IsHorizontal {
+			t.Fatalf("priest protection should let protected cards reset through freeze")
+		}
+		if !far.IsHorizontal {
+			t.Fatalf("non-adjacent unit should stay frozen")
+		}
+		if priest.Statuses[StatusStun] != 1 || adjacent.Statuses[StatusFreeze] != 1 {
+			t.Fatalf("protection should not erase visible marks, priest=%v adjacent=%v", priest.Statuses, adjacent.Statuses)
+		}
+	})
+}
+
+func TestWizardVolleyLineResetsSkillAndMakesNextCastFrontRow(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	frontA := placeUnit(baseCard(t, "1021013"), 1, 0, 0, engine)
+	frontB := placeUnit(baseCard(t, "1021013"), 1, 1, 0, engine)
+	back := placeUnit(baseCard(t, "1021013"), 1, 1, 1, engine)
+	skill := readySkill(baseCard(t, "3021005"), 0)
+	skill.IsHorizontal = true
+	p0.Skills[0] = skill
+	item := NewCardInstance(baseCard(t, "2021007"), 0, 1)
+	p0.Hand = append(p0.Hand, item)
+	p0.Elements[model.ElementArcane] = 10
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+		"instance_id": item.InstanceID,
+	}}); err != nil {
+		t.Fatalf("use wizard volley line: %v", err)
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+		"selected": []any{skill.InstanceID},
+	}}); err != nil {
+		t.Fatalf("resolve wizard volley line: %v", err)
+	}
+	if skill.IsHorizontal || skill.Statuses["下一次范围前排"] != 1 {
+		t.Fatalf("wizard volley line should reset skill and mark next front-row area, horizontal=%v statuses=%v", skill.IsHorizontal, skill.Statuses)
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": skill.InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(1),
+		"target_row":  float64(0),
+	}}); err != nil {
+		t.Fatalf("cast marked spell: %v", err)
+	}
+	if frontA.CurrentLife != frontA.Card.Life-1 || frontB.CurrentLife != frontB.Card.Life-1 || back.CurrentLife != back.Card.Life {
+		t.Fatalf("marked spell should hit enemy front row only, frontA=%d frontB=%d back=%d", frontA.CurrentLife, frontB.CurrentLife, back.CurrentLife)
+	}
+	if skill.Statuses["下一次范围前排"] != 0 {
+		t.Fatalf("front-row range mark should be consumed, statuses=%v", skill.Statuses)
+	}
+}
+
+func TestPureArcaneLetsPlayerChooseElementAndAmountForNextMatchingSpell(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	placeUnit(baseCard(t, "1021013"), 1, 1, 0, engine)
+	pure := readySkill(baseCard(t, "3001002"), 0)
+	p0.Skills[0] = pure
+	p0.Elements[model.ElementFire] = 4
+	p0.Elements[model.ElementWater] = 2
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": pure.InstanceID,
+		"target_type": "none",
+	}}); err != nil {
+		t.Fatalf("cast pure arcane: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "pure_arcane_spend" {
+		t.Fatalf("pure arcane should ask for element/amount choice, pending=%+v", engine.State.PendingAction)
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+		"selected": []any{model.ElementFire + ":3"},
+	}}); err != nil {
+		t.Fatalf("resolve pure arcane: %v", err)
+	}
+	if p0.Elements[model.ElementFire] != 1 || p0.Elements[model.ElementWater] != 2 {
+		t.Fatalf("pure arcane should spend selected fire only, elements=%v", p0.Elements)
+	}
+	if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != TempModNextElementSpellPowerBonus || p0.TempModifiers[0].Status != model.ElementFire || p0.TempModifiers[0].Amount != 3 {
+		t.Fatalf("pure arcane should create next fire spell power modifier, modifiers=%v", p0.TempModifiers)
+	}
+
+	water := readySkill(baseCard(t, "3221009"), 0)
+	p0.Skills[1] = water
+	p0.Elements[model.ElementWater] = 10
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": water.InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(1),
+		"target_row":  float64(0),
+	}}); err != nil {
+		t.Fatalf("cast water spell: %v", err)
+	}
+	if engine.State.PendingSpell == nil || engine.State.PendingSpell.TotalPower != water.Card.Power+2 {
+		t.Fatalf("pure arcane fire modifier should not boost water spell, pending=%+v", engine.State.PendingSpell)
+	}
+	if len(p0.TempModifiers) != 1 {
+		t.Fatalf("fire modifier should remain after nonmatching spell, modifiers=%v", p0.TempModifiers)
+	}
+	engine.State.PendingSpell = nil
+	engine.State.Phase = PhaseMain
+
+	fire := readySkill(baseCard(t, "3121001"), 0)
+	p0.Skills[2] = fire
+	p0.Elements[model.ElementFire] = 10
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": fire.InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(1),
+		"target_row":  float64(0),
+	}}); err != nil {
+		t.Fatalf("cast fire spell: %v", err)
+	}
+	if engine.State.PendingSpell == nil || engine.State.PendingSpell.TotalPower != fire.Card.Power+3 {
+		t.Fatalf("pure arcane should boost next matching fire spell by 3, pending=%+v", engine.State.PendingSpell)
+	}
+	if len(p0.TempModifiers) != 0 {
+		t.Fatalf("pure arcane modifier should be consumed by matching spell, modifiers=%v", p0.TempModifiers)
+	}
+}
+
+func TestHighRiskSkillReactionAndBoostSemantics(t *testing.T) {
+	t.Run("3121015 焚风 grants pierce while boosting instead of adding damage", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		front := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		back := placeUnit(baseCard(t, "1021002"), 1, 1, 2, engine)
+		main := readySkill(baseCard(t, "3321005"), 0)
+		boost := readySkill(baseCard(t, "3121015"), 0)
+		p0.Skills[0] = main
+		p0.Skills[1] = boost
+		for _, element := range model.AllElements {
+			p0.Elements[element] = 10
+		}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": main.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(2),
+			"boost_ids":   []any{boost.InstanceID},
+		}}); err != nil {
+			t.Fatalf("burning wind boost should let spell pierce to back row: %v", err)
+		}
+		if engine.State.PendingSpell == nil || engine.State.PendingSpell.Target.Position != *back.Position {
+			t.Fatalf("boosted spell should target back row, pending=%+v back=%v front=%v", engine.State.PendingSpell, back.Position, front.Position)
+		}
+		if got := engine.effectiveSpellDamage(0, main, main.Card.Attack, []*CardInstance{boost}); got != main.Card.Attack {
+			t.Fatalf("burning wind should not add damage, got %d want %d", got, main.Card.Attack)
+		}
+	})
+
+	t.Run("3321008 风洞 reacts to a non-area enemy spell and cancels it", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		attacker := readySkill(baseCard(t, "3121003"), 0)
+		windHole := readySkill(baseCard(t, "3321008"), 1)
+		p0.Skills[0] = attacker
+		p1.Skills[0] = windHole
+		for _, element := range model.AllElements {
+			p0.Elements[element] = 10
+			p1.Elements[element] = 10
+		}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": attacker.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast spell for wind hole: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "react_spell", Data: map[string]any{
+			"instance_id": windHole.InstanceID,
+		}}); err != nil {
+			t.Fatalf("wind hole should react: %v", err)
+		}
+		if engine.State.PendingSpell != nil || engine.State.Phase != PhaseMain {
+			t.Fatalf("wind hole should cancel pending spell, pending=%+v phase=%s", engine.State.PendingSpell, engine.State.Phase)
+		}
+		if target.CurrentLife != target.Card.Life {
+			t.Fatalf("cancelled spell should not damage target, life=%d", target.CurrentLife)
+		}
+		if !windHole.IsHorizontal || windHole.Statuses[StatusCooldown] != 1 {
+			t.Fatalf("wind hole should be used and cooled down, horizontal=%v statuses=%v", windHole.IsHorizontal, windHole.Statuses)
+		}
+	})
+
+	t.Run("3621015 虹吸 converts enemy spell damage into healing for affected units", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		target := placeUnit(baseCard(t, "1011002"), 1, 1, 0, engine)
+		target.CurrentLife = 1
+		attacker := readySkill(baseCard(t, "3121003"), 0)
+		siphon := readySkill(baseCard(t, "3621015"), 1)
+		p0.Skills[0] = attacker
+		p1.Skills[0] = siphon
+		for _, element := range model.AllElements {
+			p0.Elements[element] = 10
+			p1.Elements[element] = 10
+		}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": attacker.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast spell for siphon: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "react_spell", Data: map[string]any{
+			"instance_id": siphon.InstanceID,
+		}}); err != nil {
+			t.Fatalf("siphon should react: %v", err)
+		}
+		if engine.State.PendingSpell != nil || target.CurrentLife <= 1 {
+			t.Fatalf("siphon should cancel spell and heal target, pending=%+v life=%d", engine.State.PendingSpell, target.CurrentLife)
+		}
+		if siphon.Statuses[StatusCooldown] != 2 {
+			t.Fatalf("siphon should take cooldown 2, statuses=%v", siphon.Statuses)
+		}
+	})
+
+	t.Run("3221010 水幻影 creates exactly one next-water-copy modifier on hit", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		phantom := readySkill(baseCard(t, "3221010"), 0)
+		p0.Skills[0] = phantom
+		for _, element := range model.AllElements {
+			p0.Elements[element] = 10
+		}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": phantom.InstanceID,
+			"target_type": "none",
+		}}); err != nil {
+			t.Fatalf("cast water phantom: %v", err)
+		}
+		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != "next_water_copy" || p0.TempModifiers[0].RemainingUses != 1 {
+			t.Fatalf("water phantom should arm one next water copy modifier, modifiers=%v", p0.TempModifiers)
+		}
+	})
+
+	t.Run("3621007 安迪斯的惩罚 gains power from friendly damage only", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		punishment := readySkill(baseCard(t, "3621007"), 0)
+		engine.State.Players[0].Skills[0] = punishment
+		friend := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		enemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		engine.dealDamage(friend, 2, 0)
+		if punishment.PowerBonus != 2 {
+			t.Fatalf("friendly damage should increase andis punishment by 2, bonus=%d", punishment.PowerBonus)
+		}
+		engine.dealDamage(enemy, 2, 1)
+		if punishment.PowerBonus != 2 {
+			t.Fatalf("enemy damage should not increase andis punishment, bonus=%d", punishment.PowerBonus)
+		}
+	})
+}
+
+func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
+	t.Run("1111001 火龙辉煌 requires fire devour and binds fire breath to itself", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		dragon := NewCardInstance(baseCard(t, "1111001"), 0, 1)
+		food := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		addElementsGainBonus(food, model.ElementFire, 3)
+		p0.Hand = []*CardInstance{dragon}
+		for _, element := range model.AllElements {
+			p0.Elements[element] = 10
+		}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+			"instance_id": dragon.InstanceID,
+			"col":         float64(1),
+			"row":         float64(1),
+			"devour_id":   food.InstanceID,
+		}}); err != nil {
+			t.Fatalf("summon fire dragon with devour: %v", err)
+		}
+		if p0.Units[0][0] != nil || len(p0.Graveyard) != 1 || p0.Graveyard[0] != food {
+			t.Fatalf("fire dragon should devour the selected companion, unit=%v graveyard=%v", p0.Units[0][0], cardsToInfo(p0.Graveyard))
+		}
+		if len(p0.SkillPool) != 0 {
+			t.Fatalf("bound fire breath should not enter skill pool, pool=%v", cardsToInfo(p0.SkillPool))
+		}
+		if len(dragon.BoundSkills) != 1 || dragon.BoundSkills[0].Card.Number != "3101001" {
+			t.Fatalf("fire breath should be bound to dragon, bound=%v", cardsToInfo(dragon.BoundSkills))
+		}
+	})
+
+	t.Run("1621013 言灵 weakens only from the opponent third spell onward", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		wordSpirit := placeUnit(baseCard(t, "1621013"), 0, 1, 1, engine)
+		first := readySkill(baseCard(t, "3121001"), 1)
+		second := readySkill(baseCard(t, "3221009"), 1)
+		third := readySkill(baseCard(t, "3321005"), 1)
+		p1 := engine.State.Players[1]
+		p1.SpellsCastThisTurn = map[string]int{model.ElementFire: 1}
+		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, first, map[string]any{"cast_player": 1})
+		if first.Statuses[StatusWeaken] != 0 {
+			t.Fatalf("first enemy spell should not be weakened, source=%v first=%v", wordSpirit.Statuses, first.Statuses)
+		}
+		p1.SpellsCastThisTurn[model.ElementWater] = 1
+		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, second, map[string]any{"cast_player": 1})
+		if second.Statuses[StatusWeaken] != 0 {
+			t.Fatalf("second enemy spell should not be weakened, second=%v", second.Statuses)
+		}
+		p1.SpellsCastThisTurn[model.ElementAir] = 1
+		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, third, map[string]any{"cast_player": 1})
+		if third.Statuses[StatusWeaken] != 1 {
+			t.Fatalf("third enemy spell should be weakened, third=%v", third.Statuses)
+		}
+	})
+
+	t.Run("hero passive cards participate in field triggers", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		noFace := NewCardInstance(baseCard(t, "4011002"), 0, 1)
+		p0.Hero = noFace
+		noFace.CurrentLife = noFace.Card.Life
+		placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		entering := placeUnit(baseCard(t, "1021002"), 0, 1, 0, engine)
+
+		engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, 0, entering, map[string]any{"entered_player": 0})
+
+		if noFace.CurrentLife != noFace.Card.Life-1 {
+			t.Fatalf("No Face should damage its hero on same-element friendly entry, life=%d", noFace.CurrentLife)
+		}
+	})
+
+	t.Run("4111002 维兰德 converts one fire load to arcane for the turn", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		verland := NewCardInstance(baseCard(t, "4111002"), 0, 1)
+		engine.State.Players[0].Hero = verland
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  verland.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use Verland per-turn: %v", err)
+		}
+		gain := effectiveElementsGain(verland)
+		if verland.Statuses[StatusBurn] != 1 || gain[model.ElementFire] != 3 || gain[model.ElementArcane] != 1 {
+			t.Fatalf("Verland should burn herself and convert fire load to arcane, statuses=%v gain=%v", verland.Statuses, gain)
+		}
+		engine.triggerEffects(TriggerOnTurnEnd, verland, nil, nil)
+		gain = effectiveElementsGain(verland)
+		if gain[model.ElementFire] != 4 || gain[model.ElementArcane] != 0 {
+			t.Fatalf("Verland load conversion should end at turn end, gain=%v statuses=%v", gain, verland.Statuses)
+		}
+	})
+
+	t.Run("startup heroes add their promised cards exactly once", func(t *testing.T) {
+		cases := []struct {
+			id       string
+			location string
+			card     string
+			count    int
+		}{
+			{"4111001", "pool", "3101002", 1},
+			{"4211002", "pool", "3201001", 1},
+			{"4411002", "deck", "1401002", 1},
+			{"4511002", "opponent_deck", "2501001", 5},
+			{"4511003", "pool", "3501001", 1},
+			{"4611003", "deck", "2601002", 3},
+		}
+		for _, tc := range cases {
+			t.Run(tc.id, func(t *testing.T) {
+				engine := setupReportedBugEngine(t)
+				hero := NewCardInstance(baseCard(t, tc.id), 0, 1)
+				engine.State.Players[0].Hero = hero
+				engine.triggerEffects(TriggerOnTurnStart, hero, nil, nil)
+				engine.triggerEffects(TriggerOnTurnStart, hero, nil, nil)
+
+				switch tc.location {
+				case "pool":
+					if got := countCardNumber(engine.State.Players[0].SkillPool, tc.card); got != tc.count {
+						t.Fatalf("skill pool count for %s got %d want %d", tc.card, got, tc.count)
+					}
+				case "deck":
+					if got := countCardNumber(engine.State.Players[0].Deck, tc.card); got != tc.count {
+						t.Fatalf("deck count for %s got %d want %d", tc.card, got, tc.count)
+					}
+				case "opponent_deck":
+					if got := countCardNumber(engine.State.Players[1].Deck, tc.card); got != tc.count {
+						t.Fatalf("opponent deck count for %s got %d want %d", tc.card, got, tc.count)
+					}
+				}
+			})
+		}
+	})
+
+	t.Run("4011001 斯卡尔蒂 discards for elements and locks non-arcane elements", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		skadi := NewCardInstance(baseCard(t, "4011001"), 0, 1)
+		p0.Hero = skadi
+		fire := NewCardInstance(baseCard(t, "3121001"), 0, 1)
+		arcane := NewCardInstance(baseCard(t, "3021001"), 0, 1)
+		p0.Hand = []*CardInstance{fire, arcane}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  skadi.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use Skadi per-turn: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "skadi_discard" {
+			t.Fatalf("Skadi should ask which hand card to discard, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{fire.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve Skadi discard: %v", err)
+		}
+		if p0.Elements[model.ElementFire] != 2 || len(p0.Graveyard) != 1 || skadi.Statuses["斯卡蒂已用:"+model.ElementFire] != 1 {
+			t.Fatalf("Skadi should gain fire and mark it used, elements=%v graveyard=%v statuses=%v", p0.Elements, cardsToInfo(p0.Graveyard), skadi.Statuses)
+		}
+		skadi.UsedThisTurn = 0
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  skadi.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use Skadi again for arcane: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{arcane.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve Skadi arcane discard: %v", err)
+		}
+		if p0.Elements[model.ElementArcane] != 2 {
+			t.Fatalf("Skadi should allow arcane gain, elements=%v", p0.Elements)
+		}
+	})
+
+	t.Run("4111003 梵天 and 4211003 水晶心 arm spell-hit effects for the turn", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		brahma := NewCardInstance(baseCard(t, "4111003"), 0, 1)
+		crystal := NewCardInstance(baseCard(t, "4211003"), 0, 1)
+		p0.Hero = brahma
+		fireSkill := readySkill(baseCard(t, "3121003"), 0)
+		target := placeUnit(baseCard(t, "1011002"), 1, 1, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  brahma.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("use Brahma ultimate: %v", err)
+		}
+		engine.triggerFieldEffectsWithData(TriggerOnSpellHit, 0, fireSkill, map[string]any{"attacker": 0})
+		if effectiveElementsGain(brahma)[model.ElementFire] != brahma.Card.ElementsGain[model.ElementFire]+1 {
+			t.Fatalf("Brahma should gain one fire load after friendly fire hit, gain=%v", effectiveElementsGain(brahma))
+		}
+
+		p0.Hero = crystal
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  crystal.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("use Crystal Heart ultimate: %v", err)
+		}
+		engine.triggerFieldEffectsWithData(TriggerOnSpellHit, 0, fireSkill, map[string]any{"attacker": 0})
+		if target.Statuses[StatusFreeze] != 0 {
+			t.Fatalf("field trigger without target should not freeze arbitrary units, target=%v", target.Statuses)
+		}
+		engine.triggerEffects(TriggerOnSpellHit, crystal, target, map[string]any{"attacker": 0})
+		if target.Statuses[StatusFreeze] != 1 {
+			t.Fatalf("Crystal Heart armed spells should freeze hit target, target=%v", target.Statuses)
+		}
+	})
+
+	t.Run("4311001 肃 discards two air cards to damage an enemy", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		su := NewCardInstance(baseCard(t, "4311001"), 0, 1)
+		p0.Hero = su
+		p0.Hand = []*CardInstance{
+			NewCardInstance(baseCard(t, "3321005"), 0, 1),
+			NewCardInstance(baseCard(t, "3321006"), 0, 1),
+		}
+		enemy := placeUnit(baseCard(t, "1011002"), 1, 1, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  su.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("use Su ultimate: %v", err)
+		}
+		if len(p0.Hand) != 0 || len(p0.Graveyard) != 2 || enemy.CurrentLife != enemy.Card.Life-1 {
+			t.Fatalf("Su should discard two air cards and deal one damage, hand=%d graveyard=%d life=%d", len(p0.Hand), len(p0.Graveyard), enemy.CurrentLife)
+		}
+	})
+
+	t.Run("4411001 白须 searches an earth beast plant or spirit on first turn only", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		whitebeard := NewCardInstance(baseCard(t, "4411001"), 0, 1)
+		earth := NewCardInstance(baseCard(t, "1421003"), 0, 1)
+		other := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Hero = whitebeard
+		p0.Deck = []*CardInstance{other, earth}
+		engine.State.TurnNumber = 1
+
+		engine.triggerEffects(TriggerOnTurnStart, whitebeard, nil, nil)
+		if len(p0.Hand) != 1 || p0.Hand[0] != earth || len(p0.Deck) != 1 {
+			t.Fatalf("Whitebeard should search the earth creature, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
+		}
+		engine.State.TurnNumber = 2
+		engine.triggerEffects(TriggerOnTurnStart, whitebeard, nil, nil)
+		if len(p0.Hand) != 1 {
+			t.Fatalf("Whitebeard should not search after turn one, hand=%v", cardsToInfo(p0.Hand))
+		}
+	})
+
+	t.Run("4411003 麦吉 discounts first original high-cost play or learn by earth", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		maggie := NewCardInstance(baseCard(t, "4411003"), 0, 1)
+		p0.Hero = maggie
+		highCost := NewCardInstance(baseCard(t, "1411003"), 0, 1)
+		cost := engine.effectiveCardPlayCost(p0, highCost)
+		if cost[model.ElementEarth] != max(highCost.Card.ElementsCost[model.ElementEarth]-2, 0) || maggie.Statuses["麦吉折扣"] != 1 {
+			t.Fatalf("Maggie should discount first high-cost card by earth, cost=%v statuses=%v", cost, maggie.Statuses)
+		}
+		maggie.Statuses["麦吉折扣"] = 0
+		skill := NewCardInstance(baseCard(t, "3421014"), 0, 1)
+		learnCost := engine.effectiveSkillLearnCost(p0, skill)
+		if learnCost[model.ElementEarth] != max(skill.Card.ElementsCost[model.ElementEarth]-2, 0) {
+			t.Fatalf("Maggie should also discount learning high-cost skills, cost=%v", learnCost)
+		}
+	})
+
+	t.Run("4511001 玛丽斯 ultimate grants light when friendly units take enemy damage", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		maris := NewCardInstance(baseCard(t, "4511001"), 0, 1)
+		p0.Hero = maris
+		friend := placeUnit(baseCard(t, "1011002"), 0, 1, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  maris.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("use Maris ultimate: %v", err)
+		}
+		engine.dealDamageWithExtra(friend, 1, 0, map[string]any{"attacker": 1})
+		if p0.Elements[model.ElementLight] != 2 {
+			t.Fatalf("Maris should grant 2 light after enemy damage, elements=%v", p0.Elements)
+		}
+	})
+
+	t.Run("4611002 芙雅 doubles companion attack and load then marks it temporary", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		fuye := NewCardInstance(baseCard(t, "4611002"), 0, 1)
+		p0.Hero = fuye
+		target := placeUnit(baseCard(t, "1011002"), 0, 1, 0, engine)
+		attack := target.CurrentAttack
+		load := effectiveElementsGain(target)[model.ElementArcane]
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  fuye.InstanceID,
+			"ability_type": "ultimate",
+			"target_id":    target.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use Fuye ultimate: %v", err)
+		}
+		if target.CurrentAttack != attack*2 || effectiveElementsGain(target)[model.ElementArcane] != load*2 || target.Statuses["临时"] != 1 {
+			t.Fatalf("Fuye should double attack/load and mark temporary, attack=%d gain=%v statuses=%v", target.CurrentAttack, effectiveElementsGain(target), target.Statuses)
+		}
+	})
+}
+
+func TestRemainingHighRiskBaseCardSemantics(t *testing.T) {
+	t.Run("3021011 统御者的制裁 must be paid with a single element", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		target := placeUnit(baseCard(t, "1011002"), 1, 1, 0, engine)
+		sanction := readySkill(baseCard(t, "3021011"), 0)
+		p0.Skills[0] = sanction
+		p0.Elements[model.ElementFire] = 2
+		p0.Elements[model.ElementWater] = 2
+
+		err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": sanction.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}})
+		if err == nil {
+			t.Fatalf("mixed payment should be rejected for Overlord Sanction")
+		}
+
+		p0.Elements[model.ElementFire] = 4
+		p0.Elements[model.ElementWater] = 0
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": sanction.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+			"payment":     map[string]any{model.ElementFire: float64(4)},
+		}}); err != nil {
+			t.Fatalf("single-element payment should cast Overlord Sanction: %v target=%v", err, target.InstanceID)
+		}
+	})
+
+	t.Run("3321001 闪电链 can damage one extra enemy target outside normal range", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		front := placeUnit(baseCard(t, "1011002"), 1, 1, 0, engine)
+		back := placeUnit(baseCard(t, "1011002"), 1, 1, 2, engine)
+		chain := readySkill(baseCard(t, "3321001"), 0)
+		p0.Skills[0] = chain
+		p0.Elements[model.ElementAir] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id":      chain.InstanceID,
+			"target_type":      "unit",
+			"target_col":       float64(1),
+			"target_row":       float64(0),
+			"extra_target_col": float64(1),
+			"extra_target_row": float64(2),
+		}}); err != nil {
+			t.Fatalf("cast lightning chain: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve lightning chain: %v", err)
+		}
+		if front.CurrentLife != front.Card.Life-1 || back.CurrentLife != back.Card.Life-1 {
+			t.Fatalf("lightning chain should damage main and extra target, front=%d back=%d", front.CurrentLife, back.CurrentLife)
+		}
+	})
+
+	t.Run("3521011 光之庇护 protects the chosen friendly companion from lethal damage", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		target := placeUnit(baseCard(t, "1011002"), 0, 1, 0, engine)
+		shelter := readySkill(baseCard(t, "3521011"), 0)
+		p0.Skills[0] = shelter
+		p0.Elements[model.ElementLight] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": shelter.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast light shelter: %v", err)
+		}
+		if target.Statuses["防止致命"] == 0 {
+			t.Fatalf("light shelter should mark chosen target, statuses=%v", target.Statuses)
+		}
+		engine.dealDamageWithExtra(target, 99, 0, map[string]any{"attacker": 1})
+		if target.CurrentLife != 1 {
+			t.Fatalf("light shelter should prevent lethal damage and leave target at 1, life=%d", target.CurrentLife)
+		}
+	})
+
+	t.Run("4311002 渡鸦 starts with one extra hand card and should not draw again on turn start", func(t *testing.T) {
+		if cards.CardDB == nil {
+			if err := cards.LoadCards(); err != nil {
+				t.Fatalf("load cards: %v", err)
+			}
+		}
+		SetCardDB(cards.CardDB)
+		RegisterAllCardEffects()
+		deck := &model.Deck{
+			HeroID:   "4311002",
+			MainDeck: []string{"1021001", "1021001", "1021002", "1021002", "1021003", "1021003"},
+		}
+		other := &model.Deck{
+			HeroID:   "4011001",
+			MainDeck: []string{"1021001", "1021001", "1021002", "1021002", "1021003", "1021003"},
+		}
+		engine := NewEngine("raven-start", nil)
+		if err := engine.SetupGame("Raven", deck, "Other", other); err != nil {
+			t.Fatalf("setup game: %v", err)
+		}
+		if len(engine.State.Players[0].Hand) != 5 || len(engine.State.Players[1].Hand) != 4 {
+			t.Fatalf("Raven should start with 5 cards while other hero starts with 4, p0=%d p1=%d", len(engine.State.Players[0].Hand), len(engine.State.Players[1].Hand))
+		}
+		before := len(engine.State.Players[0].Hand)
+		engine.triggerEffects(TriggerOnTurnStart, engine.State.Players[0].Hero, nil, nil)
+		if len(engine.State.Players[0].Hand) != before {
+			t.Fatalf("Raven should not draw an extra card at turn start, before=%d after=%d", before, len(engine.State.Players[0].Hand))
+		}
+	})
+
+	t.Run("3021010 解咒 remains a cooldown reaction card placeholder for defense-spell countering", func(t *testing.T) {
+		dispel := readySkill(baseCard(t, "3021010"), 0)
+		if skillCooldown(dispel) != 1 || skillNeedsTargetInstance(dispel) {
+			t.Fatalf("dispel should be cooldown 1 and targetless, cooldown=%d needsTarget=%v", skillCooldown(dispel), skillNeedsTargetInstance(dispel))
+		}
+	})
+}
+
+func TestRemainingMediumRiskGenericBaseCards(t *testing.T) {
+	t.Run("1511003 2121008 2221003 2221009 2421005 2421008 2621001 2621009 generic companion/item traits", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		pegasus := NewCardInstance(baseCard(t, "1511003"), 0, 1)
+		if !cardHasTaunt(pegasus) {
+			t.Fatalf("1511003 should expose taunt from its 引魔 keyword")
+		}
+
+		if spellArea(readySkill(baseCard(t, "2121008"), 0)) != SpellAreaSquare {
+			t.Fatalf("2121008 should be square area")
+		}
+		if traitsForCardNumber("2221003").statuses[StatusFreeze] != 1 {
+			t.Fatalf("2221003 should carry freeze 1 generic status")
+		}
+		if spellArea(readySkill(baseCard(t, "2221009"), 0)) != SpellAreaSplashCross || traitsForCardNumber("2221009").statuses[StatusFreeze] != 1 {
+			t.Fatalf("2221009 should be splash cross freeze")
+		}
+		petrify := readySkill(baseCard(t, "2421005"), 0)
+		target := placeUnit(baseCard(t, "1011002"), 1, 1, 0, engine)
+		engine.applyGenericStatusFromDescription(petrify, target)
+		if target.Statuses[StatusPetrify] != 2 {
+			t.Fatalf("2421005 should apply petrify 2, statuses=%v", target.Statuses)
+		}
+		if spellArea(readySkill(baseCard(t, "2421008"), 0)) != SpellAreaSquare {
+			t.Fatalf("2421008 should be square area")
+		}
+		if traitsForCardNumber("2621001").statuses[StatusWeaken] != 2 {
+			t.Fatalf("2621001 should carry weaken 2 generic status")
+		}
+		if spellArea(readySkill(baseCard(t, "2621009"), 0)) != SpellAreaSplashCross {
+			t.Fatalf("2621009 should be splash cross area")
+		}
+	})
+
+	t.Run("3121010 3121011 3121013 3221014 3321007 3321011 generic skill traits", func(t *testing.T) {
+		magma := readySkill(baseCard(t, "3121010"), 0)
+		if spellArea(magma) != SpellAreaSquare || !cardHasPierce(magma) || traitsForCardNumber("3121010").statuses[StatusBurn] != 1 {
+			t.Fatalf("3121010 should be square pierce burn")
+		}
+		ignite := readySkill(baseCard(t, "3121011"), 0)
+		if !cardHasRush(ignite) || traitsForCardNumber("3121011").statuses[StatusBurn] != 1 {
+			t.Fatalf("3121011 should be rush burn")
+		}
+		backlash := readySkill(baseCard(t, "3121013"), 0)
+		if !isDefenseOnlySkill(backlash.Card) || traitsForCardNumber("3121013").statuses[StatusBurn] != 1 {
+			t.Fatalf("3121013 should be defense-only with burn marker")
+		}
+		iceField := readySkill(baseCard(t, "3221014"), 0)
+		if !isDefenseOnlySkill(iceField.Card) {
+			t.Fatalf("3221014 should be defense-only")
+		}
+		sourceWind := readySkill(baseCard(t, "3321007"), 0)
+		if skillCooldown(sourceWind) != 1 || skillNeedsTargetInstance(sourceWind) {
+			t.Fatalf("3321007 should be cooldown 1 targetless hand refill")
+		}
+		if spellArea(readySkill(baseCard(t, "3321011"), 0)) != SpellAreaColumn {
+			t.Fatalf("3321011 should be column area")
+		}
+	})
+
+	t.Run("3421007 3421009 3521012 3621009 3621011 3621014 generic skill traits", func(t *testing.T) {
+		quake := readySkill(baseCard(t, "3421007"), 0)
+		if spellArea(quake) != SpellAreaSquare || traitsForCardNumber("3421007").statuses[StatusStun] != 1 {
+			t.Fatalf("3421007 should be square stun")
+		}
+		fear := readySkill(baseCard(t, "3421009"), 0)
+		if !cardHasPierce(fear) || skillCooldown(fear) != 1 || traitsForCardNumber("3421009").statuses[StatusPetrify] != 2 {
+			t.Fatalf("3421009 should be pierce cooldown petrify")
+		}
+		if spellArea(readySkill(baseCard(t, "3521012"), 0)) != SpellAreaColumn {
+			t.Fatalf("3521012 should be column area")
+		}
+		curse := readySkill(baseCard(t, "3621009"), 0)
+		if !cardHasRush(curse) || traitsForCardNumber("3621009").statuses[StatusWeaken] != 2 {
+			t.Fatalf("3621009 should be rush weaken")
+		}
+		dimensional := readySkill(baseCard(t, "3621011"), 0)
+		if !cardHasPierce(dimensional) || spellArea(dimensional) != SpellAreaSquare {
+			t.Fatalf("3621011 should be pierce square")
+		}
+		karma := readySkill(baseCard(t, "3621014"), 0)
+		if !isDefenseOnlySkill(karma.Card) {
+			t.Fatalf("3621014 should be defense-only")
+		}
+	})
+}
+
+func TestDamagedAndDeathTriggeredCardEffects(t *testing.T) {
+	t.Run("dolphin sacrifices to prevent lethal damage to another friendly unit", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		dolphin := placeUnit(baseCard(t, "1221001"), 0, 0, 0, engine)
+		ally := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		ally.CurrentLife = 1
+
+		engine.dealDamage(ally, 5, 0)
+
+		if ally.CurrentLife != 1 || engine.State.Players[0].Units[1][0] != ally {
+			t.Fatalf("dolphin should leave ally alive at 1, ally=%+v", ally)
+		}
+		if engine.State.Players[0].Units[0][0] != nil || len(engine.State.Players[0].Graveyard) != 1 || engine.State.Players[0].Graveyard[0] != dolphin {
+			t.Fatalf("dolphin should be sacrificed, units=%v graveyard=%v", engine.State.Players[0].Units[0][0], cardsToInfo(engine.State.Players[0].Graveyard))
+		}
+	})
+
+	t.Run("bifang increases only burn damage, not all damage to burning units", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		bifang := placeUnit(baseCard(t, "1111003"), 0, 0, 0, engine)
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		target.CurrentLife = 4
+		target.Statuses[StatusBurn] = 1
+
+		engine.dealDamage(target, 1, 1)
+		if target.CurrentLife != 3 {
+			t.Fatalf("normal damage to a burning unit should not be increased by bifang, life=%d source=%+v", target.CurrentLife, bifang)
+		}
+
+		engine.dealDamageWithExtra(target, 1, 1, map[string]any{"status_damage": StatusBurn})
+		if target.CurrentLife != 1 {
+			t.Fatalf("burn damage should be increased by bifang to 2 total, life=%d", target.CurrentLife)
+		}
+	})
+
+	t.Run("xinke can be summoned free from hand or deck after friendly damage", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		ally := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		handXinke := NewCardInstance(baseCard(t, "1401002"), 0, 1)
+		deckXinke := NewCardInstance(baseCard(t, "1401002"), 0, 1)
+		p0.Hand = []*CardInstance{handXinke}
+		p0.Deck = []*CardInstance{deckXinke}
+
+		engine.dealDamage(ally, 1, 0)
+
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "xinke_summon" || len(engine.State.PendingAction.Candidates) != 2 {
+			t.Fatalf("xinke should offer hand and deck summon candidates, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{handXinke.InstanceID},
+		}}); err != nil {
+			t.Fatalf("summon xinke from hand: %v", err)
+		}
+		if len(p0.Hand) != 0 || handXinke.Position == nil || p0.Units[handXinke.Position.Col][handXinke.Position.Row] != handXinke {
+			t.Fatalf("hand xinke should be summoned free, hand=%v position=%v", cardsToInfo(p0.Hand), handXinke.Position)
+		}
+		if len(p0.Deck) != 1 || p0.Deck[0] != deckXinke {
+			t.Fatalf("deck xinke should remain when hand copy chosen, deck=%v", cardsToInfo(p0.Deck))
+		}
+	})
+
+	t.Run("great druid ultimate arms the next friendly companion death into a life seed summon", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		druid := placeUnit(baseCard(t, "1411001"), 0, 0, 0, engine)
+		ally := placeUnit(baseCard(t, "1421003"), 0, 1, 0, engine)
+		addElementsGainBonus(ally, model.ElementEarth, 2)
+		ally.CurrentLife = ally.Card.Life + 2
+
+		engine.destroyUnit(ally, 0)
+		if len(p0.Graveyard) != 1 || len(p0.Hand) != 0 {
+			t.Fatalf("druid should not trigger before ultimate, graveyard=%v hand=%v", cardsToInfo(p0.Graveyard), cardsToInfo(p0.Hand))
+		}
+
+		ally2 := placeUnit(baseCard(t, "1421003"), 0, 1, 0, engine)
+		addElementsGainBonus(ally2, model.ElementEarth, 2)
+		ally2.CurrentLife = ally2.Card.Life + 2
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  druid.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("use druid ultimate: %v", err)
+		}
+		engine.destroyUnit(ally2, 0)
+
+		var seed *CardInstance
+		for _, unit := range engine.getAllFieldCards(p0) {
+			if unit.Card.Number == "1401001" {
+				seed = unit
+				break
+			}
+		}
+		if seed == nil {
+			t.Fatalf("druid ultimate should summon a life seed")
+		}
+		if seed.CurrentLife != seed.Card.Life+2 || effectiveElementsGain(seed)[model.ElementEarth] != seed.Card.ElementsGain[model.ElementEarth]+2 {
+			t.Fatalf("life seed should inherit life/load bonuses, life=%d load=%v", seed.CurrentLife, effectiveElementsGain(seed))
 		}
 	})
 }

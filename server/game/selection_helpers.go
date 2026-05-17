@@ -210,6 +210,10 @@ func (e *Engine) destroyEnemyEquipment(playerID int, instanceID string) bool {
 }
 
 func (e *Engine) searchDeckToHand(playerID int, instanceID string) bool {
+	return e.searchDeckCardToHand(playerID, instanceID) != nil
+}
+
+func (e *Engine) searchDeckCardToHand(playerID int, instanceID string) *CardInstance {
 	ps := e.State.Players[playerID]
 	for i, card := range ps.Deck {
 		if card != nil && card.InstanceID == instanceID {
@@ -217,10 +221,10 @@ func (e *Engine) searchDeckToHand(playerID int, instanceID string) bool {
 			ps.Deck = append(ps.Deck[:i], ps.Deck[i+1:]...)
 			e.shuffleDeck(playerID)
 			e.emit(GameEvent{Type: "search_card", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
-			return true
+			return card
 		}
 	}
-	return false
+	return nil
 }
 
 func (e *Engine) drawFirstDeckMatch(playerID int, predicate func(*CardInstance) bool) *CardInstance {

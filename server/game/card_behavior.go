@@ -20,6 +20,10 @@ type OnTurnStartBehavior interface {
 	OnTurnStart(*EffectContext) error
 }
 
+type OnTurnEndBehavior interface {
+	OnTurnEnd(*EffectContext) error
+}
+
 type OnUnitEnterBehavior interface {
 	OnUnitEnter(*EffectContext) error
 }
@@ -34,6 +38,10 @@ type OnEnemyDeathBehavior interface {
 
 type OnDamagedBehavior interface {
 	OnDamaged(*EffectContext) error
+}
+
+type OnFriendlyDamagedFromHiddenBehavior interface {
+	OnFriendlyDamagedFromHidden(*EffectContext) error
 }
 
 type OnSpellCastBehavior interface {
@@ -113,12 +121,25 @@ type OverloadBehavior interface {
 	OverloadThreshold() int
 }
 
+type MasteryBehavior interface {
+	MasteryMax() int
+	OnMastery(*EffectContext, int) error
+}
+
 type SpellTargetingBehavior interface {
 	NeedsSpellTarget() bool
 }
 
+type FriendlySpellTargetBehavior interface {
+	AllowsFriendlySpellTarget() bool
+}
+
 type SpellAreaBehavior interface {
 	SpellArea() SpellArea
+}
+
+type SpellAreaModifier interface {
+	ModifySpellArea(*EffectContext, *SpellArea)
 }
 
 type DrawRevealBehavior interface {
@@ -172,10 +193,30 @@ type SkillUsePermissionModifier interface {
 type SpellStats struct {
 	PowerBonus  int
 	DamageBonus int
+	Pierce      bool
 }
 
 type SpellStatModifier interface {
 	ModifySpellStats(*EffectContext, *SpellStats)
+}
+
+// EnemySpellStatModifier is evaluated from the non-casting player's field when
+// an enemy spell is resolving. Use this for cards whose text says
+// "敌方法术..." rather than making normal friendly spell bonuses inspect text.
+type EnemySpellStatModifier interface {
+	ModifyEnemySpellStats(*EffectContext, *SpellStats)
+}
+
+type DamagePreventionBehavior interface {
+	PreventsDamage(*EffectContext) bool
+}
+
+type NegativeStatusImmunityBehavior interface {
+	HasNegativeStatusImmunity() bool
+}
+
+type AdjacentNegativeStatusProtectionBehavior interface {
+	ProtectsAdjacentFromNegativeStatus() bool
 }
 
 // SkillContributionModifier lets a concrete skill card alter its own
@@ -194,6 +235,9 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 	}
 	if h, ok := behavior.(OnTurnStartBehavior); ok {
 		r.Register(id, TriggerOnTurnStart, h.OnTurnStart)
+	}
+	if h, ok := behavior.(OnTurnEndBehavior); ok {
+		r.Register(id, TriggerOnTurnEnd, h.OnTurnEnd)
 	}
 	if h, ok := behavior.(OnUnitEnterBehavior); ok {
 		r.Register(id, TriggerOnUnitEnter, h.OnUnitEnter)

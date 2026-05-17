@@ -109,6 +109,29 @@ func validateElementPayment(available map[string]int, cost map[string]int, payme
 	return true
 }
 
+func validateSingleElementPayment(available map[string]int, cost map[string]int, action ActionMessage) bool {
+	var payment map[string]int
+	if explicit := paymentFromAction(action); explicit != nil {
+		payment = explicit
+		if !validateElementPayment(available, cost, payment) {
+			return false
+		}
+	} else {
+		var ok bool
+		payment, ok = calculateElementPayment(available, cost)
+		if !ok {
+			return false
+		}
+	}
+	used := 0
+	for _, amount := range payment {
+		if amount > 0 {
+			used++
+		}
+	}
+	return used <= 1
+}
+
 func availableElementsWithOverexert(ps *PlayerState, units []*CardInstance) map[string]int {
 	available := cloneElements(ps.Elements)
 	for _, unit := range units {

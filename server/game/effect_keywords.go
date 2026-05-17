@@ -37,7 +37,7 @@ func (e *Engine) IsInSpellRange(casterID int, targetCol, targetRow int, hasPierc
 	caster := e.State.Players[casterID]
 
 	for _, card := range e.getAllFieldCards(caster) {
-		if card != nil && card.Card != nil && card.Statuses[StatusPetrify] == 0 {
+		if card != nil && card.Card != nil && !e.hasEffectiveStatus(card, StatusPetrify) {
 			if h, ok := behaviorForNumber(card.Card.Number).(GlobalSpellRangeBehavior); ok && h.HasGlobalSpellRange() {
 				return true
 			}
@@ -48,7 +48,7 @@ func (e *Engine) IsInSpellRange(casterID int, targetCol, targetRow int, hasPierc
 	if hasPierce {
 		opponentCards := e.getAllFieldCards(opponent)
 		for _, c := range opponentCards {
-			if cardHasShielding(c) && c.Statuses[StatusPetrify] == 0 {
+			if cardHasShielding(c) && !e.hasEffectiveStatus(c, StatusPetrify) {
 				hasPierce = false // shielding blocks pierce
 				break
 			}

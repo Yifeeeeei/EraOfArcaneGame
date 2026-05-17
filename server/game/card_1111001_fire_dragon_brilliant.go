@@ -12,6 +12,6 @@ func (Card1111001FireDragonBrilliant) DevourRequirement() map[string]int {
 }
 
 func (Card1111001FireDragonBrilliant) OnEnter(ctx *EffectContext) error {
-	addSkillToPool(ctx, "3101001")
+	bindSkillToHost(ctx, "3101001")
 	return nil
 }

@@ -100,6 +100,52 @@ async function visible(locator, timeout = 250) {
   }
 }
 
+async function resolvePayment(page, stats) {
+  const panel = page.locator('.payment-panel').first();
+  if (!(await visible(panel, 150))) return false;
+
+  const confirm = panel.getByRole('button', { name: '确认支付' });
+  const preferredElement = await page.evaluate(() => {
+    const d = window.__arcaneDebug;
+    const req = d?.paymentRequest?.value;
+    const state = d?.gameState?.value;
+    const slot = d?.mySlot?.value;
+    const cost = req?.cost || {};
+    if (!Number(cost['奥术'] || 0) || !state || slot === undefined) return '';
+    const total = Object.values(cost).reduce((sum, value) => sum + Number(value || 0), 0);
+    const elements = state.players?.[slot]?.elements || {};
+    return ['暗', '光', '气', '地', '水', '火', '无'].find((elem) => Number(elements[elem] || 0) >= total) || '';
+  }).catch(() => '');
+  for (let i = 0; i < 10; i++) {
+    const disabled = await confirm.getAttribute('disabled').catch(() => null);
+    if (disabled === null && await visible(confirm, 100)) break;
+    const token = preferredElement
+      ? panel.locator(`.payment-token:has(img[alt="${preferredElement}"]):not([disabled])`).first()
+      : panel.locator('.payment-token:not([disabled])').first();
+    if (!(await visible(token, 250))) break;
+    await token.click().catch(() => {});
+    await sleep(120);
+  }
+
+  if (await visible(confirm, 250)) {
+    const disabled = await confirm.getAttribute('disabled').catch(() => null);
+    if (disabled === null) {
+      await confirm.click().catch(() => {});
+      stats.paymentsResolved++;
+      await sleep(250);
+      return true;
+    }
+  }
+  const cancel = panel.getByRole('button', { name: '取消' });
+  if (await visible(cancel, 250)) {
+    await cancel.click().catch(() => {});
+    stats.paymentsCanceled++;
+    await sleep(250);
+    return true;
+  }
+  return false;
+}
+
 async function createRoom() {
   const resp = await fetch(`${BASE}/api/room/create`, { method: 'POST' });
   if (!resp.ok) throw new Error(`create room failed: ${resp.status}`);
@@ -108,6 +154,22 @@ async function createRoom() {
 
 async function resolveInterrupts(pages, stats) {
   for (const page of pages) {
+    if (await resolvePayment(page, stats)) return true;
+
+    const devourPanel = page.locator('.pending-action-panel').filter({ hasText: '选择吞噬对象' }).first();
+    if (await visible(devourPanel, 150)) {
+      const candidates = devourPanel.locator('.pending-card');
+      if ((await candidates.count().catch(() => 0)) === 0) {
+        const cancel = devourPanel.getByRole('button', { name: '取消' });
+        if (await visible(cancel, 250)) {
+          await cancel.click().catch(() => {});
+          stats.devoursCanceled++;
+          await sleep(250);
+          return true;
+        }
+      }
+    }
+
     const pending = page.locator('.pending-card');
     if ((await pending.count()) > 0 && await visible(pending.first())) {
       const body = await page.locator('body').innerText().catch(() => '');
@@ -229,6 +291,19 @@ async function castOneSkill(page, stats) {
   const target = page.locator('.unit-cell.spell-target.occupied').first();
   if (await visible(target, 600)) {
     await target.click().catch(() => {});
+    await sleep(200);
+    const needsExtraTarget = await page.evaluate(() => {
+      const d = window.__arcaneDebug;
+      return !!d?.pendingExtraTargetCast?.value && d?.selectedSkill?.value?.number === '3321001';
+    }).catch(() => false);
+    if (needsExtraTarget) {
+      const targets = page.locator('.unit-cell.spell-target.occupied');
+      const count = await targets.count().catch(() => 0);
+      const extraTarget = count > 1 ? targets.nth(1) : targets.first();
+      if (await visible(extraTarget, 600)) {
+        await extraTarget.click().catch(() => {});
+      }
+    }
   }
   stats.casts++;
   await sleep(700);
@@ -307,6 +382,10 @@ async function runOne(browser, spec, index) {
     await browser.newContext({ viewport: { width: 1440, height: 960 } }),
     await browser.newContext({ viewport: { width: 1440, height: 960 } }),
   ];
+  for (const context of contexts) {
+    context.setDefaultTimeout(5000);
+    context.setDefaultNavigationTimeout(10000);
+  }
   const pages = [await contexts[0].newPage(), await contexts[1].newPage()];
   const logs = [];
   const errors = [];
@@ -330,6 +409,9 @@ async function runOne(browser, spec, index) {
     abilities: 0,
     pendingResolved: 0,
     noDefend: 0,
+    paymentsResolved: 0,
+    paymentsCanceled: 0,
+    devoursCanceled: 0,
     gameOver: false,
     errors,
   };

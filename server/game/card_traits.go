@@ -119,18 +119,20 @@ func traitsForCardNumber(number string) cardTraits {
 	switch number {
 	case "3021009", "3321003", "3321006", "3421007", "3521004", "3521008":
 		t.statuses = map[string]int{StatusStun: 1}
-	case "3221005", "3201002":
+	case "2221003", "2221009", "3221005", "3201002", "3221014":
 		t.statuses = map[string]int{StatusFreeze: 1}
 	case "3221012":
 		t.statuses = map[string]int{StatusFreeze: 2}
 	case "3121003":
 		t.statuses = map[string]int{StatusBurn: 2}
-	case "3121005", "3121010", "3121011":
+	case "3121005", "3121010", "3121011", "3121013":
 		t.statuses = map[string]int{StatusBurn: 1}
 	case "3421002":
 		t.statuses = map[string]int{StatusPetrify: 1}
-	case "3421009":
+	case "2421005", "3421009":
 		t.statuses = map[string]int{StatusPetrify: 2}
+	case "2621001", "3621009", "3621014":
+		t.statuses = map[string]int{StatusWeaken: 2}
 	}
 
 	return t
@@ -138,10 +140,10 @@ func traitsForCardNumber(number string) cardTraits {
 
 func hasPerTurnAbilityNumber(number string) bool {
 	switch number {
-	case "1211001", "1211003", "1221005", "1221012", "1221014", "1221015",
-		"1321001", "1321013", "1321015", "1401001", "1421009", "1421010",
-		"1421012", "1621003", "1621009", "2111001", "2111002", "2121001",
-		"2311002", "2321001", "2411001", "2511002", "2601001", "2621013",
+	case "1211001", "1211003", "1221005", "1221014", "1221015",
+		"1321001", "1321013", "1321015", "1421009", "1421010",
+		"1421012", "1521001", "1621003", "1621009", "2111001", "2111002", "2121001",
+		"2311002", "2321001", "2411001", "2421011", "2511002", "2601001", "2621013",
 		"4111002":
 		return true
 	default:
@@ -151,8 +153,8 @@ func hasPerTurnAbilityNumber(number string) bool {
 
 func hasUltimateAbilityNumber(number string) bool {
 	switch number {
-	case "1021012", "1121010", "1221011", "1321005", "1511001", "1521011",
-		"1611002", "1621004", "1621012", "2021006", "2121007", "2321012",
+	case "1021012", "1121010", "1221011", "1321005", "1411001", "1511001", "1521011",
+		"1611002", "1621004", "1621012", "2021006", "2121007", "2211001", "2321012",
 		"2521007", "4311001", "4311003", "4511002", "4611002":
 		return true
 	default:
@@ -280,6 +282,9 @@ func spellArea(skill *CardInstance) SpellArea {
 		if area := h.SpellArea(); area != "" {
 			return area
 		}
+	}
+	if skill.Statuses["下一次范围前排"] > 0 {
+		return SpellAreaFrontRow
 	}
 	return traitsForCardNumber(skill.Card.Number).area
 }

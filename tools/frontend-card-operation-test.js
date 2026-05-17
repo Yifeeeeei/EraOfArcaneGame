@@ -35,7 +35,7 @@ const SUPPORT_BY_ELEMENT = {
   '气': ['1311003', '1311003', '1321001', '1321001', '1321003', '1321003', '1321011', '1321011', '1321013', '1321013'],
   '地': ['1421002', '1421002', '1421003', '1421003', '1421008', '1421008', '1421010', '1421010', '1421012', '1421012'],
   '光': ['1501001', '1501001', '1521005', '1521005', '1521006', '1521006', '1521007', '1521007', '1521009', '1521009'],
-  '暗': ['1621001', '1621001', '1621003', '1621003', '1621004', '1621004', '1621007', '1621007', '1621011', '1621011'],
+  '暗': ['1621010', '1621010', '1621003', '1621003', '1621001', '1621001', '1621004', '1621004', '1621007', '1621007'],
 };
 
 const FILLER_SKILLS = [
@@ -56,6 +56,12 @@ function primaryElement(cost, fallback = '气') {
   if (!entries.length) return fallback;
   entries.sort((a, b) => Number(b[1]) - Number(a[1]));
   return entries[0][0] || fallback;
+}
+
+function costElements(cost) {
+  return Object.entries(cost || {})
+    .filter(([elem, value]) => elem !== '无' && Number(value) > 0)
+    .map(([elem]) => elem);
 }
 
 function isDefenseSkill(card) {
@@ -104,13 +110,16 @@ function dedupeSkillPool(target) {
 }
 
 function buildDeck(card) {
-  const elem = primaryElement(card.elements_cost, card.category || '气');
+  const elem = Number(card.elements_cost?.['奥术'] || 0) > 0 ? '暗' : primaryElement(card.elements_cost, card.category || '气');
   const hero = card.type === '人物' ? card.number : (HERO_BY_ELEMENT[elem] || '4311003');
   const main = [];
   const skills = [];
 
   if (card.type === '伙伴' || card.type === '道具') main.push(card.number, card.number);
-  const support = SUPPORT_BY_ELEMENT[elem] || FILLER_MAIN;
+  const support = [
+    ...costElements(card.elements_cost).flatMap((costElem) => SUPPORT_BY_ELEMENT[costElem] || []),
+    ...(SUPPORT_BY_ELEMENT[elem] || []),
+  ];
   for (const id of [...support, ...FILLER_MAIN]) {
     if (main.length >= 30) break;
     const current = main.filter((x) => x === id).length;
@@ -148,6 +157,22 @@ async function createRoom() {
 
 async function resolveInterrupts(p1, p2, stats) {
   for (const page of [p1, p2]) {
+    if (await resolvePayment(page, stats)) return true;
+
+    const devourPanel = page.locator('.pending-action-panel').filter({ hasText: '选择吞噬对象' }).first();
+    if (await visible(devourPanel, 150)) {
+      const candidates = devourPanel.locator('.pending-card');
+      if ((await count(candidates)) === 0) {
+        const cancel = devourPanel.getByRole('button', { name: '取消' });
+        if (await visible(cancel, 250)) {
+          await cancel.click();
+          stats.devoursCanceled = (stats.devoursCanceled || 0) + 1;
+          await sleep(250);
+          return true;
+        }
+      }
+    }
+
     const pending = page.locator('.pending-card');
     if (await count(pending) > 0 && await visible(pending.first())) {
       await pending.first().click();
@@ -163,6 +188,48 @@ async function resolveInterrupts(p1, p2, stats) {
       await sleep(200);
       return true;
     }
+  }
+  return false;
+}
+
+async function resolvePayment(page, stats) {
+  const panel = page.locator('.payment-panel').first();
+  if (!(await visible(panel, 150))) return false;
+  const confirm = panel.getByRole('button', { name: '确认支付' });
+  const preferredElement = await page.evaluate(() => {
+    const d = window.__arcaneDebug;
+    const req = d?.paymentRequest?.value;
+    const state = d?.gameState?.value;
+    const slot = d?.mySlot?.value;
+    const cost = req?.cost || {};
+    if (!Number(cost['奥术'] || 0) || !state || slot === undefined) return '';
+    const total = Object.values(cost).reduce((sum, value) => sum + Number(value || 0), 0);
+    const elements = state.players?.[slot]?.elements || {};
+    return ['暗', '光', '气', '地', '水', '火', '无'].find((elem) => Number(elements[elem] || 0) >= total) || '';
+  }).catch(() => '');
+  for (let i = 0; i < 10; i++) {
+    const disabled = await confirm.getAttribute('disabled').catch(() => null);
+    if (disabled === null && await visible(confirm, 100)) break;
+    const token = preferredElement
+      ? panel.locator(`.payment-token:has(img[alt="${preferredElement}"]):not([disabled])`).first()
+      : panel.locator('.payment-token:not([disabled])').first();
+    if (!(await visible(token, 250))) break;
+    await token.click().catch(() => {});
+    await sleep(120);
+  }
+  const disabled = await confirm.getAttribute('disabled').catch(() => null);
+  if (disabled === null && await visible(confirm, 250)) {
+    await confirm.click().catch(() => {});
+    stats.paymentsResolved = (stats.paymentsResolved || 0) + 1;
+    await sleep(250);
+    return true;
+  }
+  const cancel = panel.getByRole('button', { name: '取消' });
+  if (await visible(cancel, 250)) {
+    await cancel.click().catch(() => {});
+    stats.paymentsCanceled = (stats.paymentsCanceled || 0) + 1;
+    await sleep(250);
+    return true;
   }
   return false;
 }
@@ -205,18 +272,39 @@ async function advanceToNextP1Turn(p1, p2, stats) {
 async function consumeAll(page) {
   let consumed = 0;
   for (let i = 0; i < 12; i++) {
-    const buttons = page.locator('button.action-btn.consume');
-    if ((await count(buttons)) < 1 || !(await visible(buttons.first()))) break;
-    await buttons.first().click();
+    const clicked = await clickRevealedButton(page, 'button.action-btn.consume');
+    if (!clicked) break;
     consumed++;
     await sleep(180);
   }
   return consumed;
 }
 
-async function playSupportCards(page, targetName) {
+async function clickRevealedButton(page, selector) {
+  const buttons = page.locator(selector);
+  const total = await count(buttons);
+  for (let i = 0; i < total; i++) {
+    const button = buttons.nth(i);
+    const owner = button.locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " unit-cell ") or contains(concat(" ", normalize-space(@class), " "), " slot ")][1]');
+    if ((await count(owner)) > 0) {
+      await owner.first().hover().catch(() => {});
+      await sleep(80);
+    } else {
+      await button.hover().catch(() => {});
+      await sleep(80);
+    }
+    if (await visible(button, 250)) {
+      await button.click().catch(() => {});
+      return true;
+    }
+  }
+  return false;
+}
+
+async function playSupportCards(page, targetName, stats = {}) {
   let played = 0;
   for (let i = 0; i < 8; i++) {
+    await resolvePayment(page, stats);
     const cards = await page.locator('.hand-card.playable').all();
     let chosen = null;
     for (const card of cards) {
@@ -232,12 +320,14 @@ async function playSupportCards(page, targetName) {
     const summonTarget = page.locator('.unit-cell.summon-target').first();
     if (await visible(summonTarget)) {
       await summonTarget.click();
+      await resolvePayment(page, stats);
       played++;
       await sleep(500);
       continue;
     }
     // For playable support items, a second click uses/equips them.
     await chosen.click().catch(() => {});
+    await resolvePayment(page, stats);
     played++;
     await sleep(500);
   }
@@ -249,6 +339,10 @@ async function joinTwoClients(browser, card) {
   const deck = buildDeck(card);
   const c1 = await browser.newContext({ viewport: { width: 1440, height: 960 } });
   const c2 = await browser.newContext({ viewport: { width: 1440, height: 960 } });
+  for (const context of [c1, c2]) {
+    context.setDefaultTimeout(5000);
+    context.setDefaultNavigationTimeout(10000);
+  }
   const p1 = await c1.newPage();
   const p2 = await c2.newPage();
   const logs = [];
@@ -303,11 +397,12 @@ async function operateSkill(page, other, card, stats) {
   }
   if (!(await visible(skillCard, 2500))) return { status: 'missing_control', reason: 'skill not visible in skill pool' };
   const hint = await skillCard.locator('.sp-learn-hint').textContent().catch(() => '');
-  if (/元素不足/.test(hint || '')) return { status: 'unaffordable', reason: `learn hint: ${hint}` };
+  if (/元素不足|缺/.test(hint || '')) return { status: 'unaffordable', reason: `learn hint: ${hint}` };
   await skillCard.click({ button: 'right' });
   const learn = page.getByText('学习技能', { exact: false }).first();
   if (!(await visible(learn))) return { status: 'missing_control', reason: 'learn menu item not visible' };
   await learn.click();
+  await resolvePayment(page, stats);
   await sleep(600);
 
   const body = await page.locator('body').innerText();
@@ -323,7 +418,10 @@ async function castLearnedSkill(page, other, card, stats) {
   for (let i = 0; i < 8; i++) {
     await resolveInterrupts(page, other, stats);
     await consumeAll(page);
-    const slot = page.locator(`.slot.occupied:has(img[src*="${card.number}"])`).first();
+    let slot = page.locator(`.slot.occupied:has(img[src*="${card.number}"])`).first();
+    if (!(await visible(slot, 500))) {
+      slot = page.locator('.slot.occupied').filter({ hasText: card.name }).first();
+    }
     if (!(await visible(slot, 500))) return { status: 'missing_control', reason: 'learned skill slot not visible' };
     const castButton = slot.locator('.cast-btn').first();
     if (await visible(castButton, 500)) {
@@ -333,13 +431,25 @@ async function castLearnedSkill(page, other, card, stats) {
         const target = page.locator('.unit-cell.spell-target.occupied').first();
         if (!(await visible(target, 800))) return { status: 'missing_control', reason: 'spell target not highlighted after clicking cast' };
         await target.click();
+        await sleep(250);
+        const needsExtraTarget = await page.evaluate(() => {
+          const d = window.__arcaneDebug;
+          return !!d?.pendingExtraTargetCast?.value && d?.selectedSkill?.value?.number === '3321001';
+        }).catch(() => false);
+        if (needsExtraTarget) {
+          const targets = page.locator('.unit-cell.spell-target.occupied');
+          const count = await targets.count().catch(() => 0);
+          const extraTarget = count > 1 ? targets.nth(1) : targets.first();
+          if (!(await visible(extraTarget, 800))) return { status: 'missing_control', reason: 'extra spell target not highlighted after primary target' };
+          await extraTarget.click();
+        }
       }
       await sleep(800);
       await resolveInterrupts(page, other, stats);
       const body = await page.locator('body').innerText();
       return body.includes(`施放 ${card.name}`) ? { status: 'pass', action: 'cast_skill' } : { status: 'missing_confirmation', reason: 'cast log not found' };
     }
-    await playSupportCards(page, card.name);
+    await playSupportCards(page, card.name, stats);
     const advanced = await advanceToNextP1Turn(page, other, stats);
     if (!advanced) break;
   }
@@ -429,7 +539,7 @@ async function testOne(browser, card) {
         if (['pass', 'missing_control', 'unsupported'].includes(result.status)) break;
         if (turnAttempt < TURN_ATTEMPTS && ['unaffordable', 'not_in_hand'].includes(result.status)) {
           if (result.status === 'unaffordable') {
-            await playSupportCards(env.p1, card.name);
+            await playSupportCards(env.p1, card.name, aggregate);
           }
           const advanced = await advanceToNextP1Turn(env.p1, env.p2, aggregate);
           if (!advanced) break;

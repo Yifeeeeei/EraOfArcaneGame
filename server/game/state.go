@@ -98,6 +98,7 @@ const (
 	StatusWeaken   = "虚弱"
 	StatusCooldown = "冷却"
 	StatusSeal     = "封印"
+	StatusMastery  = "精通"
 )
 
 // PlayerState holds all state for one player
@@ -124,7 +125,8 @@ type PlayerState struct {
 	LoadGainAtTurnEnd  map[string]map[string]int `json:"load_gain_at_turn_end,omitempty"`
 	RevealedHand       map[string]bool           `json:"revealed_hand,omitempty"`
 
-	// Charge pool - 充能 counter (shared across all cards)
+	// Legacy charge pool. Do not use this for 精通; mastery is a per-card
+	// instance mark stored in CardInstance.Statuses[StatusMastery].
 	Charge int `json:"charge"`
 
 	// Deck definition
@@ -382,11 +384,12 @@ type GameState struct {
 
 // SpellCast represents an ongoing spell combat
 type SpellCast struct {
-	AttackerID  int             `json:"attacker_id"`
-	Skill       *CardInstance   `json:"skill"`
-	Target      SpellTarget     `json:"target"`
-	TotalPower  int             `json:"total_power"`
-	BoostSkills []*CardInstance `json:"boost_skills"` // skills used to boost
+	AttackerID   int             `json:"attacker_id"`
+	Skill        *CardInstance   `json:"skill"`
+	Target       SpellTarget     `json:"target"`
+	TotalPower   int             `json:"total_power"`
+	BoostSkills  []*CardInstance `json:"boost_skills"` // skills used to boost
+	ExtraTargets []SpellTarget   `json:"extra_targets,omitempty"`
 }
 
 // SpellTarget represents the target of a spell
