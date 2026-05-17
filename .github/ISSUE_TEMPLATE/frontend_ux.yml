@@ -1,0 +1,71 @@
+name: Frontend UX
+description: Report a frontend usability, clarity, layout, or interaction problem.
+title: "[Frontend UX]: "
+labels:
+  - frontend
+  - ux
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Use the app version if one exists. Otherwise paste the commit hash you tested.
+      placeholder: "e.g. 8d0288c or v0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: screen
+    attributes:
+      label: Screen
+      options:
+        - Match board
+        - Lobby
+        - Card test workbench
+        - Deck/room flow
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe what is confusing, hard to see, hard to click, or visually wrong.
+    validations:
+      required: true
+  - type: textarea
+    id: user_impact
+    attributes:
+      label: User impact
+      description: Explain how this affects a real player trying to operate the game.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps or context
+      description: Include viewport size, browser, room/test state, and actions if relevant.
+    validations:
+      required: true
+  - type: textarea
+    id: screenshots
+    attributes:
+      label: Screenshots or recording
+      description: Attach images/video whenever possible.
+    validations:
+      required: false
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested improvement
+      description: Optional. Describe the desired behavior or layout.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: I reviewed this from a real player's perspective, not only by checking that the UI technically renders.
+          required: true
+        - label: I included the version or commit where this happened.
+          required: true

@@ -1,0 +1,85 @@
+name: Card Effect
+description: Report a missing, incomplete, or semantically wrong card effect.
+title: "[Card Effect]: "
+labels:
+  - card-effect
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Current scope is the base set. Use this template when a specific card's behavior does not match its intended rules text.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Use the app version if one exists. Otherwise paste the commit hash you tested.
+      placeholder: "e.g. 8d0288c or v0.1.0"
+    validations:
+      required: true
+  - type: input
+    id: card_number
+    attributes:
+      label: Card number
+      placeholder: "e.g. 1621011"
+    validations:
+      required: true
+  - type: input
+    id: card_name
+    attributes:
+      label: Card name
+      placeholder: "e.g. 白骨骑士"
+    validations:
+      required: true
+  - type: dropdown
+    id: card_set
+    attributes:
+      label: Card set
+      options:
+        - 基础包
+        - Other or unknown
+    validations:
+      required: true
+  - type: textarea
+    id: printed_text
+    attributes:
+      label: Printed card text
+      description: Paste the relevant card description or rules text.
+    validations:
+      required: true
+  - type: textarea
+    id: expected_semantics
+    attributes:
+      label: Expected semantics
+      description: Explain the intended behavior precisely, including timing, targets, costs, and edge cases.
+    validations:
+      required: true
+  - type: textarea
+    id: current_behavior
+    attributes:
+      label: Current behavior
+      description: What currently happens in the frontend or tests?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction or test setup
+      description: Include deck/test room setup, board state, resources, and actions.
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Related cards, rule ambiguities, screenshots, or links.
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: This issue is for a base-set card, or I marked the card set as other/unknown.
+          required: true
+        - label: I included the version or commit where this happened.
+          required: true
