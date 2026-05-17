@@ -22,6 +22,8 @@ func SetupRoutes(mux *http.ServeMux, rm *match.RoomManager) {
 	mux.HandleFunc("/api/test-room/create", handleCreateTestRoom(rm))
 	mux.HandleFunc("/api/test-room/add-card", handleTestRoomAddCard(rm))
 	mux.HandleFunc("/api/test-room/elements", handleTestRoomElements(rm))
+	mux.HandleFunc("/api/test-room/card-state", handleTestRoomCardState(rm))
+	mux.HandleFunc("/api/test-room/state", handleTestRoomState(rm))
 
 	// WebSocket
 	mux.HandleFunc("/ws", HandleWebSocket(rm))
@@ -163,6 +165,8 @@ func handleTestRoomAddCard(rm *match.RoomManager) http.HandlerFunc {
 		CardNumber string `json:"card_number"`
 		Zone       string `json:"zone"`
 		Count      int    `json:"count"`
+		Col        int    `json:"col"`
+		Row        int    `json:"row"`
 	}
 	return func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != "POST" {
@@ -179,13 +183,67 @@ func handleTestRoomAddCard(rm *match.RoomManager) http.HandlerFunc {
 			jsonError(w, message, code)
 			return
 		}
-		if err := room.Engine.DebugAddCard(req.Player, req.CardNumber, req.Zone, req.Count); err != nil {
+		if err := room.Engine.DebugAddCardAt(req.Player, req.CardNumber, req.Zone, req.Count, req.Col, req.Row); err != nil {
 			jsonError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		room.BroadcastState()
 		w.Header().Set("Content-Type", "application/json")
 		json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	}
+}
+
+func handleTestRoomCardState(rm *match.RoomManager) http.HandlerFunc {
+	type request struct {
+		testRoomRequest
+		game.DebugCardMutation
+	}
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "POST" {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		var req request
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			jsonError(w, "invalid request body", http.StatusBadRequest)
+			return
+		}
+		room, ok, message, code := testRoomFromRequest(rm, req.testRoomRequest)
+		if !ok {
+			jsonError(w, message, code)
+			return
+		}
+		if err := room.Engine.DebugMutateCard(req.Player, req.DebugCardMutation); err != nil {
+			jsonError(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		room.BroadcastState()
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(map[string]any{"ok": true})
+	}
+}
+
+func handleTestRoomState(rm *match.RoomManager) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != "GET" {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		player := 0
+		if raw := r.URL.Query().Get("player"); raw != "" {
+			if _, err := fmt.Sscanf(raw, "%d", &player); err != nil {
+				jsonError(w, "invalid player", http.StatusBadRequest)
+				return
+			}
+		}
+		req := testRoomRequest{RoomID: r.URL.Query().Get("room_id"), Player: player}
+		room, ok, message, code := testRoomFromRequest(rm, req)
+		if !ok {
+			jsonError(w, message, code)
+			return
+		}
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(room.Engine.GetStateForPlayer(player))
 	}
 }
 
