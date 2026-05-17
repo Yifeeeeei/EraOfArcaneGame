@@ -54,7 +54,10 @@
 
             <!-- Room Status -->
             <section class="section" v-if="currentRoom">
-                <h2>房间 #{{ currentRoom.id }}</h2>
+                <h2>
+                    房间 #{{ currentRoom.id }}
+                    <span v-if="currentRoom.test_mode" class="tag tag-test">测试</span>
+                </h2>
                 <div class="room-status">
                     <div v-for="p in currentRoom.players" :key="p.id" class="player-slot">
                         玩家{{ p.slot + 1 }}: {{ p.name }}
@@ -72,6 +75,7 @@
                 <div v-for="room in rooms" :key="room.id" class="room-item">
                     <span>房间 #{{ room.id }}</span>
                     <span>{{ room.players.length }}/2 玩家</span>
+                    <span v-if="room.test_mode" class="tag tag-test">测试</span>
                     <span v-if="room.is_started" class="tag tag-active">进行中</span>
                     <span v-else class="tag tag-waiting">等待中</span>
                     <button v-if="!room.is_started && room.players.length < 2"
