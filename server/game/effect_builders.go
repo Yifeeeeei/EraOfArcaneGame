@@ -21,14 +21,7 @@ import (
 // DrawCards 抽N张牌
 func DrawCards(n int) EffectHandler {
 	return func(ctx *EffectContext) error {
-		ps := ctx.Engine.State.Players[ctx.PlayerID]
-		drawn := ps.DrawCards(n)
-		for _, c := range drawn {
-			ctx.Engine.emit(GameEvent{
-				Type: "draw_card", Player: ctx.PlayerID,
-				Data: map[string]any{"card": cardToInfo(c)},
-			})
-		}
+		ctx.Engine.drawCards(ctx.PlayerID, n)
 		return nil
 	}
 }

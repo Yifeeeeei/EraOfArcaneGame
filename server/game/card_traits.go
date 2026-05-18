@@ -1,6 +1,8 @@
 package game
 
 import (
+	"strings"
+
 	"eraofarcane/cards"
 	"eraofarcane/model"
 )
@@ -69,7 +71,7 @@ func traitsForCardNumber(number string) cardTraits {
 		t.pierce = true
 	}
 	switch number {
-	case "1221014", "1421012", "2321001":
+	case "1221014", "2321001":
 		t.temporary = true
 	}
 	switch number {
@@ -143,7 +145,7 @@ func hasPerTurnAbilityNumber(number string) bool {
 	case "1211001", "1211003", "1221005", "1221014", "1221015",
 		"1321001", "1321013", "1321015", "1421009", "1421010",
 		"1421012", "1521001", "1621003", "1621009", "2111001", "2111002", "2121001",
-		"2311002", "2321001", "2411001", "2421011", "2511002", "2601001", "2621013",
+		"2311002", "2411001", "2421011", "2511002", "2601001", "2621013",
 		"4111002":
 		return true
 	default:
@@ -466,6 +468,9 @@ func isBeastPlantOrSpirit(card *CardInstance) bool {
 	if card == nil || card.Card == nil {
 		return false
 	}
+	if hasAnyTag(card.Card.Tag, "野兽", "植物", "精灵") {
+		return true
+	}
 	switch card.Card.Number {
 	case "1021007", "1021008", "1121001", "1121004", "1121006", "1121009", "1121014",
 		"1221001", "1221006", "1221007", "1221014", "1311001", "1321001", "1321002",
@@ -477,6 +482,15 @@ func isBeastPlantOrSpirit(card *CardInstance) bool {
 	default:
 		return false
 	}
+}
+
+func hasAnyTag(tag string, needles ...string) bool {
+	for _, needle := range needles {
+		if strings.Contains(tag, needle) {
+			return true
+		}
+	}
+	return false
 }
 
 func isConstructOrDemon(card *CardInstance) bool {

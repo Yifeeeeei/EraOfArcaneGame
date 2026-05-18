@@ -18,13 +18,6 @@ func (Card2521007BlueCrystalLamp) OnUltimate(ctx *EffectContext) error {
 		return fmt.Errorf("光辉元素不足")
 	}
 	ps.PayCost(cost)
-	addElementsGainBonus(ctx.Source, model.ElementLight, 2)
-	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
-		"source":   cardToInfo(ctx.Source),
-		"effect":   "load_bonus",
-		"element":  model.ElementLight,
-		"amount":   2,
-		"elements": ps.Elements,
-	}})
+	ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementLight, 2, ctx.Source)
 	return nil
 }

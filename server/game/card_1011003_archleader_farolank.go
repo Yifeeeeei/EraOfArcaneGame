@@ -18,7 +18,7 @@ func (Card1011003ArchleaderFarolank) OnEnter(ctx *EffectContext) error {
 		}
 	}
 	for elem, amount := range gains {
-		addElementsGainBonus(ctx.Source, elem, amount)
+		ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, elem, amount, ctx.Source)
 	}
 	return nil
 }

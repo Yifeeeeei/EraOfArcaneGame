@@ -19,7 +19,7 @@ func (Card2221012WaterWalkingBoots) OnTurnStart(ctx *EffectContext) error {
 		}
 	}
 	if count >= 3 && ctx.Source.ElementsGainBonus[model.ElementWater] < 1 {
-		addElementsGainBonus(ctx.Source, model.ElementWater, 1)
+		ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementWater, 1, ctx.Source)
 	}
 	return nil
 }

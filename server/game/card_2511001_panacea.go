@@ -21,10 +21,7 @@ func (Card2511001Panacea) OnUseItem(ctx *EffectContext) error {
 			}
 			switch selected[0] {
 			case "draw":
-				drawn := ctx.Engine.State.Players[ctx.PlayerID].DrawCards(4)
-				for _, card := range drawn {
-					ctx.Engine.emit(GameEvent{Type: "draw_card", Player: ctx.PlayerID, Data: map[string]any{"card": cardToInfo(card)}})
-				}
+				ctx.Engine.drawCards(ctx.PlayerID, 4)
 			case "gain":
 				ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementArcane: 5})
 			case "heal":

@@ -256,6 +256,11 @@ body::before {
     margin: 4px 0 7px;
 }
 
+.opponent-hand-strip {
+    max-height: 168px;
+    overflow-y: auto;
+}
+
 .revealed-card {
     display: grid;
     grid-template-columns: 26px 1fr;
@@ -266,6 +271,25 @@ body::before {
     border: 1px solid rgba(198,174,116,0.16);
     background: rgba(8,6,5,0.42);
     cursor: pointer;
+}
+
+.revealed-card.hidden {
+    cursor: default;
+    color: var(--text-muted);
+}
+
+.revealed-card.hidden:hover {
+    border-color: rgba(198,174,116,0.16);
+    background: rgba(8,6,5,0.42);
+}
+
+.card-back-mini {
+    width: 26px;
+    height: 36px;
+    border: 1px solid rgba(198,174,116,0.28);
+    background:
+        linear-gradient(135deg, rgba(198,174,116,0.12), transparent 32%, rgba(198,174,116,0.12) 66%, transparent),
+        rgba(10,7,5,0.92);
 }
 
 .revealed-card:hover {
@@ -1546,6 +1570,22 @@ body::before {
 
 /* Mulligan */
 .mulligan-panel { max-width: 560px; }
+.mulligan-order {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 92px;
+    height: 28px;
+    margin: 0 auto 8px;
+    border: 1px solid rgba(198,174,116,0.34);
+    background: rgba(8,6,5,0.46);
+    color: var(--gold-bright);
+    font-family: var(--font-display);
+    font-size: 14px;
+}
+.mulligan-order.is-second {
+    color: var(--azure);
+}
 .mulligan-cards {
     display: flex;
     gap: 8px;
@@ -2178,6 +2218,29 @@ body::before {
 }
 .pending-action-overlay .overlay-content {
     border-color: var(--gold-dim);
+}
+
+.pending-action-overlay,
+.defense-overlay {
+    right: min(360px, 24vw);
+    justify-content: flex-start;
+    padding-left: clamp(18px, 4vw, 72px);
+    background: linear-gradient(90deg, rgba(5,4,3,0.9), rgba(5,4,3,0.58) 70%, transparent);
+}
+
+.pending-action-overlay .overlay-content,
+.defense-overlay .overlay-content {
+    margin-left: 0;
+}
+
+@media (max-width: 1180px) {
+    .pending-action-overlay,
+    .defense-overlay {
+        inset: 0;
+        justify-content: center;
+        padding-left: 0;
+        background: rgba(5, 4, 3, 0.86);
+    }
 }
 
 /* ── Payment Choice Modal ── */

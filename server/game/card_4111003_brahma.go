@@ -19,7 +19,7 @@ func (Card4111003Brahma) OnSpellHit(ctx *EffectContext) error {
 	if !isFriendlySpellHit(ctx) || ctx.Target.Card.Category != model.ElementFire {
 		return nil
 	}
-	addElementsGainBonus(ctx.Source, model.ElementFire, 1)
+	ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementFire, 1, ctx.Source)
 	return nil
 }
 

@@ -160,7 +160,7 @@ func (Card1121012FireInsight) Name() string { return "火焰洞察者" }
 func (Card1121012FireInsight) OnDamaged(ctx *EffectContext) error {
 	if ctx.ExtraData != nil {
 		if ctx.ExtraData["damage_element"] == model.ElementFire || ctx.ExtraData["status_damage"] == StatusBurn {
-			ctx.Engine.State.Players[ctx.PlayerID].DrawCards(1)
+			ctx.Engine.drawCards(ctx.PlayerID, 1)
 		}
 	}
 	return nil
@@ -238,7 +238,7 @@ type Card1221010WallKeeper struct{ AlwaysActive }
 func (Card1221010WallKeeper) ID() string   { return "1221010" }
 func (Card1221010WallKeeper) Name() string { return "护壁者" }
 func (Card1221010WallKeeper) OnEnter(ctx *EffectContext) error {
-	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModAllSpellDamageZero, RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 2})
+	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModAllSpellDamageZero, RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 1})
 	return nil
 }
 
@@ -372,7 +372,7 @@ func (Card1411001GreatDruidCycle) OnFriendlyDeath(ctx *EffectContext) error {
 		seed.CurrentLife += bonusLife
 	}
 	for elem, amount := range ctx.Target.ElementsGainBonus {
-		addElementsGainBonus(seed, elem, amount)
+		ctx.Engine.addElementsGainBonus(seed, ctx.PlayerID, elem, amount, ctx.Source)
 	}
 	if len(ctx.Target.ElementsGainSet) > 0 {
 		seed.ElementsGainSet = copyElementCost(ctx.Target.ElementsGainSet)
@@ -410,7 +410,7 @@ func (Card1421003GrowingTreant) Name() string    { return "成长的树人" }
 func (Card1421003GrowingTreant) MasteryMax() int { return 4 }
 func (Card1421003GrowingTreant) OnMastery(ctx *EffectContext, level int) error {
 	if level == 2 || level == 4 {
-		addElementsGainBonus(ctx.Source, model.ElementEarth, 1)
+		ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementEarth, 1, ctx.Source)
 	}
 	return nil
 }
@@ -425,7 +425,7 @@ func (Card1421004ForestGuard) OnMastery(ctx *EffectContext, level int) error {
 	case 1:
 		ctx.Source.CurrentLife++
 	case 3:
-		addElementsGainBonus(ctx.Source, model.ElementEarth, 1)
+		ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementEarth, 1, ctx.Source)
 	case 5:
 		ctx.Source.AttackBonus += 2
 	}
@@ -454,10 +454,19 @@ func (Card1421010PlantationGardener) OnTurnStart(ctx *EffectContext) error {
 	ctx.Source.Statuses["地脉标记"]++
 	return nil
 }
+func (Card1421010PlantationGardener) OnLoadGain(ctx *EffectContext) error {
+	if ctx.ExtraData == nil {
+		return nil
+	}
+	if player, ok := ctx.ExtraData["load_gain_player"].(int); ok && player == ctx.PlayerID {
+		ctx.Source.Statuses["地脉标记"]++
+	}
+	return nil
+}
 func (Card1421010PlantationGardener) OnPerTurn(ctx *EffectContext) error {
 	if ctx.Source.Statuses["地脉标记"] >= 2 {
 		ctx.Source.Statuses["地脉标记"] -= 2
-		ctx.Engine.State.Players[ctx.PlayerID].DrawCards(1)
+		ctx.Engine.drawCards(ctx.PlayerID, 1)
 	}
 	return nil
 }
@@ -714,7 +723,7 @@ func (Card2211002WinterBow) OnEnter(ctx *EffectContext) error {
 func (Card2211002WinterBow) OnSpellCast(ctx *EffectContext) error {
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	if ps.PayCost(map[string]int{model.ElementWater: 1}) {
-		addElementsGainBonus(ctx.Source, model.ElementWater, 1)
+		ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementWater, 1, ctx.Source)
 	}
 	return nil
 }
@@ -736,7 +745,7 @@ func (Card2221010TideRune) ID() string   { return "2221010" }
 func (Card2221010TideRune) Name() string { return "潮涌符文" }
 func (Card2221010TideRune) OnUseItem(ctx *EffectContext) error {
 	if target := firstUnitFromCandidates(ctx.Engine, ctx.PlayerID, ctx.Engine.friendlyUnits(ctx.PlayerID, false, isWaterCompanion)); target != nil {
-		addElementsGainBonus(target, model.ElementWater, 2)
+		ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementWater, 2, ctx.Source)
 	}
 	return nil
 }
@@ -780,9 +789,40 @@ type Card2321001WindbreathCompass struct{ AlwaysActive }
 
 func (Card2321001WindbreathCompass) ID() string   { return "2321001" }
 func (Card2321001WindbreathCompass) Name() string { return "风息罗盘" }
-func (Card2321001WindbreathCompass) OnPerTurn(ctx *EffectContext) error {
-	addElementsGainBonus(ctx.Source, model.ElementAir, 1)
+
+const windbreathCompassPendingStatus = "风息罗盘待触发"
+
+func (Card2321001WindbreathCompass) OnDraw(ctx *EffectContext) error {
+	if ctx.ExtraData == nil {
+		return nil
+	}
+	if player, ok := ctx.ExtraData["drawn_player"].(int); !ok || player != ctx.PlayerID {
+		return nil
+	}
+	ctx.Source.Statuses[windbreathCompassPendingStatus]++
+	openWindbreathCompassPrompt(ctx.Engine, ctx.PlayerID, ctx.Source)
 	return nil
+}
+
+func openWindbreathCompassPrompt(e *Engine, playerID int, source *CardInstance) {
+	if e == nil || source == nil || source.Statuses[windbreathCompassPendingStatus] <= 0 {
+		return
+	}
+	if e.State.PendingAction != nil && e.State.PendingAction.Type == "windbreath_compass" && e.State.PendingAction.PlayerID == playerID {
+		return
+	}
+	candidates := []map[string]any{candidateInfo(source, "equipment", "own")}
+	e.SetPendingAction(playerID, "windbreath_compass",
+		"你抽牌了，是否触发风息罗盘获得临时负载+1气？", candidates, 0, 1,
+		func(selected []string) {
+			if source.Statuses[windbreathCompassPendingStatus] > 0 {
+				source.Statuses[windbreathCompassPendingStatus]--
+			}
+			if len(selected) > 0 && selected[0] == source.InstanceID {
+				e.addElementsGainBonus(source, playerID, model.ElementAir, 1, source)
+			}
+			openWindbreathCompassPrompt(e, playerID, source)
+		})
 }
 
 type Card2321010IllusionScroll struct{ AlwaysActive }

@@ -23,13 +23,7 @@ func (e *Engine) applyLoadGainAtTurnEnd(ps *PlayerState) {
 			continue
 		}
 		for elem, amount := range gains {
-			addElementsGainBonus(card, elem, amount)
-			e.emit(GameEvent{Type: "effect_trigger", Player: ps.PlayerID, Data: map[string]any{
-				"source":  cardToInfo(card),
-				"effect":  "load_gain",
-				"element": elem,
-				"amount":  amount,
-			}})
+			e.addElementsGainBonus(card, ps.PlayerID, elem, amount, card)
 		}
 	}
 	ps.LoadGainAtTurnEnd = make(map[string]map[string]int)

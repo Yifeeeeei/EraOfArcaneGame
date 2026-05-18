@@ -26,7 +26,7 @@ func (Card3521014BlessingOfLight) OnSpellCast(ctx *EffectContext) error {
 				return
 			}
 			target.CurrentLife++
-			addElementsGainBonus(target, model.ElementLight, 1)
+			ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementLight, 1, ctx.Source)
 			ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 				"source":  cardToInfo(ctx.Source),
 				"target":  cardToInfo(target),

@@ -8,7 +8,7 @@ func (Card2421010NatureSealScroll) OnUseItem(ctx *EffectContext) error {
 	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
 		Type:          TempModAllSpellDamageZero,
 		RemainingUses: 1,
-		ExpiresTurn:   ctx.Engine.State.TurnNumber + 2,
+		ExpiresTurn:   ctx.Engine.State.TurnNumber + 1,
 	})
 	return nil
 }
