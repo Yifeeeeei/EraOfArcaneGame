@@ -4,6 +4,7 @@ server/server
 *.exe
 *.db
 tmp/
+server/logs/
 
 # OS
 .DS_Store

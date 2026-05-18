@@ -6,6 +6,7 @@ import (
 	"eraofarcane/game"
 	"eraofarcane/match"
 	"eraofarcane/model"
+	"fmt"
 	"log"
 	"net/http"
 	"sync"
@@ -129,6 +130,7 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 					Player: slot,
 					Data:   room.Engine.GetStateForPlayer(slot),
 				}
+				room.LogStateSync(slot)
 				sendFn(stateEvent)
 			}
 		} else {
@@ -146,6 +148,7 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 								Player: i,
 								Data:   room.Engine.GetStateForPlayer(i),
 							}
+							room.LogStateSync(i)
 							room.Players[i].SendFn(stateEvent)
 						}
 					}
@@ -165,16 +168,24 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 
 			var action game.ActionMessage
 			if err := json.Unmarshal(message, &action); err != nil {
+				room.LogMalformedClientMessage(slot, playerID, string(message), err)
 				wsc.SendJSON(map[string]any{"type": "error", "message": "invalid action format"})
 				continue
 			}
+			if action.Action == "client_log" {
+				room.LogClientLog(slot, playerID, action.Data)
+				continue
+			}
+			room.LogClientAction(slot, playerID, action)
 
 			if room.Engine == nil {
+				room.LogActionError(slot, playerID, action, fmt.Errorf("game not started"))
 				wsc.SendJSON(map[string]any{"type": "error", "message": "game not started"})
 				continue
 			}
 
 			if err := room.Engine.HandleAction(slot, action); err != nil {
+				room.LogActionError(slot, playerID, action, err)
 				wsc.SendJSON(map[string]any{"type": "error", "message": err.Error()})
 				continue
 			}
@@ -187,6 +198,7 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 						Player: i,
 						Data:   room.Engine.GetStateForPlayer(i),
 					}
+					room.LogStateSync(i)
 					room.Players[i].SendFn(stateEvent)
 				}
 			}
