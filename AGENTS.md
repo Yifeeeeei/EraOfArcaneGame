@@ -58,6 +58,7 @@ Serving:
 - `server/game/rules.go`: focused rules helpers.
 - `server/game/payment.go`: element payment logic.
 - `server/game/base_cards_smoke_test.go`: smoke coverage for all currently supported base cards.
+- `server/logs/rooms/*.jsonl`: ignored local room replay/debug logs written at runtime; inspect these first when reproducing a live-game bug.
 - `web/index.html`: lobby.
 - `web/game.html`: actual match UI.
 - `web/card-test.html`: base-card testing workbench.
