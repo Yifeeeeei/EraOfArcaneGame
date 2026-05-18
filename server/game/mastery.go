@@ -46,6 +46,11 @@ func (e *Engine) advanceMastery(card *CardInstance, playerID int, amount int) {
 			"effect":  "mastery",
 			"mastery": level,
 		}})
+		e.triggerFieldEffectsWithData(TriggerOnMastery, playerID, card, map[string]any{
+			"mastery":         level,
+			"mastered_card":   card,
+			"mastered_player": playerID,
+		})
 	}
 }
 
@@ -63,10 +68,6 @@ func (e *Engine) advanceAllMasteryToMax(ps *PlayerState) {
 }
 
 func (e *Engine) settleMastery(ps *PlayerState) {
-	if ps == nil {
-		return
-	}
-	for _, card := range e.getAllFieldCards(ps) {
-		e.advanceMastery(card, ps.PlayerID, 1)
-	}
+	// 精通 does not advance during mark settlement. It advances when the card
+	// itself is consumed, then threshold effects resolve immediately.
 }

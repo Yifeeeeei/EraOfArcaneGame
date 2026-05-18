@@ -10,7 +10,7 @@ func (Card4111002WitchVerland) OnPerTurn(ctx *EffectContext) error {
 	ctx.Source.Statuses[StatusBurn]++
 	if effectiveElementsGain(ctx.Source)[model.ElementFire] > 0 {
 		addElementsGainBonus(ctx.Source, model.ElementFire, -1)
-		addElementsGainBonus(ctx.Source, model.ElementArcane, 1)
+		ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementArcane, 1, ctx.Source)
 		ctx.Source.Statuses["维兰德负载转换"]++
 	}
 	return nil

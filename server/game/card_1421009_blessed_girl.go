@@ -4,8 +4,9 @@ import "eraofarcane/model"
 
 type Card1421009BlessedGirl struct{ AlwaysActive }
 
-func (Card1421009BlessedGirl) ID() string   { return "1421009" }
-func (Card1421009BlessedGirl) Name() string { return "被祝福的少女" }
+func (Card1421009BlessedGirl) ID() string            { return "1421009" }
+func (Card1421009BlessedGirl) Name() string          { return "被祝福的少女" }
+func (Card1421009BlessedGirl) IsPrayerAbility() bool { return true }
 
 func (Card1421009BlessedGirl) OnPerTurn(ctx *EffectContext) error {
 	if ctx.Source == nil || ctx.Source.Position == nil {
@@ -28,7 +29,7 @@ func (Card1421009BlessedGirl) OnPerTurn(ctx *EffectContext) error {
 			}
 			target := ctx.Engine.findFieldCardByInstance(ctx.Engine.State.Players[ctx.PlayerID], selected[0])
 			if target != nil {
-				addElementsGainBonus(target, model.ElementEarth, 1)
+				ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementEarth, 1, ctx.Source)
 			}
 		})
 	return nil

@@ -895,7 +895,7 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 	})
 
-	t.Run("2311002 and 2321001 air items convert counters into power or load", func(t *testing.T) {
+	t.Run("2311002 spends counters for power and 2321001 asks on draw", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		drum := NewCardInstance(baseCard(t, "2311002"), 0, 1)
@@ -910,14 +910,29 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("use thunder drum: %v", err)
 		}
-		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
-			"instance_id":  compass.InstanceID,
-			"ability_type": "per_turn",
-		}}); err != nil {
-			t.Fatalf("use windbreath compass: %v", err)
-		}
 		if drum.Statuses["雷鼓标记"] != 0 || len(p0.TempModifiers) == 0 || p0.TempModifiers[0].Amount != 3 {
 			t.Fatalf("thunder drum should spend 3 marks for +3 power, statuses=%v modifiers=%v", drum.Statuses, p0.TempModifiers)
+		}
+		p0.Deck = []*CardInstance{
+			NewCardInstance(baseCard(t, "1021001"), 0, 1),
+			NewCardInstance(baseCard(t, "1021001"), 0, 1),
+		}
+		engine.drawCards(0, 2)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "windbreath_compass" {
+			t.Fatalf("windbreath compass should ask on draw, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{},
+		}}); err != nil {
+			t.Fatalf("decline first windbreath compass trigger: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "windbreath_compass" {
+			t.Fatalf("windbreath compass should queue one prompt per drawn card, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{compass.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve windbreath compass: %v", err)
 		}
 		if effectiveElementsGain(compass)[model.ElementAir] != compass.Card.ElementsGain[model.ElementAir]+1 {
 			t.Fatalf("windbreath compass should gain temporary air load, load=%v", effectiveElementsGain(compass))
@@ -948,13 +963,16 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		unit := placeUnit(baseCard(t, "1021002"), 0, 0, 0, engine)
+		mastered := placeUnit(baseCard(t, "1421003"), 0, 2, 0, engine)
 		unit.CurrentLife = 1
 		addElementsGainBonus(unit, model.ElementEarth, 3)
 		treeHeart := NewCardInstance(baseCard(t, "2411001"), 0, 1)
 		care := NewCardInstance(baseCard(t, "2421001"), 0, 1)
+		care.IsHorizontal = false
 		exam := NewCardInstance(baseCard(t, "2421004"), 0, 1)
 		primer := NewCardInstance(baseCard(t, "2421013"), 0, 1)
 		p0.Equipment[0] = treeHeart
+		p0.Equipment[1] = care
 		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1), NewCardInstance(baseCard(t, "1021002"), 0, 1)}
 		highCost := NewCardInstance(baseCard(t, "1021013"), 0, 1)
 
@@ -964,7 +982,15 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("use ancient tree heart: %v", err)
 		}
-		engine.triggerEffects(TriggerOnConsume, care, nil, nil)
+		engine.advanceMastery(mastered, 0, 1)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "knowledge_tree_care" {
+			t.Fatalf("knowledge tree care should ask to trigger on mastery, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{care.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve knowledge tree care: %v", err)
+		}
 		engine.triggerEffects(TriggerOnUseItem, exam, nil, nil)
 		cost := copyElementCost(highCost.Card.ElementsCost)
 		if modifier, ok := globalRegistry.GetBehavior("2421013").(CardPlayCostModifier); ok {
@@ -1470,6 +1496,33 @@ func TestStormChimeraDevoursFriendlyCompanion(t *testing.T) {
 	}
 	if p0.Elements[model.ElementAir] != 0 {
 		t.Fatalf("summon should spend 3 air, elements=%v", p0.Elements)
+	}
+}
+
+func TestStormChimeraDevoursMultipleFriendlyCompanions(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	chimera := NewCardInstance(baseCard(t, "1321010"), 0, engine.State.TurnNumber)
+	p0.Hand = append(p0.Hand, chimera)
+	foodA := placeUnit(baseCard(t, "1321002"), 0, 0, 0, engine)
+	foodB := placeUnit(baseCard(t, "1321002"), 0, 2, 0, engine)
+	setElementsGain(foodA, map[string]int{model.ElementAir: 1})
+	setElementsGain(foodB, map[string]int{model.ElementAir: 2})
+	p0.Elements[model.ElementAir] = 3
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+		"instance_id": chimera.InstanceID,
+		"devour_ids":  []any{foodA.InstanceID, foodB.InstanceID},
+		"col":         float64(1),
+		"row":         float64(0),
+	}}); err != nil {
+		t.Fatalf("summon chimera with multiple devours: %v", err)
+	}
+	if p0.Units[0][0] != nil || p0.Units[2][0] != nil || len(p0.Graveyard) != 2 {
+		t.Fatalf("both devoured units should be destroyed, grave=%d", len(p0.Graveyard))
+	}
+	if p0.Units[1][0] == nil || p0.Units[1][0].Card.Number != "1321010" {
+		t.Fatalf("chimera should enter after multiple devours")
 	}
 }
 
@@ -4211,6 +4264,44 @@ func TestSelectionSorcerySkillEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("natural growth filters load four targets and keeps pending action recoverable", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		valid := placeUnit(baseCard(t, "1421010"), 0, 0, 0, engine)
+		invalid := placeUnit(baseCard(t, "1421010"), 0, 2, 0, engine)
+		addElementsGainBonus(invalid, model.ElementEarth, 3)
+		p0.Skills[0] = readySkill(baseCard(t, "3421011"), 0)
+		p0.Elements[model.ElementEarth] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "none",
+		}}); err != nil {
+			t.Fatalf("cast natural growth: %v", err)
+		}
+		if engine.State.PendingAction == nil {
+			t.Fatalf("natural growth should create pending action")
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == invalid.InstanceID {
+				t.Fatalf("load four target should not be selectable, candidates=%v", engine.State.PendingAction.Candidates)
+			}
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{invalid.InstanceID},
+		}}); err == nil {
+			t.Fatalf("invalid target should be rejected")
+		}
+		if engine.State.PendingAction == nil || engine.State.Phase != PhaseWaitingAction {
+			t.Fatalf("invalid selection should keep pending action recoverable, phase=%v pending=%+v", engine.State.Phase, engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{valid.InstanceID},
+		}}); err != nil {
+			t.Fatalf("valid target should still resolve after invalid attempt: %v", err)
+		}
+	})
+
 	t.Run("blood demon blast sacrifices companion and damages enemy front row", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
@@ -4527,20 +4618,33 @@ func TestMasteryIsPerCardAndSettlesAsMark(t *testing.T) {
 		}
 	})
 
-	t.Run("mark settlement advances mastery after reset and triggers thresholds once", func(t *testing.T) {
+	t.Run("consume advances mastery immediately and mark settlement does not", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		tree := placeUnit(baseCard(t, "1421003"), 0, 0, 0, engine)
+		tree.IsHorizontal = false
 
 		engine.processEndOfTurnStatuses(engine.State.Players[0])
 		engine.settleMastery(engine.State.Players[0])
-		if tree.Statuses[StatusMastery] != 1 || effectiveElementsGain(tree)[model.ElementEarth] != tree.Card.ElementsGain[model.ElementEarth] {
-			t.Fatalf("mastery 1 should not trigger treant threshold, statuses=%v load=%v", tree.Statuses, effectiveElementsGain(tree))
+		if tree.Statuses[StatusMastery] != 0 || effectiveElementsGain(tree)[model.ElementEarth] != tree.Card.ElementsGain[model.ElementEarth] {
+			t.Fatalf("mark settlement should not advance mastery, statuses=%v load=%v", tree.Statuses, effectiveElementsGain(tree))
 		}
 
-		engine.processEndOfTurnStatuses(engine.State.Players[0])
-		engine.settleMastery(engine.State.Players[0])
+		if err := engine.HandleAction(0, ActionMessage{Action: "consume", Data: map[string]any{
+			"instance_id": tree.InstanceID,
+		}}); err != nil {
+			t.Fatalf("consume treant once: %v", err)
+		}
+		if tree.Statuses[StatusMastery] != 1 || effectiveElementsGain(tree)[model.ElementEarth] != tree.Card.ElementsGain[model.ElementEarth] {
+			t.Fatalf("mastery 1 should advance on consume without threshold load, statuses=%v load=%v", tree.Statuses, effectiveElementsGain(tree))
+		}
+		tree.IsHorizontal = false
+		if err := engine.HandleAction(0, ActionMessage{Action: "consume", Data: map[string]any{
+			"instance_id": tree.InstanceID,
+		}}); err != nil {
+			t.Fatalf("consume treant twice: %v", err)
+		}
 		if tree.Statuses[StatusMastery] != 2 || effectiveElementsGain(tree)[model.ElementEarth] != tree.Card.ElementsGain[model.ElementEarth]+1 {
-			t.Fatalf("mastery 2 should trigger exactly one treant load bonus, statuses=%v load=%v", tree.Statuses, effectiveElementsGain(tree))
+			t.Fatalf("mastery 2 should trigger exactly one treant load bonus on consume, statuses=%v load=%v", tree.Statuses, effectiveElementsGain(tree))
 		}
 	})
 

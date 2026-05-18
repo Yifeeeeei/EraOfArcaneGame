@@ -52,6 +52,10 @@ func (AlwaysActive) HasActiveFriendlySpellTarget(*CardInstance) bool       { ret
 func (AlwaysActive) HasActiveSpellArea(*CardInstance) bool                 { return true }
 func (AlwaysActive) HasActiveSpellAreaModifier(*CardInstance) bool         { return true }
 func (AlwaysActive) HasActiveDrawReveal(*CardInstance) bool                { return true }
+func (AlwaysActive) HasActiveDraw(*CardInstance) bool                      { return true }
+func (AlwaysActive) HasActiveLoadGain(*CardInstance) bool                  { return true }
+func (AlwaysActive) HasActiveMasteryAchieved(*CardInstance) bool           { return true }
+func (AlwaysActive) HasActivePrayer(*CardInstance) bool                    { return true }
 func (AlwaysActive) HasActiveSkillUsability(*CardInstance) bool            { return true }
 func (AlwaysActive) HasActiveDefenseOnlySkill(*CardInstance) bool          { return true }
 func (AlwaysActive) HasActiveSorcerySkill(*CardInstance) bool              { return true }
@@ -248,6 +252,26 @@ type SpellAreaModifier interface {
 type DrawRevealBehavior interface {
 	HasActiveDrawReveal(*CardInstance) bool
 	RevealsOnDraw() bool
+}
+
+type OnDrawBehavior interface {
+	HasActiveDraw(*CardInstance) bool
+	OnDraw(*EffectContext) error
+}
+
+type OnLoadGainBehavior interface {
+	HasActiveLoadGain(*CardInstance) bool
+	OnLoadGain(*EffectContext) error
+}
+
+type OnMasteryAchievedBehavior interface {
+	HasActiveMasteryAchieved(*CardInstance) bool
+	OnMasteryAchieved(*EffectContext, int) error
+}
+
+type PrayerAbility interface {
+	HasActivePrayer(*CardInstance) bool
+	IsPrayerAbility() bool
 }
 
 type SkillUsabilityBehavior interface {
@@ -458,6 +482,31 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 				return nil
 			}
 			return h.OnConsume(ctx)
+		})
+	}
+	if h, ok := behavior.(OnDrawBehavior); ok {
+		r.Register(id, TriggerOnDraw, func(ctx *EffectContext) error {
+			if !h.HasActiveDraw(ctx.Source) {
+				return nil
+			}
+			return h.OnDraw(ctx)
+		})
+	}
+	if h, ok := behavior.(OnLoadGainBehavior); ok {
+		r.Register(id, TriggerOnLoadGain, func(ctx *EffectContext) error {
+			if !h.HasActiveLoadGain(ctx.Source) {
+				return nil
+			}
+			return h.OnLoadGain(ctx)
+		})
+	}
+	if h, ok := behavior.(OnMasteryAchievedBehavior); ok {
+		r.Register(id, TriggerOnMastery, func(ctx *EffectContext) error {
+			if !h.HasActiveMasteryAchieved(ctx.Source) {
+				return nil
+			}
+			level, _ := ctx.ExtraData["mastery"].(int)
+			return h.OnMasteryAchieved(ctx, level)
 		})
 	}
 	if h, ok := behavior.(PerTurnAbility); ok {

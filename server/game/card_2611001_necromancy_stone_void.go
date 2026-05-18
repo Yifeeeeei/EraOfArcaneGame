@@ -11,13 +11,6 @@ func (Card2611001NecromancyStoneVoid) OnFriendlyDeath(ctx *EffectContext) error 
 	if ctx.Target == nil || !ctx.Target.Card.IsCompanion() {
 		return nil
 	}
-	addElementsGainBonus(ctx.Source, model.ElementShadow, 1)
-	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
-		"source":  cardToInfo(ctx.Source),
-		"target":  cardToInfo(ctx.Target),
-		"effect":  "load_bonus",
-		"element": model.ElementShadow,
-		"amount":  1,
-	}})
+	ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementShadow, 1, ctx.Source)
 	return nil
 }

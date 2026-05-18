@@ -40,6 +40,9 @@
         <div v-if="gameState && gameState.phase === 'mulligan' && !mulliganSubmitted" class="overlay">
             <div class="overlay-content mulligan-panel">
                 <h2>选择初始手牌</h2>
+                <div class="mulligan-order" :class="mySlot === gameState.first_player ? 'is-first' : 'is-second'">
+                    你是{{ gameState.turn_order?.you || (mySlot === 0 ? '先手' : '后手') }}
+                </div>
                 <div class="mulligan-cards">
                     <div v-for="card in myHand" :key="card.instance_id" class="card-mini" @mouseenter="previewCard(card)" @click="showCardDetail(card)">
                         <img :src="getCardImage(card)" :alt="card.name" class="card-img-small">
@@ -183,15 +186,18 @@
                 <div class="pending-candidates">
                     <div v-for="candidate in devourCandidates(devourRequest.card)" :key="candidate.instance_id"
                          class="pending-card"
-                         :class="{ selected: devourSelection === candidate.instance_id }"
-                         @click="devourSelection = candidate.instance_id">
+                         :class="{ selected: devourSelection.includes(candidate.instance_id) }"
+                         @click="toggleDevourSelection(candidate)">
                         <img :src="getCardImage(candidate)" class="pending-card-img">
                         <div class="pending-card-name">{{ candidate.name }}</div>
                         <div class="pending-card-side">负载 {{ costLabel(candidate.elements_gain) }}</div>
                     </div>
                 </div>
+                <div class="pending-info">
+                    已选负载：{{ costLabel(devourSelectedLoad) }} / 需求 {{ costLabel(devourRequest.requirement) }}
+                </div>
                 <div class="pending-actions">
-                    <button @click="confirmDevourSelection()" class="btn btn-success" :disabled="!devourSelection">确认</button>
+                    <button @click="confirmDevourSelection()" class="btn btn-success" :disabled="!devourSelectionMeetsRequirement">确认</button>
                     <button @click="cancelDevourSelection()" class="btn btn-danger">取消</button>
                 </div>
             </div>
@@ -339,11 +345,13 @@
                         <span v-if="opponent.revealed_hand?.length">展示 {{ opponent.revealed_hand.length }}</span>
                         <span>卡组 {{ opponent.deck_count || 0 }}</span>
                     </div>
-                    <div v-if="opponent.revealed_hand?.length" class="revealed-hand-strip">
-                        <div v-for="card in opponent.revealed_hand" :key="card.instance_id" class="revealed-card"
-                             @mouseenter="previewCard(card)"
-                             @click="showCardDetail(card)">
-                            <img :src="getCardImage(card)" :alt="card.name">
+                    <div v-if="opponentHandCards.length" class="revealed-hand-strip opponent-hand-strip">
+                        <div v-for="card in opponentHandCards" :key="card.key" class="revealed-card"
+                             :class="{ hidden: card.hidden }"
+                             @mouseenter="!card.hidden && previewCard(card)"
+                             @click="!card.hidden && showCardDetail(card)">
+                            <div v-if="card.hidden" class="card-back-mini"></div>
+                            <img v-else :src="getCardImage(card)" :alt="card.name">
                             <span>{{ card.name }}</span>
                         </div>
                     </div>
@@ -373,7 +381,7 @@
                             <div class="hero-hp-label">生命值</div>
                             <div class="hero-abilities" v-if="isMyTurn && gameState.phase === 'main'">
                                 <button v-if="canUsePerTurn(myState.hero)" class="action-btn ability small"
-                                        @click.stop="useAbility(myState.hero, 'per_turn')">回合技</button>
+                                        @click.stop="useAbility(myState.hero, 'per_turn')">{{ abilityLabel(myState.hero, 'per_turn') }}</button>
                                 <button v-if="canUseUltimate(myState.hero)" class="action-btn ability ultimate small"
                                         @click.stop="useAbility(myState.hero, 'ultimate')">绝技</button>
                             </div>
@@ -552,7 +560,7 @@
                                         <button v-if="canAttackWith(getMyUnit(col, row))"
                                                 class="action-btn attack" @click.stop="selectAttacker(getMyUnit(col, row))">攻击</button>
                                         <button v-if="canUsePerTurn(getMyUnit(col, row))"
-                                                class="action-btn ability" @click.stop="useAbility(getMyUnit(col, row), 'per_turn')">回合技</button>
+                                                class="action-btn ability" @click.stop="useAbility(getMyUnit(col, row), 'per_turn')">{{ abilityLabel(getMyUnit(col, row), 'per_turn') }}</button>
                                         <button v-if="canUseUltimate(getMyUnit(col, row))"
                                                 class="action-btn ability ultimate" @click.stop="useAbility(getMyUnit(col, row), 'ultimate')">绝技</button>
                                     </div>
@@ -608,7 +616,7 @@
                                                     <button v-if="canConsumeUnit(myEquipment[i-1])"
                                                             class="action-btn consume small" @click.stop="consumeCard(myEquipment[i-1])">消耗</button>
                                                     <button v-if="canUsePerTurn(myEquipment[i-1])"
-                                                            class="action-btn ability small" @click.stop="useAbility(myEquipment[i-1], 'per_turn')">回合技</button>
+                                                            class="action-btn ability small" @click.stop="useAbility(myEquipment[i-1], 'per_turn')">{{ abilityLabel(myEquipment[i-1], 'per_turn') }}</button>
                                                     <button v-if="canUseUltimate(myEquipment[i-1])"
                                                             class="action-btn ability ultimate small" @click.stop="useAbility(myEquipment[i-1], 'ultimate')">绝技</button>
                                                 </div>
@@ -841,6 +849,19 @@
             const myState = computed(() => gameState.value ? (gameState.value.you || {}) : {});
             const opponent = computed(() => gameState.value ? (gameState.value.opponent || {}) : {});
             const myHand = computed(() => myState.value.hand || []);
+            const opponentHandCards = computed(() => {
+                const revealed = opponent.value.revealed_hand || [];
+                const hiddenCount = Math.max(0, Number(opponent.value.hand_count || 0) - revealed.length);
+                const hidden = Array.from({ length: hiddenCount }, (_, i) => ({
+                    key: `hidden-${i}`,
+                    name: '未知手牌',
+                    hidden: true,
+                }));
+                return [
+                    ...hidden,
+                    ...revealed.map(card => ({ ...card, key: card.instance_id, hidden: false })),
+                ];
+            });
             const mySkills = computed(() => myState.value.skills || [null,null,null,null,null]);
             const myEquipment = computed(() => myState.value.equipment || [null,null,null,null,null]);
             const isMyTurn = computed(() => gameState.value && gameState.value.current_turn === mySlot.value);
@@ -1090,7 +1111,7 @@
             const paymentRequest = ref(null);
             const paymentSelection = ref({});
             const devourRequest = ref(null);
-            const devourSelection = ref('');
+            const devourSelection = ref([]);
             const pendingSummonDevour = ref({});
 
             function needsPaymentChoice(cost) {
@@ -1306,6 +1327,27 @@
                 return Object.entries(requirement).every(([elem, amount]) => Number(gain[elem] || 0) >= Number(amount || 0));
             }
 
+            function addLoadMaps(cards) {
+                const total = {};
+                for (const card of cards) {
+                    for (const [elem, amount] of Object.entries(card?.elements_gain || {})) {
+                        total[elem] = Number(total[elem] || 0) + Math.max(0, Number(amount || 0));
+                    }
+                }
+                return total;
+            }
+
+            const devourSelectedLoad = computed(() => {
+                if (!devourRequest.value) return {};
+                const selected = new Set(devourSelection.value);
+                return addLoadMaps(devourCandidates(devourRequest.value.card).filter(card => selected.has(card.instance_id)));
+            });
+
+            const devourSelectionMeetsRequirement = computed(() => {
+                const requirement = devourRequest.value?.requirement || {};
+                return Object.entries(requirement).every(([elem, amount]) => Number(devourSelectedLoad.value[elem] || 0) >= Number(amount || 0));
+            });
+
             function devourCandidates(card) {
                 const requirement = summonDevourRequirement(card);
                 if (!requirement) return [];
@@ -1315,7 +1357,7 @@
                         const unit = getMyUnit(col, row);
                         if (!unit || unit.type !== '伙伴') continue;
                         if (unit.is_hero) continue;
-                        if (loadSatisfiesRequirement(unit, requirement)) units.push(unit);
+                        units.push(unit);
                     }
                 }
                 return units;
@@ -1323,20 +1365,30 @@
 
             function beginSummonDevour(card, col, row) {
                 const candidates = devourCandidates(card);
-                if (!candidates.length) {
+                if (!candidates.length || !Object.entries(summonDevourRequirement(card) || {}).every(([elem, amount]) => Number(addLoadMaps(candidates)[elem] || 0) >= Number(amount || 0))) {
                     addLog(`${card.name} 没有满足吞噬负载的友方伙伴`);
                     return;
                 }
-                devourSelection.value = '';
+                devourSelection.value = [];
                 devourRequest.value = { card, col, row, requirement: summonDevourRequirement(card) };
             }
 
+            function toggleDevourSelection(candidate) {
+                const id = candidate?.instance_id;
+                if (!id) return;
+                if (devourSelection.value.includes(id)) {
+                    devourSelection.value = devourSelection.value.filter(existing => existing !== id);
+                } else {
+                    devourSelection.value = [...devourSelection.value, id];
+                }
+            }
+
             function confirmDevourSelection() {
-                if (!devourRequest.value || !devourSelection.value) return;
+                if (!devourRequest.value || !devourSelectionMeetsRequirement.value) return;
                 const { card, col, row } = devourRequest.value;
                 pendingSummonDevour.value = {
                     ...pendingSummonDevour.value,
-                    [card.instance_id]: devourSelection.value,
+                    [card.instance_id]: [...devourSelection.value],
                 };
                 devourRequest.value = null;
                 summonCard(card, col, row);
@@ -1344,24 +1396,24 @@
 
             function cancelDevourSelection() {
                 devourRequest.value = null;
-                devourSelection.value = '';
+                devourSelection.value = [];
             }
 
             function summonCard(card, col, row) {
                 const requirement = summonDevourRequirement(card);
-                const devourID = pendingSummonDevour.value[card.instance_id] || '';
-                if (requirement && !devourID) {
+                const devourIDs = pendingSummonDevour.value[card.instance_id] || [];
+                if (requirement && !devourIDs.length) {
                     beginSummonDevour(card, col, row);
                     return;
                 }
                 const data = { instance_id: card.instance_id, col, row };
-                if (devourID) data.devour_id = devourID;
+                if (devourIDs.length) data.devour_ids = devourIDs;
                 sendPaidAction('summon', data, card.elements_cost || {}, `召唤 ${card.name}`, () => {
                     const next = { ...pendingSummonDevour.value };
                     delete next[card.instance_id];
                     pendingSummonDevour.value = next;
                     selectedHandCard.value = null;
-                    devourSelection.value = '';
+                    devourSelection.value = [];
                     addLog(`召唤 ${card.name} → (${col},${row})`);
                 });
             }
@@ -1778,12 +1830,17 @@
                 return !unit.ultimate_used;
             }
 
+            function abilityLabel(unit, abilityType) {
+                if (abilityType === 'ultimate') return '绝技';
+                return unit?.per_turn_label || '回合技';
+            }
+
             function useAbility(unit, abilityType) {
                 sendAction('use_ability', {
                     instance_id: unit.instance_id,
                     ability_type: abilityType
                 });
-                addLog(`${unit.name} 使用${abilityType === 'ultimate' ? '绝技' : '回合技'}`);
+                addLog(`${unit.name} 使用${abilityLabel(unit, abilityType)}`);
             }
 
             function learnSkill(card) {
@@ -1954,7 +2011,7 @@
                         else if (d.effect === 'skip_draw') addLog('跳过本回合抽牌');
                         else if (d.effect === 'temp_modifier') addLog('获得临时效果');
                         break;
-                    case 'ability_used': addLog(`${d.card.name} 使用${d.ability === 'ultimate' ? '绝技' : '回合技'}`); break;
+                    case 'ability_used': addLog(`${d.card.name} 使用${abilityLabel(d.card, d.ability)}`); break;
                     case 'defense_attempt': addLog(`防御 威力${d.defense_power} vs ${d.attack_power}`); break;
                     case 'pending_action': addLog(`等待选择: ${d.prompt}`); break;
                     case 'discard': addLog(`弃置 ${d.card.name}`); break;
@@ -1997,20 +2054,22 @@
                 gameState, mySlot, roomID, mulliganSubmitted, detailCard, hoverCard, activePreviewCard,
                 selectedHandCard, selectedAttacker, selectedSkill, selectedBoostSkills, pileView, actionLog,
                 isTestRoom, testCardNumber, testElement, testElementAmount, ELEMENT_ORDER,
-                myState, opponent, myHand, mySkills, myEquipment,
+                myState, opponent, myHand, opponentHandCards, mySkills, myEquipment,
                 isMyTurn, showDefenseWindow, myFrontRow, opponentFrontRow,
                 getCardImage, getElementIcon, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, costHTML, hasCost, hasUseCost, hasGain, entryCostLabel,
                 showCardDetail, previewCard, mulligan, selectHandCard, isConsumable, canSummonAt,
                 handleCellClick, canConsumeUnit, consumeCard,
                 handleUnitImageClick,
                 canAttackWith, selectAttacker, isAttackTarget,
+                abilityLabel,
                 canCastSkill, selectSkillToCast, canBoostWith, toggleBoostSkill, noDefend,
                 guideKicker, currentHint, waitingNotice, clearSelection, statusEntries,
                 hasActiveTargeting, isValidOpponentTarget, isSpellTarget, isFriendlySpellTarget, canUseMyCell,
                 canShowCostHint, missingCostText, skillUseCost, canLearnSkill, costLabel,
                 paymentRequest, paymentSelection, paymentElements, selectedPaymentTotal,
                 canAddPayment, addPayment, isPaymentSelectionValid, paymentRemainingText, confirmPayment, cancelPayment, totalCost,
-                devourRequest, devourSelection, devourCandidates, confirmDevourSelection, cancelDevourSelection,
+                devourRequest, devourSelection, devourSelectedLoad, devourSelectionMeetsRequirement,
+                devourCandidates, toggleDevourSelection, confirmDevourSelection, cancelDevourSelection,
                 canSubmitDefense,
                 testAddCard, testAddElements,
                 canPlayHandCard, canPayCost,

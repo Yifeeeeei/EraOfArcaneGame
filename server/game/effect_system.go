@@ -21,6 +21,8 @@ const (
 	TriggerOnSpellHit                           // 法术命中: spell hits target
 	TriggerOnDefend                             // 防御时: spell is defended
 	TriggerOnDraw                               // 抽牌时: card is drawn
+	TriggerOnLoadGain                           // 获得负载时: a friendly card gains load
+	TriggerOnMastery                            // 达到精通时: a friendly card reaches a mastery level
 	TriggerOnSummon                             // 召唤时: any friendly unit is summoned
 	TriggerOnFriendlyDeath                      // 友方死亡: any friendly unit dies
 	TriggerOnEnemyDeath                         // 敌方死亡: any enemy unit dies
@@ -314,6 +316,12 @@ func triggerName(t EffectTrigger) string {
 		return "on_spell_hit"
 	case TriggerOnDefend:
 		return "on_defend"
+	case TriggerOnDraw:
+		return "on_draw"
+	case TriggerOnLoadGain:
+		return "on_load_gain"
+	case TriggerOnMastery:
+		return "on_mastery"
 	case TriggerPerTurn:
 		return "per_turn"
 	case TriggerUltimate:

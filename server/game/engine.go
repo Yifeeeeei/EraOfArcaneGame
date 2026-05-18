@@ -70,7 +70,7 @@ func (e *Engine) SetupGame(p1Name string, p1Deck *model.Deck, p2Name string, p2D
 		if e.State.Players[i].Hero != nil && e.State.Players[i].Hero.Card.Number == "4311002" {
 			initialHandSize++
 		}
-		drawn := e.State.Players[i].DrawCards(initialHandSize)
+		drawn := e.drawCards(i, initialHandSize)
 		e.emit(GameEvent{
 			Type:   "initial_draw",
 			Player: i,
@@ -210,7 +210,7 @@ func (e *Engine) handleMulligan(playerID int, action ActionMessage) error {
 		ps.Deck = append(ps.Deck, ps.Hand...)
 		ps.Hand = make([]*CardInstance, 0)
 		shuffleDeck(ps.Deck)
-		drawn := ps.DrawCards(4)
+		drawn := e.drawCards(playerID, 4)
 		e.emit(GameEvent{
 			Type:   "mulligan_redraw",
 			Player: playerID,
@@ -276,15 +276,8 @@ func (e *Engine) startTurn() {
 			},
 		})
 	} else if shouldDraw {
-		drawn := ps.DrawCards(1)
+		drawn := e.drawCards(e.State.CurrentTurn, 1)
 		if len(drawn) > 0 {
-			e.emit(GameEvent{
-				Type:   "draw_card",
-				Player: e.State.CurrentTurn,
-				Data: map[string]any{
-					"card": cardToInfo(drawn[0]),
-				},
-			})
 			// Notify opponent about the draw (without card info)
 			e.emit(GameEvent{
 				Type:   "opponent_draw",
@@ -313,6 +306,26 @@ func (e *Engine) startTurn() {
 	for _, card := range allCards {
 		e.triggerEffects(TriggerOnTurnStart, card, nil, nil)
 	}
+}
+
+func (e *Engine) drawCards(playerID int, n int) []*CardInstance {
+	if n <= 0 {
+		return nil
+	}
+	ps := e.State.Players[playerID]
+	drawn := ps.DrawCards(n)
+	for _, card := range drawn {
+		e.emit(GameEvent{
+			Type:   "draw_card",
+			Player: playerID,
+			Data:   map[string]any{"card": cardToInfo(card)},
+		})
+		e.triggerFieldEffectsWithData(TriggerOnDraw, playerID, card, map[string]any{
+			"drawn_card":   card,
+			"drawn_player": playerID,
+		})
+	}
+	return drawn
 }
 
 // resetCards resets all cards to vertical state
@@ -449,24 +462,47 @@ func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, 
 		return nil
 	}
 
-	devourID, _ := action.Data["devour_id"].(string)
-	if devourID == "" {
+	devourIDsRaw, _ := action.Data["devour_ids"].([]any)
+	devourIDs := stringsFromAnySlice(devourIDsRaw)
+	if legacyID, _ := action.Data["devour_id"].(string); legacyID != "" {
+		devourIDs = append(devourIDs, legacyID)
+	}
+	if len(devourIDs) == 0 {
 		return fmt.Errorf("%s requires devour before summon", card.Card.Name)
 	}
 
 	ps := e.State.Players[playerID]
-	target := e.findFieldCardByInstance(ps, devourID)
-	if target == nil {
-		target = e.findUnitOnGrid(ps, devourID)
-	}
-	if target == nil || target.Card == nil || !target.Card.IsCompanion() || target.Card.IsHero() || target == card {
-		return fmt.Errorf("invalid devour target")
-	}
-	if !cardSatisfiesDevourRequirement(target, requirement) {
-		return fmt.Errorf("devour target load does not satisfy requirement")
+	targets := make([]*CardInstance, 0, len(devourIDs))
+	total := make(map[string]int)
+	seen := make(map[string]bool, len(devourIDs))
+	for _, devourID := range devourIDs {
+		if seen[devourID] {
+			return fmt.Errorf("duplicate devour target")
+		}
+		seen[devourID] = true
+		target := e.findFieldCardByInstance(ps, devourID)
+		if target == nil {
+			target = e.findUnitOnGrid(ps, devourID)
+		}
+		if target == nil || target.Card == nil || !target.Card.IsCompanion() || target.Card.IsHero() || target == card {
+			return fmt.Errorf("invalid devour target")
+		}
+		for elem, amount := range effectiveElementsGain(target) {
+			if amount > 0 {
+				total[elem] += amount
+			}
+		}
+		targets = append(targets, target)
 	}
 
-	e.destroyUnit(target, playerID)
+	for elem, amount := range requirement {
+		if total[elem] < amount {
+			return fmt.Errorf("devour targets load does not satisfy requirement")
+		}
+	}
+	for _, target := range targets {
+		e.destroyUnit(target, playerID)
+	}
 	return nil
 }
 
@@ -531,6 +567,7 @@ func (e *Engine) handleConsume(playerID int, action ActionMessage) error {
 		"consumed_player": playerID,
 		"gained":          gains,
 	})
+	e.advanceMastery(card, playerID, 1)
 
 	return nil
 }
@@ -1719,6 +1756,22 @@ func (e *Engine) handleResolveAction(playerID int, action ActionMessage) error {
 	if len(selected) > pa.MaxSelect {
 		return fmt.Errorf("can select at most %d", pa.MaxSelect)
 	}
+	allowed := make(map[string]bool, len(pa.Candidates))
+	for _, candidate := range pa.Candidates {
+		if id, ok := candidate["instance_id"].(string); ok && id != "" {
+			allowed[id] = true
+		}
+	}
+	seen := make(map[string]bool, len(selected))
+	for _, id := range selected {
+		if !allowed[id] {
+			return fmt.Errorf("invalid selection")
+		}
+		if seen[id] {
+			return fmt.Errorf("duplicate selection")
+		}
+		seen[id] = true
+	}
 
 	// Execute callback
 	callback := pa.Callback
@@ -1997,6 +2050,8 @@ func (e *Engine) GetStateForPlayer(playerID int) map[string]any {
 		"game_id":      state.GameID,
 		"phase":        state.Phase.String(),
 		"current_turn": state.CurrentTurn,
+		"first_player": 0,
+		"turn_order":   map[string]string{"you": turnOrderLabel(playerID), "opponent": turnOrderLabel(opponentID)},
 		"turn_number":  state.TurnNumber,
 		"winner":       state.Winner,
 		"you":          playerStateToInfo(ps, true),
@@ -2163,6 +2218,10 @@ func cardToInfo(ci *CardInstance) map[string]any {
 
 	if hasPerTurn {
 		info["per_turn_limit"] = perTurnLimit(ci)
+		info["per_turn_label"] = "回合技"
+		if prayer, ok := behaviorForNumber(ci.Card.Number).(PrayerAbility); ok && prayer.HasActivePrayer(ci) && prayer.IsPrayerAbility() {
+			info["per_turn_label"] = "祈咒"
+		}
 	}
 	if requirement := summonDevourRequirement(ci); len(requirement) > 0 {
 		info["devour_requirement"] = requirement
@@ -2251,6 +2310,13 @@ func deckSummaryToInfo(deck []*CardInstance) []map[string]any {
 	}
 
 	return result
+}
+
+func turnOrderLabel(playerID int) string {
+	if playerID == 0 {
+		return "先手"
+	}
+	return "后手"
 }
 
 func playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any {
