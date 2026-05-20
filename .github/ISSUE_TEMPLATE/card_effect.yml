@@ -64,7 +64,11 @@ body:
     id: reproduction
     attributes:
       label: Reproduction or test setup
-      description: Include deck/test room setup, board state, resources, and actions.
+      description: Include deck/test room setup, board state, resources, actions, room id, and the relevant `server/logs/rooms/room-*.jsonl` excerpt or file path if available.
+      placeholder: |
+        Room: #1234
+        Log: server/logs/rooms/room-1234-YYYYMMDD-HHMMSS.jsonl
+        Board/resources/actions:
     validations:
       required: true
   - type: textarea
@@ -83,3 +87,5 @@ body:
           required: true
         - label: I included the version or commit where this happened.
           required: true
+        - label: If this happened in a room, I included the room id and available room JSONL log, or explained why it is unavailable.
+          required: false
