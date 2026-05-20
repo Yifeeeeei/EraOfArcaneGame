@@ -63,8 +63,11 @@ body:
     id: evidence
     attributes:
       label: Evidence
-      description: Screenshots, logs, console output, or short notes from a frontend test.
-      placeholder: "Attach screenshots or paste relevant logs here."
+      description: Attach screenshots and, when this happened in a live/test room, include the room id plus the relevant `server/logs/rooms/room-*.jsonl` excerpt or file path.
+      placeholder: |
+        Room: #1234
+        Log: server/logs/rooms/room-1234-YYYYMMDD-HHMMSS.jsonl
+        Screenshot / console notes:
     validations:
       required: false
   - type: checkboxes
@@ -76,3 +79,5 @@ body:
           required: true
         - label: I included the version or commit where this happened.
           required: true
+        - label: If this happened in a room, I included the room id and available room JSONL log, or explained why it is unavailable.
+          required: false
