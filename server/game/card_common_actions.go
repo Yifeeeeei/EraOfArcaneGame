@@ -2,6 +2,8 @@ package game
 
 import "eraofarcane/model"
 
+const DevourLife = "血"
+
 func addSkillToPool(ctx *EffectContext, cardNumber string) {
 	card := getCardDB()[cardNumber]
 	if card == nil {

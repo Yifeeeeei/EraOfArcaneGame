@@ -2222,24 +2222,21 @@ body::before {
 
 .pending-action-overlay,
 .defense-overlay {
-    right: min(360px, 24vw);
-    justify-content: flex-start;
-    padding-left: clamp(18px, 4vw, 72px);
-    background: linear-gradient(90deg, rgba(5,4,3,0.9), rgba(5,4,3,0.58) 70%, transparent);
+    inset: 0;
+    justify-content: center;
+    padding: 0 24px;
+    background: rgba(5,4,3,0.82);
 }
 
 .pending-action-overlay .overlay-content,
 .defense-overlay .overlay-content {
-    margin-left: 0;
+    margin: 0 auto;
 }
 
 @media (max-width: 1180px) {
     .pending-action-overlay,
     .defense-overlay {
-        inset: 0;
-        justify-content: center;
-        padding-left: 0;
-        background: rgba(5, 4, 3, 0.86);
+        padding: 0 12px;
     }
 }
 

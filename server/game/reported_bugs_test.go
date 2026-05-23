@@ -803,19 +803,24 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 		}
 	})
 
-	t.Run("1621003 恐惧魔 loses three life with active devour-like ability", func(t *testing.T) {
+	t.Run("1621003 恐惧魔 requires devouring three friendly life before summoning", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
-		demon := placeUnit(baseCard(t, "1621003"), 0, 1, 1, engine)
-		start := demon.CurrentLife
+		p0 := engine.State.Players[0]
+		demon := NewCardInstance(baseCard(t, "1621003"), 0, 1)
+		p0.Hand = []*CardInstance{demon}
+		sacrifice := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		sacrifice.CurrentLife = 3
 
-		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
-			"instance_id":  demon.InstanceID,
-			"ability_type": "per_turn",
+		if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+			"instance_id": demon.InstanceID,
+			"col":         float64(1),
+			"row":         float64(1),
+			"devour_ids":  []any{sacrifice.InstanceID},
 		}}); err != nil {
-			t.Fatalf("use fear demon: %v", err)
+			t.Fatalf("summon fear demon with life devour: %v", err)
 		}
-		if demon.CurrentLife != start-3 {
-			t.Fatalf("fear demon should lose three life, life=%d start=%d", demon.CurrentLife, start)
+		if p0.Units[1][1] != demon || p0.Units[0][0] != nil || len(p0.Graveyard) != 1 || p0.Graveyard[0].InstanceID != sacrifice.InstanceID {
+			t.Fatalf("fear demon should enter after devouring sacrifice, unit=%v sacrifice_slot=%v grave=%v", p0.Units[1][1], p0.Units[0][0], cardsToInfo(p0.Graveyard))
 		}
 	})
 
@@ -1273,8 +1278,9 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		}
 	})
 
-	t.Run("2011003 君王法袍 lowers enemy spell damage when owner has more field load", func(t *testing.T) {
+	t.Run("2011003 君王法袍 lowers enemy spell damage only after ultimate is used", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
+		engine.State.CurrentTurn = 1
 		robe := NewCardInstance(baseCard(t, "2011003"), 1, 1)
 		engine.State.Players[1].Equipment[0] = robe
 		loaded := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
@@ -1282,9 +1288,20 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		skill := readySkill(baseCard(t, "3021005"), 0)
 
 		damage := engine.effectiveSpellDamage(0, skill, 3, nil)
+		if damage != 3 {
+			t.Fatalf("king robe should not passively reduce enemy spell damage, damage=%d", damage)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  robe.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("use king robe ultimate: %v", err)
+		}
+		damage = engine.effectiveSpellDamage(0, skill, 3, nil)
 
-		if damage != 2 {
-			t.Fatalf("king robe should reduce enemy spell damage by 1 when owner has more load, damage=%d", damage)
+		expected := max(3-(totalFieldLoad(engine.State.Players[1])-totalFieldLoad(engine.State.Players[0]))/2, 0)
+		if damage != expected {
+			t.Fatalf("king robe ultimate should reduce enemy spell damage by load difference, damage=%d expected=%d", damage, expected)
 		}
 	})
 
@@ -2062,6 +2079,119 @@ func TestDefenseOverexertPaysOnlyForThisDefenseWithoutConsumeTriggers(t *testing
 	if target.CurrentLife != target.Card.Life {
 		t.Fatalf("successful defense should prevent spell hit, target life=%d", target.CurrentLife)
 	}
+}
+
+func TestDefenseCanOverexertEquipment(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+	target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+	equipment := NewCardInstance(baseCard(t, "2011001"), 1, 1)
+	equipment.IsHorizontal = false
+	p1.Equipment[0] = equipment
+	p0.Skills[0] = readySkill(baseCard(t, "3321005"), 0)
+	p0.Elements[model.ElementAir] = 2
+	p1.Skills[0] = readySkill(baseCard(t, "3021008"), 1)
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": p0.Skills[0].InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(1),
+		"target_row":  float64(0),
+	}}); err != nil {
+		t.Fatalf("cast cyclone wave: %v", err)
+	}
+	if err := engine.HandleAction(1, ActionMessage{Action: "defend", Data: map[string]any{
+		"skill_ids":     []any{p1.Skills[0].InstanceID},
+		"overexert_ids": []any{equipment.InstanceID},
+	}}); err != nil {
+		t.Fatalf("defend by overexerting equipment: %v", err)
+	}
+	if !equipment.IsHorizontal {
+		t.Fatalf("overexerted equipment should become horizontal")
+	}
+	if p1.Elements[model.ElementArcane] != 0 {
+		t.Fatalf("equipment overexert should not store leftover load, elements=%v", p1.Elements)
+	}
+	if target.CurrentLife != target.Card.Life {
+		t.Fatalf("successful defense should prevent spell hit, target life=%d", target.CurrentLife)
+	}
+}
+
+func TestIssue27DarkPlaytestRegressions(t *testing.T) {
+	t.Run("bloodsuck does not trigger its on-hit buff when used only as a boost", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		friend := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		p0.Skills[0] = readySkill(baseCard(t, "3021005"), 0)
+		p0.Skills[1] = readySkill(baseCard(t, "3621002"), 0)
+		p0.Elements[model.ElementArcane] = 2
+		p0.Elements[model.ElementShadow] = 2
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"boost_ids":   []any{p0.Skills[1].InstanceID},
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast boosted arcane arrow: %v", err)
+		}
+		if engine.State.Phase == PhaseDefenseWindow {
+			if err := engine.HandleAction(1, ActionMessage{Action: "no_defend"}); err != nil {
+				t.Fatalf("no defend: %v", err)
+			}
+		}
+		if engine.State.PendingAction != nil && engine.State.PendingAction.Type == "bloodsuck_buff" {
+			t.Fatalf("bloodsuck boost should not open its on-hit buff pending action")
+		}
+		if friend.CurrentLife != friend.Card.Life {
+			t.Fatalf("friendly unit should not receive bloodsuck buff from boost, life=%d", friend.CurrentLife)
+		}
+		if target.CurrentLife >= target.Card.Life {
+			t.Fatalf("boosted spell should still hit the enemy target, life=%d", target.CurrentLife)
+		}
+	})
+
+	t.Run("Alice triggers after a friendly companion dies and boosts a friendly spell", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		alice := NewCardInstance(baseCard(t, "4611001"), 0, 1)
+		p0.Hero = alice
+		ally := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		p0.Skills[0] = readySkill(baseCard(t, "3021005"), 0)
+
+		engine.destroyUnit(ally, 0)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "alice_boost_spell" {
+			t.Fatalf("Alice should open spell boost choice after friendly death, pending=%v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{p0.Skills[0].InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve Alice boost: %v", err)
+		}
+		if p0.Skills[0].PowerBonus != 1 {
+			t.Fatalf("Alice should give selected spell +1 power, bonus=%d", p0.Skills[0].PowerBonus)
+		}
+	})
+
+	t.Run("blood demon blast can be learned from the skill pool", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		blast := readySkill(baseCard(t, "3621010"), 0)
+		p0.SkillPool = []*CardInstance{blast}
+		p0.Elements[model.ElementShadow] = 4
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "learn_skill", Data: map[string]any{
+			"instance_id": blast.InstanceID,
+		}}); err != nil {
+			t.Fatalf("learn blood demon blast: %v", err)
+		}
+		if p0.Skills[0] != blast {
+			t.Fatalf("blood demon blast should move into skill slot")
+		}
+	})
 }
 
 func TestOpponentDeckHiddenButRevealedHandVisible(t *testing.T) {
@@ -5894,20 +6024,22 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 		}
 	})
 
-	t.Run("4511001 玛丽斯 ultimate grants light when friendly units take enemy damage", func(t *testing.T) {
+	t.Run("4511001 玛丽斯 offers triggered choice when friendly units take enemy damage", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		maris := NewCardInstance(baseCard(t, "4511001"), 0, 1)
 		p0.Hero = maris
 		friend := placeUnit(baseCard(t, "1011002"), 0, 1, 0, engine)
 
-		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
-			"instance_id":  maris.InstanceID,
-			"ability_type": "ultimate",
-		}}); err != nil {
-			t.Fatalf("use Maris ultimate: %v", err)
-		}
 		engine.dealDamageWithExtra(friend, 1, 0, map[string]any{"attacker": 1})
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "maris_gain_light" {
+			t.Fatalf("Maris should open a triggered choice after enemy damage, pending=%v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{maris.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve Maris triggered choice: %v", err)
+		}
 		if p0.Elements[model.ElementLight] != 2 {
 			t.Fatalf("Maris should grant 2 light after enemy damage, elements=%v", p0.Elements)
 		}
