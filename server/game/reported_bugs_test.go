@@ -26,6 +26,196 @@ func setupReportedBugEngine(t *testing.T) *Engine {
 	return engine
 }
 
+func TestIssue25PlaytestRegressions(t *testing.T) {
+	t.Run("square spell area affects a 2x2 block, not the whole board", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		skill := readySkill(baseCard(t, "3121005"), 0)
+		inA := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
+		inB := placeUnit(baseCard(t, "1021001"), 1, 2, 2, engine)
+		out := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		units := engine.spellAffectedUnits(1, skill, SpellTarget{Type: "unit", Position: Position{Col: 1, Row: 1}})
+
+		seen := map[*CardInstance]bool{}
+		for _, unit := range units {
+			seen[unit] = true
+		}
+		if !seen[inA] || !seen[inB] || seen[out] || len(units) != 2 {
+			t.Fatalf("square should be anchored 2x2, units=%v", cardsToInfo(units))
+		}
+	})
+
+	t.Run("only current player's marks settle at that player's turn end", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0Unit := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		p1Unit := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		p0Unit.Statuses[StatusBurn] = 1
+		p1Unit.Statuses[StatusBurn] = 1
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "end_turn"}); err != nil {
+			t.Fatalf("end p0 turn: %v", err)
+		}
+		if p0Unit.CurrentLife != p0Unit.Card.Life-1 {
+			t.Fatalf("current player's burn should settle, life=%d", p0Unit.CurrentLife)
+		}
+		if p1Unit.CurrentLife != p1Unit.Card.Life {
+			t.Fatalf("opponent burn should not settle on p0 end, life=%d", p1Unit.CurrentLife)
+		}
+	})
+
+	t.Run("burn damage at turn end still triggers fire insight", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		placeUnit(baseCard(t, "1121012"), 0, 0, 0, engine)
+		verland := placeUnit(baseCard(t, "4111002"), 0, 1, 1, engine)
+		verland.Statuses[StatusBurn] = 1
+		draw := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Deck = []*CardInstance{draw}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "end_turn"}); err != nil {
+			t.Fatalf("end turn with burn: %v", err)
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != draw {
+			t.Fatalf("fire insight should draw from turn-end burn damage, hand=%v", cardsToInfo(p0.Hand))
+		}
+	})
+
+	t.Run("ice dissolve sets pending spell power to zero", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		ice := readySkill(baseCard(t, "3221008"), 1)
+		spell := &SpellCast{AttackerID: 0, TotalPower: 3}
+		if err := (Card3221008IceDissolve{}).OnSpellReaction(&EffectContext{
+			Engine: engine, Source: ice, PlayerID: 1, OpponentID: 0,
+		}, spell); err != nil {
+			t.Fatalf("ice dissolve reaction: %v", err)
+		}
+		if spell.TotalPower != 0 {
+			t.Fatalf("ice dissolve should zero power, got %d", spell.TotalPower)
+		}
+	})
+
+	t.Run("firethorn deathrattle asks for a burn target", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		firethorn := placeUnit(baseCard(t, "1121014"), 0, 0, 0, engine)
+		enemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		engine.destroyUnit(firethorn, 0)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "firethorn_death_burn" {
+			t.Fatalf("firethorn should open target selection, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{enemy.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve firethorn: %v", err)
+		}
+		if enemy.Statuses[StatusBurn] != 1 {
+			t.Fatalf("selected enemy should get burn, statuses=%v", enemy.Statuses)
+		}
+	})
+
+	t.Run("fire arrow is an equipment sacrifice ability", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		arrow := NewCardInstance(baseCard(t, "2121004"), 0, 1)
+		p0.Equipment[0] = arrow
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  arrow.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("use fire arrow sacrifice: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "fire_arrow_damage" {
+			t.Fatalf("fire arrow should ask target, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve fire arrow: %v", err)
+		}
+		if p0.Equipment[0] != nil || target.CurrentLife != target.Card.Life-1 {
+			t.Fatalf("fire arrow should sacrifice and damage, equipment=%v life=%d", p0.Equipment[0], target.CurrentLife)
+		}
+	})
+
+	t.Run("scorching scroll asks for a target and applies burn", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		scroll := NewCardInstance(baseCard(t, "2121003"), 0, 1)
+		p0.Hand = []*CardInstance{scroll}
+		p0.Elements[model.ElementArcane] = 1
+		p0.Elements[model.ElementFire] = 1
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": scroll.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use scorching scroll: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "scorching_scroll_burn" {
+			t.Fatalf("scorching scroll should ask target, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve scorching scroll: %v", err)
+		}
+		if target.Statuses[StatusBurn] != 1 {
+			t.Fatalf("scorching scroll should burn selected target, statuses=%v", target.Statuses)
+		}
+	})
+
+	t.Run("bound fire breath can be reset and cast from its host", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		dragon := placeUnit(baseCard(t, "1111001"), 0, 1, 1, engine)
+		engine.triggerEffects(TriggerOnEnter, dragon, nil, nil)
+		if len(dragon.BoundSkills) != 1 {
+			t.Fatalf("fire dragon should bind one skill, bound=%v", cardsToInfo(dragon.BoundSkills))
+		}
+		breath := dragon.BoundSkills[0]
+		engine.resetCards(p0)
+		p0.Elements[model.ElementFire] = 1
+		placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": breath.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast bound fire breath: %v", err)
+		}
+		if engine.State.PendingSpell == nil || engine.State.PendingSpell.Skill != breath {
+			t.Fatalf("bound fire breath should enter defense window, pending=%+v", engine.State.PendingSpell)
+		}
+	})
+
+	t.Run("learning into a full skill area replaces only a vertical skill", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		for i := 0; i < 5; i++ {
+			p0.Skills[i] = readySkill(baseCard(t, "3121001"), 0)
+		}
+		replace := p0.Skills[2]
+		replace.IsHorizontal = false
+		p0.Skills[1].IsHorizontal = true
+		newSkill := NewCardInstance(baseCard(t, "3221007"), 0, 1)
+		p0.SkillPool = []*CardInstance{newSkill}
+		p0.Elements[model.ElementWater] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "learn_skill", Data: map[string]any{
+			"instance_id": newSkill.InstanceID,
+			"replace_id":  replace.InstanceID,
+		}}); err != nil {
+			t.Fatalf("learn with replacement: %v", err)
+		}
+		if p0.Skills[2] != newSkill || len(p0.Graveyard) != 1 || p0.Graveyard[0] != replace {
+			t.Fatalf("new skill should replace selected vertical skill, skill=%v grave=%v", p0.Skills[2], cardsToInfo(p0.Graveyard))
+		}
+	})
+}
+
 func TestHighRiskWaterAndAirCompanionSemantics(t *testing.T) {
 	t.Run("1221008 冰域恶魔 freezes every enemy field unit", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
@@ -281,6 +471,11 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 
 		engine.destroyUnit(firethorn, 0)
 
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{enemy.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve firethorn: %v", err)
+		}
 		if enemy.Statuses[StatusBurn] != 1 {
 			t.Fatalf("firethorn deathrattle should burn an enemy, enemy=%v", enemy.Statuses)
 		}
@@ -542,7 +737,7 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 		earthSkill := readySkill(baseCard(t, "3421001"), 0)
 		earthSkill.OwnerID = 0
 		targetA := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
-		targetB := placeUnit(baseCard(t, "1021002"), 1, 2, 2, engine)
+		targetB := placeUnit(baseCard(t, "1021002"), 1, 2, 1, engine)
 
 		affected := engine.spellAffectedUnits(1, earthSkill, SpellTarget{Type: "unit", Position: Position{Col: 1, Row: 0}})
 
@@ -1377,7 +1572,7 @@ func TestSquareSpellAppliesDamageAndStatusToAllEnemyUnits(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
 	front := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
-	back := placeUnit(baseCard(t, "1021001"), 1, 0, 2, engine)
+	back := placeUnit(baseCard(t, "1021001"), 1, 2, 1, engine)
 	p0.Skills[0] = readySkill(baseCard(t, "3121005"), 0)
 	p0.Elements[model.ElementFire] = 3
 
@@ -2272,8 +2467,8 @@ func TestIceDissolveReactsToEnemySpell(t *testing.T) {
 	}}); err != nil {
 		t.Fatalf("react with ice dissolve: %v", err)
 	}
-	if got := engine.State.PendingSpell.TotalPower; got != startPower-1 {
-		t.Fatalf("ice dissolve should reduce pending spell power by 1, got %d want %d", got, startPower-1)
+	if got := engine.State.PendingSpell.TotalPower; got != 0 {
+		t.Fatalf("ice dissolve should zero pending spell power, got %d start %d", got, startPower)
 	}
 	if p1.Elements[model.ElementWater] != 0 {
 		t.Fatalf("ice dissolve should not leave overexerted water in the pool, elements=%v", p1.Elements)

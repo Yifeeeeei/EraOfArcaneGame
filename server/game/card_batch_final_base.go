@@ -299,14 +299,14 @@ func (Card3221008IceDissolve) CanReactToSpell(ctx *EffectContext, spell *SpellCa
 
 func (Card3221008IceDissolve) OnSpellReaction(ctx *EffectContext, spell *SpellCast) error {
 	if spell.TotalPower > 0 {
-		spell.TotalPower--
+		spell.TotalPower = 0
 		ctx.Engine.emit(GameEvent{
 			Type:   "spell_reaction",
 			Player: -1,
 			Data: map[string]any{
 				"player": ctx.PlayerID,
 				"card":   cardToInfo(ctx.Source),
-				"effect": "power_minus_one",
+				"effect": "power_zero",
 				"power":  spell.TotalPower,
 			},
 		})

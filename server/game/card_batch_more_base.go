@@ -687,8 +687,9 @@ func (Card2111001FireDragonHeart) OnPerTurn(ctx *EffectContext) error {
 
 type Card2111002NurEye struct{ AlwaysActive }
 
-func (Card2111002NurEye) ID() string   { return "2111002" }
-func (Card2111002NurEye) Name() string { return "努尔之眼" }
+func (Card2111002NurEye) ID() string            { return "2111002" }
+func (Card2111002NurEye) Name() string          { return "努尔之眼" }
+func (Card2111002NurEye) IsPrayerAbility() bool { return true }
 func (Card2111002NurEye) OnDamaged(ctx *EffectContext) error {
 	if ctx.ExtraData == nil || (ctx.ExtraData["damage_element"] != model.ElementFire && ctx.ExtraData["status_damage"] != StatusBurn) {
 		return nil

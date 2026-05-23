@@ -11,13 +11,23 @@ func (Card4211003CrystalHeart) OnUltimate(ctx *EffectContext) error {
 }
 
 func (Card4211003CrystalHeart) OnSpellHit(ctx *EffectContext) error {
-	if ctx.Source.Statuses["水晶心冻结法术"] <= 0 || ctx.Target == nil {
+	if ctx.Source.Statuses["水晶心冻结法术"] <= 0 {
 		return nil
 	}
 	if !isFriendlySpellHit(ctx) {
 		return nil
 	}
-	ctx.Target.Statuses[StatusFreeze]++
+	if targets, ok := ctx.ExtraData["affected_units"].([]*CardInstance); ok {
+		for _, target := range targets {
+			if target != nil {
+				target.Statuses[StatusFreeze]++
+			}
+		}
+		return nil
+	}
+	if ctx.Target != nil && !ctx.Target.Card.IsSkill() {
+		ctx.Target.Statuses[StatusFreeze]++
+	}
 	return nil
 }
 
