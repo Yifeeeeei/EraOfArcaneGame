@@ -336,6 +336,10 @@ func (e *Engine) resetCards(ps *PlayerState) {
 			if ps.Units[col][row] != nil {
 				e.resetCard(ps.Units[col][row])
 				ps.Units[col][row].UsedThisTurn = 0
+				for _, skill := range ps.Units[col][row].BoundSkills {
+					e.resetCard(skill)
+					skill.UsedThisTurn = 0
+				}
 			}
 		}
 	}
@@ -591,16 +595,9 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 
 	ps := e.State.Players[playerID]
 
-	// Find skill in skill area
-	var skill *CardInstance
-	for i := 0; i < 5; i++ {
-		if ps.Skills[i] != nil && ps.Skills[i].InstanceID == instanceID {
-			skill = ps.Skills[i]
-			break
-		}
-	}
+	skill := e.findSkill(ps, instanceID)
 	if skill == nil {
-		return fmt.Errorf("skill not found in skill area")
+		return fmt.Errorf("skill not found in skill area or bound skills")
 	}
 
 	// Check if skill can be used
@@ -980,8 +977,10 @@ func (e *Engine) spellAffectedUnits(defenderID int, skill *CardInstance, target 
 
 	switch e.effectiveSpellArea(skill) {
 	case SpellAreaSquare:
-		for col := 0; col < 3; col++ {
-			for row := 0; row < 3; row++ {
+		startCol := min(max(target.Position.Col, 0), 1)
+		startRow := min(max(target.Position.Row, 0), 1)
+		for col := startCol; col < startCol+2; col++ {
+			for row := startRow; row < startRow+2; row++ {
 				if defender.Units[col][row] != nil {
 					units = append(units, defender.Units[col][row])
 				}
@@ -1426,8 +1425,8 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 		// Replace existing skill
 		for i := 0; i < 5; i++ {
 			if ps.Skills[i] != nil && ps.Skills[i].InstanceID == replaceID {
-				if !ps.Skills[i].IsHorizontal {
-					return fmt.Errorf("can only replace horizontal skills")
+				if ps.Skills[i].IsHorizontal {
+					return fmt.Errorf("can only replace vertical skills")
 				}
 				// Send replaced skill to graveyard
 				ps.Graveyard = append(ps.Graveyard, ps.Skills[i])
@@ -2128,6 +2127,16 @@ func (e *Engine) findSkill(ps *PlayerState, instanceID string) *CardInstance {
 	for i := 0; i < 5; i++ {
 		if ps.Skills[i] != nil && ps.Skills[i].InstanceID == instanceID {
 			return ps.Skills[i]
+		}
+	}
+	for _, card := range e.getAllFieldCards(ps) {
+		if card == nil {
+			continue
+		}
+		for _, skill := range card.BoundSkills {
+			if skill != nil && skill.InstanceID == instanceID {
+				return skill
+			}
 		}
 	}
 	return nil

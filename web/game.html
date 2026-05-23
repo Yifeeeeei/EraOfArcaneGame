@@ -280,10 +280,38 @@
                                 @click.stop="showCardDetail(skill)">
                             {{ skill.name }}
                         </button>
+                        <button v-for="skill in detailCard.bound_skills" :key="skill.instance_id + '_use'"
+                                class="bound-skill-chip use"
+                                :disabled="!canCastSkill(skill)"
+                                @click.stop="canCastSkill(skill) && (selectSkillToCast(skill), detailCard = null)">
+                            使用 {{ skill.name }}
+                        </button>
                     </div>
                     <div class="card-desc">{{ detailCard.description }}</div>
                 </div>
                 <button @click="detailCard = null" class="close-btn">✕</button>
+            </div>
+        </div>
+
+        <!-- ═══ SKILL REPLACEMENT MODAL ═══ -->
+        <div v-if="skillReplaceRequest" class="overlay pending-action-overlay">
+            <div class="overlay-content pending-action-panel">
+                <h2>选择要替代的技能</h2>
+                <div class="payment-title">{{ skillReplaceRequest.card.name }}</div>
+                <div class="pending-candidates">
+                    <div v-for="skill in replaceableSkills" :key="skill.instance_id"
+                         class="pending-card"
+                         :class="{ selected: skillReplaceRequest.replaceId === skill.instance_id }"
+                         @click="skillReplaceRequest.replaceId = skill.instance_id">
+                        <img :src="getCardImage(skill)" class="pending-card-img">
+                        <div class="pending-card-name">{{ skill.name }}</div>
+                        <div class="pending-card-side">竖置技能</div>
+                    </div>
+                </div>
+                <div class="pending-actions">
+                    <button @click="confirmSkillReplacement()" class="btn btn-success" :disabled="!skillReplaceRequest.replaceId">确认替代</button>
+                    <button @click="skillReplaceRequest = null" class="btn btn-danger">取消</button>
+                </div>
             </div>
         </div>
 
@@ -680,6 +708,11 @@
                                         @click.stop="showCardDetail(skill)">
                                     {{ skill.name }}
                                 </button>
+                                <button v-for="skill in activePreviewCard.bound_skills" :key="skill.instance_id + '_use'"
+                                        :disabled="!canCastSkill(skill)"
+                                        @click.stop="canCastSkill(skill) && selectSkillToCast(skill)">
+                                    使用
+                                </button>
                             </div>
                             <div v-if="statusEntries(activePreviewCard).length" class="inspection-status">
                                 <span v-for="s in statusEntries(activePreviewCard)" :key="s.label">{{ s.label }}</span>
@@ -791,6 +824,7 @@
             const selectedHandCard = ref(null);
             const selectedAttacker = ref(null);
             const selectedSkill = ref(null);
+            const skillReplaceRequest = ref(null);
             const pileView = ref(null);
             const actionLog = ref([]);
             const isTestRoom = ref(false);
@@ -864,6 +898,16 @@
             });
             const mySkills = computed(() => myState.value.skills || [null,null,null,null,null]);
             const myEquipment = computed(() => myState.value.equipment || [null,null,null,null,null]);
+            const allMySkills = computed(() => {
+                const skills = [...mySkills.value.filter(Boolean)];
+                for (const unit of allMyFieldCards()) {
+                    for (const bound of unit.bound_skills || []) {
+                        skills.push(bound);
+                    }
+                }
+                return skills;
+            });
+            const replaceableSkills = computed(() => mySkills.value.filter(skill => skill && !skill.is_horizontal));
             const isMyTurn = computed(() => gameState.value && gameState.value.current_turn === mySlot.value);
 
             function getMyTerrain(col, row) { return myState.value.terrain?.[col]?.[row] || null; }
@@ -900,6 +944,20 @@
 
             function getMyUnit(col, row) { return myState.value.units?.[col]?.[row] || null; }
             function getOpponentUnit(col, row) { return opponent.value.units?.[col]?.[row] || null; }
+            function allMyFieldCards() {
+                const cards = [];
+                if (myState.value.hero) cards.push(myState.value.hero);
+                for (let col = 0; col < 3; col++) {
+                    for (let row = 0; row < 3; row++) {
+                        const unit = getMyUnit(col, row);
+                        if (unit && unit !== myState.value.hero) cards.push(unit);
+                    }
+                }
+                for (const equipment of myEquipment.value) {
+                    if (equipment) cards.push(equipment);
+                }
+                return cards;
+            }
             function showCardDetail(card) { detailCard.value = card; }
             function previewCard(card) { if (card) hoverCard.value = card; }
 
@@ -1473,7 +1531,7 @@
                 if (selectedAttacker.value) return row === opponentFrontRow.value;
                 if (!selectedSkill.value) return false;
                 if (pendingExtraTargetCast.value && selectedSkill.value.number === '3321001') return true;
-                return selectedSkill.value.has_pierce || row === opponentFrontRow.value;
+                return selectedSkillHasPierce() || row === opponentFrontRow.value;
             }
             function isSpellTarget(col, row) {
                 return !!selectedSkill.value && isValidOpponentTarget(col, row);
@@ -1528,6 +1586,14 @@
                 if (!canUseSkillAsAttackBoost(skill)) return false;
                 if (!canPayCost(mergedDefenseCost([selectedSkill.value.instance_id, ...selectedBoostSkills.value, skill.instance_id]))) return false;
                 return true;
+            }
+            function selectedSkillHasPierce() {
+                if (!selectedSkill.value) return false;
+                if (selectedSkill.value.has_pierce) return true;
+                return selectedBoostSkills.value.some(id => {
+                    const boost = allMySkills.value.find(skill => skill && skill.instance_id === id);
+                    return boost?.number === '3121015';
+                });
             }
             function toggleBoostSkill(skill) {
                 const idx = selectedBoostSkills.value.indexOf(skill.instance_id);
@@ -1647,10 +1713,9 @@
             }
 
             function mergedDefenseCost(ids) {
-                const skills = myState.value.skills || [];
                 const merged = {};
                 for (const id of ids) {
-                    const skill = skills.find(s => s && s.instance_id === id);
+                    const skill = allMySkills.value.find(s => s && s.instance_id === id);
                     if (!skill) continue;
                     for (const [elem, amount] of Object.entries(skillUseCost(skill))) {
                         merged[elem] = (merged[elem] || 0) + Number(amount || 0);
@@ -1863,11 +1928,26 @@
                     addLog(`${card.name} ${missingCostText(card.elements_cost || {})}`);
                     return;
                 }
-                sendPaidAction('learn_skill', { instance_id: card.instance_id, replace_id: '' }, card.elements_cost || {}, `学习 ${card.name}`, () => addLog(`学习技能 ${card.name}`));
+                if (!mySkills.value.some(skill => !skill)) {
+                    skillReplaceRequest.value = { card, replaceId: '' };
+                    return;
+                }
+                sendLearnSkill(card, '');
             }
             function canLearnSkill(card) {
                 const hasEmptySkillSlot = mySkills.value.some(skill => !skill);
-                return !!card && hasEmptySkillSlot && isMyTurn.value && gameState.value.phase === 'main' && canPayCost(card.elements_cost || {});
+                const canReplace = replaceableSkills.value.length > 0;
+                return !!card && (hasEmptySkillSlot || canReplace) && isMyTurn.value && gameState.value.phase === 'main' && canPayCost(card.elements_cost || {});
+            }
+            function sendLearnSkill(card, replaceId) {
+                sendPaidAction('learn_skill', { instance_id: card.instance_id, replace_id: replaceId || '' }, card.elements_cost || {}, `学习 ${card.name}`, () => {
+                    addLog(replaceId ? `学习技能 ${card.name}，替代旧技能` : `学习技能 ${card.name}`);
+                    skillReplaceRequest.value = null;
+                });
+            }
+            function confirmSkillReplacement() {
+                if (!skillReplaceRequest.value?.card || !skillReplaceRequest.value.replaceId) return;
+                sendLearnSkill(skillReplaceRequest.value.card, skillReplaceRequest.value.replaceId);
             }
             function canPlayHandCard(card) {
                 if (!card || !isMyTurn.value || gameState.value.phase !== 'main') return false;
@@ -2084,6 +2164,7 @@
                         pileView,
                         paymentRequest,
                         devourRequest,
+                        skillReplaceRequest,
                         skillNeedsTarget,
                         summonDevourRequirement,
                         devourCandidates,
@@ -2109,7 +2190,7 @@
                 gameState, mySlot, roomID, mulliganSubmitted, detailCard, hoverCard, activePreviewCard,
                 selectedHandCard, selectedAttacker, selectedSkill, selectedBoostSkills, pileView, actionLog,
                 isTestRoom, testCardNumber, testElement, testElementAmount, ELEMENT_ORDER,
-                myState, opponent, myHand, opponentHandCards, mySkills, myEquipment,
+                myState, opponent, myHand, opponentHandCards, mySkills, myEquipment, allMySkills,
                 isMyTurn, showDefenseWindow, myFrontRow, opponentFrontRow,
                 getCardImage, getElementIcon, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, costHTML, hasCost, hasUseCost, hasGain, entryCostLabel,
                 showCardDetail, previewCard, mulligan, selectHandCard, isConsumable, canSummonAt,
@@ -2121,6 +2202,7 @@
                 guideKicker, currentHint, waitingNotice, clearSelection, statusEntries,
                 hasActiveTargeting, isValidOpponentTarget, isSpellTarget, isFriendlySpellTarget, canUseMyCell,
                 canShowCostHint, missingCostText, skillUseCost, canLearnSkill, costLabel,
+                skillReplaceRequest, replaceableSkills, confirmSkillReplacement,
                 paymentRequest, paymentSelection, paymentElements, selectedPaymentTotal,
                 canAddPayment, addPayment, isPaymentSelectionValid, paymentRemainingText, confirmPayment, cancelPayment, totalCost,
                 devourRequest, devourSelection, devourSelectedLoad, devourSelectionMeetsRequirement,
