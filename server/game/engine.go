@@ -491,6 +491,9 @@ func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, 
 		if target == nil || target.Card == nil || !target.Card.IsCompanion() || target.Card.IsHero() || target == card {
 			return fmt.Errorf("invalid devour target")
 		}
+		if target.CurrentLife > 0 {
+			total[DevourLife] += target.CurrentLife
+		}
 		for elem, amount := range effectiveElementsGain(target) {
 			if amount > 0 {
 				total[elem] += amount
@@ -816,23 +819,31 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 }
 
 func (e *Engine) collectOverexertUnits(ps *PlayerState, ids []string) ([]*CardInstance, error) {
-	units := make([]*CardInstance, 0, len(ids))
+	cards := make([]*CardInstance, 0, len(ids))
 	seen := make(map[string]bool)
 	for _, id := range ids {
 		if seen[id] {
-			return nil, fmt.Errorf("unit %s selected more than once", id)
+			return nil, fmt.Errorf("card %s selected more than once", id)
 		}
 		seen[id] = true
-		unit := e.findUnitOnGrid(ps, id)
-		if unit == nil {
-			return nil, fmt.Errorf("overexert unit not found: %s", id)
+		card := e.findUnitOnGrid(ps, id)
+		if card == nil {
+			for _, equipment := range ps.Equipment {
+				if equipment != nil && equipment.InstanceID == id {
+					card = equipment
+					break
+				}
+			}
 		}
-		if !e.canConsumeCard(unit) {
-			return nil, fmt.Errorf("unit cannot be overexerted: %s", id)
+		if card == nil || card.Card == nil {
+			return nil, fmt.Errorf("overexert card not found: %s", id)
 		}
-		units = append(units, unit)
+		if !e.canConsumeCard(card) {
+			return nil, fmt.Errorf("card cannot be overexerted: %s", id)
+		}
+		cards = append(cards, card)
 	}
-	return units, nil
+	return cards, nil
 }
 
 // handleNoDefend handles when the defender chooses not to defend

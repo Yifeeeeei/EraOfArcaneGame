@@ -6,6 +6,9 @@ func (Card3621002Bloodsuck) ID() string   { return "3621002" }
 func (Card3621002Bloodsuck) Name() string { return "噬血" }
 
 func (Card3621002Bloodsuck) OnSpellHit(ctx *EffectContext) error {
+	if ctx.Target != nil && ctx.Target.Card != nil && ctx.Target.Card.IsSkill() && ctx.Target.InstanceID != ctx.Source.InstanceID {
+		return nil
+	}
 	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, true, nil)
 	if len(candidates) == 0 {
 		return nil
