@@ -2023,6 +2023,126 @@ func TestFireSpriteGainsBurnWhenConsumed(t *testing.T) {
 	}
 }
 
+func TestIssue29PlaytestRegressions(t *testing.T) {
+	t.Run("explicit first player drives first turn rules", func(t *testing.T) {
+		if cards.CardDB == nil {
+			if err := cards.LoadCards(); err != nil {
+				t.Fatalf("load cards: %v", err)
+			}
+		}
+		SetCardDB(cards.CardDB)
+		engine := NewEngine("issue29-first-player", nil)
+		deck, err := model.ParseDeckCode(testDeckCode)
+		if err != nil {
+			t.Fatalf("parse deck: %v", err)
+		}
+		if err := engine.SetupGameWithFirstPlayer("P1", deck, "P2", deck, 1); err != nil {
+			t.Fatalf("setup game: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "mulligan", Data: map[string]any{"keep": true}}); err != nil {
+			t.Fatalf("p0 mulligan: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "mulligan", Data: map[string]any{"keep": true}}); err != nil {
+			t.Fatalf("p1 mulligan: %v", err)
+		}
+		if engine.State.FirstPlayer != 1 || engine.State.CurrentTurn != 1 {
+			t.Fatalf("expected player 1 to start, first=%d current=%d", engine.State.FirstPlayer, engine.State.CurrentTurn)
+		}
+		state := engine.GetStateForPlayer(0)
+		if state["first_player"] != 1 {
+			t.Fatalf("serialized first_player should be 1, state=%v", state["first_player"])
+		}
+		order := state["turn_order"].(map[string]string)
+		if order["you"] != "后手" || order["opponent"] != "先手" {
+			t.Fatalf("turn labels should follow randomized first player, order=%v", order)
+		}
+	})
+
+	t.Run("fire sprite only burns itself when it is the consumed card", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		sprite := placeUnit(baseCard(t, "1121001"), 0, 0, 0, engine)
+		other := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "consume", Data: map[string]any{
+			"instance_id": other.InstanceID,
+		}}); err != nil {
+			t.Fatalf("consume other card: %v", err)
+		}
+		if sprite.Statuses[StatusBurn] != 0 {
+			t.Fatalf("fire sprite should not burn when another card is consumed, statuses=%v", sprite.Statuses)
+		}
+	})
+
+	t.Run("fire barrier boosts fire boost spells and grants burn from boosted hit", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		barrier := readySkill(baseCard(t, "3121008"), 0)
+		main := readySkill(baseCard(t, "3321005"), 0)
+		boost := readySkill(baseCard(t, "3121015"), 0)
+		p0.Skills[0] = barrier
+		p0.Skills[1] = main
+		p0.Skills[2] = boost
+
+		withoutBarrier := main.Card.Power + boost.Card.Power
+		withBarrier := engine.effectiveSpellPower(0, main, []*CardInstance{boost}, SpellTarget{Type: "unit", Position: Position{Col: 1, Row: 0}})
+		if withBarrier != withoutBarrier+2 {
+			t.Fatalf("fire barrier should add +2 power to fire boost spell, got=%d want=%d", withBarrier, withoutBarrier+2)
+		}
+		p0.Elements[model.ElementAir] = 3
+		p0.Elements[model.ElementFire] = 3
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": main.InstanceID,
+			"boost_ids":   []any{boost.InstanceID},
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast boosted spell: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend"}); err != nil {
+			t.Fatalf("no defend: %v", err)
+		}
+		if target.Statuses[StatusBurn] != 1 {
+			t.Fatalf("fire barrier should add burn from fire boost spell, statuses=%v", target.Statuses)
+		}
+	})
+
+	t.Run("Maggie and geography primer expose effective play costs without consuming discounts", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		maggie := NewCardInstance(baseCard(t, "4411003"), 0, 1)
+		p0.Hero = maggie
+		primer := NewCardInstance(baseCard(t, "2421013"), 0, 1)
+		p0.Equipment[0] = primer
+		rock := NewCardInstance(baseCard(t, "1421005"), 0, 1)
+		p0.Hand = []*CardInstance{rock}
+		p0.Elements[model.ElementEarth] = 2
+
+		cost := engine.effectiveCardPlayCost(p0, rock)
+		if cost[model.ElementEarth] != 2 || maggie.Statuses["麦吉折扣"] != 0 {
+			t.Fatalf("effective cost should include both discounts without marking Maggie used, cost=%v statuses=%v", cost, maggie.Statuses)
+		}
+		state := engine.GetStateForPlayer(0)
+		hand := state["you"].(map[string]any)["hand"].([]map[string]any)
+		effective := hand[0]["effective_elements_cost"].(map[string]int)
+		if effective[model.ElementEarth] != 2 {
+			t.Fatalf("frontend state should expose effective play cost, cost=%v", effective)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+			"instance_id": rock.InstanceID,
+			"col":         float64(1),
+			"row":         float64(1),
+			"payment":     map[string]any{model.ElementEarth: float64(2)},
+		}}); err != nil {
+			t.Fatalf("summon rock with discounted cost: %v", err)
+		}
+		if maggie.Statuses["麦吉折扣"] != 1 {
+			t.Fatalf("Maggie should be marked used only after the discounted play succeeds, statuses=%v", maggie.Statuses)
+		}
+	})
+}
+
 func TestBottledElementGainsOneArcaneWhenUsed(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
@@ -6013,10 +6133,9 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 		p0.Hero = maggie
 		highCost := NewCardInstance(baseCard(t, "1411003"), 0, 1)
 		cost := engine.effectiveCardPlayCost(p0, highCost)
-		if cost[model.ElementEarth] != max(highCost.Card.ElementsCost[model.ElementEarth]-2, 0) || maggie.Statuses["麦吉折扣"] != 1 {
+		if cost[model.ElementEarth] != max(highCost.Card.ElementsCost[model.ElementEarth]-2, 0) || maggie.Statuses["麦吉折扣"] != 0 {
 			t.Fatalf("Maggie should discount first high-cost card by earth, cost=%v statuses=%v", cost, maggie.Statuses)
 		}
-		maggie.Statuses["麦吉折扣"] = 0
 		skill := NewCardInstance(baseCard(t, "3421014"), 0, 1)
 		learnCost := engine.effectiveSkillLearnCost(p0, skill)
 		if learnCost[model.ElementEarth] != max(skill.Card.ElementsCost[model.ElementEarth]-2, 0) {

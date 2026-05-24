@@ -241,9 +241,11 @@ func (r *Room) StartGame() error {
 	})
 
 	// Setup game
-	err := r.Engine.SetupGame(
+	firstPlayer := rand.Intn(2)
+	err := r.Engine.SetupGameWithFirstPlayer(
 		r.Players[0].Name, r.Players[0].Deck,
 		r.Players[1].Name, r.Players[1].Deck,
+		firstPlayer,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to setup game: %w", err)
@@ -389,6 +391,7 @@ func (r *Room) stateSnapshot() map[string]any {
 	snapshot := map[string]any{
 		"phase":        state.Phase.String(),
 		"current_turn": state.CurrentTurn,
+		"first_player": state.FirstPlayer,
 		"turn_number":  state.TurnNumber,
 		"winner":       state.Winner,
 		"mulligan":     state.MulliganDone,

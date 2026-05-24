@@ -53,12 +53,21 @@ func (e *Engine) emit(event GameEvent) {
 
 // SetupGame initializes both players and starts the game
 func (e *Engine) SetupGame(p1Name string, p1Deck *model.Deck, p2Name string, p2Deck *model.Deck) error {
+	return e.SetupGameWithFirstPlayer(p1Name, p1Deck, p2Name, p2Deck, 0)
+}
+
+// SetupGameWithFirstPlayer initializes both players with an explicit first player.
+func (e *Engine) SetupGameWithFirstPlayer(p1Name string, p1Deck *model.Deck, p2Name string, p2Deck *model.Deck, firstPlayer int) error {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	if firstPlayer < 0 || firstPlayer > 1 {
+		firstPlayer = 0
+	}
 
 	// Create player states
 	e.State.Players[0] = NewPlayerState(0, p1Name, p1Deck)
 	e.State.Players[1] = NewPlayerState(1, p2Name, p2Deck)
+	e.State.FirstPlayer = firstPlayer
 
 	// Initialize cards
 	e.State.Players[0].InitCards(0)
@@ -239,7 +248,7 @@ func (e *Engine) handleMulligan(playerID int, action ActionMessage) error {
 
 // startGame begins the actual game
 func (e *Engine) startGame() {
-	e.State.CurrentTurn = 0
+	e.State.CurrentTurn = e.State.FirstPlayer
 	e.State.TurnNumber = 1
 	e.State.IsFirstTurn = true
 
@@ -247,7 +256,7 @@ func (e *Engine) startGame() {
 		Type:   "game_start",
 		Player: -1,
 		Data: map[string]any{
-			"first_player": 0,
+			"first_player": e.State.FirstPlayer,
 		},
 	})
 
@@ -265,7 +274,7 @@ func (e *Engine) startTurn() {
 	e.applyTurnStartTemporaryModifiers(ps)
 
 	// Draw a card (not on first turn of the game for first player)
-	shouldDraw := !e.State.IsFirstTurn || e.State.CurrentTurn == 1
+	shouldDraw := !e.State.IsFirstTurn || e.State.CurrentTurn != e.State.FirstPlayer
 	if shouldDraw && ps.SkipNextDraw {
 		ps.SkipNextDraw = false
 		e.emit(GameEvent{
@@ -427,6 +436,7 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 	if !payCostForAction(ps, cost, action) {
 		return fmt.Errorf("invalid payment")
 	}
+	e.notifyCardPlayCostPaid(ps, card)
 	ps.RemoveFromHand(handIdx)
 	card.Position = &Position{Col: col, Row: row}
 	card.IsHorizontal = true // enters horizontal by default
@@ -544,7 +554,7 @@ func (e *Engine) handleConsume(playerID int, action ActionMessage) error {
 	card.IsHorizontal = true
 	gains := effectiveElementsGain(card)
 	// First player's first turn: half load
-	if e.State.IsFirstTurn && playerID == 0 {
+	if e.State.IsFirstTurn && playerID == e.State.FirstPlayer {
 		for k, v := range gains {
 			gains[k] = v / 2
 		}
@@ -971,6 +981,7 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 		"damage":         dmg,
 		"target":         target,
 		"affected_units": affectedUnits,
+		"boost_skills":   boostSkills,
 	}
 	e.triggerEffects(TriggerOnSpellHit, skill, targetUnit, hitData)
 	e.triggerFieldEffectsWithData(TriggerOnSpellHit, attackerID, skill, hitData)
@@ -1370,6 +1381,7 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 	if !payCostForAction(ps, cost, action) {
 		return fmt.Errorf("invalid payment")
 	}
+	e.notifyCardPlayCostPaid(ps, card)
 	ps.RemoveFromHand(handIdx)
 	card.IsHorizontal = true
 	card.SlotIndex = slotIdx
@@ -1465,6 +1477,7 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 	if !payCostForAction(ps, cost, action) {
 		return fmt.Errorf("invalid payment")
 	}
+	e.notifyCardPlayCostPaid(ps, skill)
 	e.consumeEarthSkillLearnCostModifier(ps, skill)
 	ps.SkillPool = append(ps.SkillPool[:poolIdx], ps.SkillPool[poolIdx+1:]...)
 	skill.IsHorizontal = true
@@ -1541,6 +1554,7 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 	if !payCostForAction(ps, cost, action) {
 		return fmt.Errorf("invalid payment")
 	}
+	e.notifyCardPlayCostPaid(ps, card)
 	ps.RemoveFromHand(handIdx)
 	ps.Graveyard = append(ps.Graveyard, card)
 
@@ -1609,6 +1623,7 @@ func (e *Engine) handlePlaceTerrain(playerID int, action ActionMessage) error {
 	if !payCostForAction(ps, cost, action) {
 		return fmt.Errorf("invalid payment")
 	}
+	e.notifyCardPlayCostPaid(ps, card)
 	ps.RemoveFromHand(handIdx)
 	card.Position = &Position{Col: col, Row: row}
 	card.EnterTurn = e.State.TurnNumber
@@ -1934,11 +1949,11 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 	})
 
 	// Switch turns
-	if e.State.IsFirstTurn && e.State.CurrentTurn == 0 {
+	if e.State.IsFirstTurn && e.State.CurrentTurn == e.State.FirstPlayer {
 		e.State.IsFirstTurn = false
 	}
 	e.State.CurrentTurn = 1 - e.State.CurrentTurn
-	if e.State.CurrentTurn == 0 {
+	if e.State.CurrentTurn == e.State.FirstPlayer {
 		e.State.TurnNumber++
 	}
 
@@ -2060,12 +2075,12 @@ func (e *Engine) GetStateForPlayer(playerID int) map[string]any {
 		"game_id":      state.GameID,
 		"phase":        state.Phase.String(),
 		"current_turn": state.CurrentTurn,
-		"first_player": 0,
-		"turn_order":   map[string]string{"you": turnOrderLabel(playerID), "opponent": turnOrderLabel(opponentID)},
+		"first_player": state.FirstPlayer,
+		"turn_order":   map[string]string{"you": turnOrderLabel(playerID, state.FirstPlayer), "opponent": turnOrderLabel(opponentID, state.FirstPlayer)},
 		"turn_number":  state.TurnNumber,
 		"winner":       state.Winner,
-		"you":          playerStateToInfo(ps, true),
-		"opponent":     playerStateToInfo(op, false),
+		"you":          e.playerStateToInfo(ps, true),
+		"opponent":     e.playerStateToInfo(op, false),
 		"pending_spell": func() any {
 			if state.PendingSpell != nil {
 				return map[string]any{
@@ -2332,14 +2347,14 @@ func deckSummaryToInfo(deck []*CardInstance) []map[string]any {
 	return result
 }
 
-func turnOrderLabel(playerID int) string {
-	if playerID == 0 {
+func turnOrderLabel(playerID int, firstPlayer int) string {
+	if playerID == firstPlayer {
 		return "先手"
 	}
 	return "后手"
 }
 
-func playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any {
+func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any {
 	info := map[string]any{
 		"player_id":      ps.PlayerID,
 		"player_name":    ps.PlayerName,
@@ -2385,9 +2400,9 @@ func playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any {
 
 	if isOwner {
 		// Show full hand
-		info["hand"] = cardsToInfo(ps.Hand)
+		info["hand"] = e.cardsToInfoWithEffectiveCosts(ps, ps.Hand, false)
 		info["deck_summary"] = deckSummaryToInfo(ps.Deck)
-		info["skill_pool"] = cardsToInfo(ps.SkillPool)
+		info["skill_pool"] = e.cardsToInfoWithEffectiveCosts(ps, ps.SkillPool, true)
 	} else {
 		// Only show count
 		info["hand_count"] = len(ps.Hand)
@@ -2402,4 +2417,20 @@ func playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any {
 	}
 
 	return info
+}
+
+func (e *Engine) cardsToInfoWithEffectiveCosts(ps *PlayerState, cards []*CardInstance, learn bool) []map[string]any {
+	result := make([]map[string]any, len(cards))
+	for i, c := range cards {
+		info := cardToInfo(c)
+		if c != nil && c.Card != nil {
+			if learn {
+				info["effective_learn_cost"] = e.effectiveSkillLearnCost(ps, c)
+			} else {
+				info["effective_elements_cost"] = e.effectiveCardPlayCost(ps, c)
+			}
+		}
+		result[i] = info
+	}
+	return result
 }

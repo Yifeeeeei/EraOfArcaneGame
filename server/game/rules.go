@@ -106,6 +106,30 @@ func (e *Engine) effectiveSkillLearnCost(ps *PlayerState, skill *CardInstance) m
 	return cost
 }
 
+func (e *Engine) notifyCardPlayCostPaid(ps *PlayerState, card *CardInstance) {
+	if ps == nil || card == nil || card.Card == nil {
+		return
+	}
+	ctx := &EffectContext{
+		Engine:     e,
+		Target:     card,
+		PlayerID:   ps.PlayerID,
+		OpponentID: 1 - ps.PlayerID,
+	}
+	for _, fieldCard := range e.getAllFieldCards(ps) {
+		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
+			continue
+		}
+		behavior := globalRegistry.GetBehavior(fieldCard.Card.Number)
+		paid, ok := behavior.(CardPlayCostPaidBehavior)
+		if !ok || !paid.HasActiveCardPlayCostPaid(fieldCard) {
+			continue
+		}
+		ctx.Source = fieldCard
+		paid.OnCardPlayCostPaid(ctx, card)
+	}
+}
+
 func mergeElementCosts(costs ...map[string]int) map[string]int {
 	merged := make(map[string]int)
 	for _, cost := range costs {
@@ -259,6 +283,7 @@ func (e *Engine) effectiveSpellPower(playerID int, skill *CardInstance, boostSki
 	power := e.skillContributionStatsWithData(playerID, skill, skill, skillPurposeAttack, extra).PowerBonus
 	for _, boostSkill := range boostSkills {
 		power += e.skillContributionStatsWithData(playerID, boostSkill, skill, skillPurposeAttackBoost, extra).PowerBonus
+		power += e.spellStatBonusesWithData(playerID, boostSkill, skillPurposeAttackBoost, extra).PowerBonus
 	}
 	power += e.spellStatBonusesWithData(playerID, skill, skillPurposeAttack, extra).PowerBonus
 	power += e.genericSpellBonus(playerID, skill, "威")

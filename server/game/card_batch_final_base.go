@@ -104,9 +104,31 @@ type Card2421013GeographyPrimer struct{ AlwaysActive }
 func (Card2421013GeographyPrimer) ID() string   { return "2421013" }
 func (Card2421013GeographyPrimer) Name() string { return "《地理学入门》" }
 func (Card2421013GeographyPrimer) ModifyCardPlayCost(ctx *EffectContext, card *CardInstance, cost map[string]int) {
-	if card != nil && card.Card.TotalCost() > 5 {
-		reduceCost(cost, model.ElementEarth, 2)
+	if card == nil || card.Card.TotalCost() <= 5 {
+		return
 	}
+	primerCount := 0
+	for _, fieldCard := range ctx.Engine.getAllFieldCards(ctx.Engine.State.Players[ctx.PlayerID]) {
+		if fieldCard != nil && fieldCard.Card != nil && fieldCard.Card.Number == "2421013" && !ctx.Engine.hasEffectiveStatus(fieldCard, StatusPetrify) {
+			primerCount++
+		}
+	}
+	if primerCount <= 1 || ctx.Source == firstActiveCardByNumber(ctx.Engine, ctx.Engine.State.Players[ctx.PlayerID], "2421013") {
+		reduction := 2
+		if primerCount >= 2 {
+			reduction = 3
+		}
+		reduceCost(cost, model.ElementEarth, reduction)
+	}
+}
+
+func firstActiveCardByNumber(e *Engine, ps *PlayerState, number string) *CardInstance {
+	for _, fieldCard := range e.getAllFieldCards(ps) {
+		if fieldCard != nil && fieldCard.Card != nil && fieldCard.Card.Number == number && !e.hasEffectiveStatus(fieldCard, StatusPetrify) {
+			return fieldCard
+		}
+	}
+	return nil
 }
 
 type Card2501001Shackle struct{ AlwaysActive }
@@ -449,6 +471,10 @@ func (Card4411003ProfessorMaggie) Name() string { return "麦吉教授" }
 func (Card4411003ProfessorMaggie) ModifyCardPlayCost(ctx *EffectContext, card *CardInstance, cost map[string]int) {
 	if ctx.Source.Statuses["麦吉折扣"] == 0 && card != nil && card.Card.TotalCost() > 5 {
 		reduceCost(cost, model.ElementEarth, 2)
+	}
+}
+func (Card4411003ProfessorMaggie) OnCardPlayCostPaid(ctx *EffectContext, card *CardInstance) {
+	if ctx.Source.Statuses["麦吉折扣"] == 0 && card != nil && card.Card.TotalCost() > 5 {
 		ctx.Source.Statuses["麦吉折扣"] = 1
 	}
 }
