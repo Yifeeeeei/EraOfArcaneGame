@@ -264,7 +264,7 @@
                         <span v-if="detailCard.power >= 0" style="color:var(--elem-arcane)">威力 {{ detailCard.power }}</span>
                     </div>
                     <div v-if="hasCost(detailCard)" class="card-cost">
-                        {{ entryCostLabel(detailCard) }}：<span class="element-list" v-html="costHTML(detailCard.elements_cost)"></span>
+                        {{ entryCostLabel(detailCard) }}：<span class="element-list" v-html="costHTML(playCost(detailCard))"></span>
                     </div>
                     <div v-if="hasUseCost(detailCard)" class="card-cost">
                         使用费用：<span class="element-list" v-html="costHTML(detailCard.elements_expense)"></span>
@@ -739,8 +739,8 @@
                              title="右键点击查看选项">
                             <img :src="getCardImage(card)" :alt="card.name">
                             <div class="sp-name">{{ card.name }}</div>
-                            <div class="sp-cost" v-html="costHTML(card.elements_cost)"></div>
-                            <div class="sp-learn-hint">{{ canLearnSkill(card) ? '右键学习' : missingCostText(card.elements_cost) }}</div>
+                            <div class="sp-cost" v-html="costHTML(learnCost(card))"></div>
+                            <div class="sp-learn-hint">{{ canLearnSkill(card) ? '右键学习' : missingCostText(learnCost(card)) }}</div>
                         </div>
                     </div>
                 </div>
@@ -790,7 +790,7 @@
                         <div class="hand-card-info">
                             <div class="hand-card-name">{{ card.name }}</div>
                             <div class="hand-card-cost" v-if="hasCost(card)">
-                                <span v-for="(v,k) in card.elements_cost" :key="k" class="cost-pip" :class="'elem-' + k">
+                                <span v-for="(v,k) in playCost(card)" :key="k" class="cost-pip" :class="'elem-' + k">
                                     <img :src="getElementIcon(k)" :alt="elemFull(k)">
                                     <span>{{ v }}</span>
                                 </span>
@@ -857,6 +857,8 @@
             function hasCost(c) { return c && c.elements_cost && Object.keys(c.elements_cost).length > 0; }
             function hasUseCost(c) { return c && c.elements_expense && Object.keys(c.elements_expense).length > 0; }
             function hasGain(c) { return c && c.elements_gain && Object.keys(c.elements_gain).length > 0; }
+            function playCost(card) { return card?.effective_elements_cost || card?.elements_cost || {}; }
+            function learnCost(card) { return card?.effective_learn_cost || card?.elements_cost || {}; }
             function entryCostLabel(card) {
                 if (!card) return '费用';
                 if (card.type === '技能') return '入场费用';
@@ -1087,7 +1089,8 @@
 
             function cardAvailabilityText(card) {
                 if (!card || !hasCost(card)) return '';
-                return canPayCost(card.elements_cost || {}) ? '可用' : missingCostText(card.elements_cost || {});
+                const cost = playCost(card);
+                return canPayCost(cost) ? '可用' : missingCostText(cost);
             }
 
             function skillUseCost(skill) {
@@ -1277,10 +1280,10 @@
                         if (source === 'hand') {
                             if (isConsumable(card)) {
                                 selectedHandCard.value = null;
-                                sendPaidAction('use_item', { instance_id: card.instance_id }, card.elements_cost || {}, `使用 ${card.name}`, () => addLog(`使用 ${card.name}`));
+                                sendPaidAction('use_item', { instance_id: card.instance_id }, playCost(card), `使用 ${card.name}`, () => addLog(`使用 ${card.name}`));
                             } else if (card.type === '道具' && !card.is_terrain) {
                                 selectedHandCard.value = null;
-                                sendPaidAction('equip', { instance_id: card.instance_id }, card.elements_cost || {}, `装备 ${card.name}`, () => addLog(`装备 ${card.name}`));
+                                sendPaidAction('equip', { instance_id: card.instance_id }, playCost(card), `装备 ${card.name}`, () => addLog(`装备 ${card.name}`));
                             } else {
                                 selectHandCard(card);
                             }
@@ -1325,16 +1328,16 @@
                 selectedAttacker.value = null;
                 selectedSkill.value = null;
                 if (!canPlayHandCard(card)) {
-                    addLog(`${card.name} ${missingCostText(card.elements_cost || {})}`);
+                    addLog(`${card.name} ${missingCostText(playCost(card))}`);
                     selectedHandCard.value = null;
                     return;
                 }
                 if (selectedHandCard.value === card) {
                     if (card.type === '道具' && !card.is_terrain) {
                         if (isConsumable(card)) {
-                            sendPaidAction('use_item', { instance_id: card.instance_id }, card.elements_cost || {}, `使用 ${card.name}`, () => addLog(`使用 ${card.name}`));
+                            sendPaidAction('use_item', { instance_id: card.instance_id }, playCost(card), `使用 ${card.name}`, () => addLog(`使用 ${card.name}`));
                         } else {
-                            sendPaidAction('equip', { instance_id: card.instance_id }, card.elements_cost || {}, `装备 ${card.name}`, () => addLog(`装备 ${card.name}`));
+                            sendPaidAction('equip', { instance_id: card.instance_id }, playCost(card), `装备 ${card.name}`, () => addLog(`装备 ${card.name}`));
                         }
                         selectedHandCard.value = null;
                         return;
@@ -1385,7 +1388,7 @@
             }
 
             function placeTerrainCard(card, col, row) {
-                sendPaidAction('place_terrain', { instance_id: card.instance_id, col, row }, card.elements_cost || {}, `放置 ${card.name}`, () => {
+                sendPaidAction('place_terrain', { instance_id: card.instance_id, col, row }, playCost(card), `放置 ${card.name}`, () => {
                     selectedHandCard.value = null;
                     addLog(`放置地形 ${card.name} → (${col},${row})`);
                 });
@@ -1494,7 +1497,7 @@
                 }
                 const data = { instance_id: card.instance_id, col, row };
                 if (devourIDs.length) data.devour_ids = devourIDs;
-                sendPaidAction('summon', data, card.elements_cost || {}, `召唤 ${card.name}`, () => {
+                sendPaidAction('summon', data, playCost(card), `召唤 ${card.name}`, () => {
                     const next = { ...pendingSummonDevour.value };
                     delete next[card.instance_id];
                     pendingSummonDevour.value = next;
@@ -1942,7 +1945,7 @@
             function learnSkill(card) {
                 if (!isMyTurn.value || gameState.value.phase !== 'main') return;
                 if (!canLearnSkill(card)) {
-                    addLog(`${card.name} ${missingCostText(card.elements_cost || {})}`);
+                    addLog(`${card.name} ${missingCostText(learnCost(card))}`);
                     return;
                 }
                 if (!mySkills.value.some(skill => !skill)) {
@@ -1954,10 +1957,10 @@
             function canLearnSkill(card) {
                 const hasEmptySkillSlot = mySkills.value.some(skill => !skill);
                 const canReplace = replaceableSkills.value.length > 0;
-                return !!card && (hasEmptySkillSlot || canReplace) && isMyTurn.value && gameState.value.phase === 'main' && canPayCost(card.elements_cost || {});
+                return !!card && (hasEmptySkillSlot || canReplace) && isMyTurn.value && gameState.value.phase === 'main' && canPayCost(learnCost(card));
             }
             function sendLearnSkill(card, replaceId) {
-                sendPaidAction('learn_skill', { instance_id: card.instance_id, replace_id: replaceId || '' }, card.elements_cost || {}, `学习 ${card.name}`, () => {
+                sendPaidAction('learn_skill', { instance_id: card.instance_id, replace_id: replaceId || '' }, learnCost(card), `学习 ${card.name}`, () => {
                     addLog(replaceId ? `学习技能 ${card.name}，替代旧技能` : `学习技能 ${card.name}`);
                     skillReplaceRequest.value = null;
                 });
@@ -1969,7 +1972,7 @@
             function canPlayHandCard(card) {
                 if (!card || !isMyTurn.value || gameState.value.phase !== 'main') return false;
                 if (card.type === '技能') return false;
-                return canPayCost(card.elements_cost || {});
+                return canPayCost(playCost(card));
             }
             function endTurn() {
                 sendAction('end_turn', {});
@@ -2209,7 +2212,7 @@
                 isTestRoom, testCardNumber, testElement, testElementAmount, ELEMENT_ORDER,
                 myState, opponent, myHand, opponentHandCards, mySkills, myEquipment, allMySkills,
                 isMyTurn, showDefenseWindow, myFrontRow, opponentFrontRow,
-                getCardImage, getElementIcon, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, costHTML, hasCost, hasUseCost, hasGain, entryCostLabel,
+                getCardImage, getElementIcon, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, costHTML, hasCost, hasUseCost, hasGain, playCost, learnCost, entryCostLabel,
                 showCardDetail, previewCard, mulligan, selectHandCard, isConsumable, canSummonAt,
                 handleCellClick, canConsumeUnit, consumeCard,
                 handleUnitImageClick,
