@@ -2185,6 +2185,13 @@ body::before {
     background: rgba(211,180,106,0.15);
     box-shadow: 0 0 8px var(--gold-glow);
 }
+.pending-card.disabled {
+    cursor: default;
+    opacity: 0.72;
+}
+.pending-card.bottom {
+    border-style: dashed;
+}
 .pending-card-img {
     width: 64px;
     height: 90px;
@@ -2204,6 +2211,26 @@ body::before {
     font-size: 10px;
     color: var(--gold-dim);
     margin-top: 2px;
+}
+.pending-card-tools {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 3px;
+    margin-top: 4px;
+}
+.pending-card-tools .mini-btn {
+    min-height: 20px;
+    padding: 1px 3px;
+    border: 1px solid rgba(198,174,116,0.35);
+    background: rgba(15,10,7,0.92);
+    color: var(--text-secondary);
+    font-size: 10px;
+    cursor: pointer;
+}
+.pending-card-note {
+    grid-column: 1 / -1;
+    font-size: 10px;
+    color: var(--text-muted);
 }
 .pending-info {
     text-align: center;

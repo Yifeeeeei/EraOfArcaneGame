@@ -34,6 +34,13 @@ func setElementsGain(card *CardInstance, gains map[string]int) {
 	}
 }
 
+func clearElementsGainSet(card *CardInstance) {
+	if card == nil {
+		return
+	}
+	card.ElementsGainSet = nil
+}
+
 func addElementsGainBonus(card *CardInstance, elem string, amount int) {
 	if card == nil || amount == 0 {
 		return

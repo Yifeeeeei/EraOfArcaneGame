@@ -1782,14 +1782,19 @@ func (e *Engine) handleResolveAction(playerID int, action ActionMessage) error {
 		return fmt.Errorf("can select at most %d", pa.MaxSelect)
 	}
 	allowed := make(map[string]bool, len(pa.Candidates))
+	selectable := make(map[string]bool, len(pa.Candidates))
 	for _, candidate := range pa.Candidates {
 		if id, ok := candidate["instance_id"].(string); ok && id != "" {
 			allowed[id] = true
+			selectable[id] = candidate["can_select"] != false
 		}
 	}
 	seen := make(map[string]bool, len(selected))
 	for _, id := range selected {
 		if !allowed[id] {
+			return fmt.Errorf("invalid selection")
+		}
+		if !selectable[id] {
 			return fmt.Errorf("invalid selection")
 		}
 		if seen[id] {
@@ -1800,10 +1805,14 @@ func (e *Engine) handleResolveAction(playerID int, action ActionMessage) error {
 
 	// Execute callback
 	callback := pa.Callback
+	callbackData := pa.CallbackData
+	data := action.Data
 	e.State.PendingAction = nil
 	e.State.Phase = e.State.ResumePhase
 
-	if callback != nil {
+	if callbackData != nil {
+		callbackData(selected, data)
+	} else if callback != nil {
 		callback(selected)
 	}
 
@@ -1817,19 +1826,28 @@ func (e *Engine) handleResolveAction(playerID int, action ActionMessage) error {
 
 // SetPendingAction sets a pending player action and pauses the game
 func (e *Engine) SetPendingAction(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, callback func([]string)) {
+	e.setPendingAction(playerID, actionType, prompt, candidates, minSelect, maxSelect, callback, nil)
+}
+
+func (e *Engine) SetPendingActionWithData(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, callback func([]string, map[string]any)) {
+	e.setPendingAction(playerID, actionType, prompt, candidates, minSelect, maxSelect, nil, callback)
+}
+
+func (e *Engine) setPendingAction(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, callback func([]string), callbackData func([]string, map[string]any)) {
 	if minSelect > 0 && len(candidates) == 0 {
 		return
 	}
 	e.State.ResumePhase = e.State.Phase
 	e.State.Phase = PhaseWaitingAction
 	e.State.PendingAction = &PendingAction{
-		Type:       actionType,
-		PlayerID:   playerID,
-		Prompt:     prompt,
-		Candidates: candidates,
-		MinSelect:  minSelect,
-		MaxSelect:  maxSelect,
-		Callback:   callback,
+		Type:         actionType,
+		PlayerID:     playerID,
+		Prompt:       prompt,
+		Candidates:   candidates,
+		MinSelect:    minSelect,
+		MaxSelect:    maxSelect,
+		Callback:     callback,
+		CallbackData: callbackData,
 	}
 
 	e.emit(GameEvent{
@@ -2254,7 +2272,13 @@ func cardToInfo(ci *CardInstance) map[string]any {
 	if hasPerTurn {
 		info["per_turn_limit"] = perTurnLimit(ci)
 		info["per_turn_label"] = "回合技"
-		if prayer, ok := behaviorForNumber(ci.Card.Number).(PrayerAbility); ok && prayer.HasActivePrayer(ci) && prayer.IsPrayerAbility() {
+		behavior := behaviorForNumber(ci.Card.Number)
+		if labeler, ok := behavior.(PerTurnLabelBehavior); ok {
+			if label := labeler.PerTurnLabel(ci); label != "" {
+				info["per_turn_label"] = label
+			}
+		}
+		if prayer, ok := behavior.(PrayerAbility); ok && prayer.HasActivePrayer(ci) && prayer.IsPrayerAbility() {
 			info["per_turn_label"] = "祈咒"
 		}
 	}
