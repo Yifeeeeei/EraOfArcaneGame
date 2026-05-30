@@ -105,6 +105,120 @@ func TestIssue31PlaytestRegressions(t *testing.T) {
 	})
 }
 
+func TestIssue33PlaytestRegressions(t *testing.T) {
+	t.Run("ice dissolve can reduce attack power to zero and defender can confirm with no skill", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		p0.Skills[0] = readySkill(baseCard(t, "3121002"), 0)
+		p1.Skills[0] = readySkill(baseCard(t, "3221008"), 1)
+		p0.Elements[model.ElementFire] = 10
+		p1.Elements[model.ElementWater] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast arcane arrow: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "react_spell", Data: map[string]any{
+			"instance_id": p1.Skills[0].InstanceID,
+		}}); err != nil {
+			t.Fatalf("react with ice dissolve: %v", err)
+		}
+		if engine.State.PendingSpell.TotalPower != 0 {
+			t.Fatalf("ice dissolve should zero pending power, pending=%+v", engine.State.PendingSpell)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "defend", Data: map[string]any{
+			"skill_ids": []any{},
+		}}); err != nil {
+			t.Fatalf("confirm zero-power defense: %v", err)
+		}
+		if engine.State.Phase != PhaseMain || engine.State.PendingSpell != nil {
+			t.Fatalf("zero-power defense should close defense window, phase=%v pending=%+v", engine.State.Phase, engine.State.PendingSpell)
+		}
+		if target.CurrentLife != target.Card.Life {
+			t.Fatalf("zero-power defense should prevent spell hit, life=%d", target.CurrentLife)
+		}
+	})
+
+	t.Run("weakening potion and weakening curse add weaken to enemy skills", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		enemyA := readySkill(baseCard(t, "3021005"), 1)
+		enemyB := readySkill(baseCard(t, "3121002"), 1)
+		p1.Skills[0] = enemyA
+		p1.Skills[1] = enemyB
+		potion := NewCardInstance(baseCard(t, "2621001"), 0, 1)
+
+		engine.triggerEffects(TriggerOnUseItem, potion, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "weakening_potion" {
+			t.Fatalf("weakening potion should ask for enemy skills, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{enemyA.InstanceID, enemyB.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve weakening potion: %v", err)
+		}
+		if enemyA.Statuses[StatusWeaken] != 2 || enemyB.Statuses[StatusWeaken] != 2 {
+			t.Fatalf("weakening potion should weaken two enemy skills, a=%v b=%v", enemyA.Statuses, enemyB.Statuses)
+		}
+
+		curse := readySkill(baseCard(t, "3621009"), 0)
+		p0.Skills[0] = curse
+		p0.Elements[model.ElementShadow] = 10
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": curse.InstanceID,
+			"target_type": "none",
+		}}); err != nil {
+			t.Fatalf("cast weakening curse: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "weakening_curse" {
+			t.Fatalf("weakening curse should ask for an enemy skill, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{enemyA.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve weakening curse: %v", err)
+		}
+		if enemyA.Statuses[StatusWeaken] != 4 {
+			t.Fatalf("weakening curse should add weaken 2, statuses=%v", enemyA.Statuses)
+		}
+	})
+
+	t.Run("public pending spell includes attacker boost skills", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		main := readySkill(baseCard(t, "3121002"), 0)
+		boost := readySkill(baseCard(t, "3121015"), 0)
+		p0.Skills[0] = main
+		p0.Skills[1] = boost
+		p0.Elements[model.ElementFire] = 10
+		p0.Elements[model.ElementArcane] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": main.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+			"boost_ids":   []any{boost.InstanceID},
+		}}); err != nil {
+			t.Fatalf("cast boosted spell: %v", err)
+		}
+		state := engine.GetStateForPlayer(1)
+		pending, _ := state["pending_spell"].(map[string]any)
+		boosts, _ := pending["boost_skills"].([]map[string]any)
+		if len(boosts) != 1 || boosts[0]["number"] != boost.Card.Number {
+			t.Fatalf("opponent state should reveal boost skills, pending=%v", pending)
+		}
+	})
+}
+
 func TestIssue25PlaytestRegressions(t *testing.T) {
 	t.Run("square spell area affects a 2x2 block, not the whole board", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
@@ -1026,17 +1140,38 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 	})
 
-	t.Run("2021012 速写卷轴 resets a learned skill", func(t *testing.T) {
+	t.Run("2021012 速写卷轴 casts a learned skill without tapping it", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
-		skill := readySkill(baseCard(t, "3021005"), 0)
-		skill.IsHorizontal = true
-		engine.State.Players[0].Skills[0] = skill
+		p0 := engine.State.Players[0]
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		skill := readySkill(baseCard(t, "3121002"), 0)
+		p0.Skills[0] = skill
+		p0.Elements[model.ElementFire] = 10
 		scroll := NewCardInstance(baseCard(t, "2021012"), 0, 1)
 
 		engine.triggerEffects(TriggerOnUseItem, scroll, nil, nil)
 
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "sketch_scroll_skill" {
+			t.Fatalf("sketch scroll should ask for a learned skill, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{skill.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose sketch skill: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "sketch_scroll_target" {
+			t.Fatalf("sketch scroll should ask for target, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose sketch target: %v", err)
+		}
 		if skill.IsHorizontal {
-			t.Fatalf("sketch scroll should reset first learned skill")
+			t.Fatalf("sketch scroll should not tap the learned skill")
+		}
+		if engine.State.PendingSpell == nil || engine.State.PendingSpell.Skill != skill {
+			t.Fatalf("sketch scroll should cast the chosen skill, pending=%+v", engine.State.PendingSpell)
 		}
 	})
 
@@ -1107,7 +1242,7 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 	})
 
-	t.Run("2211002 嗜魔弓 adds winter skill and pays water for bow load on spell cast", func(t *testing.T) {
+	t.Run("2211002 嗜魔弓 binds winter skill and pays water for bow load on spell cast", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		bow := NewCardInstance(baseCard(t, "2211002"), 0, 1)
@@ -1117,8 +1252,11 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		engine.triggerEffects(TriggerOnEnter, bow, nil, nil)
 		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, readySkill(baseCard(t, "3021005"), 0), map[string]any{"cast_player": 0})
 
-		if len(p0.SkillPool) != 1 || p0.SkillPool[0].Card.Number != "3201002" {
-			t.Fatalf("winter bow should add bound winter skill to pool adapter, skill_pool=%+v", cardsToInfo(p0.SkillPool))
+		if len(p0.SkillPool) != 0 {
+			t.Fatalf("winter bow bound skill should not enter skill pool, skill_pool=%+v", cardsToInfo(p0.SkillPool))
+		}
+		if len(bow.BoundSkills) != 1 || bow.BoundSkills[0].Card.Number != "3201002" {
+			t.Fatalf("winter bow should bind winter skill, bound=%+v", cardsToInfo(bow.BoundSkills))
 		}
 		if p0.Elements[model.ElementWater] != 0 || effectiveElementsGain(bow)[model.ElementWater] != bow.Card.ElementsGain[model.ElementWater]+1 {
 			t.Fatalf("winter bow should pay 1 water for +1 water load, elements=%v load=%v", p0.Elements, effectiveElementsGain(bow))
@@ -5293,7 +5431,7 @@ func TestEnemyAndGlobalSpellDamageReducers(t *testing.T) {
 		}
 	})
 
-	t.Run("frost heart sacrifices itself to zero an enemy spell hit", func(t *testing.T) {
+	t.Run("frost heart optionally reacts and sacrifices itself to zero an enemy spell hit", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		p1 := engine.State.Players[1]
@@ -5301,10 +5439,10 @@ func TestEnemyAndGlobalSpellDamageReducers(t *testing.T) {
 		target.CurrentLife = 3
 		frostHeart := NewCardInstance(baseCard(t, "2221001"), 1, 1)
 		p1.Equipment[0] = frostHeart
-		p0.Skills[0] = readySkill(baseCard(t, "3021005"), 0)
-		p0.Elements[model.ElementArcane] = 2
-		if _, ok := globalRegistry.GetBehavior("2221001").(EnemySpellStatModifier); !ok {
-			t.Fatalf("frost heart should expose enemy spell stat modifier")
+		p0.Skills[0] = readySkill(baseCard(t, "3121002"), 0)
+		p0.Elements[model.ElementFire] = 10
+		if _, ok := globalRegistry.GetBehavior("2221001").(SpellReactionBehavior); !ok {
+			t.Fatalf("frost heart should expose spell reaction behavior")
 		}
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
@@ -5314,6 +5452,17 @@ func TestEnemyAndGlobalSpellDamageReducers(t *testing.T) {
 			"target_row":  float64(0),
 		}}); err != nil {
 			t.Fatalf("cast arcane arrow into frost heart: %v", err)
+		}
+		if target.CurrentLife != 3 || p1.Equipment[0] != frostHeart {
+			t.Fatalf("frost heart should not auto-trigger before reaction, life=%d equipment=%v", target.CurrentLife, p1.Equipment[0])
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "react_spell", Data: map[string]any{
+			"instance_id": frostHeart.InstanceID,
+		}}); err != nil {
+			t.Fatalf("react with frost heart: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve spell after frost heart: %v", err)
 		}
 		if target.CurrentLife != 3 {
 			t.Fatalf("frost heart should zero the incoming spell damage, life=%d", target.CurrentLife)
@@ -5551,7 +5700,15 @@ func TestReviewCardsLoadReviveAndFriendlyTargetSpells(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("resolve mermaid tear: %v", err)
 		}
-		if p0.Equipment[0] != nil || len(p0.Graveyard) != 0 || dead.CurrentLife != 1 || dead.Position == nil {
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "mermaid_tear_position" {
+			t.Fatalf("mermaid tear should ask for revive position, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{positionSelectionID(Position{Col: 2, Row: 2})},
+		}}); err != nil {
+			t.Fatalf("resolve mermaid tear position: %v", err)
+		}
+		if p0.Equipment[0] != nil || len(p0.Graveyard) != 0 || dead.CurrentLife != 1 || dead.Position == nil || *dead.Position != (Position{Col: 2, Row: 2}) {
 			t.Fatalf("mermaid tear should leave play and revive at one life, equipment=%v grave=%d life=%d pos=%v", p0.Equipment[0], len(p0.Graveyard), dead.CurrentLife, dead.Position)
 		}
 	})

@@ -63,6 +63,9 @@
                 <div v-if="gameState.pending_spell" class="spell-info">
                     <div>法术：{{ gameState.pending_spell.skill.name }}</div>
                     <div>进攻威力：<strong>{{ gameState.pending_spell.power }}</strong></div>
+                    <div v-if="gameState.pending_spell.boost_skills && gameState.pending_spell.boost_skills.length">
+                        强化：{{ gameState.pending_spell.boost_skills.map(skill => skill.name).join('、') }}
+                    </div>
                 </div>
 
                 <div class="defense-skills-section" v-if="availableReactionSkills.length > 0">
@@ -142,7 +145,7 @@
                 </div>
 
                 <div class="defense-actions">
-                    <button @click="submitDefend()" class="btn btn-success" :disabled="defenseSelected.length === 0 || !canSubmitDefense">确认防御</button>
+                    <button @click="submitDefend()" class="btn btn-success" :disabled="!canSubmitDefense">确认防御</button>
                     <button @click="noDefend()" class="btn btn-danger">不防御</button>
                 </div>
             </div>
@@ -157,7 +160,8 @@
                          class="pending-card"
                          :class="{ selected: pendingSelected.includes(candidate.instance_id), disabled: candidate.can_select === false, bottom: isPendingBottom(candidate.instance_id) }"
                          @click="togglePendingSelect(candidate)">
-                        <img :src="getCardImage(candidate)" class="pending-card-img">
+                        <img v-if="candidate.number" :src="getCardImage(candidate)" class="pending-card-img">
+                        <div v-else class="pending-position-tile">{{ candidate.name }}</div>
                         <div class="pending-card-name">{{ candidate.name }}</div>
                         <div class="pending-card-side">
                             <span v-if="candidate.side">{{ candidate.side === 'own' ? '己方' : '敌方' }}</span>
@@ -472,8 +476,11 @@
                                      'front-row': row === opponentFrontRow,
                                      'attack-target': isAttackTarget(col, row),
                                      'spell-target': isSpellTarget(col, row),
+                                     'spell-area-preview': isSpellAreaPreview(col, row),
                                      'invalid-target': hasActiveTargeting && !isValidOpponentTarget(col, row)
                                  }"
+                                 @mouseenter="hoverOpponentCell(col, row)"
+                                 @mouseleave="clearHoverOpponentCell(col, row)"
                                  @click="handleCellClick(1 - mySlot, col, row)">
                                 <div v-if="getOpponentTerrain(col, row)" class="terrain-layer"
                                      @mouseenter.stop="previewCard(getOpponentTerrain(col, row))"
@@ -834,6 +841,7 @@
             const selectedHandCard = ref(null);
             const selectedAttacker = ref(null);
             const selectedSkill = ref(null);
+            const hoveredOpponentCell = ref(null);
             const skillReplaceRequest = ref(null);
             const pileView = ref(null);
             const actionLog = ref([]);
@@ -1105,6 +1113,7 @@
 
             function skillUseCost(skill) {
                 if (!skill) return {};
+                if (skill.type !== '技能') return {};
                 if ((myState.value.temp_modifiers || []).some(m => m.type === 'next_skill_cost_zero' && (m.remaining_uses || 0) > 0)) {
                     return {};
                 }
@@ -1133,6 +1142,7 @@
                 selectedSkill.value = null;
                 selectedBoostSkills.value = [];
                 pendingExtraTargetCast.value = null;
+                hoveredOpponentCell.value = null;
             }
 
             function statusEntries(card) {
@@ -1563,6 +1573,33 @@
             function isSpellTarget(col, row) {
                 return !!selectedSkill.value && isValidOpponentTarget(col, row);
             }
+            function hoverOpponentCell(col, row) {
+                hoveredOpponentCell.value = { col, row };
+            }
+            function clearHoverOpponentCell(col, row) {
+                if (hoveredOpponentCell.value?.col === col && hoveredOpponentCell.value?.row === row) {
+                    hoveredOpponentCell.value = null;
+                }
+            }
+            function isSpellAreaPreview(col, row) {
+                if (!selectedSkill.value || !hoveredOpponentCell.value) return false;
+                const center = hoveredOpponentCell.value;
+                if (!isValidOpponentTarget(center.col, center.row)) return false;
+                const area = selectedSkill.value.spell_area || 'single';
+                if (area === 'square') {
+                    const startCol = Math.min(Math.max(center.col, 0), 1);
+                    const startRow = Math.min(Math.max(center.row, 0), 1);
+                    return col >= startCol && col < startCol + 2 && row >= startRow && row < startRow + 2;
+                }
+                if (area === 'all') return true;
+                if (area === 'column') return col === center.col;
+                if (area === 'front_row') return row === opponentFrontRow.value;
+                if (area === 'splash_cross') {
+                    return (col === center.col && row === center.row) ||
+                        (Math.abs(col - center.col) + Math.abs(row - center.row) === 1);
+                }
+                return col === center.col && row === center.row;
+            }
             function isFriendlySpellTarget(col, row) {
                 return !!selectedSkill.value && !!selectedSkill.value.allows_friendly_target && !!getMyUnit(col, row);
             }
@@ -1711,7 +1748,10 @@
 
             const availableReactionSkills = computed(() => {
                 if (!showDefenseWindow.value) return [];
-                return (myState.value.skills || []).filter(canUseSkillAsReaction);
+                return [
+                    ...(myState.value.skills || []),
+                    ...(myState.value.equipment || []),
+                ].filter(Boolean).filter(canUseSkillAsReaction);
             });
 
             const defenseOverexertUnits = computed(() => {
@@ -1781,8 +1821,10 @@
             }
 
             function canUseSkillAsReaction(skill) {
-                if (!isSkillReady(skill)) return false;
+                if (!skill) return false;
                 if (!skill.can_react) return false;
+                if (skill.type === '技能' && !isSkillReady(skill)) return false;
+                if (skill.type !== '技能' && skill.statuses?.['石化'] > 0) return false;
                 return calculatePaymentWithAvailable(defenseAvailableElements.value, skillUseCost(skill)) !== null;
             }
 
@@ -1811,6 +1853,7 @@
             });
 
             const canSubmitDefense = computed(() => {
+                if (Number(gameState.value?.pending_spell?.power || 0) <= 0) return true;
                 if (defenseSelected.value.length === 0) return false;
                 return calculatePaymentWithAvailable(defenseAvailableElements.value, totalDefenseCost.value) !== null;
             });
@@ -2066,7 +2109,7 @@
             }
             function endTurn() {
                 sendAction('end_turn', {});
-                selectedHandCard.value = null; selectedAttacker.value = null; selectedSkill.value = null;
+                selectedHandCard.value = null; selectedAttacker.value = null; selectedSkill.value = null; hoveredOpponentCell.value = null;
                 addLog('结束回合');
             }
 
@@ -2323,6 +2366,7 @@
                 // Defense
                 defenseSelected, defenseBoostSelected, defenseOverexertSelected, availableDefenseSkills, availableReactionSkills, availableBoostSkills, defenseOverexertUnits,
                 totalDefensePower, totalDefenseCost, defenseAvailableElements, toggleDefenseSkill, toggleDefenseBoost, toggleDefenseOverexert, reactSpell, submitDefend,
+                hoverOpponentCell, clearHoverOpponentCell, isSpellAreaPreview,
                 // Pending action
                 pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction,
                 isWaterDivinationPending, pendingOrderedCandidates, movePendingCandidate, togglePendingBottom, isPendingBottom,

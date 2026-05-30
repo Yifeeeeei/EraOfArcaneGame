@@ -157,14 +157,17 @@ func (e *Engine) handleReactSpell(playerID int, action ActionMessage) error {
 
 	instanceID, _ := action.Data["instance_id"].(string)
 	ps := e.State.Players[playerID]
-	skill := e.findSkill(ps, instanceID)
+	skill := e.findReactionCard(ps, instanceID)
 	if skill == nil {
 		return fmt.Errorf("reaction skill not found")
 	}
 	if err := e.validateSkillForPurpose(skill, skillPurposeReaction); err != nil {
 		return err
 	}
-	cost := e.effectiveSkillUseCost(ps, skill)
+	cost := map[string]int{}
+	if skill.Card.IsSkill() {
+		cost = e.effectiveSkillUseCost(ps, skill)
+	}
 	overexertIDsRaw, _ := action.Data["overexert_ids"].([]any)
 	overexertIDs := stringsFromAnySlice(overexertIDsRaw)
 	overexertUnits, err := e.collectOverexertUnits(ps, overexertIDs)
@@ -178,11 +181,15 @@ func (e *Engine) handleReactSpell(playerID int, action ActionMessage) error {
 		return fmt.Errorf("invalid payment")
 	}
 
-	skill.IsHorizontal = true
-	if !e.shouldSkipCooldown(ps, skill) {
-		e.ApplyKeywordOnSkillUse(skill)
+	if skill.Card.IsSkill() {
+		skill.IsHorizontal = true
+		if !e.shouldSkipCooldown(ps, skill) {
+			e.ApplyKeywordOnSkillUse(skill)
+		}
 	}
-	e.consumeNextSkillUseModifiers(ps, skill)
+	if skill.Card.IsSkill() {
+		e.consumeNextSkillUseModifiers(ps, skill)
+	}
 
 	behavior := behaviorForNumber(skill.Card.Number).(SpellReactionBehavior)
 	if !behavior.HasActiveSpellReaction(skill) {
@@ -787,7 +794,7 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		},
 	})
 
-	defenseSuccess := totalDefPower >= attackPower && len(defenseSkills) > 0
+	defenseSuccess := attackPower <= 0 || (totalDefPower >= attackPower && len(defenseSkills) > 0)
 	defendData := map[string]any{
 		"defender":        playerID,
 		"attacker":        e.State.PendingSpell.AttackerID,
@@ -2102,10 +2109,11 @@ func (e *Engine) GetStateForPlayer(playerID int) map[string]any {
 		"pending_spell": func() any {
 			if state.PendingSpell != nil {
 				return map[string]any{
-					"attacker": state.PendingSpell.AttackerID,
-					"skill":    cardToInfo(state.PendingSpell.Skill),
-					"target":   state.PendingSpell.Target,
-					"power":    state.PendingSpell.TotalPower,
+					"attacker":     state.PendingSpell.AttackerID,
+					"skill":        cardToInfo(state.PendingSpell.Skill),
+					"target":       state.PendingSpell.Target,
+					"power":        state.PendingSpell.TotalPower,
+					"boost_skills": cardsToInfo(state.PendingSpell.BoostSkills),
 				}
 			}
 			return nil
@@ -2181,6 +2189,18 @@ func (e *Engine) findSkill(ps *PlayerState, instanceID string) *CardInstance {
 			if skill != nil && skill.InstanceID == instanceID {
 				return skill
 			}
+		}
+	}
+	return nil
+}
+
+func (e *Engine) findReactionCard(ps *PlayerState, instanceID string) *CardInstance {
+	if skill := e.findSkill(ps, instanceID); skill != nil {
+		return skill
+	}
+	for _, equipment := range ps.Equipment {
+		if equipment != nil && equipment.InstanceID == instanceID {
+			return equipment
 		}
 	}
 	return nil
@@ -2268,6 +2288,9 @@ func cardToInfo(ci *CardInstance) map[string]any {
 	hasUltimate := cardHasActiveUltimate(ci)
 	info["has_per_turn"] = hasPerTurn
 	info["has_ultimate"] = hasUltimate
+	if cardHasActiveSpellReaction(ci) {
+		info["can_react"] = true
+	}
 
 	if hasPerTurn {
 		info["per_turn_limit"] = perTurnLimit(ci)

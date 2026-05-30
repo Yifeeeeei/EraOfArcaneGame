@@ -182,8 +182,12 @@ func (e *Engine) collectSkillUses(ps *PlayerState, ids []string, purpose skillPu
 }
 
 func (e *Engine) validateSkillForPurpose(skill *CardInstance, purpose skillPurpose) error {
-	if err := e.validateReadySkill(skill); err != nil {
-		return err
+	if purpose != skillPurposeReaction || skill.Card.IsSkill() {
+		if err := e.validateReadySkill(skill); err != nil {
+			return err
+		}
+	} else if e.hasEffectiveStatus(skill, StatusPetrify) {
+		return fmt.Errorf("card is petrified")
 	}
 
 	switch purpose {

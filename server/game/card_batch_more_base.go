@@ -645,12 +645,20 @@ type Card2021012SketchScroll struct{ AlwaysActive }
 func (Card2021012SketchScroll) ID() string   { return "2021012" }
 func (Card2021012SketchScroll) Name() string { return "速写卷轴" }
 func (Card2021012SketchScroll) OnUseItem(ctx *EffectContext) error {
-	for _, skill := range ctx.Engine.State.Players[ctx.PlayerID].Skills {
-		if skill != nil {
-			resetInstance(skill)
-			return nil
-		}
+	candidates := ctx.Engine.friendlySkills(ctx.PlayerID, func(skill *CardInstance) bool {
+		return canUseSkillForPurpose(skill.Card, skillPurposeAttack)
+	})
+	if len(candidates) == 0 {
+		return nil
 	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "sketch_scroll_skill",
+		"选择1个已学习法术释放，本次无需消耗该技能", candidates, 1, 1,
+		func(selected []string) {
+			if len(selected) == 0 {
+				return
+			}
+			ctx.Engine.resolveSketchScrollSkill(ctx.PlayerID, selected[0])
+		})
 	return nil
 }
 
@@ -742,7 +750,7 @@ type Card2211002WinterBow struct{ AlwaysActive }
 func (Card2211002WinterBow) ID() string   { return "2211002" }
 func (Card2211002WinterBow) Name() string { return "嗜魔弓 凛冬" }
 func (Card2211002WinterBow) OnEnter(ctx *EffectContext) error {
-	addSkillToPool(ctx, "3201002")
+	bindSkillToHost(ctx, "3201002")
 	return nil
 }
 func (Card2211002WinterBow) OnSpellCast(ctx *EffectContext) error {
@@ -757,11 +765,22 @@ type Card2221001FrostHeart struct{ AlwaysActive }
 
 func (Card2221001FrostHeart) ID() string   { return "2221001" }
 func (Card2221001FrostHeart) Name() string { return "冰霜之心" }
-func (Card2221001FrostHeart) ModifyEnemySpellStats(ctx *EffectContext, stats *SpellStats) {
-	if isEnemySpellCast(ctx) && ctx.ExtraData["stat"] == "damage" {
-		stats.DamageBonus -= 99
-		ctx.Engine.discardFriendlyCandidate(ctx.PlayerID, ctx.Source.InstanceID)
-	}
+func (Card2221001FrostHeart) CanReactToSpell(ctx *EffectContext, spell *SpellCast) bool {
+	return ctx != nil && spell != nil && spell.AttackerID != ctx.PlayerID
+}
+func (Card2221001FrostHeart) OnSpellReaction(ctx *EffectContext, spell *SpellCast) error {
+	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
+		Type:          TempModAllSpellDamageZero,
+		RemainingUses: 1,
+		ExpiresTurn:   ctx.Engine.State.TurnNumber + 1,
+	})
+	ctx.Engine.discardFriendlyCandidate(ctx.PlayerID, ctx.Source.InstanceID)
+	ctx.Engine.emit(GameEvent{Type: "spell_reaction", Player: -1, Data: map[string]any{
+		"player": ctx.PlayerID,
+		"card":   cardToInfo(ctx.Source),
+		"effect": "damage_zero",
+	}})
+	return nil
 }
 
 type Card2221010TideRune struct{ AlwaysActive }
