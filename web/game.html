@@ -153,15 +153,25 @@
             <div class="overlay-content pending-action-panel">
                 <h2>{{ pendingAction.prompt }}</h2>
                 <div class="pending-candidates">
-                    <div v-for="candidate in pendingAction.candidates" :key="candidate.instance_id"
+                    <div v-for="candidate in pendingOrderedCandidates()" :key="candidate.instance_id"
                          class="pending-card"
-                         :class="{ selected: pendingSelected.includes(candidate.instance_id) }"
+                         :class="{ selected: pendingSelected.includes(candidate.instance_id), disabled: candidate.can_select === false, bottom: isPendingBottom(candidate.instance_id) }"
                          @click="togglePendingSelect(candidate)">
                         <img :src="getCardImage(candidate)" class="pending-card-img">
                         <div class="pending-card-name">{{ candidate.name }}</div>
                         <div class="pending-card-side">
                             <span v-if="candidate.side">{{ candidate.side === 'own' ? '己方' : '敌方' }}</span>
                             <span v-if="candidate.zone"> · {{ zoneLabel(candidate.zone) }}</span>
+                        </div>
+                        <div v-if="isWaterDivinationPending()" class="pending-card-tools">
+                            <button class="mini-btn" @click.stop="movePendingCandidate(candidate.instance_id, -1)">上移</button>
+                            <button class="mini-btn" @click.stop="movePendingCandidate(candidate.instance_id, 1)">下移</button>
+                            <button class="mini-btn" @click.stop="togglePendingBottom(candidate.instance_id)">
+                                {{ isPendingBottom(candidate.instance_id) ? '放顶' : '放底' }}
+                            </button>
+                            <span v-if="candidate.can_select === false" class="pending-card-note">不可检索</span>
+                            <span v-else-if="pendingSelected.includes(candidate.instance_id)" class="pending-card-note">检索</span>
+                            <span v-else class="pending-card-note">{{ isPendingBottom(candidate.instance_id) ? '牌底' : '牌顶' }}</span>
                         </div>
                     </div>
                 </div>
@@ -1875,11 +1885,83 @@
 
             // Pending action selection
             const pendingSelected = ref([]);
+            const pendingDeckOrder = ref([]);
+            const pendingDeckBottom = ref([]);
+            const pendingDeckKey = ref('');
 
             const pendingAction = computed(() => gameState.value?.pending_action || null);
             const showPendingAction = computed(() => pendingAction.value != null);
 
+            function isWaterDivinationPending() {
+                return pendingAction.value?.type === 'water_divination_search';
+            }
+
+            function ensurePendingDeckOrder() {
+                if (!isWaterDivinationPending()) return;
+                const ids = (pendingAction.value?.candidates || []).map(candidate => candidate.instance_id);
+                const key = `${pendingAction.value?.type || ''}:${ids.join('|')}`;
+                if (pendingDeckKey.value === key) return;
+                pendingDeckKey.value = key;
+                pendingDeckOrder.value = [...ids];
+                pendingDeckBottom.value = [];
+                pendingSelected.value = pendingSelected.value.filter(id => ids.includes(id));
+            }
+
+            function pendingCandidateByID(id) {
+                return (pendingAction.value?.candidates || []).find(candidate => candidate.instance_id === id);
+            }
+
+            function pendingOrderedCandidates() {
+                if (!isWaterDivinationPending()) return pendingAction.value?.candidates || [];
+                ensurePendingDeckOrder();
+                const ordered = pendingDeckOrder.value
+                    .map(id => pendingCandidateByID(id))
+                    .filter(Boolean);
+                const seen = new Set(ordered.map(candidate => candidate.instance_id));
+                for (const candidate of pendingAction.value?.candidates || []) {
+                    if (!seen.has(candidate.instance_id)) ordered.push(candidate);
+                }
+                return ordered;
+            }
+
+            function isPendingBottom(id) {
+                ensurePendingDeckOrder();
+                return pendingDeckBottom.value.includes(id);
+            }
+
+            function movePendingCandidate(id, direction) {
+                ensurePendingDeckOrder();
+                const idx = pendingDeckOrder.value.indexOf(id);
+                const next = idx + direction;
+                if (idx < 0 || next < 0 || next >= pendingDeckOrder.value.length) return;
+                const order = [...pendingDeckOrder.value];
+                [order[idx], order[next]] = [order[next], order[idx]];
+                pendingDeckOrder.value = order;
+            }
+
+            function togglePendingBottom(id) {
+                ensurePendingDeckOrder();
+                if (pendingSelected.value.includes(id)) return;
+                const idx = pendingDeckBottom.value.indexOf(id);
+                if (idx >= 0) {
+                    pendingDeckBottom.value.splice(idx, 1);
+                } else {
+                    pendingDeckBottom.value.push(id);
+                }
+            }
+
+            function pendingTopOrder() {
+                ensurePendingDeckOrder();
+                return pendingDeckOrder.value.filter(id => !pendingSelected.value.includes(id) && !pendingDeckBottom.value.includes(id));
+            }
+
+            function pendingBottomOrder() {
+                ensurePendingDeckOrder();
+                return pendingDeckOrder.value.filter(id => !pendingSelected.value.includes(id) && pendingDeckBottom.value.includes(id));
+            }
+
             function togglePendingSelect(candidate) {
+                if (candidate.can_select === false) return;
                 const id = candidate.instance_id;
                 const idx = pendingSelected.value.indexOf(id);
                 if (idx >= 0) {
@@ -1900,9 +1982,17 @@
             }
 
             function submitPendingAction() {
-                sendAction('resolve_action', { selected: [...pendingSelected.value] });
+                const payload = { selected: [...pendingSelected.value] };
+                if (isWaterDivinationPending()) {
+                    payload.top_order = pendingTopOrder();
+                    payload.bottom_order = pendingBottomOrder();
+                }
+                sendAction('resolve_action', payload);
                 addLog('确认选择');
                 pendingSelected.value = [];
+                pendingDeckOrder.value = [];
+                pendingDeckBottom.value = [];
+                pendingDeckKey.value = '';
             }
 
             function zoneLabel(zone) {
@@ -2235,6 +2325,7 @@
                 totalDefensePower, totalDefenseCost, defenseAvailableElements, toggleDefenseSkill, toggleDefenseBoost, toggleDefenseOverexert, reactSpell, submitDefend,
                 // Pending action
                 pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction,
+                isWaterDivinationPending, pendingOrderedCandidates, movePendingCandidate, togglePendingBottom, isPendingBottom,
                 zoneLabel,
                 openPileView, closePileView,
                 // Abilities

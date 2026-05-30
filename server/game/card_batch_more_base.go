@@ -815,7 +815,10 @@ type Card2321001WindbreathCompass struct{ AlwaysActive }
 func (Card2321001WindbreathCompass) ID() string   { return "2321001" }
 func (Card2321001WindbreathCompass) Name() string { return "风息罗盘" }
 
-const windbreathCompassPendingStatus = "风息罗盘待触发"
+const (
+	windbreathCompassPendingStatus      = "风息罗盘待触发"
+	windbreathCompassTemporaryAirStatus = "风息罗盘临时气负载"
+)
 
 func (Card2321001WindbreathCompass) OnDraw(ctx *EffectContext) error {
 	if ctx.ExtraData == nil {
@@ -845,9 +848,20 @@ func openWindbreathCompassPrompt(e *Engine, playerID int, source *CardInstance) 
 			}
 			if len(selected) > 0 && selected[0] == source.InstanceID {
 				e.addElementsGainBonus(source, playerID, model.ElementAir, 1, source)
+				source.Statuses[windbreathCompassTemporaryAirStatus]++
 			}
 			openWindbreathCompassPrompt(e, playerID, source)
 		})
+}
+
+func (Card2321001WindbreathCompass) OnTurnEnd(ctx *EffectContext) error {
+	count := ctx.Source.Statuses[windbreathCompassTemporaryAirStatus]
+	if count > 0 {
+		addElementsGainBonus(ctx.Source, model.ElementAir, -count)
+		delete(ctx.Source.Statuses, windbreathCompassTemporaryAirStatus)
+	}
+	delete(ctx.Source.Statuses, windbreathCompassPendingStatus)
+	return nil
 }
 
 type Card2321010IllusionScroll struct{ AlwaysActive }

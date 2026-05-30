@@ -11,3 +11,8 @@ func (Card1221014NorthSeaFlyingFish) OnPerTurn(ctx *EffectContext) error {
 	setElementsGain(ctx.Source, map[string]int{model.ElementAir: 1})
 	return nil
 }
+
+func (Card1221014NorthSeaFlyingFish) OnTurnEnd(ctx *EffectContext) error {
+	clearElementsGainSet(ctx.Source)
+	return nil
+}

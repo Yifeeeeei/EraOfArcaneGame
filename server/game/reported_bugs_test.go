@@ -26,6 +26,85 @@ func setupReportedBugEngine(t *testing.T) *Engine {
 	return engine
 }
 
+func TestIssue31PlaytestRegressions(t *testing.T) {
+	t.Run("1221014 北海飞鱼 temporary load resets without dying", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		fish := placeUnit(baseCard(t, "1221014"), 0, 1, 1, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  fish.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use fish ability: %v", err)
+		}
+		if got := effectiveElementsGain(fish)[model.ElementAir]; got != 1 {
+			t.Fatalf("fish should temporarily become 1 air load, gain=%v", effectiveElementsGain(fish))
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "end_turn"}); err != nil {
+			t.Fatalf("end turn: %v", err)
+		}
+		if p0.Units[1][1] != fish {
+			t.Fatalf("fish should remain on board after end turn")
+		}
+		if got := effectiveElementsGain(fish)[model.ElementWater]; got != fish.Card.ElementsGain[model.ElementWater] {
+			t.Fatalf("fish temporary load should reset to printed load, gain=%v", effectiveElementsGain(fish))
+		}
+	})
+
+	t.Run("1321001 渡鸦信使 is labeled as consume, not per-turn", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		raven := placeUnit(baseCard(t, "1321001"), 0, 1, 1, engine)
+		info := cardToInfo(raven)
+
+		if info["per_turn_label"] != "消耗" {
+			t.Fatalf("raven messenger should expose consume label, info=%v", info)
+		}
+	})
+
+	t.Run("3221007 水占术 searches without shuffle and orders top and bottom", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		topA := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		waterCard := NewCardInstance(baseCard(t, "1221001"), 0, 1)
+		topB := NewCardInstance(baseCard(t, "1021002"), 0, 1)
+		topC := NewCardInstance(baseCard(t, "1021004"), 0, 1)
+		rest := NewCardInstance(baseCard(t, "1021005"), 0, 1)
+		p0.Deck = []*CardInstance{topA, waterCard, topB, topC, rest}
+		p0.Skills[0] = readySkill(baseCard(t, "3221007"), 0)
+		p0.Elements[model.ElementWater] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "none",
+		}}); err != nil {
+			t.Fatalf("cast water divination: %v", err)
+		}
+		if engine.State.PendingAction == nil || len(engine.State.PendingAction.Candidates) != 4 {
+			t.Fatalf("water divination should reveal all top four cards, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected":     []any{waterCard.InstanceID},
+			"top_order":    []any{topC.InstanceID, topA.InstanceID},
+			"bottom_order": []any{topB.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve water divination: %v", err)
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != waterCard {
+			t.Fatalf("water divination should search water card to hand, hand=%v", cardsToInfo(p0.Hand))
+		}
+		wantDeck := []*CardInstance{topC, topA, rest, topB}
+		if len(p0.Deck) != len(wantDeck) {
+			t.Fatalf("deck length mismatch, deck=%v", cardsToInfo(p0.Deck))
+		}
+		for i, want := range wantDeck {
+			if p0.Deck[i] != want {
+				t.Fatalf("deck order mismatch at %d, got=%s want=%s deck=%v", i, p0.Deck[i].Card.Name, want.Card.Name, cardsToInfo(p0.Deck))
+			}
+		}
+	})
+}
+
 func TestIssue25PlaytestRegressions(t *testing.T) {
 	t.Run("square spell area affects a 2x2 block, not the whole board", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
@@ -1136,6 +1215,15 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 		if effectiveElementsGain(compass)[model.ElementAir] != compass.Card.ElementsGain[model.ElementAir]+1 {
 			t.Fatalf("windbreath compass should gain temporary air load, load=%v", effectiveElementsGain(compass))
+		}
+		if engine.State.PendingAction != nil {
+			t.Fatalf("all queued windbreath compass prompts should resolve, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "end_turn"}); err != nil {
+			t.Fatalf("end turn after windbreath compass: %v", err)
+		}
+		if effectiveElementsGain(compass)[model.ElementAir] != compass.Card.ElementsGain[model.ElementAir] {
+			t.Fatalf("windbreath compass temporary air load should expire at turn end, load=%v", effectiveElementsGain(compass))
 		}
 	})
 

@@ -8,6 +8,10 @@ type CardBehavior interface {
 	Name() string
 }
 
+type PerTurnLabelBehavior interface {
+	PerTurnLabel(*CardInstance) string
+}
+
 // AlwaysActive is embedded by normal card behavior structs. It provides the
 // default answer for instance-aware ability predicates: this card has the
 // behavior and that behavior is currently usable/effective.
