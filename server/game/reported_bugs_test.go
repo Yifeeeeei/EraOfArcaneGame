@@ -1687,6 +1687,235 @@ func countCardNumber(cards []*CardInstance, number string) int {
 	return count
 }
 
+func TestCounterTrapCanBeSetHiddenAndTriggeredWithOverexert(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+	p0.Elements = map[string]int{}
+	p1.Elements = map[string]int{}
+	for _, elem := range model.AllElements {
+		p0.Elements[elem] = 0
+		p1.Elements[elem] = 0
+	}
+
+	counter := NewCardInstance(baseCard(t, "2121002"), 0, 1)
+	p0.Hand = append(p0.Hand, counter)
+	if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{"instance_id": counter.InstanceID}}); err != nil {
+		t.Fatalf("set counter trap without elements: %v", err)
+	}
+	if len(p0.Hand) != 0 || p0.Equipment[0] != counter || !counter.IsSetCounter {
+		t.Fatalf("counter should be set in equipment, hand=%d equipment=%v set=%v", len(p0.Hand), p0.Equipment[0], counter.IsSetCounter)
+	}
+	opponentView := engine.playerStateToInfo(p0, false)
+	hidden := opponentView["equipment"].([5]any)[0].(map[string]any)
+	if hidden["is_hidden"] != true || hidden["number"] != nil {
+		t.Fatalf("opponent should see only hidden counter info: %+v", hidden)
+	}
+
+	payer := placeUnit(baseCard(t, "1121001"), 0, 0, 1, engine)
+	target := placeUnit(baseCard(t, "1221001"), 1, 0, 1, engine)
+	engine.State.CurrentTurn = 1
+	if err := engine.HandleAction(1, ActionMessage{Action: "consume", Data: map[string]any{"instance_id": target.InstanceID}}); err != nil {
+		t.Fatalf("consume to trigger counter: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "counter_trigger" {
+		t.Fatalf("expected counter trigger prompt, pending=%+v", engine.State.PendingAction)
+	}
+	state := engine.GetStateForPlayer(0)
+	pending := state["pending_action"].(map[string]any)
+	if pending["can_overexert"] != true || pending["cost"] == nil {
+		t.Fatalf("counter trigger state should expose overexert payment data: %+v", pending)
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+		"selected":      []any{counter.InstanceID},
+		"overexert_ids": []any{payer.InstanceID},
+	}}); err != nil {
+		t.Fatalf("resolve counter with overexert: %v", err)
+	}
+	if target.Statuses[StatusBurn] != 1 {
+		t.Fatalf("fire rune counter should burn consumed unit, statuses=%v", target.Statuses)
+	}
+	if !payer.IsHorizontal {
+		t.Fatalf("overexert payer should become horizontal")
+	}
+	if p0.Equipment[0] != nil || len(p0.Graveyard) != 1 || p0.Graveyard[0] != counter {
+		t.Fatalf("triggered counter should go to graveyard, equipment=%v grave=%d", p0.Equipment[0], len(p0.Graveyard))
+	}
+}
+
+func TestSetCounterTrapDoesNotAutoTriggerBehindExistingPrompt(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	for _, elem := range model.AllElements {
+		p0.Elements[elem] = 10
+	}
+	first := NewCardInstance(baseCard(t, "2121002"), 0, 1)
+	second := NewCardInstance(baseCard(t, "2121002"), 0, 1)
+	first.IsSetCounter = true
+	second.IsSetCounter = true
+	p0.Equipment[0] = first
+	p0.Equipment[1] = second
+
+	target := placeUnit(baseCard(t, "1221001"), 1, 0, 1, engine)
+	engine.State.CurrentTurn = 1
+	if err := engine.HandleAction(1, ActionMessage{Action: "consume", Data: map[string]any{"instance_id": target.InstanceID}}); err != nil {
+		t.Fatalf("consume to trigger counters: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "counter_trigger" {
+		t.Fatalf("expected first counter prompt, pending=%+v", engine.State.PendingAction)
+	}
+	if target.Statuses[StatusBurn] != 0 {
+		t.Fatalf("second set counter must not auto-trigger while first prompt is pending, statuses=%v", target.Statuses)
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+		"selected": []any{},
+	}}); err != nil {
+		t.Fatalf("decline first counter: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "counter_trigger" {
+		t.Fatalf("declining first counter should ask the next eligible counter, pending=%+v", engine.State.PendingAction)
+	}
+	if len(engine.State.PendingAction.Candidates) != 1 || engine.State.PendingAction.Candidates[0]["instance_id"] != second.InstanceID {
+		t.Fatalf("second counter should be queued after first decline, candidates=%+v", engine.State.PendingAction.Candidates)
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+		"selected": []any{second.InstanceID},
+	}}); err != nil {
+		t.Fatalf("resolve second counter: %v", err)
+	}
+	if target.Statuses[StatusBurn] != 1 {
+		t.Fatalf("second counter should resolve after queue prompt, statuses=%v", target.Statuses)
+	}
+	if p0.Equipment[0] != first || !first.IsSetCounter || p0.Equipment[1] != nil || len(p0.Graveyard) != 1 || p0.Graveyard[0] != second {
+		t.Fatalf("only the selected second counter should be spent, equipment=%v graveyard=%v", p0.Equipment, cardsToInfo(p0.Graveyard))
+	}
+}
+
+func TestSpellCastCounterPromptResumesDefenseWindow(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+	for _, elem := range model.AllElements {
+		p0.Elements[elem] = 10
+		p1.Elements[elem] = 10
+	}
+	p0.Skills[0] = readySkill(baseCard(t, "3121002"), 0)
+	placeUnit(baseCard(t, "1221001"), 1, 0, 0, engine)
+	counter := NewCardInstance(baseCard(t, "2021018"), 1, 1)
+	counter.IsSetCounter = true
+	p1.Equipment[0] = counter
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": p0.Skills[0].InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(0),
+		"target_row":  float64(0),
+	}}); err != nil {
+		t.Fatalf("cast spell into counter prompt: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.PlayerID != 1 || engine.State.PendingSpell == nil {
+		t.Fatalf("expected counter prompt with pending spell, action=%+v spell=%+v", engine.State.PendingAction, engine.State.PendingSpell)
+	}
+	if engine.State.ResumePhase != PhaseDefenseWindow {
+		t.Fatalf("counter prompt should resume defense window, got %s", engine.State.ResumePhase)
+	}
+	if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{"selected": []any{}}}); err != nil {
+		t.Fatalf("decline counter: %v", err)
+	}
+	if engine.State.Phase != PhaseDefenseWindow || engine.State.PendingSpell == nil {
+		t.Fatalf("declining spell-cast counter should continue defense window, phase=%s spell=%+v", engine.State.Phase, engine.State.PendingSpell)
+	}
+}
+
+func TestCounterRuneCancelsConsumableBeforeEffect(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+	for _, elem := range model.AllElements {
+		p0.Elements[elem] = 10
+		p1.Elements[elem] = 10
+	}
+	scroll := NewCardInstance(baseCard(t, "2121003"), 0, 1)
+	p0.Hand = append(p0.Hand, scroll)
+	target := placeUnit(baseCard(t, "1221001"), 1, 0, 1, engine)
+	counter := NewCardInstance(baseCard(t, "2021022"), 1, 1)
+	counter.IsSetCounter = true
+	p1.Equipment[0] = counter
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{"instance_id": scroll.InstanceID}}); err != nil {
+		t.Fatalf("use scroll into counter rune: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "counter_trigger" {
+		t.Fatalf("counter rune should prompt before scroll effect, pending=%+v", engine.State.PendingAction)
+	}
+	if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{
+		"selected": []any{counter.InstanceID},
+	}}); err != nil {
+		t.Fatalf("resolve counter rune: %v", err)
+	}
+	if engine.State.PendingAction != nil {
+		t.Fatalf("cancelled scroll should not open its target prompt, pending=%+v", engine.State.PendingAction)
+	}
+	if target.Statuses[StatusBurn] != 0 {
+		t.Fatalf("cancelled scroll should not burn target, statuses=%v", target.Statuses)
+	}
+	if p1.Equipment[0] != nil || len(p1.Graveyard) != 1 || p1.Graveyard[0] != counter {
+		t.Fatalf("counter rune should go to graveyard, equipment=%v grave=%d", p1.Equipment[0], len(p1.Graveyard))
+	}
+}
+
+func TestShelterRuneCancelsLowPowerSpellHitBeforeDamage(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+	for _, elem := range model.AllElements {
+		p0.Elements[elem] = 10
+		p1.Elements[elem] = 10
+	}
+	skill := readySkill(baseCard(t, "3121002"), 0)
+	p0.Skills[0] = skill
+	target := placeUnit(baseCard(t, "1221001"), 1, 0, 1, engine)
+	counter := NewCardInstance(baseCard(t, "2521002"), 1, 1)
+	counter.IsSetCounter = true
+	p1.Equipment[0] = counter
+	beforeLife := target.CurrentLife
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": skill.InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(0),
+		"target_row":  float64(1),
+	}}); err != nil {
+		t.Fatalf("cast low-power spell: %v", err)
+	}
+	if engine.State.PendingSpell == nil || engine.State.Phase != PhaseDefenseWindow {
+		t.Fatalf("spell should enter defense window before hit counter, phase=%s pending=%+v", engine.State.Phase, engine.State.PendingSpell)
+	}
+	if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+		t.Fatalf("skip defense into shelter rune: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "counter_trigger" || engine.State.PendingAction.PlayerID != 1 {
+		t.Fatalf("shelter rune should prompt before hit damage, pending=%+v", engine.State.PendingAction)
+	}
+	if target.CurrentLife != beforeLife {
+		t.Fatalf("damage must not be applied before shelter rune resolves, before=%d life=%d", beforeLife, target.CurrentLife)
+	}
+	if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{
+		"selected": []any{counter.InstanceID},
+	}}); err != nil {
+		t.Fatalf("resolve shelter rune: %v", err)
+	}
+	if target.CurrentLife != beforeLife {
+		t.Fatalf("shelter rune should cancel the spell hit before damage, before=%d life=%d", beforeLife, target.CurrentLife)
+	}
+	if engine.State.PendingSpell != nil || engine.State.Phase != PhaseMain {
+		t.Fatalf("cancelled spell hit should close the defense window, phase=%s pending=%+v", engine.State.Phase, engine.State.PendingSpell)
+	}
+	if p1.Equipment[0] != nil || len(p1.Graveyard) != 1 || p1.Graveyard[0] != counter {
+		t.Fatalf("shelter rune should be discarded after reveal, equipment=%v graveyard=%v", p1.Equipment[0], cardsToInfo(p1.Graveyard))
+	}
+}
+
 func TestBoundSkillAttachesToHostInsteadOfSkillPool(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]

@@ -292,6 +292,11 @@ body::before {
         rgba(10,7,5,0.92);
 }
 
+.slot-card-back {
+    width: 100%;
+    height: 100%;
+}
+
 .revealed-card:hover {
     border-color: rgba(211,180,106,0.42);
     background: rgba(28,21,14,0.62);

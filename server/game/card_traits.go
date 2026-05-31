@@ -7,6 +7,8 @@ import (
 	"eraofarcane/model"
 )
 
+const StatusNextFrontRowRange = "\u4e0b\u4e00\u6b21\u8303\u56f4\u524d\u6392"
+
 type SpellArea string
 
 const (

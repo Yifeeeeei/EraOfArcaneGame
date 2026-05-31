@@ -182,6 +182,21 @@
                 <div class="pending-info">
                     已选 {{ pendingSelected.length }} / {{ pendingAction.min_select }}–{{ pendingAction.max_select }}
                 </div>
+                <div v-if="isCounterPending()" class="defense-skills-section">
+                    <h3>发动费用 {{ costLabel(pendingAction.cost || {}) }}</h3>
+                    <div class="defense-skill-list" v-if="pendingOverexertUnits.length > 0">
+                        <button v-for="unit in pendingOverexertUnits" :key="unit.instance_id"
+                                class="defense-skill-card overexert-card"
+                                :class="{ selected: pendingOverexertSelected.includes(unit.instance_id) }"
+                                @click="togglePendingOverexert(unit)">
+                            <img :src="getCardImage(unit)" class="defense-skill-img">
+                            <div class="defense-skill-info">
+                                <div class="defense-skill-name">{{ unit.name }}</div>
+                                <div class="defense-skill-power">{{ costLabel(unit.elements_gain) }}</div>
+                            </div>
+                        </button>
+                    </div>
+                </div>
                 <div class="pending-actions">
                     <button @click="submitPendingAction()" class="btn btn-success"
                             :disabled="pendingSelected.length < pendingAction.min_select || pendingSelected.length > pendingAction.max_select">
@@ -525,10 +540,11 @@
                                     <span class="slot-label">装备</span>
                                     <div class="slots">
                                         <div v-for="i in 5" :key="'oe'+i" class="slot" :class="{occupied: opponent.equipment[i-1]}"
-                                             @mouseenter="opponent.equipment[i-1] && previewCard(opponent.equipment[i-1])"
-                                             @click="opponent.equipment[i-1] && showCardDetail(opponent.equipment[i-1])">
+                                             @mouseenter="opponent.equipment[i-1] && !opponent.equipment[i-1].is_hidden && previewCard(opponent.equipment[i-1])"
+                                             @click="opponent.equipment[i-1] && !opponent.equipment[i-1].is_hidden && showCardDetail(opponent.equipment[i-1])">
                                             <template v-if="opponent.equipment[i-1]">
-                                                <img :src="getCardImage(opponent.equipment[i-1])" class="slot-img"
+                                                <div v-if="opponent.equipment[i-1].is_hidden" class="card-back-mini slot-card-back"></div>
+                                                <img v-else :src="getCardImage(opponent.equipment[i-1])" class="slot-img"
                                                      :class="{horizontal: opponent.equipment[i-1].is_horizontal}">
                                             </template>
                                         </div>
@@ -1300,7 +1316,12 @@
                         if (source === 'hand') {
                             if (isConsumable(card)) {
                                 selectedHandCard.value = null;
-                                sendPaidAction('use_item', { instance_id: card.instance_id }, playCost(card), `使用 ${card.name}`, () => addLog(`使用 ${card.name}`));
+                                if (card.is_counter_trap) {
+                                    sendAction('use_item', { instance_id: card.instance_id });
+                                    addLog(`盖放 ${card.name}`);
+                                } else {
+                                    sendPaidAction('use_item', { instance_id: card.instance_id }, playCost(card), `使用 ${card.name}`, () => addLog(`使用 ${card.name}`));
+                                }
                             } else if (card.type === '道具' && !card.is_terrain) {
                                 selectedHandCard.value = null;
                                 sendPaidAction('equip', { instance_id: card.instance_id }, playCost(card), `装备 ${card.name}`, () => addLog(`装备 ${card.name}`));
@@ -1355,7 +1376,12 @@
                 if (selectedHandCard.value === card) {
                     if (card.type === '道具' && !card.is_terrain) {
                         if (isConsumable(card)) {
-                            sendPaidAction('use_item', { instance_id: card.instance_id }, playCost(card), `使用 ${card.name}`, () => addLog(`使用 ${card.name}`));
+                            if (card.is_counter_trap) {
+                                sendAction('use_item', { instance_id: card.instance_id });
+                                addLog(`盖放 ${card.name}`);
+                            } else {
+                                sendPaidAction('use_item', { instance_id: card.instance_id }, playCost(card), `使用 ${card.name}`, () => addLog(`使用 ${card.name}`));
+                            }
                         } else {
                             sendPaidAction('equip', { instance_id: card.instance_id }, playCost(card), `装备 ${card.name}`, () => addLog(`装备 ${card.name}`));
                         }
@@ -1931,9 +1957,33 @@
             const pendingDeckOrder = ref([]);
             const pendingDeckBottom = ref([]);
             const pendingDeckKey = ref('');
+            const pendingOverexertSelected = ref([]);
 
             const pendingAction = computed(() => gameState.value?.pending_action || null);
             const showPendingAction = computed(() => pendingAction.value != null);
+            const isCounterPending = () => pendingAction.value?.type === 'counter_trigger';
+
+            const pendingOverexertUnits = computed(() => {
+                if (!isCounterPending() || !pendingAction.value?.can_overexert || !myState.value.units) return [];
+                const units = [];
+                const selectedCounter = new Set(pendingSelected.value);
+                for (let col = 0; col < 3; col++) {
+                    for (let row = 0; row < 3; row++) {
+                        const unit = getMyUnit(col, row);
+                        if (unit && canOverexertForDefense(unit)) units.push(unit);
+                    }
+                }
+                for (const equipment of (myState.value.equipment || [])) {
+                    if (equipment && canOverexertForDefense(equipment) && !selectedCounter.has(equipment.instance_id)) units.push(equipment);
+                }
+                return units;
+            });
+
+            function togglePendingOverexert(unit) {
+                const idx = pendingOverexertSelected.value.indexOf(unit.instance_id);
+                if (idx >= 0) pendingOverexertSelected.value.splice(idx, 1);
+                else pendingOverexertSelected.value.push(unit.instance_id);
+            }
 
             function isWaterDivinationPending() {
                 return pendingAction.value?.type === 'water_divination_search';
@@ -2030,12 +2080,16 @@
                     payload.top_order = pendingTopOrder();
                     payload.bottom_order = pendingBottomOrder();
                 }
+                if (isCounterPending()) {
+                    payload.overexert_ids = [...pendingOverexertSelected.value];
+                }
                 sendAction('resolve_action', payload);
                 addLog('确认选择');
                 pendingSelected.value = [];
                 pendingDeckOrder.value = [];
                 pendingDeckBottom.value = [];
                 pendingDeckKey.value = '';
+                pendingOverexertSelected.value = [];
             }
 
             function zoneLabel(zone) {
@@ -2369,6 +2423,7 @@
                 hoverOpponentCell, clearHoverOpponentCell, isSpellAreaPreview,
                 // Pending action
                 pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction,
+                isCounterPending, pendingOverexertUnits, pendingOverexertSelected, togglePendingOverexert,
                 isWaterDivinationPending, pendingOrderedCandidates, movePendingCandidate, togglePendingBottom, isPendingBottom,
                 zoneLabel,
                 openPileView, closePileView,

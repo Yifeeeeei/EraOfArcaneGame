@@ -277,19 +277,31 @@ func (e *Engine) triggerEffects(trigger EffectTrigger, source *CardInstance, tar
 }
 
 // triggerFieldEffects fires effects for all cards on a player's field
-func (e *Engine) triggerFieldEffects(trigger EffectTrigger, playerID int, eventSource *CardInstance) {
-	e.triggerFieldEffectsWithData(trigger, playerID, eventSource, nil)
+func (e *Engine) triggerFieldEffects(trigger EffectTrigger, playerID int, eventSource *CardInstance) bool {
+	return e.triggerFieldEffectsWithData(trigger, playerID, eventSource, nil)
 }
 
-func (e *Engine) triggerFieldEffectsWithData(trigger EffectTrigger, playerID int, eventSource *CardInstance, extraData map[string]any) {
+func (e *Engine) triggerFieldEffectsWithData(trigger EffectTrigger, playerID int, eventSource *CardInstance, extraData map[string]any) bool {
 	ps := e.State.Players[playerID]
 	allCards := e.getAllFieldCards(ps)
+	counterCandidates := []*CardInstance{}
+	skipCounters := false
+	if extraData != nil {
+		skipCounters, _ = extraData["skip_counter_traps"].(bool)
+	}
 	for _, card := range allCards {
 		if card == eventSource {
 			continue // skip the source itself to avoid loops
 		}
+		if card.IsSetCounter {
+			if !skipCounters && counterTrapHasTrigger(card.Card.Number, trigger) && e.counterTrapConditionMet(card, trigger, eventSource, extraData) {
+				counterCandidates = append(counterCandidates, card)
+			}
+			continue
+		}
 		e.triggerEffects(trigger, card, eventSource, extraData)
 	}
+	return e.promptCounterTrapQueue(counterCandidates, trigger, eventSource, extraData, nil)
 }
 
 func triggerName(t EffectTrigger) string {

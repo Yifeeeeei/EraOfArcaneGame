@@ -274,6 +274,7 @@ func (e *Engine) startGame() {
 func (e *Engine) startTurn() {
 	ps := e.State.Players[e.State.CurrentTurn]
 	ps.SpellsCastThisTurn = make(map[string]int)
+	ps.DrawCountThisTurn = 0
 
 	// Elements are gained by consuming vertical cards. Cards reset at end of
 	// their owner's turn, so start turn only clears the spent pool.
@@ -331,14 +332,16 @@ func (e *Engine) drawCards(playerID int, n int) []*CardInstance {
 	ps := e.State.Players[playerID]
 	drawn := ps.DrawCards(n)
 	for _, card := range drawn {
+		ps.DrawCountThisTurn++
 		e.emit(GameEvent{
 			Type:   "draw_card",
 			Player: playerID,
 			Data:   map[string]any{"card": cardToInfo(card)},
 		})
 		e.triggerFieldEffectsWithData(TriggerOnDraw, playerID, card, map[string]any{
-			"drawn_card":   card,
-			"drawn_player": playerID,
+			"drawn_card":           card,
+			"drawn_player":         playerID,
+			"draw_count_this_turn": ps.DrawCountThisTurn,
 		})
 	}
 	return drawn
@@ -702,11 +705,16 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		Data:   spellCastData,
 	})
 	e.triggerEffects(TriggerOnSpellCast, skill, nil, spellCastData)
-	e.triggerFieldEffectsWithData(TriggerOnSpellCast, playerID, skill, spellCastData)
-	e.triggerFieldEffectsWithData(TriggerOnSpellCast, 1-playerID, skill, spellCastData)
+	promptedCounter := e.triggerFieldEffectsWithData(TriggerOnSpellCast, playerID, skill, spellCastData)
+	if !promptedCounter {
+		promptedCounter = e.triggerFieldEffectsWithData(TriggerOnSpellCast, 1-playerID, skill, spellCastData)
+	}
 
 	if isSorcery {
 		// Sorcery resolves immediately
+		if promptedCounter {
+			return nil
+		}
 		e.resolveSpellHit(playerID, skill, target, boostSkills, extraTargets)
 	} else {
 		// Regular spell: open defense window
@@ -718,7 +726,11 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 			BoostSkills:  boostSkills,
 			ExtraTargets: extraTargets,
 		}
-		e.State.Phase = PhaseDefenseWindow
+		if promptedCounter {
+			e.State.ResumePhase = PhaseDefenseWindow
+		} else {
+			e.State.Phase = PhaseDefenseWindow
+		}
 
 		e.emit(GameEvent{
 			Type:   "defense_window",
@@ -817,13 +829,15 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		})
 	} else {
 		// Defense failed, spell hits
-		e.resolveSpellHit(
+		if e.resolveSpellHit(
 			e.State.PendingSpell.AttackerID,
 			e.State.PendingSpell.Skill,
 			e.State.PendingSpell.Target,
 			e.State.PendingSpell.BoostSkills,
 			e.State.PendingSpell.ExtraTargets,
-		)
+		) {
+			return nil
+		}
 	}
 
 	e.State.PendingSpell = nil
@@ -876,13 +890,15 @@ func (e *Engine) handleNoDefend(playerID int, action ActionMessage) error {
 	}
 
 	// Spell hits
-	e.resolveSpellHit(
+	if e.resolveSpellHit(
 		e.State.PendingSpell.AttackerID,
 		e.State.PendingSpell.Skill,
 		e.State.PendingSpell.Target,
 		e.State.PendingSpell.BoostSkills,
 		e.State.PendingSpell.ExtraTargets,
-	)
+	) {
+		return nil
+	}
 
 	e.State.PendingSpell = nil
 	if e.State.PendingAction == nil {
@@ -912,8 +928,9 @@ func (e *Engine) cancelPendingSpell(playerID int, source *CardInstance, reason s
 	}
 }
 
-// resolveSpellHit applies spell damage to the target
-func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target SpellTarget, boostSkills []*CardInstance, extraTargets []SpellTarget) {
+// resolveSpellHit applies spell damage to the target. It returns true when a
+// pre-hit counter prompt delayed resolution.
+func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target SpellTarget, boostSkills []*CardInstance, extraTargets []SpellTarget) bool {
 	defenderID := 1 - attackerID
 	if friendly, ok := behaviorForNumber(skill.Card.Number).(FriendlySpellTargetBehavior); ok && friendly.HasActiveFriendlySpellTarget(skill) && friendly.AllowsFriendlySpellTarget() && target.Type == "unit" && target.Position.Valid() {
 		if e.State.Players[attackerID].Units[target.Position.Col][target.Position.Row] != nil {
@@ -958,42 +975,73 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 	}
 	dmg = e.effectiveSpellDamage(attackerID, skill, dmg, boostSkills)
 
-	e.emit(GameEvent{
-		Type:   "spell_hit",
-		Player: -1,
-		Data: map[string]any{
-			"attacker": attackerID,
-			"skill":    cardToInfo(skill),
-			"target":   target,
-			"damage":   dmg,
-		},
-	})
-
-	if dmg > 0 {
-		for _, unit := range affectedUnits {
-			e.dealDamageWithExtra(unit, dmg, defenderID, map[string]any{
-				"damage_source":  "spell",
-				"damage_element": skill.Card.Category,
-				"skill":          skill.Card.Number,
-				"attacker":       attackerID,
-				"boost_count":    len(boostSkills),
-			})
+	{
+		totalPower := e.effectiveSpellPower(attackerID, skill, boostSkills, target)
+		if e.State.PendingSpell != nil && e.State.PendingSpell.Skill == skill {
+			totalPower = e.State.PendingSpell.TotalPower
 		}
-	}
-	e.applyGenericSpellEffects(attackerID, defenderID, skill, affectedUnits, target)
-	e.applyTemporarySpellHitStatus(attackerID, skill, affectedUnits)
+		hitCancelled := false
+		hitData := map[string]any{
+			"damage":           dmg,
+			"power":            totalPower,
+			"attacker":         attackerID,
+			"target":           target,
+			"affected_units":   affectedUnits,
+			"boost_skills":     boostSkills,
+			"cancel_spell_hit": &hitCancelled,
+		}
+		finishHit := func() {
+			if hitCancelled {
+				return
+			}
+			e.emit(GameEvent{
+				Type:   "spell_hit",
+				Player: -1,
+				Data: map[string]any{
+					"attacker": attackerID,
+					"skill":    cardToInfo(skill),
+					"target":   target,
+					"damage":   dmg,
+				},
+			})
 
-	// Trigger spell hit effects on the skill card itself
-	hitData := map[string]any{
-		"damage":         dmg,
-		"target":         target,
-		"affected_units": affectedUnits,
-		"boost_skills":   boostSkills,
-	}
-	e.triggerEffects(TriggerOnSpellHit, skill, targetUnit, hitData)
-	e.triggerFieldEffectsWithData(TriggerOnSpellHit, attackerID, skill, hitData)
-	if skill.Statuses["下一次范围前排"] > 0 {
-		skill.Statuses["下一次范围前排"]--
+			if dmg > 0 {
+				for _, unit := range affectedUnits {
+					e.dealDamageWithExtra(unit, dmg, defenderID, map[string]any{
+						"damage_source":  "spell",
+						"damage_element": skill.Card.Category,
+						"skill":          skill.Card.Number,
+						"attacker":       attackerID,
+						"boost_count":    len(boostSkills),
+					})
+				}
+			}
+			e.applyGenericSpellEffects(attackerID, defenderID, skill, affectedUnits, target)
+			e.applyTemporarySpellHitStatus(attackerID, skill, affectedUnits)
+
+			hitData["skip_counter_traps"] = true
+			e.triggerEffects(TriggerOnSpellHit, skill, targetUnit, hitData)
+			e.triggerFieldEffectsWithData(TriggerOnSpellHit, attackerID, skill, hitData)
+			e.triggerFieldEffectsWithData(TriggerOnSpellHit, defenderID, skill, hitData)
+			if skill.Statuses[StatusNextFrontRowRange] > 0 {
+				skill.Statuses[StatusNextFrontRowRange]--
+			}
+		}
+		afterCounterWindow := func() {
+			finishHit()
+			if e.State.PendingSpell != nil && e.State.PendingSpell.Skill == skill {
+				e.State.PendingSpell = nil
+				if e.State.PendingAction == nil {
+					e.State.Phase = PhaseMain
+				}
+				e.checkWinCondition()
+			}
+		}
+		if e.promptCounterTrapQueue(e.eligibleCounterTraps(defenderID, TriggerOnSpellHit, skill, hitData), TriggerOnSpellHit, skill, hitData, afterCounterWindow) {
+			return true
+		}
+		finishHit()
+		return false
 	}
 }
 
@@ -1533,6 +1581,9 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 	if !card.Card.IsItem() {
 		return fmt.Errorf("card is not an item")
 	}
+	if isCounterTrapCard(card.Card.Number) {
+		return e.placeCounterTrap(playerID, card, handIdx)
+	}
 
 	// Check if this is a terrain card - terrain cards go to battlefield
 	if cards.IsTerrain(card.Card.Number) {
@@ -1575,7 +1626,20 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 		},
 	})
 
-	e.triggerEffects(TriggerOnUseItem, card, nil, nil)
+	cancelled := false
+	useData := map[string]any{"used_player": playerID, "cancel_item": &cancelled}
+	resolveItem := func() {
+		if cancelled {
+			return
+		}
+		e.triggerEffects(TriggerOnUseItem, card, nil, nil)
+		e.triggerFieldEffectsWithData(TriggerOnUseItem, playerID, card, useData)
+		e.triggerFieldEffectsWithData(TriggerOnUseItem, 1-playerID, card, useData)
+	}
+	if e.promptOpponentCounterTrap(playerID, TriggerOnUseItem, card, useData, resolveItem) {
+		return nil
+	}
+	resolveItem()
 
 	return nil
 }
@@ -1813,11 +1877,18 @@ func (e *Engine) handleResolveAction(playerID int, action ActionMessage) error {
 	// Execute callback
 	callback := pa.Callback
 	callbackData := pa.CallbackData
+	callbackErr := pa.CallbackErr
 	data := action.Data
 	e.State.PendingAction = nil
 	e.State.Phase = e.State.ResumePhase
 
-	if callbackData != nil {
+	if callbackErr != nil {
+		if err := callbackErr(selected, data); err != nil {
+			e.State.PendingAction = pa
+			e.State.Phase = PhaseWaitingAction
+			return err
+		}
+	} else if callbackData != nil {
 		callbackData(selected, data)
 	} else if callback != nil {
 		callback(selected)
@@ -1840,7 +1911,15 @@ func (e *Engine) SetPendingActionWithData(playerID int, actionType string, promp
 	e.setPendingAction(playerID, actionType, prompt, candidates, minSelect, maxSelect, nil, callback)
 }
 
+func (e *Engine) SetPendingActionWithError(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, callback func([]string, map[string]any) error) {
+	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, cost, canOverexert, nil, nil, callback)
+}
+
 func (e *Engine) setPendingAction(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, callback func([]string), callbackData func([]string, map[string]any)) {
+	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, nil, false, callback, callbackData, nil)
+}
+
+func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, callback func([]string), callbackData func([]string, map[string]any), callbackErr func([]string, map[string]any) error) {
 	if minSelect > 0 && len(candidates) == 0 {
 		return
 	}
@@ -1853,21 +1932,27 @@ func (e *Engine) setPendingAction(playerID int, actionType string, prompt string
 		Candidates:   candidates,
 		MinSelect:    minSelect,
 		MaxSelect:    maxSelect,
+		Cost:         cost,
+		CanOverexert: canOverexert,
 		Callback:     callback,
 		CallbackData: callbackData,
+		CallbackErr:  callbackErr,
 	}
 
-	e.emit(GameEvent{
-		Type:   "pending_action",
-		Player: playerID,
-		Data: map[string]any{
-			"type":       actionType,
-			"prompt":     prompt,
-			"candidates": candidates,
-			"min_select": minSelect,
-			"max_select": maxSelect,
-		},
-	})
+	data := map[string]any{
+		"type":       actionType,
+		"prompt":     prompt,
+		"candidates": candidates,
+		"min_select": minSelect,
+		"max_select": maxSelect,
+	}
+	if cost != nil {
+		data["cost"] = cost
+	}
+	if canOverexert {
+		data["can_overexert"] = true
+	}
+	e.emit(GameEvent{Type: "pending_action", Player: playerID, Data: data})
 }
 
 // handleEndTurn handles ending the current turn
@@ -1935,6 +2020,7 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 	for _, card := range allCards {
 		e.triggerEffects(TriggerOnTurnEnd, card, nil, nil)
 	}
+	e.triggerFieldEffectsWithData(TriggerOnTurnEnd, 1-ps.PlayerID, nil, map[string]any{"ended_player": ps.PlayerID})
 	e.applyOpponentTurnEndTemporaryModifiers(ps.PlayerID)
 	e.discardMarkedEndOfTurnCards(ps)
 	e.applyLoadGainAtTurnEnd(ps)
@@ -2121,11 +2207,13 @@ func (e *Engine) GetStateForPlayer(playerID int) map[string]any {
 		"pending_action": func() any {
 			if state.PendingAction != nil && state.PendingAction.PlayerID == playerID {
 				return map[string]any{
-					"type":       state.PendingAction.Type,
-					"prompt":     state.PendingAction.Prompt,
-					"candidates": state.PendingAction.Candidates,
-					"min_select": state.PendingAction.MinSelect,
-					"max_select": state.PendingAction.MaxSelect,
+					"type":          state.PendingAction.Type,
+					"prompt":        state.PendingAction.Prompt,
+					"candidates":    state.PendingAction.Candidates,
+					"min_select":    state.PendingAction.MinSelect,
+					"max_select":    state.PendingAction.MaxSelect,
+					"cost":          state.PendingAction.Cost,
+					"can_overexert": state.PendingAction.CanOverexert,
 				}
 			}
 			return nil
@@ -2270,6 +2358,8 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		"is_consumable":    cards.IsConsumable(ci.Card.Number),
 		"is_equipment":     cards.IsEquipment(ci.Card.Number),
 		"is_weapon":        cards.IsWeapon(ci.Card.Number),
+		"is_counter_trap":  isCounterTrapCard(ci.Card.Number),
+		"is_set_counter":   ci.IsSetCounter,
 		"statuses":         ci.Statuses,
 		"position":         ci.Position,
 		"output_path":      ci.Card.OutputPath,
@@ -2441,7 +2531,11 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 	// Equipment
 	equipment := [5]any{}
 	for i := 0; i < 5; i++ {
-		equipment[i] = cardToInfo(ps.Equipment[i])
+		if !isOwner && ps.Equipment[i] != nil && ps.Equipment[i].IsSetCounter {
+			equipment[i] = hiddenCounterInfo(ps.Equipment[i])
+		} else {
+			equipment[i] = cardToInfo(ps.Equipment[i])
+		}
 	}
 	info["equipment"] = equipment
 

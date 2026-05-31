@@ -35,6 +35,7 @@ type CardInstance struct {
 	ElementsGainSet   map[string]int     `json:"elements_gain_set,omitempty"`
 	PowerBonus        int                `json:"power_bonus,omitempty"`
 	AttackBonus       int                `json:"attack_bonus,omitempty"`
+	IsSetCounter      bool               `json:"is_set_counter,omitempty"`
 	Position          *Position          `json:"position"`               // nil if not on unit grid
 	SlotIndex         int                `json:"slot_index"`             // for skill/equipment slots
 	EnterTurn         int                `json:"enter_turn"`             // which turn this card entered the field
@@ -125,6 +126,7 @@ type PlayerState struct {
 	DiscardAtTurnEnd   map[string]bool           `json:"discard_at_turn_end,omitempty"`
 	LoadGainAtTurnEnd  map[string]map[string]int `json:"load_gain_at_turn_end,omitempty"`
 	RevealedHand       map[string]bool           `json:"revealed_hand,omitempty"`
+	DrawCountThisTurn  int                       `json:"draw_count_this_turn,omitempty"`
 
 	// Legacy charge pool. Do not use this for 精通; mastery is a per-card
 	// instance mark stored in CardInstance.Statuses[StatusMastery].
@@ -350,14 +352,17 @@ func (p GamePhase) String() string {
 
 // PendingAction represents a player choice that must be resolved
 type PendingAction struct {
-	Type         string                                       `json:"type"`       // "select_target", "select_card", "discard", "select_position"
-	PlayerID     int                                          `json:"player_id"`  // which player must choose
-	Prompt       string                                       `json:"prompt"`     // display text
-	Candidates   []map[string]any                             `json:"candidates"` // selectable options (cards or positions)
-	MinSelect    int                                          `json:"min_select"` // minimum selections required
-	MaxSelect    int                                          `json:"max_select"` // maximum selections allowed
-	Callback     func(selected []string)                      `json:"-"`          // called when resolved
-	CallbackData func(selected []string, data map[string]any) `json:"-"`
+	Type         string                                             `json:"type"`       // "select_target", "select_card", "discard", "select_position"
+	PlayerID     int                                                `json:"player_id"`  // which player must choose
+	Prompt       string                                             `json:"prompt"`     // display text
+	Candidates   []map[string]any                                   `json:"candidates"` // selectable options (cards or positions)
+	MinSelect    int                                                `json:"min_select"` // minimum selections required
+	MaxSelect    int                                                `json:"max_select"` // maximum selections allowed
+	Cost         map[string]int                                     `json:"cost,omitempty"`
+	CanOverexert bool                                               `json:"can_overexert,omitempty"`
+	Callback     func(selected []string)                            `json:"-"` // called when resolved
+	CallbackData func(selected []string, data map[string]any)       `json:"-"`
+	CallbackErr  func(selected []string, data map[string]any) error `json:"-"`
 }
 
 // GameState holds the entire game state
