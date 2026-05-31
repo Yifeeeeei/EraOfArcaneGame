@@ -21,8 +21,24 @@ func (Card2211001MermaidTear) OnUltimate(ctx *EffectContext) error {
 			if len(selected) == 0 {
 				return
 			}
-			ctx.Engine.removeEquipmentFromGame(ctx.PlayerID, ctx.Source.InstanceID)
-			ctx.Engine.reviveCompanionFromGraveyardAtOneLife(ctx.PlayerID, selected[0])
+			reviveID := selected[0]
+			positions := ctx.Engine.friendlyEmptyUnitPositions(ctx.PlayerID)
+			if len(positions) == 0 {
+				return
+			}
+			ctx.Engine.SetPendingAction(ctx.PlayerID, "mermaid_tear_position",
+				"选择复活位置", positions, 1, 1,
+				func(posSelected []string) {
+					if len(posSelected) == 0 {
+						return
+					}
+					pos, ok := positionFromSelectionID(posSelected[0])
+					if !ok {
+						return
+					}
+					ctx.Engine.removeEquipmentFromGame(ctx.PlayerID, ctx.Source.InstanceID)
+					ctx.Engine.reviveCompanionFromGraveyardWithLifeAtPosition(ctx.PlayerID, reviveID, 1, false, pos)
+				})
 		})
 	return nil
 }

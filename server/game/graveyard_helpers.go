@@ -14,6 +14,14 @@ func (e *Engine) reviveCompanionFromGraveyardWithLife(playerID int, instanceID s
 	if pos == nil {
 		return false
 	}
+	return e.reviveCompanionFromGraveyardWithLifeAtPosition(playerID, instanceID, life, payCost, *pos)
+}
+
+func (e *Engine) reviveCompanionFromGraveyardWithLifeAtPosition(playerID int, instanceID string, life int, payCost bool, pos Position) bool {
+	ps := e.State.Players[playerID]
+	if !pos.Valid() || ps.Units[pos.Col][pos.Row] != nil {
+		return false
+	}
 	for i, card := range ps.Graveyard {
 		if card == nil || card.InstanceID != instanceID || !card.Card.IsCompanion() {
 			continue
@@ -31,12 +39,12 @@ func (e *Engine) reviveCompanionFromGraveyardWithLife(playerID int, instanceID s
 			card.CurrentLife = max(card.CurrentLife, card.Card.Life)
 		}
 		card.IsHorizontal = true
-		card.Position = pos
+		card.Position = &pos
 		ps.Units[pos.Col][pos.Row] = card
 		e.emit(GameEvent{Type: "summon", Player: -1, Data: map[string]any{
 			"player":   playerID,
 			"card":     cardToInfo(card),
-			"position": pos,
+			"position": &pos,
 			"elements": ps.Elements,
 		}})
 		e.triggerEffects(TriggerOnEnter, card, nil, nil)

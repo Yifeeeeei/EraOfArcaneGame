@@ -187,6 +187,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"2621004": func() CardBehavior { return Card2621004ShadowVeil{} },
 	"2621005": func() CardBehavior { return Card2621005SacrificeRune{} },
 	"2621006": func() CardBehavior { return Card2621006SoulNecklace{} },
+	"2621001": func() CardBehavior { return Card2621001WeakeningPotion{} },
 	"2621008": func() CardBehavior { return Card2621008SoulDevourScroll{} },
 	"2621010": func() CardBehavior { return Card2621010DragIntoAbyss{} },
 	"2621011": func() CardBehavior { return Card2621011FrenzyRune{} },
@@ -243,6 +244,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"3621006": func() CardBehavior { return Card3621006DeadSoulBite{} },
 	"3621007": func() CardBehavior { return Card3621007AndisPunishment{} },
 	"3621008": func() CardBehavior { return Card3621008DeadFury{} },
+	"3621009": func() CardBehavior { return Card3621009WeakeningCurse{} },
 	"3621010": func() CardBehavior { return Card3621010BloodDemonBlast{} },
 	"3621012": func() CardBehavior { return Card3621012SoulRecall{} },
 	"3621013": func() CardBehavior { return Card3621013UndeadWall{} },
@@ -292,7 +294,7 @@ func RegisterAllCardEffects() {
 
 func hasSpellReactionNumber(number string) bool {
 	switch number {
-	case "3221008", "3321008", "3621015":
+	case "2221001", "3221008", "3321008", "3621015":
 		return true
 	default:
 		return false
