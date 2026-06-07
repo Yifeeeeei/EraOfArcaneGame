@@ -341,7 +341,7 @@ func Combine(handlers ...EffectHandler) EffectHandler {
 	}
 }
 
-// NoEffect 空效果（用于标记已确认无效果或TODO的卡）
+// NoEffect 空效果（用于标记已确认无运行效果的卡）
 func NoEffect() EffectHandler {
 	return func(ctx *EffectContext) error {
 		return nil

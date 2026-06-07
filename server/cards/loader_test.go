@@ -7,11 +7,11 @@ func TestLoadCardsBuildsBasePlayablePool(t *testing.T) {
 		t.Fatalf("LoadCards: %v", err)
 	}
 
-	if len(CardDB) != 378 {
-		t.Fatalf("expected 378 compiled base cards, got %d", len(CardDB))
+	if len(CardDB) != 379 {
+		t.Fatalf("expected 379 compiled base cards, got %d", len(CardDB))
 	}
-	if len(PlayableCardDB) != 378 {
-		t.Fatalf("expected 378 base cards, got %d", len(PlayableCardDB))
+	if len(PlayableCardDB) != 379 {
+		t.Fatalf("expected 379 base cards, got %d", len(PlayableCardDB))
 	}
 
 	for id, card := range PlayableCardDB {

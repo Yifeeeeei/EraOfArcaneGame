@@ -24,19 +24,17 @@ func (Card2321002LightningRune) OnConsume(ctx *EffectContext) error {
 	}
 	applyStun(ctx.Target)
 
-	if ctx.Target.Position == nil {
+	candidates := ctx.Engine.adjacentUnitCandidatesForCounter(ctx.PlayerID, ctx.Target)
+	if len(candidates) == 0 {
 		return nil
 	}
-	ps := ctx.Engine.State.Players[ctx.Target.OwnerID]
-	for _, delta := range []Position{{Col: -1, Row: 0}, {Col: 1, Row: 0}, {Col: 0, Row: -1}, {Col: 0, Row: 1}} {
-		pos := Position{Col: ctx.Target.Position.Col + delta.Col, Row: ctx.Target.Position.Row + delta.Row}
-		if !pos.Valid() {
-			continue
+	ownerID := ctx.Target.OwnerID
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "lightning_rune_adjacent", "闪电符文:选择1个相邻单位晕眩", candidates, 1, 1, func(selected []string) {
+		if len(selected) == 0 {
+			return
 		}
-		if adjacent := ps.Units[pos.Col][pos.Row]; adjacent != nil {
-			applyStun(adjacent)
-			break
-		}
-	}
+		target := ctx.Engine.findFieldCardByInstance(ctx.Engine.State.Players[ownerID], selected[0])
+		applyStun(target)
+	})
 	return nil
 }

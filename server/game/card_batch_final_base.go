@@ -1,6 +1,10 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"strings"
+
+	"eraofarcane/model"
+)
 
 func addCardToDeck(ctx *EffectContext, cardNumber string, count int) {
 	card := getCardDB()[cardNumber]
@@ -193,17 +197,100 @@ func (Card2621002VoodooDoll) ID() string   { return "2621002" }
 func (Card2621002VoodooDoll) Name() string { return "巫毒娃娃" }
 func (Card2621002VoodooDoll) OnEquip(ctx *EffectContext) error {
 	ctx.Source.Statuses["暗影标记"] = 3
+	candidates := voodooDollLinkCandidates(ctx)
+	if len(candidates) < 2 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "voodoo_doll_link", "巫毒娃娃:选择法力范围内2个伙伴建立连结", candidates, 2, 2, func(selected []string) {
+		clearVoodooDollLinks(ctx.Source)
+		for _, id := range selected {
+			ctx.Source.Statuses["巫毒连结:"+id] = 1
+		}
+	})
 	return nil
 }
 func (Card2621002VoodooDoll) OnDamaged(ctx *EffectContext) error {
-	if ctx.Source.Statuses["暗影标记"] <= 0 || ctx.Target == nil || ctx.Target.OwnerID != ctx.PlayerID {
+	if ctx.ExtraData != nil && ctx.ExtraData["damage_source"] == "voodoo_doll" {
 		return nil
 	}
-	if target := firstEnemyUnit(ctx); target != nil {
-		ctx.Source.Statuses["暗影标记"]--
-		ctx.Engine.dealDamage(target, 1, ctx.OpponentID)
+	damage, _ := ctx.ExtraData["damage"].(int)
+	if damage <= 0 || ctx.Source.Statuses["暗影标记"] < damage || ctx.Target == nil || !voodooDollIsLinked(ctx.Source, ctx.Target) {
+		return nil
+	}
+	linked := voodooDollOtherLinkedUnit(ctx.Engine, ctx.Source, ctx.Target)
+	if linked == nil {
+		return nil
+	}
+	candidates := []map[string]any{candidateInfo(linked, "unit", voodooDollSide(ctx.PlayerID, linked))}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "voodoo_doll_damage", "巫毒娃娃:是否让连结的另一伙伴受到同等伤害", candidates, 0, 1, func(selected []string) {
+		if len(selected) == 0 || selected[0] != linked.InstanceID || ctx.Source.Statuses["暗影标记"] < damage {
+			return
+		}
+		ctx.Source.Statuses["暗影标记"] -= damage
+		ctx.Engine.dealDamageWithExtra(linked, damage, linked.OwnerID, map[string]any{
+			"damage_source": "voodoo_doll",
+			"attacker":      ctx.PlayerID,
+		})
+	})
+	return nil
+}
+
+func voodooDollLinkCandidates(ctx *EffectContext) []map[string]any {
+	candidates := make([]map[string]any, 0)
+	for ownerID, ps := range ctx.Engine.State.Players {
+		side := "enemy"
+		if ownerID == ctx.PlayerID {
+			side = "own"
+		}
+		for col := 0; col < 3; col++ {
+			for row := 0; row < 3; row++ {
+				unit := ps.Units[col][row]
+				if unit == nil || !unit.Card.IsCompanion() {
+					continue
+				}
+				if ownerID != ctx.PlayerID && !ctx.Engine.IsInSpellRange(ctx.PlayerID, col, row, false) {
+					continue
+				}
+				candidates = append(candidates, candidateInfo(unit, "unit", side))
+			}
+		}
+	}
+	return candidates
+}
+
+func clearVoodooDollLinks(doll *CardInstance) {
+	for status := range doll.Statuses {
+		if strings.HasPrefix(status, "巫毒连结:") {
+			delete(doll.Statuses, status)
+		}
+	}
+}
+
+func voodooDollIsLinked(doll *CardInstance, unit *CardInstance) bool {
+	return doll != nil && unit != nil && doll.Statuses["巫毒连结:"+unit.InstanceID] > 0
+}
+
+func voodooDollOtherLinkedUnit(e *Engine, doll *CardInstance, damaged *CardInstance) *CardInstance {
+	for status := range doll.Statuses {
+		if !strings.HasPrefix(status, "巫毒连结:") {
+			continue
+		}
+		id := strings.TrimPrefix(status, "巫毒连结:")
+		if id == "" || damaged != nil && id == damaged.InstanceID {
+			continue
+		}
+		if unit := e.findUnitByInstanceID(id); unit != nil {
+			return unit
+		}
 	}
 	return nil
+}
+
+func voodooDollSide(playerID int, unit *CardInstance) string {
+	if unit != nil && unit.OwnerID == playerID {
+		return "own"
+	}
+	return "enemy"
 }
 
 type Card2621004ShadowVeil struct{ AlwaysActive }
@@ -222,9 +309,20 @@ type Card2621010DragIntoAbyss struct{ AlwaysActive }
 func (Card2621010DragIntoAbyss) ID() string   { return "2621010" }
 func (Card2621010DragIntoAbyss) Name() string { return "拖入深渊" }
 func (Card2621010DragIntoAbyss) OnUseItem(ctx *EffectContext) error {
-	if target := firstEnemyUnit(ctx); target != nil {
-		ctx.Engine.dealDamage(target, 2, ctx.OpponentID)
+	if ctx.Target == nil || ctx.Target.DamageTakenThisTurn <= 0 {
+		return nil
 	}
+	damage := ctx.Target.DamageTakenThisTurn
+	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, false, nil)
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "drag_into_abyss_target", "Drag Into Abyss: choose an enemy unit", candidates, 1, 1, func(selected []string) {
+		if len(selected) == 0 {
+			return
+		}
+		target := ctx.Engine.findFieldCardByInstance(ctx.Engine.State.Players[ctx.OpponentID], selected[0])
+		if target != nil {
+			ctx.Engine.dealDamage(target, damage, ctx.OpponentID)
+		}
+	})
 	return nil
 }
 
@@ -233,9 +331,18 @@ type Card2621011FrenzyRune struct{ AlwaysActive }
 func (Card2621011FrenzyRune) ID() string   { return "2621011" }
 func (Card2621011FrenzyRune) Name() string { return "狂乱符文" }
 func (Card2621011FrenzyRune) OnUseItem(ctx *EffectContext) error {
-	if target := firstEnemyUnit(ctx); target != nil {
-		target.Statuses[StatusStun]++
+	if ctx.Target == nil || ctx.Target.CurrentAttack <= 0 {
+		return nil
 	}
+	attacker := ctx.Target
+	candidates := ctx.Engine.adjacentUnitCandidatesForCounter(ctx.PlayerID, attacker)
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "frenzy_rune_target", "Frenzy Rune: choose an adjacent unit", candidates, 1, 1, func(selected []string) {
+		if len(selected) == 0 {
+			return
+		}
+		target := ctx.Engine.findFieldCardByInstance(ctx.Engine.State.Players[attacker.OwnerID], selected[0])
+		ctx.Engine.resolveForcedUnitAttack(attacker.OwnerID, attacker, target, "frenzy_rune")
+	})
 	return nil
 }
 
@@ -281,12 +388,6 @@ type Card3021010Dispel struct{ AlwaysActive }
 
 func (Card3021010Dispel) ID() string   { return "3021010" }
 func (Card3021010Dispel) Name() string { return "解咒" }
-func (Card3021010Dispel) OnSpellHit(ctx *EffectContext) error {
-	if ctx.Target != nil {
-		ctx.Target.Statuses[StatusSeal]++
-	}
-	return nil
-}
 
 type Card3021011OverlordSanction struct{ AlwaysActive }
 
@@ -320,20 +421,81 @@ func (Card3221008IceDissolve) CanReactToSpell(ctx *EffectContext, spell *SpellCa
 }
 
 func (Card3221008IceDissolve) OnSpellReaction(ctx *EffectContext, spell *SpellCast) error {
-	if spell.TotalPower > 0 {
-		spell.TotalPower = 0
-		ctx.Engine.emit(GameEvent{
-			Type:   "spell_reaction",
-			Player: -1,
-			Data: map[string]any{
-				"player": ctx.PlayerID,
-				"card":   cardToInfo(ctx.Source),
-				"effect": "power_zero",
-				"power":  spell.TotalPower,
-			},
+	sources := positiveSpellPowerSources(spell)
+	if len(sources) == 0 {
+		return nil
+	}
+	if len(sources) == 1 {
+		applyIceDissolveToSource(ctx, spell, sources[0].InstanceID)
+		return nil
+	}
+	candidates := make([]map[string]any, 0, len(sources))
+	for _, source := range sources {
+		candidates = append(candidates, map[string]any{
+			"instance_id": source.InstanceID,
+			"name":        source.CardName,
+			"power":       source.Power,
+			"is_main":     source.IsMain,
 		})
 	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "ice_dissolve_power_source", "冰封消解:选择1个法术威力变为0", candidates, 1, 1, func(selected []string) {
+		if len(selected) == 0 {
+			return
+		}
+		applyIceDissolveToSource(ctx, spell, selected[0])
+	})
 	return nil
+}
+
+func positiveSpellPowerSources(spell *SpellCast) []SpellPowerSource {
+	if spell == nil {
+		return nil
+	}
+	sources := make([]SpellPowerSource, 0, len(spell.PowerSources))
+	for _, source := range spell.PowerSources {
+		if source.Power > 0 && source.InstanceID != "" {
+			sources = append(sources, source)
+		}
+	}
+	if len(sources) == 0 && spell.TotalPower > 0 {
+		source := spellPowerSourceForCard(spell.Skill, spell.TotalPower, true)
+		if source.InstanceID == "" {
+			source.InstanceID = "__total_power__"
+		}
+		sources = append(sources, source)
+	}
+	return sources
+}
+
+func applyIceDissolveToSource(ctx *EffectContext, spell *SpellCast, instanceID string) {
+	if ctx == nil || spell == nil || instanceID == "" {
+		return
+	}
+	removed := 0
+	for i := range spell.PowerSources {
+		if spell.PowerSources[i].InstanceID != instanceID {
+			continue
+		}
+		removed = spell.PowerSources[i].Power
+		spell.PowerSources[i].Power = 0
+		break
+	}
+	if removed == 0 && ((spell.Skill != nil && spell.Skill.InstanceID == instanceID) || instanceID == "__total_power__") {
+		removed = spell.TotalPower
+	}
+	spell.TotalPower = max(spell.TotalPower-removed, 0)
+	ctx.Engine.emit(GameEvent{
+		Type:   "spell_reaction",
+		Player: -1,
+		Data: map[string]any{
+			"player":             ctx.PlayerID,
+			"card":               cardToInfo(ctx.Source),
+			"effect":             "power_zero",
+			"power":              spell.TotalPower,
+			"power_source_id":    instanceID,
+			"power_source_power": removed,
+		},
+	})
 }
 
 type Card3221010WaterPhantom struct{ AlwaysActive }
@@ -382,7 +544,7 @@ func (Card3521011LightShelter) AllowsFriendlySpellTarget() bool {
 }
 func (Card3521011LightShelter) OnSpellHit(ctx *EffectContext) error {
 	target := ctx.Target
-	if target == nil || target.OwnerID != ctx.PlayerID || !target.Card.IsCompanion() {
+	if target == nil || !target.Card.IsCompanion() {
 		target = firstFriendlyCompanion(ctx)
 	}
 	if target != nil {
@@ -400,7 +562,7 @@ func (Card3621015Siphon) CanReactToSpell(ctx *EffectContext, spell *SpellCast) b
 }
 func (Card3621015Siphon) OnSpellReaction(ctx *EffectContext, spell *SpellCast) error {
 	defenderID := ctx.PlayerID
-	affected := ctx.Engine.spellAffectedUnits(defenderID, spell.Skill, spell.Target)
+	affected := ctx.Engine.spellAffectedUnitsWithExtraTargets(defenderID, spell.Skill, spell.Target, spell.ExtraTargets)
 	if len(affected) == 0 {
 		return nil
 	}
@@ -421,6 +583,30 @@ func (Card3621015Siphon) OnSpellReaction(ctx *EffectContext, spell *SpellCast) e
 	}
 	ctx.Engine.cancelPendingSpell(ctx.PlayerID, ctx.Source, "siphon")
 	return nil
+}
+
+func (e *Engine) spellAffectedUnitsWithExtraTargets(defenderID int, skill *CardInstance, target SpellTarget, extraTargets []SpellTarget) []*CardInstance {
+	affected := e.spellAffectedUnits(defenderID, skill, target)
+	for _, extraTarget := range extraTargets {
+		if extraTarget.Type != "unit" || !extraTarget.Position.Valid() {
+			continue
+		}
+		unit := e.State.Players[defenderID].Units[extraTarget.Position.Col][extraTarget.Position.Row]
+		if unit == nil {
+			continue
+		}
+		alreadyIncluded := false
+		for _, existing := range affected {
+			if existing == unit {
+				alreadyIncluded = true
+				break
+			}
+		}
+		if !alreadyIncluded {
+			affected = append(affected, unit)
+		}
+	}
+	return affected
 }
 
 type Card4111001Longjuanhuo struct{ AlwaysActive }
@@ -483,18 +669,73 @@ type Card4511002Ailimer struct{ AlwaysActive }
 
 func (Card4511002Ailimer) ID() string   { return "4511002" }
 func (Card4511002Ailimer) Name() string { return "神之眷子 爱里默" }
+func (Card4511002Ailimer) OnEnter(ctx *EffectContext) error {
+	ailimerShuffleShacklesOnce(ctx)
+	ailimerUnlockIfShacklesCleared(ctx)
+	return nil
+}
 func (Card4511002Ailimer) OnTurnStart(ctx *EffectContext) error {
-	if ctx.Source.Statuses["桎梏已洗入"] == 0 {
-		addCardToOpponentDeck(ctx, "2501001", 5)
-		ctx.Source.Statuses["桎梏已洗入"] = 1
+	ailimerShuffleShacklesOnce(ctx)
+	ailimerUnlockIfShacklesCleared(ctx)
+	return nil
+}
+func (Card4511002Ailimer) OnUseItem(ctx *EffectContext) error {
+	if ctx.Target != nil && ctx.Target.Card != nil && ctx.Target.Card.Number == "2501001" {
+		ailimerUnlockIfShacklesCleared(ctx)
 	}
 	return nil
 }
+func (Card4511002Ailimer) HasActiveUltimate(card *CardInstance) bool {
+	return card != nil && card.Statuses["爱里默解放"] > 0
+}
 func (Card4511002Ailimer) OnUltimate(ctx *EffectContext) error {
-	if target := firstEnemyUnit(ctx); target != nil && !target.Card.IsHero() {
-		ctx.Engine.destroyUnit(target, ctx.OpponentID)
+	candidates := ctx.Engine.nonHeroFieldCardCandidates(ctx.PlayerID)
+	if len(candidates) == 0 {
+		return nil
 	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "ailimer_remove_cards", "爱里默:移除最多3张非人物场上卡牌", candidates, 0, min(3, len(candidates)), func(selected []string) {
+		for _, id := range selected {
+			ctx.Engine.removeFieldCardFromGameByID(id)
+		}
+	})
 	return nil
+}
+
+func ailimerShuffleShacklesOnce(ctx *EffectContext) {
+	if ctx == nil || ctx.Source == nil || ctx.Source.Statuses["桎梏已洗入"] > 0 {
+		return
+	}
+	addCardToOpponentDeck(ctx, "2501001", 5)
+	ctx.Source.Statuses["桎梏已洗入"] = 1
+}
+
+func ailimerUnlockIfShacklesCleared(ctx *EffectContext) {
+	if ctx == nil || ctx.Source == nil || ctx.Source.Statuses["爱里默解放"] > 0 {
+		return
+	}
+	if countCardInstancesByNumber(ctx.Engine.State.Players[ctx.OpponentID].Graveyard, "2501001") < 5 {
+		return
+	}
+	ctx.Source.Statuses["爱里默解放"] = 1
+	ctx.Engine.emit(GameEvent{
+		Type:   "effect_trigger",
+		Player: -1,
+		Data: map[string]any{
+			"player": ctx.PlayerID,
+			"card":   cardToInfo(ctx.Source),
+			"effect": "ailimer_unlocked",
+		},
+	})
+}
+
+func countCardInstancesByNumber(cards []*CardInstance, number string) int {
+	count := 0
+	for _, card := range cards {
+		if card != nil && card.Card != nil && card.Card.Number == number {
+			count++
+		}
+	}
+	return count
 }
 
 type Card4511003Lexia struct{ AlwaysActive }

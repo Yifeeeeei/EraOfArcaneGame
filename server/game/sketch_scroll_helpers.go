@@ -31,6 +31,7 @@ func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, ta
 	if !ps.PayCost(cost) {
 		return
 	}
+	e.applySkillUseCooldownModifiers(ps, skill)
 	totalPower := e.effectiveSpellPower(playerID, skill, nil, target)
 	isSorcery := isSorcerySkill(skill.Card)
 	spellCastData := map[string]any{

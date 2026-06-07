@@ -20,6 +20,7 @@ const (
 	TempModNextEarthSkillLearnCostMinus = "next_earth_skill_learn_cost_minus"
 	TempModAllSpellDamageZero           = "all_spell_attack_zero"
 	TempModFriendlySpellDamageMinus     = "friendly_spell_damage_minus"
+	TempModSkillUseCooldownAdd          = "skill_use_cooldown_add"
 )
 
 type TemporaryModifier struct {
@@ -102,6 +103,28 @@ func (e *Engine) consumeNextSkillUseModifiers(ps *PlayerState, skill *CardInstan
 			if modifier.RemainingUses <= 0 {
 				e.removeTemporaryModifier(ps.PlayerID, modifier.ID)
 			}
+		}
+	}
+}
+
+func (e *Engine) applySkillUseCooldownModifiers(ps *PlayerState, skills ...*CardInstance) {
+	for _, skill := range skills {
+		if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
+			continue
+		}
+		for i := range ps.TempModifiers {
+			modifier := &ps.TempModifiers[i]
+			if modifier.Type != TempModSkillUseCooldownAdd {
+				continue
+			}
+			if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != skill.InstanceID {
+				continue
+			}
+			amount := modifier.Amount
+			if amount <= 0 {
+				amount = 1
+			}
+			skill.Statuses[StatusCooldown] += amount
 		}
 	}
 }

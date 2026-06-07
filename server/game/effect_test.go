@@ -23,7 +23,7 @@ func setupEffectTest(t *testing.T) *Engine {
 		t.Fatalf("parse effect test deck: %v", err)
 	}
 	engine := NewEngine("effect-test", func(event GameEvent, targetPlayer int) {})
-	if err := engine.SetupGame("P1", deck, "P2", deck); err != nil {
+	if err := engine.SetupGameWithFirstPlayer("P1", deck, "P2", deck, 0); err != nil {
 		t.Fatalf("setup effect test game: %v", err)
 	}
 	engine.HandleAction(0, ActionMessage{Action: "mulligan", Data: map[string]any{"keep": true}})

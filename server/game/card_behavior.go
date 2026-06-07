@@ -21,6 +21,7 @@ type PerTurnLabelBehavior interface {
 type AlwaysActive struct{}
 
 func (AlwaysActive) HasActiveOnEnter(*CardInstance) bool                   { return true }
+func (AlwaysActive) HasActiveGameStart(*CardInstance) bool                 { return true }
 func (AlwaysActive) HasActiveDeathrattle(*CardInstance) bool               { return true }
 func (AlwaysActive) HasActiveTurnStart(*CardInstance) bool                 { return true }
 func (AlwaysActive) HasActiveTurnEnd(*CardInstance) bool                   { return true }
@@ -30,6 +31,7 @@ func (AlwaysActive) HasActiveEnemyDeath(*CardInstance) bool                { ret
 func (AlwaysActive) HasActiveDamaged(*CardInstance) bool                   { return true }
 func (AlwaysActive) HasActiveFriendlyDamagedFromHidden(*CardInstance) bool { return true }
 func (AlwaysActive) HasActiveSpellCast(*CardInstance) bool                 { return true }
+func (AlwaysActive) HasActiveSpellHitBeforeDamage(*CardInstance) bool      { return true }
 func (AlwaysActive) HasActiveSpellHit(*CardInstance) bool                  { return true }
 func (AlwaysActive) HasActiveSpellReaction(*CardInstance) bool             { return true }
 func (AlwaysActive) HasActiveDefend(*CardInstance) bool                    { return true }
@@ -77,6 +79,9 @@ func (AlwaysActive) HasActiveEnemySpellStatModifier(*CardInstance) bool {
 	return true
 }
 func (AlwaysActive) HasActiveDamagePrevention(*CardInstance) bool { return true }
+func (AlwaysActive) HasActiveFieldDamagePrevention(*CardInstance) bool {
+	return true
+}
 func (AlwaysActive) HasActiveNegativeStatusImmunity(*CardInstance) bool {
 	return true
 }
@@ -90,6 +95,11 @@ func (AlwaysActive) HasActiveSkillContributionModifier(*CardInstance) bool {
 type OnEnterBehavior interface {
 	HasActiveOnEnter(*CardInstance) bool
 	OnEnter(*EffectContext) error
+}
+
+type OnGameStartBehavior interface {
+	HasActiveGameStart(*CardInstance) bool
+	OnGameStart(*EffectContext) error
 }
 
 type OnDeathBehavior interface {
@@ -135,6 +145,11 @@ type OnFriendlyDamagedFromHiddenBehavior interface {
 type OnSpellCastBehavior interface {
 	HasActiveSpellCast(*CardInstance) bool
 	OnSpellCast(*EffectContext) error
+}
+
+type OnSpellHitBeforeDamageBehavior interface {
+	HasActiveSpellHitBeforeDamage(*CardInstance) bool
+	OnSpellHitBeforeDamage(*EffectContext) error
 }
 
 type OnSpellHitBehavior interface {
@@ -279,6 +294,10 @@ type PrayerAbility interface {
 	IsPrayerAbility() bool
 }
 
+type OptionalPrayerAbility interface {
+	IsPrayerOptional(*CardInstance) bool
+}
+
 type SkillUsabilityBehavior interface {
 	HasActiveSkillUsability(*CardInstance) bool
 	CanUseForSkillPurpose(skillPurpose) bool
@@ -363,6 +382,11 @@ type DamagePreventionBehavior interface {
 	PreventsDamage(*EffectContext) bool
 }
 
+type FieldDamagePreventionBehavior interface {
+	HasActiveFieldDamagePrevention(*CardInstance) bool
+	PreventsFieldDamage(*EffectContext) bool
+}
+
 type NegativeStatusImmunityBehavior interface {
 	HasActiveNegativeStatusImmunity(*CardInstance) bool
 	HasNegativeStatusImmunity() bool
@@ -388,6 +412,14 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 				return nil
 			}
 			return h.OnEnter(ctx)
+		})
+	}
+	if h, ok := behavior.(OnGameStartBehavior); ok {
+		r.Register(id, TriggerOnGameStart, func(ctx *EffectContext) error {
+			if !h.HasActiveGameStart(ctx.Source) {
+				return nil
+			}
+			return h.OnGameStart(ctx)
 		})
 	}
 	if h, ok := behavior.(OnDeathBehavior); ok {
@@ -452,6 +484,14 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 				return nil
 			}
 			return h.OnSpellCast(ctx)
+		})
+	}
+	if h, ok := behavior.(OnSpellHitBeforeDamageBehavior); ok {
+		r.Register(id, TriggerOnSpellHitBeforeDamage, func(ctx *EffectContext) error {
+			if !h.HasActiveSpellHitBeforeDamage(ctx.Source) {
+				return nil
+			}
+			return h.OnSpellHitBeforeDamage(ctx)
 		})
 	}
 	if h, ok := behavior.(OnSpellHitBehavior); ok {
@@ -520,12 +560,14 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 		})
 	}
 	if h, ok := behavior.(PerTurnAbility); ok {
-		r.RegisterActive(id, TriggerPerTurn, func(ctx *EffectContext) error {
-			if !h.HasActivePerTurn(ctx.Source) {
-				return nil
-			}
-			return h.OnPerTurn(ctx)
-		})
+		if prayer, ok := behavior.(PrayerAbility); !ok || !prayer.IsPrayerAbility() {
+			r.RegisterActive(id, TriggerPerTurn, func(ctx *EffectContext) error {
+				if !h.HasActivePerTurn(ctx.Source) {
+					return nil
+				}
+				return h.OnPerTurn(ctx)
+			})
+		}
 	}
 	if h, ok := behavior.(UltimateAbility); ok {
 		r.RegisterActive(id, TriggerUltimate, func(ctx *EffectContext) error {

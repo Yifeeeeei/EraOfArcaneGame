@@ -531,8 +531,7 @@ func (CardDef2421012) isEquipmentCard() {}
 func (CardDef2421013) isItemCard()      {}
 func (CardDef2421013) isEquipmentCard() {}
 
-func (CardDef2501001) isItemCard()      {}
-func (CardDef2501001) isEquipmentCard() {}
+func (CardDef2501001) isItemCard() {}
 
 func (CardDef2511001) isItemCard()       {}
 func (CardDef2511001) isConsumableCard() {}
@@ -809,6 +808,8 @@ func (CardDef3521007) isSkillCard() {}
 func (CardDef3521008) isSkillCard() {}
 
 func (CardDef3521009) isSkillCard() {}
+
+func (CardDef3521010) isSkillCard() {}
 
 func (CardDef3521011) isSkillCard() {}
 

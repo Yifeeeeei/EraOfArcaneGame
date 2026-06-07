@@ -184,6 +184,12 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 					if !globalRegistry.HasEffect(card.Number, trigger.typ) {
 						continue
 					}
+					if trigger.typ == TriggerPerTurn && !cardHasActivePerTurn(hero) {
+						continue
+					}
+					if trigger.typ == TriggerUltimate && !cardHasActiveUltimate(hero) {
+						continue
+					}
 					hero.IsHorizontal = false
 					if err := engine.HandleAction(0, ActionMessage{
 						Action: "use_ability",
@@ -258,6 +264,9 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 				}
 
 			case card.IsItem():
+				if isSpellScrollCard(card) && isDefenseOnlySkill(card) {
+					return
+				}
 				instance := NewCardInstance(card, 0, engine.State.TurnNumber)
 				ps.Hand = append(ps.Hand, instance)
 				action := "equip"
@@ -268,9 +277,19 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 					data["row"] = float64(0)
 				} else if isConsumableItem(card) {
 					action = "use_item"
+					if isSpellScrollCard(card) && skillNeedsTargetCard(card) {
+						data["target_type"] = "unit"
+						data["target_col"] = float64(1)
+						data["target_row"] = float64(1)
+					}
 				}
 				if err := engine.HandleAction(0, ActionMessage{Action: action, Data: data}); err != nil {
 					t.Fatalf("%s item failed: %v", action, err)
+				}
+				if engine.State.Phase == PhaseDefenseWindow {
+					if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+						t.Fatalf("resolve spell scroll without defense failed: %v", err)
+					}
 				}
 			}
 		})

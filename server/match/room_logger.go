@@ -93,7 +93,9 @@ func (l *RoomLogger) Close() error {
 	}
 	l.mu.Lock()
 	defer l.mu.Unlock()
-	return l.file.Close()
+	err := l.file.Close()
+	l.file = nil
+	return err
 }
 
 func (l *RoomLogger) Write(kind string, entry roomLogEntry) {

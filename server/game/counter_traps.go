@@ -14,12 +14,12 @@ var counterTrapTriggers = map[string][]EffectTrigger{
 	"2321002": {TriggerOnConsume},
 	"2321010": {TriggerOnSpellCast},
 	"2321011": {TriggerOnUnitEnter, TriggerOnConsume},
-	"2521002": {TriggerOnSpellHit},
+	"2521002": {TriggerOnSpellHitBeforeDamage},
 	"2521004": {TriggerOnSpellCast},
 	"2521011": {TriggerOnSpellCast},
 	"2621003": {TriggerOnUnitEnter},
 	"2621005": {TriggerOnFriendlyDeath, TriggerOnEnemyDeath},
-	"2621010": {TriggerOnDamaged, TriggerOnFriendlyDeath},
+	"2621010": {TriggerOnFriendlyDeath},
 	"2621011": {TriggerOnConsume},
 }
 
@@ -219,7 +219,7 @@ func (e *Engine) counterTrapConditionMet(counter *CardInstance, trigger EffectTr
 	case "2321011":
 		return eventSource != nil && eventSource.Card.IsCompanion()
 	case "2521002":
-		return trigger == TriggerOnSpellHit && sourceOwner != ownerID && spellPowerFromData(extraData) < 10
+		return trigger == TriggerOnSpellHitBeforeDamage && sourceOwner != ownerID && spellPowerFromData(extraData) < 10
 	case "2521004":
 		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && eventSource != nil && isSorcerySkill(eventSource.Card)
 	case "2521011":
@@ -227,12 +227,37 @@ func (e *Engine) counterTrapConditionMet(counter *CardInstance, trigger EffectTr
 	case "2621005":
 		return eventSource != nil && eventSource.Card.IsCompanion()
 	case "2621010":
-		return sourceOwner == ownerID
+		return trigger == TriggerOnFriendlyDeath && sourceOwner == ownerID && eventSource != nil && eventSource.DamageTakenThisTurn > 0
 	case "2621011":
-		return trigger == TriggerOnConsume && sourceOwner != ownerID && eventSource != nil && eventSource.Card.IsCompanion() && eventSource.CurrentAttack > 0
+		return trigger == TriggerOnConsume && sourceOwner != ownerID && eventSource != nil && eventSource.Card.IsCompanion() && eventSource.CurrentAttack > 0 && len(e.adjacentUnitCandidatesForCounter(ownerID, eventSource)) > 0
 	default:
 		return false
 	}
+}
+
+func (e *Engine) adjacentUnitCandidatesForCounter(counterOwnerID int, source *CardInstance) []map[string]any {
+	if source == nil || source.Position == nil || source.OwnerID < 0 || source.OwnerID >= len(e.State.Players) {
+		return nil
+	}
+	ps := e.State.Players[source.OwnerID]
+	candidates := make([]map[string]any, 0, 4)
+	for _, delta := range []struct{ col, row int }{{1, 0}, {-1, 0}, {0, 1}, {0, -1}} {
+		col := source.Position.Col + delta.col
+		row := source.Position.Row + delta.row
+		if col < 0 || col >= 3 || row < 0 || row >= 3 {
+			continue
+		}
+		unit := ps.Units[col][row]
+		if unit == nil || unit == source {
+			continue
+		}
+		side := "enemy"
+		if unit.OwnerID == counterOwnerID {
+			side = "own"
+		}
+		candidates = append(candidates, candidateInfo(unit, "unit", side))
+	}
+	return candidates
 }
 
 func (e *Engine) payAndRevealCounterTrap(playerID int, counter *CardInstance, cost map[string]int, data map[string]any) error {
@@ -268,7 +293,7 @@ func (e *Engine) executeCounterTrap(counter *CardInstance, trigger EffectTrigger
 		e.discardCounterTrap(counter.OwnerID, counter)
 		return
 	}
-	if counter.Card.Number == "2521002" && trigger == TriggerOnSpellHit {
+	if counter.Card.Number == "2521002" && trigger == TriggerOnSpellHitBeforeDamage {
 		if cancelled, ok := extraData["cancel_spell_hit"].(*bool); ok && cancelled != nil {
 			*cancelled = true
 			e.emit(GameEvent{Type: "spell_hit_cancelled", Player: -1, Data: map[string]any{

@@ -27,20 +27,21 @@ type CardInstance struct {
 	OwnerID    int         `json:"owner_id"` // 0 or 1
 
 	// Runtime state
-	CurrentLife       int                `json:"current_life"`
-	CurrentAttack     int                `json:"current_attack"`
-	IsHorizontal      bool               `json:"is_horizontal"` // 横置=true, 竖置=false
-	Statuses          map[string]int     `json:"statuses"`      // status -> stack count
-	ElementsGainBonus map[string]int     `json:"elements_gain_bonus,omitempty"`
-	ElementsGainSet   map[string]int     `json:"elements_gain_set,omitempty"`
-	PowerBonus        int                `json:"power_bonus,omitempty"`
-	AttackBonus       int                `json:"attack_bonus,omitempty"`
-	IsSetCounter      bool               `json:"is_set_counter,omitempty"`
-	Position          *Position          `json:"position"`               // nil if not on unit grid
-	SlotIndex         int                `json:"slot_index"`             // for skill/equipment slots
-	EnterTurn         int                `json:"enter_turn"`             // which turn this card entered the field
-	BoundSkills       []*CardInstance    `json:"bound_skills,omitempty"` // skills attached to this card, not skill slots
-	AttachedBehaviors []AttachedBehavior `json:"-"`                      // runtime-granted behavior objects
+	CurrentLife         int                `json:"current_life"`
+	CurrentAttack       int                `json:"current_attack"`
+	DamageTakenThisTurn int                `json:"damage_taken_this_turn,omitempty"`
+	IsHorizontal        bool               `json:"is_horizontal"` // 横置=true, 竖置=false
+	Statuses            map[string]int     `json:"statuses"`      // status -> stack count
+	ElementsGainBonus   map[string]int     `json:"elements_gain_bonus,omitempty"`
+	ElementsGainSet     map[string]int     `json:"elements_gain_set,omitempty"`
+	PowerBonus          int                `json:"power_bonus,omitempty"`
+	AttackBonus         int                `json:"attack_bonus,omitempty"`
+	IsSetCounter        bool               `json:"is_set_counter,omitempty"`
+	Position            *Position          `json:"position"`               // nil if not on unit grid
+	SlotIndex           int                `json:"slot_index"`             // for skill/equipment slots
+	EnterTurn           int                `json:"enter_turn"`             // which turn this card entered the field
+	BoundSkills         []*CardInstance    `json:"bound_skills,omitempty"` // skills attached to this card, not skill slots
+	AttachedBehaviors   []AttachedBehavior `json:"-"`                      // runtime-granted behavior objects
 
 	// Skill-specific
 	UsedThisTurn int  `json:"used_this_turn"` // for 回合技
@@ -373,7 +374,7 @@ type GameState struct {
 	FirstPlayer int             `json:"first_player"` // 0 or 1
 	TurnNumber  int             `json:"turn_number"`
 	Phase       GamePhase       `json:"phase"`
-	Winner      int             `json:"winner"` // -1 = no winner, 0 or 1
+	Winner      int             `json:"winner"` // -2 = draw, -1 = no winner, 0 or 1
 	HandLimit   int             `json:"hand_limit"`
 	IsFirstTurn bool            `json:"is_first_turn"` // first player's first turn
 
@@ -392,12 +393,20 @@ type GameState struct {
 
 // SpellCast represents an ongoing spell combat
 type SpellCast struct {
-	AttackerID   int             `json:"attacker_id"`
-	Skill        *CardInstance   `json:"skill"`
-	Target       SpellTarget     `json:"target"`
-	TotalPower   int             `json:"total_power"`
-	BoostSkills  []*CardInstance `json:"boost_skills"` // skills used to boost
-	ExtraTargets []SpellTarget   `json:"extra_targets,omitempty"`
+	AttackerID   int                `json:"attacker_id"`
+	Skill        *CardInstance      `json:"skill"`
+	Target       SpellTarget        `json:"target"`
+	TotalPower   int                `json:"total_power"`
+	PowerSources []SpellPowerSource `json:"power_sources,omitempty"`
+	BoostSkills  []*CardInstance    `json:"boost_skills"` // skills used to boost
+	ExtraTargets []SpellTarget      `json:"extra_targets,omitempty"`
+}
+
+type SpellPowerSource struct {
+	InstanceID string `json:"instance_id"`
+	CardName   string `json:"card_name"`
+	Power      int    `json:"power"`
+	IsMain     bool   `json:"is_main"`
 }
 
 // SpellTarget represents the target of a spell

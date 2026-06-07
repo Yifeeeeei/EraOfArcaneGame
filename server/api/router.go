@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math/rand"
 	"net/http"
+	"strings"
 )
 
 // SetupRoutes configures all HTTP routes
@@ -28,8 +29,20 @@ func SetupRoutes(mux *http.ServeMux, rm *match.RoomManager) {
 	// WebSocket
 	mux.HandleFunc("/ws", HandleWebSocket(rm))
 
-	// Serve static files (last, as "/" catches everything)
-	mux.Handle("/", http.FileServer(http.Dir("../web")))
+	// Serve static files (last, as "/" catches everything). Browser caching can
+	// hide frontend fixes during rapid local playtests, so keep these fresh.
+	mux.Handle("/", noCacheStatic(http.FileServer(http.Dir("../web"))))
+}
+
+func noCacheStatic(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path == "/" || strings.HasSuffix(r.URL.Path, ".html") || strings.HasSuffix(r.URL.Path, ".js") || strings.HasSuffix(r.URL.Path, ".css") {
+			w.Header().Set("Cache-Control", "no-store, max-age=0")
+			w.Header().Set("Pragma", "no-cache")
+			w.Header().Set("Expires", "0")
+		}
+		next.ServeHTTP(w, r)
+	})
 }
 
 func handleGetCards(w http.ResponseWriter, r *http.Request) {
@@ -55,6 +68,12 @@ func handleGetCards(w http.ResponseWriter, r *http.Request) {
 			"power":            card.Power,
 			"spawns":           card.Spawns,
 			"output_path":      card.OutputPath,
+		}
+		if len(card.EffectCategories) > 0 {
+			entry["effect_categories"] = card.EffectCategories
+		}
+		if len(card.EffectOptionality) > 0 {
+			entry["effect_optionality"] = card.EffectOptionality
 		}
 		for key, value := range game.CardRuleInfo(card) {
 			entry[key] = value

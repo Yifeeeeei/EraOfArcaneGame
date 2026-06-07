@@ -174,6 +174,15 @@ func (e *Engine) findFriendlyCandidate(playerID int, instanceID string) (*CardIn
 	return nil, ""
 }
 
+func (e *Engine) findUnitByInstanceID(instanceID string) *CardInstance {
+	for _, ps := range e.State.Players {
+		if unit := e.findUnitOnGrid(ps, instanceID); unit != nil {
+			return unit
+		}
+	}
+	return nil
+}
+
 func (e *Engine) discardFriendlyCandidate(playerID int, instanceID string) bool {
 	ps := e.State.Players[playerID]
 	for i, card := range ps.Hand {
