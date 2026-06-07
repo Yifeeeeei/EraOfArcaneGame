@@ -402,6 +402,10 @@ func TestIssue25PlaytestRegressions(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		scroll := NewCardInstance(baseCard(t, "2121003"), 0, 1)
+		info := cardToInfo(scroll)
+		if info["needs_target"] != true || info["can_attack"] != true {
+			t.Fatalf("scorching scroll should expose spell-scroll targeting fields, info=%+v", info)
+		}
 		p0.Hand = []*CardInstance{scroll}
 		p0.Elements[model.ElementArcane] = 1
 		p0.Elements[model.ElementFire] = 1
@@ -4380,10 +4384,19 @@ func TestSpellPowerItemModifiersAndRestrictions(t *testing.T) {
 			t.Fatalf("severing blade should boost fireball power from 3 to 5, pending=%+v", engine.State.PendingSpell)
 		}
 
+		boost := readySkill(baseCard(t, "3121003"), 0)
+		p0.Skills[1] = boost
+		boostedPower := engine.effectiveSpellPower(0, p0.Skills[0], []*CardInstance{boost}, SpellTarget{Type: "unit", Position: Position{Col: 1, Row: 0}})
+		wantBoostedPower := p0.Skills[0].Card.Power + boost.Card.Power + 4
+		if boostedPower != wantBoostedPower {
+			t.Fatalf("severing blade should add +2 to attack spell and +2 to attack boost spell, got=%d want=%d", boostedPower, wantBoostedPower)
+		}
+
 		engine = setupReportedBugEngine(t)
 		p1 = engine.State.Players[1]
 		p1.Equipment[0] = NewCardInstance(baseCard(t, "2021013"), 1, 1)
 		p1.Skills[0] = readySkill(baseCard(t, "2121009"), 1)
+		p1.Skills[1] = readySkill(baseCard(t, "3121001"), 1)
 		p1.Elements[model.ElementFire] = 10
 		engine.State.CurrentTurn = 0
 		engine.State.Phase = PhaseDefenseWindow
@@ -4394,6 +4407,9 @@ func TestSpellPowerItemModifiersAndRestrictions(t *testing.T) {
 		}})
 		if err == nil {
 			t.Fatalf("severing blade should prevent using spells for defense")
+		}
+		if err := engine.validateSkillForPurpose(p1.Skills[1], skillPurposeDefenseBoost); err == nil {
+			t.Fatalf("severing blade should prevent using spells as defense boosts")
 		}
 	})
 

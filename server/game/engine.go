@@ -3345,8 +3345,8 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		info["devour_requirement"] = requirement
 	}
 
-	// Mark defense-only skills
-	if ci.Card.IsSkill() {
+	// Mark spell-like skills and spell scrolls.
+	if isSpellLikeCard(ci.Card) {
 		info["is_defense_only"] = isDefenseOnlySkill(ci.Card)
 		info["is_sorcery"] = isSorcerySkill(ci.Card)
 		info["needs_target"] = skillNeedsTargetInstance(ci)

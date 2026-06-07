@@ -1520,7 +1520,11 @@
                         break;
                     case 'use':
                         if (source === 'hand') {
-                            if (isConsumable(card)) {
+                            if (isSpellScrollItem(card) && card.needs_target) {
+                                selectedHandCard.value = null;
+                                selectedItemSpellScroll.value = card;
+                                addLog(`选择 ${card.name}，点击敌方目标`);
+                            } else if (isConsumable(card)) {
                                 selectedHandCard.value = null;
                                 if (card.is_counter_trap) {
                                     setCounterCard(card);
@@ -2057,7 +2061,7 @@
 
             const availableDefenseScrolls = computed(() => {
                 if (!showDefenseWindow.value) return [];
-                return myHand.value.filter(card => isSpellScrollItem(card) && card.can_defend);
+                return myHand.value.filter(card => isSpellScrollItem(card) && card.can_defend && !hasSeveringBlade());
             });
 
             const availableReactionSkills = computed(() => {
@@ -2145,6 +2149,7 @@
 
             function canUseSkillAsDefense(skill) {
                 if (!isSkillReady(skill)) return false;
+                if (hasSeveringBlade()) return false;
                 return !!skill.can_defend;
             }
 
@@ -2182,7 +2187,12 @@
 
             function canUseSkillAsDefenseBoost(skill) {
                 if (!isSkillReady(skill)) return false;
+                if (hasSeveringBlade()) return false;
                 return !!skill.can_defense_boost;
+            }
+
+            function hasSeveringBlade() {
+                return (myState.value?.equipment || []).some(card => card && String(card.number) === '2021013');
             }
 
             const totalDefensePower = computed(() => {
