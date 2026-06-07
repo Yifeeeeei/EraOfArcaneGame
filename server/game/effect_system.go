@@ -9,29 +9,32 @@ import (
 type EffectTrigger int
 
 const (
-	TriggerOnEnter         EffectTrigger = iota // 入场: card enters the field
-	TriggerOnDeath                              // 遗言: card dies / leaves field to graveyard
-	TriggerOnTurnStart                          // 回合开始: owner's turn starts
-	TriggerOnTurnEnd                            // 回合结束: owner's turn ends
-	TriggerOnConsume                            // 消耗时: card is consumed (横置)
-	TriggerOnAttack                             // 攻击时: unit declares attack
-	TriggerOnHit                                // 命中: attack hits (not defended)
-	TriggerOnDamaged                            // 受伤时: card takes damage
-	TriggerOnSpellCast                          // 施法时: spell is cast
-	TriggerOnSpellHit                           // 法术命中: spell hits target
-	TriggerOnDefend                             // 防御时: spell is defended
-	TriggerOnDraw                               // 抽牌时: card is drawn
-	TriggerOnLoadGain                           // 获得负载时: a friendly card gains load
-	TriggerOnMastery                            // 达到精通时: a friendly card reaches a mastery level
-	TriggerOnSummon                             // 召唤时: any friendly unit is summoned
-	TriggerOnFriendlyDeath                      // 友方死亡: any friendly unit dies
-	TriggerOnEnemyDeath                         // 敌方死亡: any enemy unit dies
-	TriggerOnUnitEnter                          // 任意入场: any unit enters field (for passive listeners)
-	TriggerPerTurn                              // 回合技: active ability (per-turn)
-	TriggerUltimate                             // 绝技: one-time active ability
-	TriggerOnEquip                              // 装备时: item is equipped
-	TriggerOnUseItem                            // 使用消耗品道具时
-	TriggerPassive                              // 被动: always active while on field
+	TriggerOnEnter                EffectTrigger = iota // 入场: card enters the field
+	TriggerOnGameStart                                 // 游戏开始时: after initial hero enter, before initial draw
+	TriggerOnDeath                                     // 遗言: card dies / leaves field to graveyard
+	TriggerOnTurnStart                                 // 回合开始: owner's turn starts
+	TriggerOnTurnEnd                                   // 回合结束: owner's turn ends
+	TriggerOnConsume                                   // 消耗时: card is consumed (横置)
+	TriggerOnAttack                                    // 攻击时: unit declares attack
+	TriggerOnAttacked                                  // 受攻击时: unit becomes the target of a direct attack
+	TriggerOnHit                                       // 命中: attack hits (not defended)
+	TriggerOnDamaged                                   // 受伤时: card takes damage
+	TriggerOnSpellCast                                 // 施法时: spell is cast
+	TriggerOnSpellHitBeforeDamage                      // 法术命中时: before hit damage is dealt
+	TriggerOnSpellHit                                  // 法术命中后: spell hit after damage
+	TriggerOnDefend                                    // 防御时: spell is defended
+	TriggerOnDraw                                      // 抽牌时: card is drawn
+	TriggerOnLoadGain                                  // 获得负载时: a friendly card gains load
+	TriggerOnMastery                                   // 达到精通时: a friendly card reaches a mastery level
+	TriggerOnSummon                                    // 召唤时: any friendly unit is summoned
+	TriggerOnFriendlyDeath                             // 友方死亡: any friendly unit dies
+	TriggerOnEnemyDeath                                // 敌方死亡: any enemy unit dies
+	TriggerOnUnitEnter                                 // 任意入场: any unit enters field (for passive listeners)
+	TriggerPerTurn                                     // 回合技: active ability (per-turn)
+	TriggerUltimate                                    // 绝技: one-time active ability
+	TriggerOnEquip                                     // 装备时: item is equipped
+	TriggerOnUseItem                                   // 使用消耗品道具时
+	TriggerPassive                                     // 被动: always active while on field
 )
 
 // EffectContext provides context for effect execution
@@ -277,19 +280,31 @@ func (e *Engine) triggerEffects(trigger EffectTrigger, source *CardInstance, tar
 }
 
 // triggerFieldEffects fires effects for all cards on a player's field
-func (e *Engine) triggerFieldEffects(trigger EffectTrigger, playerID int, eventSource *CardInstance) {
-	e.triggerFieldEffectsWithData(trigger, playerID, eventSource, nil)
+func (e *Engine) triggerFieldEffects(trigger EffectTrigger, playerID int, eventSource *CardInstance) bool {
+	return e.triggerFieldEffectsWithData(trigger, playerID, eventSource, nil)
 }
 
-func (e *Engine) triggerFieldEffectsWithData(trigger EffectTrigger, playerID int, eventSource *CardInstance, extraData map[string]any) {
+func (e *Engine) triggerFieldEffectsWithData(trigger EffectTrigger, playerID int, eventSource *CardInstance, extraData map[string]any) bool {
 	ps := e.State.Players[playerID]
 	allCards := e.getAllFieldCards(ps)
+	counterCandidates := []*CardInstance{}
+	skipCounters := false
+	if extraData != nil {
+		skipCounters, _ = extraData["skip_counter_traps"].(bool)
+	}
 	for _, card := range allCards {
 		if card == eventSource {
 			continue // skip the source itself to avoid loops
 		}
+		if card.IsSetCounter {
+			if !skipCounters && counterTrapHasTrigger(card.Card.Number, trigger) && e.counterTrapConditionMet(card, trigger, eventSource, extraData) {
+				counterCandidates = append(counterCandidates, card)
+			}
+			continue
+		}
 		e.triggerEffects(trigger, card, eventSource, extraData)
 	}
+	return e.promptCounterTrapQueue(counterCandidates, trigger, eventSource, extraData, nil)
 }
 
 func triggerName(t EffectTrigger) string {
@@ -306,6 +321,8 @@ func triggerName(t EffectTrigger) string {
 		return "on_consume"
 	case TriggerOnAttack:
 		return "on_attack"
+	case TriggerOnAttacked:
+		return "on_attacked"
 	case TriggerOnHit:
 		return "on_hit"
 	case TriggerOnDamaged:

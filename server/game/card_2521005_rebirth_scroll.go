@@ -1,5 +1,7 @@
 package game
 
+import "eraofarcane/model"
+
 type Card2521005RebirthScroll struct{ AlwaysActive }
 
 func (Card2521005RebirthScroll) ID() string   { return "2521005" }
@@ -9,7 +11,7 @@ func (Card2521005RebirthScroll) OnUseItem(ctx *EffectContext) error {
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	candidates := make([]map[string]any, 0)
 	for _, card := range ps.Graveyard {
-		if card != nil && card.Card.IsCompanion() && card.Card.Category == "光" && ps.CanPayCost(card.Card.ElementsCost) {
+		if card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementLight && ps.CanPayCost(card.Card.ElementsCost) {
 			candidates = append(candidates, candidateInfo(card, "graveyard", "own"))
 		}
 	}
@@ -17,7 +19,7 @@ func (Card2521005RebirthScroll) OnUseItem(ctx *EffectContext) error {
 		return nil
 	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "rebirth_scroll",
-		"选择1个死亡光辉伙伴,支付入场费用并复活", candidates, 1, 1,
+		"选择1个死亡的光辉伙伴，支付入场费用并复活", candidates, 1, 1,
 		func(selected []string) {
 			if len(selected) == 0 {
 				return

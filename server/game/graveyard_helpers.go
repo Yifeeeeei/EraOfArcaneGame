@@ -65,3 +65,71 @@ func (e *Engine) removeEquipmentFromGame(playerID int, instanceID string) bool {
 	}
 	return false
 }
+
+func (e *Engine) nonHeroFieldCardCandidates(playerID int) []map[string]any {
+	candidates := make([]map[string]any, 0)
+	for ownerID, ps := range e.State.Players {
+		side := "enemy"
+		if ownerID == playerID {
+			side = "own"
+		}
+		for col := 0; col < 3; col++ {
+			for row := 0; row < 3; row++ {
+				if unit := ps.Units[col][row]; unit != nil && !unit.Card.IsHero() {
+					candidates = append(candidates, candidateInfo(unit, "unit", side))
+				}
+				if terrain := ps.Terrain[col][row]; terrain != nil {
+					candidates = append(candidates, candidateInfo(terrain, "terrain", side))
+				}
+			}
+		}
+		for _, skill := range ps.Skills {
+			if skill != nil {
+				candidates = append(candidates, candidateInfo(skill, "skill", side))
+			}
+		}
+		for _, equipment := range ps.Equipment {
+			if equipment != nil {
+				candidates = append(candidates, candidateInfo(equipment, "equipment", side))
+			}
+		}
+	}
+	return candidates
+}
+
+func (e *Engine) removeFieldCardFromGameByID(instanceID string) bool {
+	for playerID, ps := range e.State.Players {
+		for col := 0; col < 3; col++ {
+			for row := 0; row < 3; row++ {
+				if unit := ps.Units[col][row]; unit != nil && unit.InstanceID == instanceID && !unit.Card.IsHero() {
+					ps.Units[col][row] = nil
+					unit.Position = nil
+					unit.BoundSkills = nil
+					e.emit(GameEvent{Type: "card_removed_from_game", Player: playerID, Data: map[string]any{"card": cardToInfo(unit)}})
+					return true
+				}
+				if terrain := ps.Terrain[col][row]; terrain != nil && terrain.InstanceID == instanceID {
+					ps.Terrain[col][row] = nil
+					terrain.Position = nil
+					e.emit(GameEvent{Type: "card_removed_from_game", Player: playerID, Data: map[string]any{"card": cardToInfo(terrain)}})
+					return true
+				}
+			}
+		}
+		for i, skill := range ps.Skills {
+			if skill != nil && skill.InstanceID == instanceID {
+				ps.Skills[i] = nil
+				e.emit(GameEvent{Type: "card_removed_from_game", Player: playerID, Data: map[string]any{"card": cardToInfo(skill)}})
+				return true
+			}
+		}
+		for i, equipment := range ps.Equipment {
+			if equipment != nil && equipment.InstanceID == instanceID {
+				ps.Equipment[i] = nil
+				e.emit(GameEvent{Type: "card_removed_from_game", Player: playerID, Data: map[string]any{"card": cardToInfo(equipment)}})
+				return true
+			}
+		}
+	}
+	return false
+}

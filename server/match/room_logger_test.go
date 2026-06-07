@@ -15,6 +15,9 @@ func TestRoomLoggerWritesJSONL(t *testing.T) {
 
 	room := (&RoomManager{rooms: make(map[string]*Room)}).createRoom(true)
 	room.LogRoomEvent("test_event", map[string]any{"ok": true})
+	if err := room.Logger.Close(); err != nil {
+		t.Fatalf("close room log: %v", err)
+	}
 
 	files, err := filepath.Glob(filepath.Join(roomLogDir, "room-"+room.ID+"-*.jsonl"))
 	if err != nil {

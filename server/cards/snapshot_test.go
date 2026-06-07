@@ -1,6 +1,7 @@
 package cards
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"testing"
@@ -17,6 +18,7 @@ func TestSupportedCardInfoSnapshotMatchesPlayablePool(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read supported card snapshot: %v", err)
 	}
+	data = bytes.TrimPrefix(data, []byte{0xEF, 0xBB, 0xBF})
 
 	var snapshot []model.Card
 	if err := json.Unmarshal(data, &snapshot); err != nil {

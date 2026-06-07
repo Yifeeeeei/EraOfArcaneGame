@@ -24,7 +24,7 @@ func TestFullCombatFlow(t *testing.T) {
 	engine := NewEngine("combat-test", func(event GameEvent, targetPlayer int) {
 		events = append(events, event)
 	})
-	if err := engine.SetupGame("P1", deck, "P2", deck); err != nil {
+	if err := engine.SetupGameWithFirstPlayer("P1", deck, "P2", deck, 0); err != nil {
 		t.Fatalf("setup game: %v", err)
 	}
 
@@ -161,7 +161,7 @@ func TestSkillCastAndDefense(t *testing.T) {
 	}
 
 	engine := NewEngine("spell-test", func(event GameEvent, targetPlayer int) {})
-	if err := engine.SetupGame("P1", deck, "P2", deck); err != nil {
+	if err := engine.SetupGameWithFirstPlayer("P1", deck, "P2", deck, 0); err != nil {
 		t.Fatalf("setup game: %v", err)
 	}
 

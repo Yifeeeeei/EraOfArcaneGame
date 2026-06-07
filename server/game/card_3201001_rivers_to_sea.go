@@ -16,13 +16,6 @@ func (Card3201001RiversToSea) OnDefend(ctx *EffectContext) error {
 	if skill, _ := ctx.ExtraData["attack_skill"].(*CardInstance); skill != nil && skill.Card != nil {
 		total += max(skill.Card.Attack+skill.AttackBonus, 0)
 	}
-	if boosts, _ := ctx.ExtraData["boost_skills"].([]*CardInstance); len(boosts) > 0 {
-		for _, skill := range boosts {
-			if skill != nil && skill.Card != nil {
-				total += max(skill.Card.Attack+skill.AttackBonus, 0)
-			}
-		}
-	}
 	if total <= 0 {
 		return nil
 	}

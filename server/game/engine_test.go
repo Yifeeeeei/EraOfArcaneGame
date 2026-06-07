@@ -36,7 +36,7 @@ func setupTestEngine(t *testing.T) *Engine {
 	})
 
 	// Setup game
-	if err := engine.SetupGame("Player1", deck, "Player2", deck); err != nil {
+	if err := engine.SetupGameWithFirstPlayer("Player1", deck, "Player2", deck, 0); err != nil {
 		t.Fatalf("Failed to setup game: %v", err)
 	}
 

@@ -29,7 +29,7 @@ func (e *Engine) applyGenericElementGain(playerID int, skill *CardInstance) {
 	}
 }
 
-func (e *Engine) applyGenericStatusFromDescription(skill *CardInstance, target *CardInstance) {
+func (e *Engine) applyExplicitSpellHitStatuses(skill *CardInstance, target *CardInstance) {
 	if skill == nil || skill.Card == nil || target == nil {
 		return
 	}

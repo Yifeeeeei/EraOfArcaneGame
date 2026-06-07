@@ -7,6 +7,8 @@ import (
 	"eraofarcane/model"
 )
 
+const StatusNextFrontRowRange = "\u4e0b\u4e00\u6b21\u8303\u56f4\u524d\u6392"
+
 type SpellArea string
 
 const (
@@ -35,6 +37,7 @@ type cardTraits struct {
 	defenseOnly bool
 	sorcery     bool
 	noBoost     bool
+	noBoosted   bool
 	noAttack    bool
 	noDefend    bool
 
@@ -50,6 +53,27 @@ func truePtr() *bool {
 func falsePtr() *bool {
 	v := false
 	return &v
+}
+
+func isSpellScrollCard(card *model.Card) bool {
+	if card == nil || !card.IsItem() {
+		return false
+	}
+	switch card.Number {
+	case "2121003", "2121008", "2121009", "2121011",
+		"2221008", "2221009",
+		"2321003", "2321009",
+		"2421008", "2421009",
+		"2521008", "2521009", "2521013",
+		"2621008", "2621009":
+		return true
+	default:
+		return false
+	}
+}
+
+func isSpellLikeCard(card *model.Card) bool {
+	return card != nil && (card.IsSkill() || isSpellScrollCard(card))
 }
 
 func traitsForCardNumber(number string) cardTraits {
@@ -101,6 +125,7 @@ func traitsForCardNumber(number string) cardTraits {
 	switch number {
 	case "3001001":
 		t.noBoost = true
+		t.noBoosted = true
 	}
 	switch number {
 	case "3221008":
@@ -110,12 +135,12 @@ func traitsForCardNumber(number string) cardTraits {
 	switch number {
 	case "3021001", "3021004", "3021006", "3021007", "3021010", "3021012", "3221007", "3221010", "3321007", "3321014", "3621012":
 		t.needsTarget = falsePtr()
-	case "3021005", "3021008", "3021009", "3121003", "3121005", "3121006", "3121010", "3121011", "3221001", "3221005", "3221006", "3221011", "3221012", "3321003", "3321004", "3321006", "3321009", "3321011", "3321013", "3421002", "3421007", "3421009", "3421010", "3421012", "3421013", "3421014", "3521004", "3521005", "3521008", "3521012", "3621003", "3621004", "3621011":
+	case "2121003", "2121008", "2121011", "2221008", "2221009", "2321003", "2321009", "2421008", "2421009", "2521008", "2521009", "2621008", "2621009", "3021005", "3021008", "3021009", "3121003", "3121005", "3121006", "3121010", "3121011", "3221001", "3221005", "3221006", "3221011", "3221012", "3321003", "3321004", "3321006", "3321009", "3321011", "3321013", "3421002", "3421007", "3421009", "3421010", "3421012", "3421013", "3421014", "3521004", "3521005", "3521008", "3521012", "3621003", "3621004", "3621011":
 		t.needsTarget = truePtr()
 	}
 
 	switch number {
-	case "3021009", "3321003", "3321006", "3421007", "3521004", "3521008":
+	case "2321003", "3021009", "3321003", "3321006", "3421007", "3521004", "3521008":
 		t.statuses = map[string]int{StatusStun: 1}
 	case "2221003", "2221009", "3221005", "3201002", "3221014":
 		t.statuses = map[string]int{StatusFreeze: 1}
@@ -123,6 +148,8 @@ func traitsForCardNumber(number string) cardTraits {
 		t.statuses = map[string]int{StatusFreeze: 2}
 	case "3121003":
 		t.statuses = map[string]int{StatusBurn: 2}
+	case "2121003", "2121008":
+		t.statuses = map[string]int{StatusBurn: 1}
 	case "3121005", "3121010", "3121011", "3121013":
 		t.statuses = map[string]int{StatusBurn: 1}
 	case "3421002":
@@ -137,12 +164,24 @@ func traitsForCardNumber(number string) cardTraits {
 }
 
 func hasPerTurnAbilityNumber(number string) bool {
+	if isPrayerAbilityNumber(number) {
+		return false
+	}
 	switch number {
 	case "1211001", "1211003", "1221005", "1221014", "1221015",
 		"1321001", "1321013", "1321015", "1421009", "1421010",
 		"1421012", "1521001", "1621009", "2111001", "2111002", "2121001",
 		"2311002", "2411001", "2421011", "2511002", "2601001", "2621013",
 		"4111002":
+		return true
+	default:
+		return false
+	}
+}
+
+func isPrayerAbilityNumber(number string) bool {
+	switch number {
+	case "1211001", "1221005", "1221015", "1421009", "1521001", "1521014", "2111002", "2421011":
 		return true
 	default:
 		return false
@@ -194,8 +233,18 @@ func cardHasActiveDeathrattle(card *CardInstance) bool {
 }
 
 func cardHasActivePerTurn(card *CardInstance) bool {
+	if cardHasActivePrayer(card) {
+		return false
+	}
 	if h, ok := cardBehavior(card).(PerTurnAbility); ok {
 		return h.HasActivePerTurn(card)
+	}
+	return false
+}
+
+func cardHasActivePrayer(card *CardInstance) bool {
+	if h, ok := cardBehavior(card).(PrayerAbility); ok {
+		return h.IsPrayerAbility() && h.HasActivePrayer(card)
 	}
 	return false
 }
@@ -333,7 +382,7 @@ func cardRevealsOnDraw(card *CardInstance) bool {
 }
 
 func skillNeedsTargetInstance(skill *CardInstance) bool {
-	if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
+	if skill == nil || skill.Card == nil || !isSpellLikeCard(skill.Card) {
 		return false
 	}
 	if h, ok := behaviorForNumber(skill.Card.Number).(SpellTargetingBehavior); ok && h.HasActiveSpellTargeting(skill) {
@@ -347,14 +396,14 @@ func skillNeedsTargetInstance(skill *CardInstance) bool {
 }
 
 func skillNeedsTargetCard(card *model.Card) bool {
-	if card == nil || !card.IsSkill() {
+	if card == nil || !isSpellLikeCard(card) {
 		return false
 	}
 	return skillNeedsTargetInstance(&CardInstance{Card: card})
 }
 
 func canUseSkillForPurpose(card *model.Card, purpose skillPurpose) bool {
-	if card == nil || !card.IsSkill() {
+	if card == nil || !isSpellLikeCard(card) {
 		return false
 	}
 	instance := &CardInstance{Card: card}
@@ -382,8 +431,15 @@ func staticCanUseSkillForPurpose(card *model.Card, t cardTraits, purpose skillPu
 	}
 }
 
+func canSkillBeBoosted(skill *CardInstance) bool {
+	if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
+		return false
+	}
+	return !traitsForCardNumber(skill.Card.Number).noBoosted
+}
+
 func isDefenseOnlySkill(card *model.Card) bool {
-	if card == nil || !card.IsSkill() {
+	if card == nil || !isSpellLikeCard(card) {
 		return false
 	}
 	instance := &CardInstance{Card: card}
@@ -394,7 +450,7 @@ func isDefenseOnlySkill(card *model.Card) bool {
 }
 
 func isSorcerySkill(card *model.Card) bool {
-	if card == nil || !card.IsSkill() {
+	if card == nil || !isSpellLikeCard(card) {
 		return false
 	}
 	instance := &CardInstance{Card: card}
@@ -431,12 +487,13 @@ func ruleInfoForCard(card *model.Card) map[string]any {
 		"is_equipment":  cards.IsEquipment(card.Number),
 		"is_weapon":     cards.IsWeapon(card.Number),
 		"has_per_turn":  hasPerTurnAbilityNumber(card.Number),
+		"has_prayer":    isPrayerAbilityNumber(card.Number),
 		"has_ultimate":  hasUltimateAbilityNumber(card.Number),
 	}
 	if requirement := devourRequirementForNumber(card.Number); len(requirement) > 0 {
 		info["devour_requirement"] = requirement
 	}
-	if card.IsSkill() {
+	if isSpellLikeCard(card) {
 		needsTarget := max(card.Attack, 0) > 0 || max(card.Power, 0) > 0
 		if t.needsTarget != nil {
 			needsTarget = *t.needsTarget
@@ -450,6 +507,7 @@ func ruleInfoForCard(card *model.Card) map[string]any {
 		info["can_attack_boost"] = staticCanUseSkillForPurpose(card, t, skillPurposeAttackBoost)
 		info["can_defense_boost"] = staticCanUseSkillForPurpose(card, t, skillPurposeDefenseBoost)
 		info["can_boost"] = info["can_attack_boost"]
+		info["can_be_boosted"] = !t.noBoosted
 		info["spell_area"] = t.area
 		info["can_react"] = hasSpellReactionNumber(card.Number)
 	}

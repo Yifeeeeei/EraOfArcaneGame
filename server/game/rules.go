@@ -305,6 +305,44 @@ func (e *Engine) effectiveSpellDamage(playerID int, skill *CardInstance, baseDam
 	return max(damage, 0)
 }
 
+func (e *Engine) spellPowerSources(playerID int, skill *CardInstance, boostSkills []*CardInstance, totalPower int, targets ...SpellTarget) []SpellPowerSource {
+	extra := map[string]any{"stat": "power"}
+	if len(targets) > 0 {
+		extra["spell_target"] = targets[0]
+		if unit := e.spellTargetUnit(1-playerID, targets[0]); unit != nil {
+			extra["spell_target_unit"] = unit
+		}
+	}
+
+	mainPower := e.skillContributionStatsWithData(playerID, skill, skill, skillPurposeAttack, extra).PowerBonus
+	mainPower += e.spellStatBonusesWithData(playerID, skill, skillPurposeAttack, extra).PowerBonus
+	mainPower += e.temporarySpellPowerBonus(playerID, skill)
+	sources := []SpellPowerSource{spellPowerSourceForCard(skill, max(mainPower, 0), true)}
+	sum := sources[0].Power
+	for _, boostSkill := range boostSkills {
+		boostPower := e.skillContributionStatsWithData(playerID, boostSkill, skill, skillPurposeAttackBoost, extra).PowerBonus
+		boostPower += e.spellStatBonusesWithData(playerID, boostSkill, skillPurposeAttackBoost, extra).PowerBonus
+		source := spellPowerSourceForCard(boostSkill, max(boostPower, 0), false)
+		sources = append(sources, source)
+		sum += source.Power
+	}
+	if len(sources) > 0 && totalPower != sum {
+		sources[0].Power = max(sources[0].Power+totalPower-sum, 0)
+	}
+	return sources
+}
+
+func spellPowerSourceForCard(card *CardInstance, power int, isMain bool) SpellPowerSource {
+	source := SpellPowerSource{Power: power, IsMain: isMain}
+	if card != nil {
+		source.InstanceID = card.InstanceID
+		if card.Card != nil {
+			source.CardName = card.Card.Name
+		}
+	}
+	return source
+}
+
 func (e *Engine) totalEffectiveSkillPower(playerID int, skills []*CardInstance, purpose skillPurpose) int {
 	total := 0
 	for _, skill := range skills {
