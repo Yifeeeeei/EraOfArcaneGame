@@ -46,10 +46,14 @@ func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, ta
 	}
 	e.emit(GameEvent{Type: "spell_cast", Player: -1, Data: spellCastData})
 	e.triggerEffects(TriggerOnSpellCast, skill, nil, spellCastData)
-	e.triggerFieldEffectsWithData(TriggerOnSpellCast, playerID, skill, spellCastData)
-	e.triggerFieldEffectsWithData(TriggerOnSpellCast, 1-playerID, skill, spellCastData)
 	if isSorcery {
-		e.resolveSpellHit(playerID, skill, target, nil, nil)
+		resolveSorcery := func() {
+			e.resolveSpellHit(playerID, skill, target, nil, nil)
+		}
+		if e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, spellCastData, resolveSorcery) {
+			return
+		}
+		resolveSorcery()
 		return
 	}
 	e.State.PendingSpell = &SpellCast{
@@ -59,8 +63,16 @@ func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, ta
 		TotalPower:  totalPower,
 		BoostSkills: nil,
 	}
-	e.State.Phase = PhaseDefenseWindow
-	e.emit(GameEvent{Type: "defense_window", Player: 1 - playerID, Data: map[string]any{"timeout": 30}})
+	openDefenseWindow := func() {
+		e.State.ResumePhase = PhaseDefenseWindow
+		e.State.Phase = PhaseDefenseWindow
+		e.emit(GameEvent{Type: "defense_window", Player: 1 - playerID, Data: map[string]any{"timeout": 30}})
+	}
+	if e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, spellCastData, openDefenseWindow) {
+		e.State.ResumePhase = PhaseDefenseWindow
+		return
+	}
+	openDefenseWindow()
 }
 
 func (e *Engine) findUnitByID(playerID int, instanceID string) *CardInstance {

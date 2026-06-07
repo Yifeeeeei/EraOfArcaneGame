@@ -2065,6 +2065,49 @@ func TestSpellCastCounterPromptResumesDefenseWindow(t *testing.T) {
 	}
 }
 
+func TestSpellCastCounterPromptDeclineContinuesSorceryResolution(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+	for _, elem := range model.AllElements {
+		p0.Elements[elem] = 10
+		p1.Elements[elem] = 10
+	}
+	sorcery := readySkill(baseCard(t, "3021005"), 0)
+	sorcery.Card.Attack = 1
+	sorcery.Card.Power = -1
+	p0.Skills[0] = sorcery
+	target := placeUnit(baseCard(t, "1221001"), 1, 0, 0, engine)
+	target.CurrentLife = 3
+	counter := NewCardInstance(baseCard(t, "2021018"), 1, 1)
+	counter.IsSetCounter = true
+	p1.Equipment[0] = counter
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": sorcery.InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(target.Position.Col),
+		"target_row":  float64(target.Position.Row),
+	}}); err != nil {
+		t.Fatalf("cast sorcery into counter prompt: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.PlayerID != 1 || engine.State.PendingAction.Type != "counter_trigger" {
+		t.Fatalf("expected counter prompt, action=%+v", engine.State.PendingAction)
+	}
+	if engine.State.PendingSpell != nil {
+		t.Fatalf("sorcery should not use pending spell continuation, spell=%+v", engine.State.PendingSpell)
+	}
+	if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{"selected": []any{}}}); err != nil {
+		t.Fatalf("decline counter: %v", err)
+	}
+	if target.CurrentLife != 2 {
+		t.Fatalf("declining counter should continue sorcery hit, life=%d", target.CurrentLife)
+	}
+	if engine.State.PendingAction != nil || engine.State.PendingSpell != nil {
+		t.Fatalf("sorcery should finish without pending state, action=%+v spell=%+v", engine.State.PendingAction, engine.State.PendingSpell)
+	}
+}
+
 func TestCounterRuneCancelsConsumableBeforeEffect(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]

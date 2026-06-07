@@ -2466,6 +2466,7 @@
                     payload.overexert_ids = [...pendingOverexertSelected.value];
                 }
                 sendAction('resolve_action', payload);
+                resetPendingSelectionState();
                 addLog('确认选择');
             }
 
@@ -2752,7 +2753,23 @@
 
             function samePendingAction(a, b) {
                 if (!a || !b) return false;
-                return a.type === b.type && pendingPlayerID(a) === pendingPlayerID(b);
+                return a.type === b.type
+                    && pendingPlayerID(a) === pendingPlayerID(b)
+                    && String(a.prompt || '') === String(b.prompt || '')
+                    && Number(a.min_select || 0) === Number(b.min_select || 0)
+                    && Number(a.max_select || 0) === Number(b.max_select || 0)
+                    && pendingCandidateSignature(a) === pendingCandidateSignature(b);
+            }
+
+            function pendingCandidateSignature(action) {
+                if (!action || !Array.isArray(action.candidates)) return '';
+                return action.candidates.map(candidate => [
+                    candidate.instance_id || '',
+                    candidate.deck_index ?? '',
+                    candidate.zone || '',
+                    candidate.side || '',
+                    candidate.can_select === false ? '0' : '1',
+                ].join(':')).join('|');
             }
 
             function closeTransientOverlaysForPending() {

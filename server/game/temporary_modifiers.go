@@ -253,6 +253,9 @@ func (e *Engine) consumeEarthSkillLearnCostModifier(ps *PlayerState, skill *Card
 }
 
 func (e *Engine) applyTemporarySpellHitStatus(playerID int, skill *CardInstance, affectedUnits []*CardInstance) {
+	if len(affectedUnits) == 0 {
+		return
+	}
 	ps := e.State.Players[playerID]
 	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
 		if modifier.Type != TempModNextSpellHitStatus {

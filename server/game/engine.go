@@ -982,19 +982,16 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		Data:   spellCastData,
 	})
 	e.triggerEffects(TriggerOnSpellCast, skill, nil, spellCastData)
-	promptedCounter := e.triggerFieldEffectsWithData(TriggerOnSpellCast, playerID, skill, spellCastData)
-	if !promptedCounter {
-		promptedCounter = e.triggerFieldEffectsWithData(TriggerOnSpellCast, 1-playerID, skill, spellCastData)
-	}
 
 	if isSorcery {
-		// Sorcery resolves immediately
-		if promptedCounter {
+		resolveSorcery := func() {
+			e.resolveSpellHit(playerID, skill, target, boostSkills, extraTargets)
+		}
+		if e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, spellCastData, resolveSorcery) {
 			return nil
 		}
-		e.resolveSpellHit(playerID, skill, target, boostSkills, extraTargets)
+		resolveSorcery()
 	} else {
-		// Regular spell: open defense window
 		e.State.PendingSpell = &SpellCast{
 			AttackerID:   playerID,
 			Skill:        skill,
@@ -1004,19 +1001,22 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 			BoostSkills:  boostSkills,
 			ExtraTargets: extraTargets,
 		}
-		if promptedCounter {
+		openDefenseWindow := func() {
 			e.State.ResumePhase = PhaseDefenseWindow
-		} else {
 			e.State.Phase = PhaseDefenseWindow
+			e.emit(GameEvent{
+				Type:   "defense_window",
+				Player: 1 - playerID,
+				Data: map[string]any{
+					"timeout": 30,
+				},
+			})
 		}
-
-		e.emit(GameEvent{
-			Type:   "defense_window",
-			Player: 1 - playerID,
-			Data: map[string]any{
-				"timeout": 30,
-			},
-		})
+		if e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, spellCastData, openDefenseWindow) {
+			e.State.ResumePhase = PhaseDefenseWindow
+			return nil
+		}
+		openDefenseWindow()
 	}
 
 	return nil
@@ -2533,10 +2533,6 @@ func (e *Engine) startSpellScrollCast(playerID int, scroll *CardInstance, target
 	}
 	e.emit(GameEvent{Type: "spell_cast", Player: -1, Data: spellCastData})
 	e.triggerEffects(TriggerOnSpellCast, scroll, nil, spellCastData)
-	promptedCounter := e.triggerFieldEffectsWithData(TriggerOnSpellCast, playerID, scroll, spellCastData)
-	if !promptedCounter {
-		promptedCounter = e.triggerFieldEffectsWithData(TriggerOnSpellCast, 1-playerID, scroll, spellCastData)
-	}
 
 	e.State.PendingSpell = &SpellCast{
 		AttackerID:   playerID,
@@ -2546,12 +2542,16 @@ func (e *Engine) startSpellScrollCast(playerID int, scroll *CardInstance, target
 		PowerSources: powerSources,
 		BoostSkills:  boostSkills,
 	}
-	if promptedCounter {
+	openDefenseWindow := func() {
 		e.State.ResumePhase = PhaseDefenseWindow
-	} else {
 		e.State.Phase = PhaseDefenseWindow
+		e.emit(GameEvent{Type: "defense_window", Player: 1 - playerID, Data: map[string]any{"timeout": 30}})
 	}
-	e.emit(GameEvent{Type: "defense_window", Player: 1 - playerID, Data: map[string]any{"timeout": 30}})
+	if e.triggerSpellCastFieldEffectsWithContinuation(playerID, scroll, spellCastData, openDefenseWindow) {
+		e.State.ResumePhase = PhaseDefenseWindow
+		return
+	}
+	openDefenseWindow()
 }
 
 // handlePlaceTerrain handles placing a terrain card (地形牌) on the battlefield
