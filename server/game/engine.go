@@ -701,7 +701,7 @@ func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, 
 		if target == nil {
 			target = e.findUnitOnGrid(ps, devourID)
 		}
-		if target == nil || target.Card == nil || !target.Card.IsCompanion() || target.Card.IsHero() || target == card {
+		if !isValidSummonDevourTarget(target, card) {
 			return fmt.Errorf("invalid devour target")
 		}
 		if target.CurrentLife > 0 {
@@ -721,9 +721,20 @@ func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, 
 		}
 	}
 	for _, target := range targets {
-		e.destroyUnit(target, playerID)
+		if target.Card.IsCompanion() {
+			e.destroyUnit(target, playerID)
+			continue
+		}
+		e.discardFriendlyCandidate(playerID, target.InstanceID)
 	}
 	return nil
+}
+
+func isValidSummonDevourTarget(target *CardInstance, summoned *CardInstance) bool {
+	if target == nil || target.Card == nil || target == summoned || target.Card.IsHero() {
+		return false
+	}
+	return target.Card.IsCompanion() || isEquipmentItem(target)
 }
 
 // handleConsume handles consuming a card (横置 to gain elements)

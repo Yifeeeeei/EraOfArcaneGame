@@ -3375,6 +3375,44 @@ func TestManaBoosterMakesNextSkillUseFree(t *testing.T) {
 	}
 }
 
+func TestManaBoosterADoesNotMakeBoostSkillFree(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	item := NewCardInstance(baseCard(t, "2021014"), 0, 1)
+	p0.Hand = []*CardInstance{item}
+	p0.Elements[model.ElementArcane] = 1
+	p0.Elements[model.ElementFire] = 3
+	mainSkill := readySkill(baseCard(t, "3121001"), 0)
+	boostSkill := readySkill(baseCard(t, "3121003"), 0)
+	p0.Skills[0] = mainSkill
+	p0.Skills[1] = boostSkill
+	placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+		"instance_id": item.InstanceID,
+	}}); err != nil {
+		t.Fatalf("use mana booster A: %v", err)
+	}
+	if cost := engine.effectiveSkillUseCost(p0, mainSkill); len(cost) != 0 {
+		t.Fatalf("mana booster A should make the next main skill free, cost=%v", cost)
+	}
+	if cost := engine.effectiveSkillUseCostForPurpose(p0, boostSkill, skillPurposeAttackBoost); len(cost) == 0 {
+		t.Fatalf("mana booster A should not make boost skill free")
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": mainSkill.InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(1),
+		"target_row":  float64(0),
+		"boost_ids":   []any{boostSkill.InstanceID},
+	}}); err != nil {
+		t.Fatalf("cast boosted spell after mana booster A: %v", err)
+	}
+	if p0.Elements[model.ElementFire] != 1 {
+		t.Fatalf("boost skill cost should still be paid, fire=%d", p0.Elements[model.ElementFire])
+	}
+}
+
 func TestStoneforgeArtisanGivesSelectedSpellPowerThisTurn(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
@@ -6184,6 +6222,43 @@ func TestEnemyAndGlobalSpellDamageReducers(t *testing.T) {
 		}
 	})
 
+	t.Run("frost heart does not mutate ice cone printed attack", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		target.CurrentLife = 3
+		frostHeart := NewCardInstance(baseCard(t, "2221001"), 1, 1)
+		p1.Equipment[0] = frostHeart
+		iceCone := readySkill(baseCard(t, "3221002"), 0)
+		p0.Skills[0] = iceCone
+		p0.Elements[model.ElementWater] = 10
+		beforeAttack := iceCone.Card.Attack
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": iceCone.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast ice cone into frost heart: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "react_spell", Data: map[string]any{
+			"instance_id": frostHeart.InstanceID,
+		}}); err != nil {
+			t.Fatalf("react with frost heart: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve ice cone after frost heart: %v", err)
+		}
+		if iceCone.Card.Attack != beforeAttack || iceCone.AttackBonus != 0 {
+			t.Fatalf("frost heart should not mutate ice cone attack, attack=%d bonus=%d", iceCone.Card.Attack, iceCone.AttackBonus)
+		}
+		if target.CurrentLife != 3 {
+			t.Fatalf("frost heart should still prevent ice cone damage, life=%d", target.CurrentLife)
+		}
+	})
+
 	t.Run("shadow cloak prevents only the first enemy spell hit", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
@@ -6859,6 +6934,31 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 		}
 		if len(dragon.BoundSkills) != 1 || dragon.BoundSkills[0].Card.Number != "3101001" {
 			t.Fatalf("fire breath should be bound to dragon, bound=%v", cardsToInfo(dragon.BoundSkills))
+		}
+	})
+
+	t.Run("1111001 fire dragon can devour equipment load when text does not restrict to companions", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		dragon := NewCardInstance(baseCard(t, "1111001"), 0, 1)
+		equipment := NewCardInstance(baseCard(t, "2121006"), 0, 1)
+		addElementsGainBonus(equipment, model.ElementFire, 3)
+		p0.Hand = []*CardInstance{dragon}
+		p0.Equipment[0] = equipment
+		for _, element := range model.AllElements {
+			p0.Elements[element] = 10
+		}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+			"instance_id": dragon.InstanceID,
+			"col":         float64(1),
+			"row":         float64(1),
+			"devour_ids":  []any{equipment.InstanceID},
+		}}); err != nil {
+			t.Fatalf("summon fire dragon by devouring equipment load: %v", err)
+		}
+		if p0.Equipment[0] != nil || len(p0.Graveyard) != 1 || p0.Graveyard[0] != equipment {
+			t.Fatalf("fire dragon should devour equipment to graveyard, equipment=%v graveyard=%v", p0.Equipment[0], cardsToInfo(p0.Graveyard))
 		}
 	})
 
