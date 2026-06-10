@@ -1127,6 +1127,9 @@ func (e *Engine) collectDefenseScrollUses(ps *PlayerState, ids []string, reserve
 		if !isSpellScrollCard(card.Card) || !isDefenseOnlySkill(card.Card) {
 			return nil, nil, fmt.Errorf("card %s is not a defense spell scroll", id)
 		}
+		if err := e.validateSkillUsePermissionModifiers(card, skillPurposeDefend); err != nil {
+			return nil, nil, fmt.Errorf("defense scroll %s cannot be used for %s: %w", id, skillPurposeDefend, err)
+		}
 		scrolls = append(scrolls, card)
 		for elem, amount := range e.effectiveCardPlayCost(ps, card) {
 			totalCost[elem] += amount

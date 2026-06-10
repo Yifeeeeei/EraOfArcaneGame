@@ -225,6 +225,14 @@ func (e *Engine) validateSkillForPurpose(skill *CardInstance, purpose skillPurpo
 		return fmt.Errorf("unknown skill purpose: %s", purpose)
 	}
 
+	if err := e.validateSkillUsePermissionModifiers(skill, purpose); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (e *Engine) validateSkillUsePermissionModifiers(skill *CardInstance, purpose skillPurpose) error {
 	ps := e.State.Players[skill.OwnerID]
 	ctx := &EffectContext{
 		Engine:     e,

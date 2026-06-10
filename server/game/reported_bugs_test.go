@@ -4906,6 +4906,52 @@ func TestDefenseSpellScrollCanDefendFromHand(t *testing.T) {
 		t.Fatalf("defense scroll should pay fire cost, elements=%v", p1.Elements)
 	}
 }
+
+func TestSeveringBladeBlocksDefenseSpellScrollPayload(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+	for _, elem := range model.AllElements {
+		p0.Elements[elem] = 10
+	}
+	p1.Elements[model.ElementFire] = 1
+	p1.Equipment[0] = NewCardInstance(baseCard(t, "2021013"), 1, 1)
+
+	attacker := readySkill(baseCard(t, "3121001"), 0)
+	p0.Skills[0] = attacker
+	target := placeUnit(baseCard(t, "1221001"), 1, 1, 1, engine)
+	scroll := NewCardInstance(baseCard(t, "2121009"), 1, 1)
+	p1.Hand = []*CardInstance{scroll}
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": attacker.InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(target.Position.Col),
+		"target_row":  float64(target.Position.Row),
+	}}); err != nil {
+		t.Fatalf("cast attack spell: %v", err)
+	}
+	if engine.State.Phase != PhaseDefenseWindow {
+		t.Fatalf("expected defense window, got %s", engine.State.Phase)
+	}
+
+	err := engine.HandleAction(1, ActionMessage{Action: "defend", Data: map[string]any{
+		"scroll_ids": []any{scroll.InstanceID},
+	}})
+	if err == nil {
+		t.Fatalf("severing blade should reject defense scroll payload")
+	}
+	if len(p1.Hand) != 1 || p1.Hand[0] != scroll || len(p1.Graveyard) != 0 {
+		t.Fatalf("rejected defense scroll should stay in hand, hand=%v grave=%v", cardsToInfo(p1.Hand), cardsToInfo(p1.Graveyard))
+	}
+	if p1.Elements[model.ElementFire] != 1 {
+		t.Fatalf("rejected defense scroll should not pay cost, elements=%v", p1.Elements)
+	}
+	if engine.State.Phase != PhaseDefenseWindow || engine.State.PendingSpell == nil {
+		t.Fatalf("rejected defense scroll should keep defense window open, phase=%s pending=%+v", engine.State.Phase, engine.State.PendingSpell)
+	}
+}
+
 func TestLightSearchSpells(t *testing.T) {
 	t.Run("united hope searches a light companion among top five", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
