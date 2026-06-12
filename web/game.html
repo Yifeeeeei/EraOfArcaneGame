@@ -199,7 +199,7 @@
                     </div>
                 </div>
                 <div class="pending-info">
-                    已选 {{ pendingSelected.length }} / {{ pendingAction.min_select }}–{{ pendingAction.max_select }}
+                    已选 {{ pendingSelected.length }} / {{ pendingAction.min_select }}-{{ pendingAction.max_select }}
                 </div>
                 <div v-if="pendingCanOverexert()" class="defense-skills-section">
                     <h3>发动费用 {{ costLabel(pendingAction.cost || {}) }}</h3>
@@ -550,7 +550,7 @@
                 <div v-if="showPendingAction" class="pending-inline-panel">
                     <div class="pending-inline-head">
                         <strong>{{ pendingAction.prompt }}</strong>
-                        <span>{{ pendingSelected.length }} / {{ pendingAction.min_select }}–{{ pendingAction.max_select }}</span>
+                        <span>{{ pendingSelected.length }} / {{ pendingAction.min_select }}-{{ pendingAction.max_select }}</span>
                     </div>
                     <div class="pending-inline-cards">
                         <button v-for="candidate in pendingOrderedCandidates()" :key="candidate.instance_id"
@@ -1233,10 +1233,14 @@
                 return canPayCost(cost) ? '可用' : missingCostText(cost);
             }
 
-            function skillUseCost(skill) {
+            function hasNextSkillCostZero() {
+                return (myState.value.temp_modifiers || []).some(m => m.type === 'next_skill_cost_zero' && (m.remaining_uses || 0) > 0);
+            }
+
+            function skillUseCost(skill, applyNextSkillFree = true) {
                 if (!skill) return {};
                 if (skill.type !== '技能') return {};
-                if ((myState.value.temp_modifiers || []).some(m => m.type === 'next_skill_cost_zero' && (m.remaining_uses || 0) > 0)) {
+                if (applyNextSkillFree && hasNextSkillCostZero()) {
                     return {};
                 }
                 const cost = { ...(hasCost({ elements_cost: skill.elements_expense }) ? skill.elements_expense : (skill.elements_cost || {})) };
@@ -1520,7 +1524,11 @@
                         break;
                     case 'use':
                         if (source === 'hand') {
-                            if (isConsumable(card)) {
+                            if (isSpellScrollItem(card) && card.needs_target) {
+                                selectedHandCard.value = null;
+                                selectedItemSpellScroll.value = card;
+                                addLog(`选择 ${card.name}，点击敌方目标`);
+                            } else if (isConsumable(card)) {
                                 selectedHandCard.value = null;
                                 if (card.is_counter_trap) {
                                     setCounterCard(card);
@@ -1748,16 +1756,23 @@
             function devourCandidates(card) {
                 const requirement = summonDevourRequirement(card);
                 if (!requirement) return [];
-                const units = [];
+                const candidates = [];
                 for (let col = 0; col < 3; col++) {
                     for (let row = 0; row < 3; row++) {
                         const unit = getMyUnit(col, row);
-                        if (!unit || unit.type !== '伙伴') continue;
-                        if (unit.is_hero) continue;
-                        units.push(unit);
+                        if (!unit || unit.instance_id === myState.value?.hero?.instance_id) continue;
+                        if (hasDevourLoadContribution(unit, requirement)) candidates.push(unit);
                     }
                 }
-                return units;
+                for (const equipment of (myState.value?.equipment || [])) {
+                    if (equipment && hasDevourLoadContribution(equipment, requirement)) candidates.push(equipment);
+                }
+                return candidates;
+            }
+
+            function hasDevourLoadContribution(card, requirement) {
+                const contribution = loadContribution(card, requirement);
+                return Object.keys(requirement || {}).some(elem => Number(contribution[elem] || 0) > 0);
             }
 
             function beginSummonDevour(card, col, row) {
@@ -2057,7 +2072,7 @@
 
             const availableDefenseScrolls = computed(() => {
                 if (!showDefenseWindow.value) return [];
-                return myHand.value.filter(card => isSpellScrollItem(card) && card.can_defend);
+                return myHand.value.filter(card => isSpellScrollItem(card) && card.can_defend && !hasSeveringBlade());
             });
 
             const availableReactionSkills = computed(() => {
@@ -2105,19 +2120,22 @@
                 return allMySkills.value.find(s => s && s.instance_id === id) || myHand.value.find(c => c && c.instance_id === id) || null;
             }
 
-            function defensePaymentCost(card) {
+            function defensePaymentCost(card, applyNextSkillFree = true) {
                 if (!card) return {};
-                return card.type === '道具' ? playCost(card) : skillUseCost(card);
+                return card.type === '道具' ? playCost(card) : skillUseCost(card, applyNextSkillFree);
             }
 
             function mergedDefenseCost(ids) {
                 const merged = {};
+                let freeSkillCostAvailable = hasNextSkillCostZero();
                 for (const id of ids) {
                     const card = defensePaymentCardById(id);
                     if (!card) continue;
-                    for (const [elem, amount] of Object.entries(defensePaymentCost(card))) {
+                    const applyFree = freeSkillCostAvailable && card.type === '技能';
+                    for (const [elem, amount] of Object.entries(defensePaymentCost(card, applyFree))) {
                         merged[elem] = (merged[elem] || 0) + Number(amount || 0);
                     }
+                    if (applyFree) freeSkillCostAvailable = false;
                 }
                 return merged;
             }
@@ -2145,6 +2163,7 @@
 
             function canUseSkillAsDefense(skill) {
                 if (!isSkillReady(skill)) return false;
+                if (hasSeveringBlade()) return false;
                 return !!skill.can_defend;
             }
 
@@ -2182,7 +2201,12 @@
 
             function canUseSkillAsDefenseBoost(skill) {
                 if (!isSkillReady(skill)) return false;
+                if (hasSeveringBlade()) return false;
                 return !!skill.can_defense_boost;
+            }
+
+            function hasSeveringBlade() {
+                return (myState.value?.equipment || []).some(card => card && String(card.number) === '2021013');
             }
 
             const totalDefensePower = computed(() => {
@@ -3002,6 +3026,8 @@
                     candidates: Array.isArray(action?.candidates) ? action.candidates.length : -1,
                 });
                 renderEmergencyPendingAction('event');
+                nextTick(() => renderEmergencyPendingAction('event_next_tick'));
+                window.setTimeout(() => renderEmergencyPendingAction('event_timeout_120'), 120);
                 logPendingActionDOM('event');
             }
 

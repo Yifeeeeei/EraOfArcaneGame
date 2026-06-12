@@ -39,6 +39,10 @@ func copyElementCost(cost map[string]int) map[string]int {
 }
 
 func (e *Engine) effectiveSkillUseCost(ps *PlayerState, skill *CardInstance) map[string]int {
+	return e.effectiveSkillUseCostForPurpose(ps, skill, skillPurposeAttack)
+}
+
+func (e *Engine) effectiveSkillUseCostForPurpose(ps *PlayerState, skill *CardInstance, purpose skillPurpose) map[string]int {
 	if skill == nil || skill.Card == nil {
 		return map[string]int{}
 	}
@@ -59,7 +63,7 @@ func (e *Engine) effectiveSkillUseCost(ps *PlayerState, skill *CardInstance) map
 			modifier.ModifySkillUseCost(ctx, cost)
 		}
 	}
-	if e.nextSkillCostZeroModifier(ps, skill) != nil {
+	if !isBoostPurpose(purpose) && e.nextSkillCostZeroModifier(ps, skill) != nil {
 		for elem := range cost {
 			delete(cost, elem)
 		}
@@ -173,7 +177,7 @@ func (e *Engine) collectSkillUses(ps *PlayerState, ids []string, purpose skillPu
 		}
 
 		skills = append(skills, skill)
-		for elem, amount := range e.effectiveSkillUseCost(ps, skill) {
+		for elem, amount := range e.effectiveSkillUseCostForPurpose(ps, skill, purpose) {
 			totalCost[elem] += amount
 		}
 	}
@@ -221,6 +225,14 @@ func (e *Engine) validateSkillForPurpose(skill *CardInstance, purpose skillPurpo
 		return fmt.Errorf("unknown skill purpose: %s", purpose)
 	}
 
+	if err := e.validateSkillUsePermissionModifiers(skill, purpose); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (e *Engine) validateSkillUsePermissionModifiers(skill *CardInstance, purpose skillPurpose) error {
 	ps := e.State.Players[skill.OwnerID]
 	ctx := &EffectContext{
 		Engine:     e,

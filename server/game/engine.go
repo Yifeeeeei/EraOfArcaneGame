@@ -701,7 +701,7 @@ func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, 
 		if target == nil {
 			target = e.findUnitOnGrid(ps, devourID)
 		}
-		if target == nil || target.Card == nil || !target.Card.IsCompanion() || target.Card.IsHero() || target == card {
+		if !isValidSummonDevourTarget(target, card) {
 			return fmt.Errorf("invalid devour target")
 		}
 		if target.CurrentLife > 0 {
@@ -721,9 +721,20 @@ func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, 
 		}
 	}
 	for _, target := range targets {
-		e.destroyUnit(target, playerID)
+		if target.Card.IsCompanion() {
+			e.destroyUnit(target, playerID)
+			continue
+		}
+		e.discardFriendlyCandidate(playerID, target.InstanceID)
 	}
 	return nil
+}
+
+func isValidSummonDevourTarget(target *CardInstance, summoned *CardInstance) bool {
+	if target == nil || target.Card == nil || target == summoned || target.Card.IsHero() {
+		return false
+	}
+	return target.Card.IsCompanion() || isEquipmentItem(target)
 }
 
 // handleConsume handles consuming a card (横置 to gain elements)
@@ -1115,6 +1126,9 @@ func (e *Engine) collectDefenseScrollUses(ps *PlayerState, ids []string, reserve
 		}
 		if !isSpellScrollCard(card.Card) || !isDefenseOnlySkill(card.Card) {
 			return nil, nil, fmt.Errorf("card %s is not a defense spell scroll", id)
+		}
+		if err := e.validateSkillUsePermissionModifiers(card, skillPurposeDefend); err != nil {
+			return nil, nil, fmt.Errorf("defense scroll %s cannot be used for %s: %w", id, skillPurposeDefend, err)
 		}
 		scrolls = append(scrolls, card)
 		for elem, amount := range e.effectiveCardPlayCost(ps, card) {
@@ -3345,8 +3359,8 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		info["devour_requirement"] = requirement
 	}
 
-	// Mark defense-only skills
-	if ci.Card.IsSkill() {
+	// Mark spell-like skills and spell scrolls.
+	if isSpellLikeCard(ci.Card) {
 		info["is_defense_only"] = isDefenseOnlySkill(ci.Card)
 		info["is_sorcery"] = isSorcerySkill(ci.Card)
 		info["needs_target"] = skillNeedsTargetInstance(ci)
