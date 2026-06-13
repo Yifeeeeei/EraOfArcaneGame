@@ -62,10 +62,24 @@
             <div class="overlay-content defense-panel">
                 <h2>对手施放法术！</h2>
                 <div v-if="gameState.pending_spell" class="spell-info">
-                    <div>法术：{{ gameState.pending_spell.skill.name }}</div>
-                    <div>进攻威力：<strong>{{ gameState.pending_spell.power }}</strong></div>
-                    <div v-if="gameState.pending_spell.boost_skills && gameState.pending_spell.boost_skills.length">
-                        强化：{{ gameState.pending_spell.boost_skills.map(skill => skill.name).join('、') }}
+                    <div class="spell-info-main">
+                        <img v-if="gameState.pending_spell.skill" :src="getCardImage(gameState.pending_spell.skill)" class="spell-info-img"
+                             @mouseenter="previewCard(gameState.pending_spell.skill)" @click="showCardDetail(gameState.pending_spell.skill)">
+                        <div>
+                            <div>法术：<strong>{{ gameState.pending_spell.skill?.name || '未知法术' }}</strong></div>
+                            <div>目标：<strong>{{ pendingSpellTargetLabel() }}</strong></div>
+                            <div v-if="pendingSpellExtraTargetLabels().length">额外目标：{{ pendingSpellExtraTargetLabels().join('、') }}</div>
+                            <div>进攻威力：<strong>{{ gameState.pending_spell.power }}</strong></div>
+                        </div>
+                    </div>
+                    <div v-if="pendingSpellSources().length" class="spell-source-list">
+                        <div v-for="source in pendingSpellSources()" :key="source.key" class="spell-source-row"
+                             @mouseenter="source.card && previewCard(source.card)"
+                             @click="source.card && showCardDetail(source.card)">
+                            <span>{{ source.is_main ? '主法术' : '强化/效果' }}</span>
+                            <strong>{{ source.name }}</strong>
+                            <b>{{ source.power >= 0 ? '+' + source.power : source.power }}</b>
+                        </div>
                     </div>
                 </div>
 
@@ -1086,6 +1100,59 @@
 
             function getMyUnit(col, row) { return myState.value.units?.[col]?.[row] || null; }
             function getOpponentUnit(col, row) { return opponent.value.units?.[col]?.[row] || null; }
+            function pendingSpellTargetOwnerState() {
+                const spell = gameState.value?.pending_spell;
+                if (!spell) return myState.value;
+                return spell.attacker === mySlot.value ? opponent.value : myState.value;
+            }
+            function cardAtSpellTarget(target) {
+                if (!target || target.type !== 'unit') return null;
+                const pos = target.position || target.Position || {};
+                const col = Number(pos.col ?? pos.Col);
+                const row = Number(pos.row ?? pos.Row);
+                if (!Number.isFinite(col) || !Number.isFinite(row)) return null;
+                return pendingSpellTargetOwnerState().units?.[col]?.[row] || null;
+            }
+            function spellTargetLabel(target) {
+                if (!target || target.type === 'none') return '无目标';
+                if (target.type !== 'unit') return target.type || '未知目标';
+                const pos = target.position || target.Position || {};
+                const col = Number(pos.col ?? pos.Col);
+                const row = Number(pos.row ?? pos.Row);
+                const card = cardAtSpellTarget(target);
+                const coord = Number.isFinite(col) && Number.isFinite(row) ? `${col + 1}-${row + 1}` : '未知位置';
+                return card ? `${card.name}（${coord}）` : `单位（${coord}）`;
+            }
+            function pendingSpellTargetLabel() {
+                return spellTargetLabel(gameState.value?.pending_spell?.target);
+            }
+            function pendingSpellExtraTargetLabels() {
+                return (gameState.value?.pending_spell?.extra_targets || []).map(spellTargetLabel);
+            }
+            function pendingSpellSources() {
+                const spell = gameState.value?.pending_spell;
+                if (!spell) return [];
+                const fullCards = [spell.skill, ...(spell.boost_skills || [])].filter(Boolean);
+                if (Array.isArray(spell.power_sources) && spell.power_sources.length) {
+                    return spell.power_sources.map((source, idx) => {
+                        const card = fullCards.find(c => c.instance_id === source.instance_id) || null;
+                        return {
+                            key: `${source.instance_id || 'source'}-${idx}`,
+                            name: source.card_name || card?.name || '未知来源',
+                            power: Number(source.power || 0),
+                            is_main: !!source.is_main,
+                            card,
+                        };
+                    });
+                }
+                return fullCards.map((card, idx) => ({
+                    key: `${card.instance_id || 'card'}-${idx}`,
+                    name: card.name,
+                    power: Math.max(Number(card.power || 0), 0),
+                    is_main: idx === 0,
+                    card,
+                }));
+            }
             function allMyFieldCards() {
                 const cards = [];
                 if (myState.value.hero) cards.push(myState.value.hero);
@@ -3095,6 +3162,7 @@
                 myState, opponent, myHand, opponentHandCards, mySkills, myEquipment, allMySkills,
                 isMyTurn, showDefenseWindow, myFrontRow, opponentFrontRow,
                 getCardImage, getElementIcon, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, costHTML, hasCost, hasUseCost, hasGain, playCost, learnCost, entryCostLabel, effectLabels,
+                pendingSpellTargetLabel, pendingSpellExtraTargetLabels, pendingSpellSources,
                 showCardDetail, previewCard, mulligan, selectHandCard, isConsumable, canSummonAt,
                 handleCellClick, canConsumeUnit, consumeCard,
                 handleUnitImageClick,

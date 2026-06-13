@@ -1865,8 +1865,19 @@ body::before {
 }
 
 /* Defense window */
+.defense-overlay {
+    align-items: stretch;
+    justify-content: flex-end;
+    padding: 12px 18px 12px 0;
+    background:
+        linear-gradient(90deg, rgba(5,4,3,0.04) 0%, rgba(5,4,3,0.18) 54%, rgba(5,4,3,0.76) 100%);
+    backdrop-filter: none;
+    pointer-events: none;
+}
 .defense-overlay .overlay-content {
     border-color: rgba(192,57,43,0.4);
+    pointer-events: auto;
+    margin: 0;
 }
 .spell-info {
     background: rgba(8,6,5,0.62);
@@ -1878,6 +1889,51 @@ body::before {
     color: var(--text-primary);
 }
 .spell-info div { margin: 3px 0; }
+.spell-info-main {
+    display: grid;
+    grid-template-columns: 48px 1fr;
+    gap: 10px;
+    align-items: start;
+    text-align: left;
+}
+.spell-info-img {
+    width: 48px;
+    height: 68px;
+    object-fit: contain;
+    border: 1px solid rgba(198,174,116,0.32);
+    background: rgba(8,6,5,0.8);
+    cursor: pointer;
+}
+.spell-source-list {
+    margin-top: 8px;
+    border-top: 1px solid rgba(198,174,116,0.12);
+    padding-top: 6px;
+}
+.spell-source-row {
+    display: grid;
+    grid-template-columns: 58px 1fr auto;
+    gap: 8px;
+    align-items: center;
+    min-height: 24px;
+    padding: 3px 6px;
+    color: var(--text-secondary);
+    border: 1px solid transparent;
+    cursor: default;
+}
+.spell-source-row:hover {
+    border-color: rgba(198,174,116,0.22);
+    background: rgba(255,255,255,0.035);
+}
+.spell-source-row strong {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-primary);
+}
+.spell-source-row b {
+    color: var(--gold-bright);
+}
 .defense-actions {
     display: flex;
     gap: 12px;
@@ -2224,9 +2280,11 @@ body::before {
 
 /* ── Defense Panel Styles ── */
 .defense-panel {
-    max-width: 520px;
-    max-height: 80vh;
+    width: min(430px, calc(100vw - 24px));
+    max-width: 430px;
+    max-height: calc(100vh - 24px);
     overflow-y: auto;
+    text-align: left;
 }
 .defense-panel h3 {
     color: var(--gold);
@@ -2503,8 +2561,7 @@ body::before {
     border-color: var(--gold-dim);
 }
 
-.pending-action-overlay,
-.defense-overlay {
+.pending-action-overlay {
     inset: 0;
     justify-content: center;
     padding: 0 24px;
@@ -2519,15 +2576,30 @@ body::before {
     z-index: 10500;
 }
 
-.pending-action-overlay .overlay-content,
-.defense-overlay .overlay-content {
+.pending-action-overlay .overlay-content {
     margin: 0 auto;
 }
 
 @media (max-width: 1180px) {
-    .pending-action-overlay,
-    .defense-overlay {
+    .pending-action-overlay {
         padding: 0 12px;
+    }
+    .defense-overlay {
+        padding: 10px;
+    }
+}
+
+@media (max-width: 760px) {
+    .defense-overlay {
+        align-items: center;
+        justify-content: center;
+        padding: 10px;
+        background: rgba(5,4,3,0.82);
+        pointer-events: auto;
+    }
+    .defense-panel {
+        max-width: calc(100vw - 20px);
+        max-height: calc(100vh - 20px);
     }
 }
 
