@@ -3146,11 +3146,13 @@ func (e *Engine) GetStateForPlayer(playerID int) map[string]any {
 		"pending_spell": func() any {
 			if state.PendingSpell != nil {
 				return map[string]any{
-					"attacker":     state.PendingSpell.AttackerID,
-					"skill":        cardToInfo(state.PendingSpell.Skill),
-					"target":       state.PendingSpell.Target,
-					"power":        state.PendingSpell.TotalPower,
-					"boost_skills": cardsToInfo(state.PendingSpell.BoostSkills),
+					"attacker":      state.PendingSpell.AttackerID,
+					"skill":         cardToInfo(state.PendingSpell.Skill),
+					"target":        state.PendingSpell.Target,
+					"power":         state.PendingSpell.TotalPower,
+					"power_sources": state.PendingSpell.PowerSources,
+					"boost_skills":  cardsToInfo(state.PendingSpell.BoostSkills),
+					"extra_targets": state.PendingSpell.ExtraTargets,
 				}
 			}
 			return nil
