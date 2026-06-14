@@ -712,6 +712,14 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 			t.Fatalf("arsonist should ignore non-fire friendly spells, enemy=%v source=%v", enemy.Statuses, arsonist.Statuses)
 		}
 		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, fireSkill, map[string]any{"cast_player": 0})
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "arsonist_burn" {
+			t.Fatalf("arsonist should ask whether to burn a unit, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{enemy.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve arsonist burn: %v", err)
+		}
 		if enemy.Statuses[StatusBurn] != 1 {
 			t.Fatalf("arsonist should burn an enemy after fire spell, enemy=%v", enemy.Statuses)
 		}
@@ -890,7 +898,7 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 }
 
 func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
-	t.Run("1211002 深渊巨口利维坦 consumes to destroy an enemy companion and sets cooldown", func(t *testing.T) {
+	t.Run("1211002 Leviathan asks for target and cooldown expires at next own turn end", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		leviathan := placeUnit(baseCard(t, "1211002"), 0, 1, 1, engine)
 		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
@@ -900,19 +908,31 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("consume leviathan: %v", err)
 		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "leviathan_destroy" {
+			t.Fatalf("leviathan should ask for an enemy companion target, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve leviathan target: %v", err)
+		}
 		if engine.State.Players[1].Units[1][0] != nil || len(engine.State.Players[1].Graveyard) != 1 || engine.State.Players[1].Graveyard[0].InstanceID != target.InstanceID {
 			t.Fatalf("leviathan should destroy enemy companion, units=%v grave=%+v", engine.State.Players[1].Units[1][0], cardsToInfo(engine.State.Players[1].Graveyard))
 		}
-		if leviathan.Statuses["利维坦冷却"] != 1 {
+		if leviathan.Statuses[leviathanCooldownStatus] != 2 {
 			t.Fatalf("leviathan should set cooldown marker, statuses=%v", leviathan.Statuses)
 		}
-		engine.triggerEffects(TriggerOnTurnStart, leviathan, nil, nil)
-		if leviathan.Statuses["利维坦冷却"] != 0 {
-			t.Fatalf("leviathan cooldown should clear on owner turn start, statuses=%v", leviathan.Statuses)
+		engine.triggerEffects(TriggerOnTurnEnd, leviathan, nil, nil)
+		if leviathan.Statuses[leviathanCooldownStatus] != 1 {
+			t.Fatalf("leviathan cooldown should last through the next own turn, statuses=%v", leviathan.Statuses)
+		}
+		engine.triggerEffects(TriggerOnTurnEnd, leviathan, nil, nil)
+		if leviathan.Statuses[leviathanCooldownStatus] != 0 {
+			t.Fatalf("leviathan cooldown should clear at next own turn end, statuses=%v", leviathan.Statuses)
 		}
 	})
 
-	t.Run("1211003 雪女 has taunt/global range marker and freezes enemy with limited per-turn ability", func(t *testing.T) {
+	t.Run("1211003 Snow Woman asks for a front enemy target", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		snow := placeUnit(baseCard(t, "1211003"), 0, 1, 1, engine)
 		enemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
@@ -926,6 +946,14 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 			"ability_type": "per_turn",
 		}}); err != nil {
 			t.Fatalf("use snow woman: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "snow_woman_freeze" {
+			t.Fatalf("snow woman should ask for a front enemy target, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{enemy.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve snow woman target: %v", err)
 		}
 		if enemy.Statuses[StatusFreeze] != 1 {
 			t.Fatalf("snow woman should freeze an enemy, statuses=%v", enemy.Statuses)
@@ -1338,6 +1366,14 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		rain := NewCardInstance(baseCard(t, "2221011"), 0, 1)
 
 		engine.triggerEffects(TriggerOnUseItem, tide, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "tide_rune_buff" {
+			t.Fatalf("tide rune should ask for a water companion target, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{water.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve tide rune target: %v", err)
+		}
 		engine.triggerEffects(TriggerOnUseItem, rain, nil, nil)
 
 		if effectiveElementsGain(water)[model.ElementWater] != water.Card.ElementsGain[model.ElementWater]+2 {
@@ -6401,6 +6437,14 @@ func TestReviewCardsDamagePreventionAndEarthLightActives(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("use growth potion: %v", err)
 		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "growth_potion_reset" {
+			t.Fatalf("growth potion should ask for an earth companion target, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve growth potion target: %v", err)
+		}
 		if target.IsHorizontal || target.Statuses[StatusCooldown] != 0 {
 			t.Fatalf("growth potion should reset earth companion, horizontal=%v statuses=%v", target.IsHorizontal, target.Statuses)
 		}
@@ -7199,6 +7243,8 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 			NewCardInstance(baseCard(t, "3321005"), 0, 1),
 			NewCardInstance(baseCard(t, "3321006"), 0, 1),
 		}
+		firstAir := p0.Hand[0]
+		secondAir := p0.Hand[1]
 		enemy := placeUnit(baseCard(t, "1011002"), 1, 1, 0, engine)
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
@@ -7206,6 +7252,22 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 			"ability_type": "ultimate",
 		}}); err != nil {
 			t.Fatalf("use Su ultimate: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "su_discard_air" {
+			t.Fatalf("Su should ask for two air cards as cost, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{firstAir.InstanceID, secondAir.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve Su discard: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "su_damage_enemy" {
+			t.Fatalf("Su should ask for an enemy damage target, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{enemy.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve Su damage: %v", err)
 		}
 		if len(p0.Hand) != 0 || len(p0.Graveyard) != 2 || enemy.CurrentLife != enemy.Card.Life-1 {
 			t.Fatalf("Su should discard two air cards and deal one damage, hand=%d graveyard=%d life=%d", len(p0.Hand), len(p0.Graveyard), enemy.CurrentLife)

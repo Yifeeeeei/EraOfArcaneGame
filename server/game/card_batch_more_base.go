@@ -26,6 +26,22 @@ func firstUnitFromCandidates(e *Engine, playerID int, candidates []map[string]an
 	return nil
 }
 
+func selectedUnitFromCandidates(e *Engine, selected []string, candidates []map[string]any) *CardInstance {
+	if e == nil || len(selected) == 0 {
+		return nil
+	}
+	allowed := make(map[string]bool, len(candidates))
+	for _, candidate := range candidates {
+		if id, _ := candidate["instance_id"].(string); id != "" {
+			allowed[id] = true
+		}
+	}
+	if !allowed[selected[0]] {
+		return nil
+	}
+	return e.findUnitByInstanceID(selected[0])
+}
+
 func healUnit(card *CardInstance, amount int) {
 	if card == nil || amount <= 0 {
 		return
@@ -174,12 +190,22 @@ func (Card1121013Arsonist) OnSpellCast(ctx *EffectContext) error {
 	if !isFriendlySpellCast(ctx) || ctx.Target == nil || ctx.Target.Card.Category != model.ElementFire {
 		return nil
 	}
-	target := firstUnitFromCandidates(ctx.Engine, ctx.OpponentID, ctx.Engine.enemyUnits(ctx.PlayerID, true, nil))
-	if target != nil {
-		target.Statuses[StatusBurn]++
+	candidates := append(ctx.Engine.friendlyUnits(ctx.PlayerID, true, nil), ctx.Engine.enemyUnits(ctx.PlayerID, true, nil)...)
+	if len(candidates) == 0 {
+		return nil
 	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "arsonist_burn",
+		"纵火者:可以选择法力范围内1个单位点燃1", candidates, 0, 1,
+		func(selected []string) {
+			target := selectedUnitFromCandidates(ctx.Engine, selected, candidates)
+			if target != nil {
+				target.Statuses[StatusBurn]++
+			}
+		})
 	return nil
 }
+
+const leviathanCooldownStatus = "leviathan_cooldown"
 
 type Card1211002Leviathan struct{ AlwaysActive }
 
@@ -189,16 +215,33 @@ func (Card1211002Leviathan) OnConsume(ctx *EffectContext) error {
 	if ctx.Source.Statuses["利维坦冷却"] > 0 {
 		return nil
 	}
-	targets := ctx.Engine.enemyUnits(ctx.PlayerID, false, func(card *CardInstance) bool { return card.Card.IsCompanion() })
-	target := firstUnitFromCandidates(ctx.Engine, ctx.PlayerID, targets)
-	if target != nil {
-		ctx.Engine.destroyUnit(target, ctx.OpponentID)
-		ctx.Source.Statuses["利维坦冷却"] = 1
+	if ctx.Source.Statuses[leviathanCooldownStatus] > 0 {
+		return nil
 	}
+	targets := ctx.Engine.enemyUnits(ctx.PlayerID, false, func(card *CardInstance) bool { return card.Card.IsCompanion() })
+	if len(targets) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "leviathan_destroy",
+		"利维坦:选择法力范围内1个敌方伙伴消灭", targets, 1, 1,
+		func(selected []string) {
+			target := selectedUnitFromCandidates(ctx.Engine, selected, targets)
+			if target != nil {
+				ctx.Engine.destroyUnit(target, ctx.OpponentID)
+				ctx.Source.Statuses[leviathanCooldownStatus] = 2
+			}
+		})
 	return nil
 }
 func (Card1211002Leviathan) OnTurnStart(ctx *EffectContext) error {
 	ctx.Source.Statuses["利维坦冷却"] = 0
+	return nil
+}
+
+func (Card1211002Leviathan) OnTurnEnd(ctx *EffectContext) error {
+	if ctx.Source.Statuses[leviathanCooldownStatus] > 0 {
+		ctx.Source.Statuses[leviathanCooldownStatus]--
+	}
 	return nil
 }
 
@@ -211,10 +254,24 @@ func (Card1211003SnowWoman) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 func (Card1211003SnowWoman) OnPerTurn(ctx *EffectContext) error {
-	targets := ctx.Engine.enemyUnits(ctx.PlayerID, true, nil)
-	if target := firstUnitFromCandidates(ctx.Engine, ctx.PlayerID, targets); target != nil {
-		target.Statuses[StatusFreeze]++
+	frontRow := ctx.Engine.State.Players[ctx.OpponentID].GetFrontRow()
+	if frontRow < 0 {
+		return nil
 	}
+	targets := ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
+		return card.Position != nil && card.Position.Row == frontRow
+	})
+	if len(targets) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "snow_woman_freeze",
+		"雪女:选择1个前排敌人冻结1", targets, 1, 1,
+		func(selected []string) {
+			target := selectedUnitFromCandidates(ctx.Engine, selected, targets)
+			if target != nil {
+				target.Statuses[StatusFreeze]++
+			}
+		})
 	return nil
 }
 
@@ -801,9 +858,18 @@ type Card2221010TideRune struct{ AlwaysActive }
 func (Card2221010TideRune) ID() string   { return "2221010" }
 func (Card2221010TideRune) Name() string { return "潮涌符文" }
 func (Card2221010TideRune) OnUseItem(ctx *EffectContext) error {
-	if target := firstUnitFromCandidates(ctx.Engine, ctx.PlayerID, ctx.Engine.friendlyUnits(ctx.PlayerID, false, isWaterCompanion)); target != nil {
-		ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementWater, 2, ctx.Source)
+	targets := ctx.Engine.friendlyUnits(ctx.PlayerID, false, isWaterCompanion)
+	if len(targets) == 0 {
+		return nil
 	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "tide_rune_buff",
+		"潮涌符文:选择你的1个水纹伙伴获得负载+2水", targets, 1, 1,
+		func(selected []string) {
+			target := selectedUnitFromCandidates(ctx.Engine, selected, targets)
+			if target != nil {
+				ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementWater, 2, ctx.Source)
+			}
+		})
 	return nil
 }
 
