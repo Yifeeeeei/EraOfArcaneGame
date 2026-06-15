@@ -496,6 +496,17 @@ func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance
 
 	opponent := e.State.Players[1-playerID]
 	if opponent.Units[target.Position.Col][target.Position.Row] == nil {
+		if e.effectiveSpellArea(skill) == SpellAreaColumn {
+			for row := 0; row < 3; row++ {
+				if opponent.Units[target.Position.Col][row] == nil {
+					continue
+				}
+				frontRow := opponent.GetFrontRow()
+				if e.IsInSpellRange(playerID, target.Position.Col, target.Position.Row, hasPierce) || frontRow == -1 || target.Position.Row == frontRow {
+					return nil
+				}
+			}
+		}
 		if friendly, ok := behaviorForNumber(skill.Card.Number).(FriendlySpellTargetBehavior); ok && friendly.HasActiveFriendlySpellTarget(skill) && friendly.AllowsFriendlySpellTarget() {
 			own := e.State.Players[playerID]
 			if own.Units[target.Position.Col][target.Position.Row] != nil {

@@ -544,11 +544,8 @@ func (Card3521011LightShelter) AllowsFriendlySpellTarget() bool {
 }
 func (Card3521011LightShelter) OnSpellHit(ctx *EffectContext) error {
 	target := ctx.Target
-	if target == nil || !target.Card.IsCompanion() {
-		target = firstFriendlyCompanion(ctx)
-	}
-	if target != nil {
-		target.Statuses["防止致命"] = 2
+	if target != nil && target.Card.IsCompanion() {
+		target.Statuses["防止致命"] = 1
 	}
 	return nil
 }

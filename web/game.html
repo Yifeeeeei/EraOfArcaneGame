@@ -1750,9 +1750,9 @@
                     if (!getMyUnit(col, row)) { summonCard(selectedHandCard.value, col, row); return; }
                 }
                 if (ownerSlot === mySlot.value && selectedSkill.value && isFriendlySpellTarget(col, row)) { castSpellAt(col, row); return; }
-                if (ownerSlot !== mySlot.value && selectedAttacker.value) { attackTarget(col, row); return; }
-                if (ownerSlot !== mySlot.value && selectedItemSpellScroll.value) { useSpellScrollAt(col, row); return; }
-                if (ownerSlot !== mySlot.value && selectedSkill.value) { castSpellAt(col, row); return; }
+                if (ownerSlot !== mySlot.value && selectedAttacker.value && isValidOpponentTarget(col, row)) { attackTarget(col, row); return; }
+                if (ownerSlot !== mySlot.value && selectedItemSpellScroll.value && isValidOpponentTarget(col, row)) { useSpellScrollAt(col, row); return; }
+                if (ownerSlot !== mySlot.value && selectedSkill.value && isValidOpponentTarget(col, row)) { castSpellAt(col, row); return; }
             }
 
             function handleUnitImageClick(ownerSlot, col, row, unit) {
@@ -1939,11 +1939,17 @@
             }
             const hasActiveTargeting = computed(() => !!selectedAttacker.value || !!selectedSkill.value || !!selectedItemSpellScroll.value);
             function isValidOpponentTarget(col, row) {
-                if (!getOpponentUnit(col, row)) return false;
-                if (selectedAttacker.value) return row === opponentFrontRow.value;
-                if (!selectedSkill.value) return false;
-                if (pendingExtraTargetCast.value && selectedSkill.value.number === '3321001') return true;
-                return selectedSkillHasPierce() || row === opponentFrontRow.value;
+                const unit = getOpponentUnit(col, row);
+                if (selectedAttacker.value) return !!unit && row === opponentFrontRow.value;
+                const spell = activeTargetSpell();
+                if (!spell) return false;
+                if (pendingExtraTargetCast.value && selectedSkill.value?.number === '3321001') return !!unit;
+                const inRange = activeTargetSpellHasPierce() || row === opponentFrontRow.value;
+                if (unit) return inRange;
+                if ((spell.spell_area || 'single') === 'column' && inRange) {
+                    return opponentColumnHasUnit(col);
+                }
+                return false;
             }
             function isSpellTarget(col, row) {
                 return !!selectedSkill.value && isValidOpponentTarget(col, row);
@@ -1977,6 +1983,25 @@
             }
             function isFriendlySpellTarget(col, row) {
                 return !!selectedSkill.value && !!selectedSkill.value.allows_friendly_target && !!getMyUnit(col, row);
+            }
+            function activeTargetSpell() {
+                return selectedSkill.value || selectedItemSpellScroll.value || null;
+            }
+            function activeTargetSpellHasPierce() {
+                const spell = activeTargetSpell();
+                if (!spell) return false;
+                if (spell.has_pierce) return true;
+                if (!selectedSkill.value) return false;
+                return selectedBoostSkills.value.some(id => {
+                    const boost = allMySkills.value.find(skill => skill && skill.instance_id === id);
+                    return boost?.number === '3121015';
+                });
+            }
+            function opponentColumnHasUnit(col) {
+                for (let row = 0; row < 3; row++) {
+                    if (getOpponentUnit(col, row)) return true;
+                }
+                return false;
             }
             function attackTarget(col, row) {
                 if (!selectedAttacker.value) return;
@@ -2028,12 +2053,7 @@
                 return true;
             }
             function selectedSkillHasPierce() {
-                if (!selectedSkill.value) return false;
-                if (selectedSkill.value.has_pierce) return true;
-                return selectedBoostSkills.value.some(id => {
-                    const boost = allMySkills.value.find(skill => skill && skill.instance_id === id);
-                    return boost?.number === '3121015';
-                });
+                return activeTargetSpellHasPierce();
             }
             function toggleBoostSkill(skill) {
                 const idx = selectedBoostSkills.value.indexOf(skill.instance_id);

@@ -3992,7 +3992,11 @@ func TestOnSpellCastListenersFireForFriendlySkills(t *testing.T) {
 	p0 := engine.State.Players[0]
 	placeUnit(baseCard(t, "1321012"), 0, 0, 0, engine)
 	p0.Skills[0] = readySkill(baseCard(t, "3321005"), 0)
-	p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1)}
+	p0.Skills[1] = readySkill(baseCard(t, "3321005"), 0)
+	p0.Deck = []*CardInstance{
+		NewCardInstance(baseCard(t, "1021001"), 0, 1),
+		NewCardInstance(baseCard(t, "1021002"), 0, 1),
+	}
 	p0.Elements[model.ElementAir] = 2
 	placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
 
@@ -4006,6 +4010,21 @@ func TestOnSpellCastListenersFireForFriendlySkills(t *testing.T) {
 	}
 	if len(p0.Hand) != 1 {
 		t.Fatalf("wind medium should draw when friendly air skill is used, hand=%d deck=%d", len(p0.Hand), len(p0.Deck))
+	}
+	if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+		t.Fatalf("resolve first air spell: %v", err)
+	}
+	p0.Elements[model.ElementAir] = 2
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": p0.Skills[1].InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(1),
+		"target_row":  float64(0),
+	}}); err != nil {
+		t.Fatalf("cast second air spell: %v", err)
+	}
+	if len(p0.Hand) != 1 {
+		t.Fatalf("wind medium should be limited to once per turn, hand=%d deck=%d", len(p0.Hand), len(p0.Deck))
 	}
 }
 
@@ -4280,14 +4299,11 @@ func TestSkillPendingChoiceEffects(t *testing.T) {
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
 			"instance_id": skill.InstanceID,
-			"target_type": "none",
+			"target_type": "unit",
+			"target_col":  float64(0),
+			"target_row":  float64(0),
 		}}); err != nil {
 			t.Fatalf("cast healing: %v", err)
-		}
-		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
-			"selected": []any{target.InstanceID},
-		}}); err != nil {
-			t.Fatalf("resolve healing: %v", err)
 		}
 		if target.CurrentLife != 3 {
 			t.Fatalf("healing should restore 2 life, life=%d", target.CurrentLife)
@@ -5712,7 +5728,8 @@ func TestSelectionSorcerySkillEffects(t *testing.T) {
 	t.Run("call lightning discards then stuns selected enemy", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
-		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		target := placeUnit(baseCard(t, "4011001"), 1, 1, 1, engine)
+		backTarget := placeUnit(baseCard(t, "1021001"), 1, 2, 2, engine)
 		discard := NewCardInstance(baseCard(t, "1021001"), 0, 1)
 		p0.Hand = []*CardInstance{discard}
 		p0.Skills[0] = readySkill(baseCard(t, "3321014"), 0)
@@ -5728,6 +5745,9 @@ func TestSelectionSorcerySkillEffects(t *testing.T) {
 			"selected": []any{discard.InstanceID},
 		}}); err != nil {
 			t.Fatalf("resolve call lightning discard: %v", err)
+		}
+		if engine.State.PendingAction == nil || len(engine.State.PendingAction.Candidates) != 1 || engine.State.PendingAction.Candidates[0]["instance_id"] != target.InstanceID {
+			t.Fatalf("call lightning should offer only enemies in spell range, candidates=%+v back=%s", engine.State.PendingAction, backTarget.InstanceID)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{target.InstanceID},
@@ -7331,6 +7351,13 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 		if p0.Elements[model.ElementLight] != 2 {
 			t.Fatalf("Maris should grant 2 light after enemy damage, elements=%v", p0.Elements)
 		}
+		if !maris.UltimateUsed {
+			t.Fatalf("Maris should mark her ultimate as used after choosing the triggered effect")
+		}
+		engine.dealDamageWithExtra(friend, 1, 0, map[string]any{"attacker": 1})
+		if engine.State.PendingAction != nil {
+			t.Fatalf("Maris should not offer the triggered ultimate more than once, pending=%v", engine.State.PendingAction)
+		}
 	})
 
 	t.Run("4511002 神之眷子 爱里默 unlocks temporary ultimate after all shackles are cleared", func(t *testing.T) {
@@ -7491,9 +7518,37 @@ func TestRemainingHighRiskBaseCardSemantics(t *testing.T) {
 		if target.CurrentLife != before {
 			t.Fatalf("light shelter should prevent the whole lethal damage instance, before=%d after=%d", before, target.CurrentLife)
 		}
+		if target.Statuses["防止致命"] != 0 {
+			t.Fatalf("light shelter should be consumed after preventing lethal damage, statuses=%v", target.Statuses)
+		}
 		engine.dealDamageWithExtra(target, 1, 1, map[string]any{"attacker": 0})
 		if target.CurrentLife != before-1 {
 			t.Fatalf("light shelter should not prevent non-lethal damage, before=%d after=%d", before, target.CurrentLife)
+		}
+	})
+
+	t.Run("column spells may target an empty front cell when that column contains units", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		back := placeUnit(baseCard(t, "1021004"), 1, 2, 2, engine)
+		skill := readySkill(baseCard(t, "3321011"), 0)
+		p0.Skills[0] = skill
+		p0.Elements[model.ElementAir] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": skill.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(2),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast column spell at empty front cell: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve column spell: %v", err)
+		}
+		if back.CurrentLife >= back.Card.Life {
+			t.Fatalf("column spell should affect units behind the empty chosen front cell, life=%d", back.CurrentLife)
 		}
 	})
 

@@ -2056,6 +2056,10 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 		return
 	}
 	if target.Statuses["防止致命"] > 0 && target.CurrentLife-amount <= 0 {
+		target.Statuses["防止致命"]--
+		if target.Statuses["防止致命"] <= 0 {
+			delete(target.Statuses, "防止致命")
+		}
 		e.emit(GameEvent{
 			Type:   "damage_prevented",
 			Player: -1,
