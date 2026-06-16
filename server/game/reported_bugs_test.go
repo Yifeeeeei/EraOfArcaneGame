@@ -2255,6 +2255,16 @@ func TestBoundSkillAttachesToHostInsteadOfSkillPool(t *testing.T) {
 	}}); err == nil {
 		t.Fatalf("bound skill should not be learnable through the skill pool")
 	}
+	p0.Elements[model.ElementAir] = 2
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": ailaya.BoundSkills[0].InstanceID,
+		"target_type": "none",
+	}}); err != nil {
+		t.Fatalf("bound skill should be castable from its host: %v", err)
+	}
+	if !ailaya.BoundSkills[0].IsHorizontal || p0.Elements[model.ElementAir] != 0 {
+		t.Fatalf("casting bound skill should tap it and pay cost, horizontal=%v elements=%v", ailaya.BoundSkills[0].IsHorizontal, p0.Elements)
+	}
 
 	info := cardToInfo(ailaya)
 	bound, ok := info["bound_skills"].([]map[string]any)

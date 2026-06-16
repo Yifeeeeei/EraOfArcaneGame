@@ -797,6 +797,20 @@
                                     </div>
                                 </div>
                             </div>
+                            <div class="slot-lane" v-if="allMyBoundSkills.length">
+                                <span class="slot-label">绑定</span>
+                                <div class="bound-skill-bar">
+                                    <button v-for="skill in allMyBoundSkills" :key="skill.instance_id"
+                                            class="bound-skill-action"
+                                            :class="{castable: canCastSkill(skill), horizontal: skill.is_horizontal}"
+                                            :disabled="!canCastSkill(skill)"
+                                            @mouseenter="previewCard(skill)"
+                                            @click.stop="selectSkillToCast(skill)">
+                                        <span>{{ skill.name }}</span>
+                                        <small v-if="canShowCostHint(skill)">{{ missingCostText(skillUseCost(skill)) }}</small>
+                                    </button>
+                                </div>
+                            </div>
                             <div class="pile-controls">
                                 <button class="pile-button deck" @click="openPileView('me', 'deck')">
                                     <span>卡组</span><strong>{{ myState.deck_count || 0 }}</strong>
@@ -1053,8 +1067,8 @@
             });
             const mySkills = computed(() => myState.value.skills || [null,null,null,null,null]);
             const myEquipment = computed(() => myState.value.equipment || [null,null,null,null,null]);
-            const allMySkills = computed(() => {
-                const skills = [...mySkills.value.filter(Boolean)];
+            const allMyBoundSkills = computed(() => {
+                const skills = [];
                 for (const unit of allMyFieldCards()) {
                     for (const bound of unit.bound_skills || []) {
                         skills.push(bound);
@@ -1062,6 +1076,7 @@
                 }
                 return skills;
             });
+            const allMySkills = computed(() => [...mySkills.value.filter(Boolean), ...allMyBoundSkills.value]);
             const replaceableSkills = computed(() => mySkills.value.filter(skill => skill && !skill.is_horizontal));
             const replaceableEquipment = computed(() => myEquipment.value.filter(equipment => equipment && !equipment.is_horizontal));
             const isMyTurn = computed(() => gameState.value && gameState.value.current_turn === mySlot.value);
@@ -3179,7 +3194,7 @@
                 gameState, mySlot, roomID, mulliganSubmitted, detailCard, hoverCard, activePreviewCard,
                 selectedHandCard, selectedAttacker, selectedSkill, selectedItemSpellScroll, selectedBoostSkills, pileView, actionLog,
                 isTestRoom, testCardNumber, testElement, testElementAmount, ELEMENT_ORDER,
-                myState, opponent, myHand, opponentHandCards, mySkills, myEquipment, allMySkills,
+                myState, opponent, myHand, opponentHandCards, mySkills, myEquipment, allMySkills, allMyBoundSkills,
                 isMyTurn, showDefenseWindow, myFrontRow, opponentFrontRow,
                 getCardImage, getElementIcon, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, costHTML, hasCost, hasUseCost, hasGain, playCost, learnCost, entryCostLabel, effectLabels,
                 pendingSpellTargetLabel, pendingSpellExtraTargetLabels, pendingSpellSources,
