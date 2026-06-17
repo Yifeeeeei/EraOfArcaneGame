@@ -713,7 +713,7 @@
                                     <img :src="getCardImage(getMyUnit(col, row))" class="unit-img"
                                          :class="{horizontal: getMyUnit(col, row).is_horizontal, 'inside-terrain': getMyTerrain(col, row)}"
                                          @mouseenter.stop="previewCard(getMyUnit(col, row))"
-                                         @click.stop="showCardDetail(getMyUnit(col, row))">
+                                         @click.stop="handleUnitImageClick(mySlot, col, row, getMyUnit(col, row))">
                                     <div class="unit-overlay">
                                         <span class="unit-hp">{{ getMyUnit(col, row).current_life }}</span>
                                         <span v-if="getMyUnit(col, row).current_attack > 0" class="unit-atk">{{ getMyUnit(col, row).current_attack }}</span>
