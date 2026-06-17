@@ -567,6 +567,10 @@ func (e *Engine) resetCards(ps *PlayerState) {
 		if ps.Equipment[i] != nil {
 			e.resetCard(ps.Equipment[i])
 			ps.Equipment[i].UsedThisTurn = 0
+			for _, skill := range ps.Equipment[i].BoundSkills {
+				e.resetCard(skill)
+				skill.UsedThisTurn = 0
+			}
 		}
 	}
 }
@@ -1468,6 +1472,7 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 		dmg = max(override, 0)
 	}
 	dmg = e.effectiveSpellDamage(attackerID, skill, dmg, boostSkills)
+	e.consumeNextElementSpellDamageBonus(e.State.Players[attackerID], skill)
 
 	{
 		totalPower := e.effectiveSpellPower(attackerID, skill, boostSkills, target)

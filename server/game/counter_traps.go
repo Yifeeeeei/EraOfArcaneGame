@@ -201,7 +201,7 @@ func (e *Engine) counterTrapConditionMet(counter *CardInstance, trigger EffectTr
 
 	switch counter.Card.Number {
 	case "2021018":
-		return trigger == TriggerOnSpellCast && sourceOwner != ownerID
+		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && len(e.friendlySkillsIncludingBound(ownerID, nil)) > 0
 	case "2021022":
 		return trigger == TriggerOnUseItem && sourceOwner != ownerID && eventSource != nil && counterRuneCanCancel(eventSource.Card.Number)
 	case "2121002":

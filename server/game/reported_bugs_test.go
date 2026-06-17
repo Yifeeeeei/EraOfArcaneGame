@@ -1294,6 +1294,14 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		rune := NewCardInstance(baseCard(t, "2021018"), 0, 1)
 
 		engine.triggerEffects(TriggerOnUseItem, rune, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "arcane_rune_skill" {
+			t.Fatalf("arcane rune should ask which friendly skill gets +3 power, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{skill.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve arcane rune target: %v", err)
+		}
 
 		if skill.PowerBonus != 3 {
 			t.Fatalf("arcane rune should add +3 power to a friendly skill, bonus=%d", skill.PowerBonus)
@@ -1344,6 +1352,14 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 
 		engine.triggerEffects(TriggerOnEnter, bow, nil, nil)
 		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, readySkill(baseCard(t, "3021005"), 0), map[string]any{"cast_player": 0})
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "winter_bow_water_mark" {
+			t.Fatalf("winter bow should ask whether to pay for a water mark, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{bow.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve winter bow payment: %v", err)
+		}
 
 		if len(p0.SkillPool) != 0 {
 			t.Fatalf("winter bow bound skill should not enter skill pool, skill_pool=%+v", cardsToInfo(p0.SkillPool))
@@ -1351,8 +1367,14 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		if len(bow.BoundSkills) != 1 || bow.BoundSkills[0].Card.Number != "3201002" {
 			t.Fatalf("winter bow should bind winter skill, bound=%+v", cardsToInfo(bow.BoundSkills))
 		}
-		if p0.Elements[model.ElementWater] != 0 || effectiveElementsGain(bow)[model.ElementWater] != bow.Card.ElementsGain[model.ElementWater]+1 {
-			t.Fatalf("winter bow should pay 1 water for +1 water load, elements=%v load=%v", p0.Elements, effectiveElementsGain(bow))
+		if p0.Elements[model.ElementWater] != 0 || bow.Statuses[winterBowWaterMark] != 1 || effectiveElementsGain(bow)[model.ElementWater] != bow.Card.ElementsGain[model.ElementWater] {
+			t.Fatalf("winter bow should pay 1 water for a water mark, elements=%v statuses=%v load=%v", p0.Elements, bow.Statuses, effectiveElementsGain(bow))
+		}
+
+		p0.Elements[model.ElementWater] = 1
+		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, readySkill(baseCard(t, "3021005"), 1), map[string]any{"cast_player": 1})
+		if engine.State.PendingAction == nil || engine.State.PendingAction.PlayerID != 0 || engine.State.PendingAction.Type != "winter_bow_water_mark" {
+			t.Fatalf("enemy spell should also offer winter bow payment to the bow owner, pending=%+v", engine.State.PendingAction)
 		}
 	})
 
@@ -2138,6 +2160,7 @@ func TestSpellCastCounterPromptResumesDefenseWindow(t *testing.T) {
 		p1.Elements[elem] = 10
 	}
 	p0.Skills[0] = readySkill(baseCard(t, "3121002"), 0)
+	p1.Skills[0] = readySkill(baseCard(t, "3221003"), 1)
 	placeUnit(baseCard(t, "1221001"), 1, 0, 0, engine)
 	counter := NewCardInstance(baseCard(t, "2021018"), 1, 1)
 	counter.IsSetCounter = true
@@ -2177,6 +2200,7 @@ func TestSpellCastCounterPromptDeclineContinuesSorceryResolution(t *testing.T) {
 	sorcery.Card.Attack = 1
 	sorcery.Card.Power = -1
 	p0.Skills[0] = sorcery
+	p1.Skills[0] = readySkill(baseCard(t, "3221003"), 1)
 	target := placeUnit(baseCard(t, "1221001"), 1, 0, 0, engine)
 	target.CurrentLife = 3
 	counter := NewCardInstance(baseCard(t, "2021018"), 1, 1)
@@ -7375,6 +7399,14 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 		engine.State.TurnNumber = 1
 
 		engine.triggerEffects(TriggerOnTurnStart, whitebeard, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "whitebeard_first_turn_search" {
+			t.Fatalf("Whitebeard should offer an optional first-turn search, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{earth.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve Whitebeard search: %v", err)
+		}
 		if len(p0.Hand) != 1 || p0.Hand[0] != earth || len(p0.Deck) != 1 {
 			t.Fatalf("Whitebeard should search the earth creature, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
 		}

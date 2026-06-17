@@ -123,6 +123,26 @@ func (e *Engine) friendlySkills(playerID int, predicate func(*CardInstance) bool
 	return candidates
 }
 
+func (e *Engine) friendlySkillsIncludingBound(playerID int, predicate func(*CardInstance) bool) []map[string]any {
+	ps := e.State.Players[playerID]
+	candidates := e.friendlySkills(playerID, predicate)
+	for _, card := range e.getAllFieldCards(ps) {
+		if card == nil {
+			continue
+		}
+		for _, skill := range card.BoundSkills {
+			if skill == nil {
+				continue
+			}
+			if predicate != nil && !predicate(skill) {
+				continue
+			}
+			candidates = append(candidates, candidateInfo(skill, "bound_skill", "own"))
+		}
+	}
+	return candidates
+}
+
 func (e *Engine) enemySkills(playerID int, predicate func(*CardInstance) bool) []map[string]any {
 	ps := e.State.Players[1-playerID]
 	candidates := make([]map[string]any, 0)

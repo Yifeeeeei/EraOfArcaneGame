@@ -1074,6 +1074,11 @@
                         skills.push(bound);
                     }
                 }
+                for (const equipment of myEquipment.value.filter(Boolean)) {
+                    for (const bound of equipment.bound_skills || []) {
+                        skills.push(bound);
+                    }
+                }
                 return skills;
             });
             const allMySkills = computed(() => [...mySkills.value.filter(Boolean), ...allMyBoundSkills.value]);

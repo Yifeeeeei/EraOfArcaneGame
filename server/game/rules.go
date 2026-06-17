@@ -314,6 +314,7 @@ func (e *Engine) effectiveSpellDamage(playerID int, skill *CardInstance, baseDam
 		damage += e.skillContributionStats(playerID, boostSkill, skill, skillPurposeAttackBoost).DamageBonus
 	}
 	damage += e.spellStatBonusesWithData(playerID, skill, skillPurposeAttack, map[string]any{"stat": "damage"}).DamageBonus
+	damage += e.temporarySpellDamageBonus(playerID, skill)
 	return max(damage, 0)
 }
 

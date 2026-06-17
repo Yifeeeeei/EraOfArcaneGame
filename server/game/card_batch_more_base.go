@@ -370,11 +370,54 @@ func (Card1401001LifeSeed) OnMastery(ctx *EffectContext, level int) error {
 	if level != 2 {
 		return nil
 	}
-	if summoned := summonHandCompanionFree(ctx, func(card *CardInstance) bool { return card.Card.Category == model.ElementEarth }); summoned != nil {
-		summoned.CurrentLife += max(ctx.Source.CurrentLife-1, 0)
-		ctx.Engine.destroyUnit(ctx.Source, ctx.PlayerID)
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	if ps.FindEmptyPosition() == nil {
+		return nil
 	}
+	candidates := ctx.Engine.friendlyHandCards(ctx.PlayerID, func(card *CardInstance) bool {
+		return card.Card.IsCompanion() && card.Card.Category == model.ElementEarth
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "life_seed_summon", "生命种子:可以召唤1个地属性伙伴并继承生命种子的加成", candidates, 0, 1, func(selected []string) {
+		if len(selected) == 0 {
+			return
+		}
+		summoned := summonCardFreeFromHandOrDeck(ctx, selected[0])
+		if summoned == nil {
+			return
+		}
+		inheritLifeSeedBonuses(ctx.Engine, ctx.Source, summoned, ctx.PlayerID)
+		ctx.Engine.destroyUnit(ctx.Source, ctx.PlayerID)
+	})
 	return nil
+}
+
+func inheritLifeSeedBonuses(e *Engine, source *CardInstance, target *CardInstance, playerID int) {
+	if source == nil || target == nil {
+		return
+	}
+	if bonusLife := source.CurrentLife - source.Card.Life; bonusLife > 0 {
+		target.CurrentLife += bonusLife
+	}
+	target.CurrentAttack += max(source.CurrentAttack-source.Card.Attack, 0)
+	target.PowerBonus += source.PowerBonus
+	target.AttackBonus += source.AttackBonus
+	for elem, amount := range source.ElementsGainBonus {
+		if amount != 0 {
+			e.addElementsGainBonus(target, playerID, elem, amount, source)
+		}
+	}
+	if len(source.ElementsGainSet) > 0 {
+		target.ElementsGainSet = copyElementCost(source.ElementsGainSet)
+	}
+	for status, amount := range source.Statuses {
+		if amount <= 0 || status == StatusMastery {
+			continue
+		}
+		target.Statuses[status] += amount
+	}
 }
 
 type Card1401002SpiritBeastXinke struct{ AlwaysActive }
@@ -759,12 +802,16 @@ type Card2021018ArcaneRune struct{ AlwaysActive }
 func (Card2021018ArcaneRune) ID() string   { return "2021018" }
 func (Card2021018ArcaneRune) Name() string { return "奥术符文" }
 func (Card2021018ArcaneRune) OnUseItem(ctx *EffectContext) error {
-	for _, skill := range ctx.Engine.State.Players[ctx.PlayerID].Skills {
+	candidates := ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, nil)
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "arcane_rune_skill", "奥术符文:选择己方1个法术获得+3威", candidates, 1, 1, func(selected []string) {
+		skill := ctx.Engine.findSkill(ctx.Engine.State.Players[ctx.PlayerID], firstSelected(selected))
 		if skill != nil {
 			skill.PowerBonus += 3
-			break
 		}
-	}
+	})
 	return nil
 }
 
@@ -796,7 +843,15 @@ type Card2111002NurEye struct{ AlwaysActive }
 func (Card2111002NurEye) ID() string            { return "2111002" }
 func (Card2111002NurEye) Name() string          { return "努尔之眼" }
 func (Card2111002NurEye) IsPrayerAbility() bool { return true }
+
+const nurEyeFireMark = "nur_eye_fire_mark"
+
 func (Card2111002NurEye) OnDamaged(ctx *EffectContext) error {
+	if ctx.ExtraData != nil && (ctx.ExtraData["damage_element"] == model.ElementFire || ctx.ExtraData["status_damage"] == StatusBurn) {
+		ctx.Source.Statuses[nurEyeFireMark]++
+		ctx.Source.Statuses["火焰标记"]++
+		return nil
+	}
 	if ctx.ExtraData == nil || (ctx.ExtraData["damage_element"] != model.ElementFire && ctx.ExtraData["status_damage"] != StatusBurn) {
 		return nil
 	}
@@ -804,17 +859,33 @@ func (Card2111002NurEye) OnDamaged(ctx *EffectContext) error {
 	return nil
 }
 func (Card2111002NurEye) OnPerTurn(ctx *EffectContext) error {
-	markers := ctx.Source.Statuses["火焰标记"]
+	newMarkers := ctx.Source.Statuses[nurEyeFireMark]
+	ctx.Source.Statuses[nurEyeFireMark] = 0
 	ctx.Source.Statuses["火焰标记"] = 0
-	if markers <= 0 {
+	switch newMarkers {
+	case 0:
+		ctx.Engine.discardFriendlyCandidate(ctx.PlayerID, ctx.Source.InstanceID)
 		return nil
-	}
-	if markers == 1 {
+	case 1:
 		ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementFire: 2})
-	} else if markers == 2 {
-		ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModSkillPowerBonus, Amount: 2, RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 1})
-	} else {
-		ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModSkillPowerBonus, Amount: 3, RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 1})
+	case 2:
+		ctx.Engine.addNextElementSpellPowerBonus(ctx.PlayerID, model.ElementFire, 2)
+	case 3:
+		ctx.Engine.addNextElementSpellDamageBonus(ctx.PlayerID, model.ElementFire, 1)
+	default:
+		candidates := append(ctx.Engine.friendlyUnits(ctx.PlayerID, true, nil), ctx.Engine.enemyUnits(ctx.PlayerID, true, nil)...)
+		ctx.Engine.SetPendingAction(ctx.PlayerID, "nur_eye_fire_damage", "努尔之眼:选择1个单位造成2点火焰伤害", candidates, 1, 1, func(selected []string) {
+			for _, ps := range ctx.Engine.State.Players {
+				target := ctx.Engine.findUnitOnGrid(ps, firstSelected(selected))
+				if target != nil {
+					ctx.Engine.dealDamageWithExtra(target, 2, target.OwnerID, map[string]any{
+						"damage_source":  "effect",
+						"damage_element": model.ElementFire,
+					})
+					return
+				}
+			}
+		})
 	}
 	return nil
 }
@@ -823,15 +894,32 @@ type Card2211002WinterBow struct{ AlwaysActive }
 
 func (Card2211002WinterBow) ID() string   { return "2211002" }
 func (Card2211002WinterBow) Name() string { return "嗜魔弓 凛冬" }
+
+const winterBowWaterMark = "winter_bow_water_mark"
+
 func (Card2211002WinterBow) OnEnter(ctx *EffectContext) error {
 	bindSkillToHost(ctx, "3201002")
 	return nil
 }
 func (Card2211002WinterBow) OnSpellCast(ctx *EffectContext) error {
-	ps := ctx.Engine.State.Players[ctx.PlayerID]
-	if ps.PayCost(map[string]int{model.ElementWater: 1}) {
-		ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementWater, 1, ctx.Source)
+	winterBowPlayer := ctx.Engine.State.Players[ctx.PlayerID]
+	if ctx.ExtraData == nil {
+		return nil
 	}
+	if _, ok := ctx.ExtraData["cast_player"].(int); !ok {
+		return nil
+	}
+	if !winterBowPlayer.CanPayCost(map[string]int{model.ElementWater: 1}) {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "winter_bow_water_mark", "嗜魔弓 凛冬:是否支付1水放置1个水纹标记物", []map[string]any{candidateInfo(ctx.Source, "equipment", "own")}, 0, 1, func(selected []string) {
+		if len(selected) == 0 {
+			return
+		}
+		if winterBowPlayer.PayCost(map[string]int{model.ElementWater: 1}) {
+			ctx.Source.Statuses[winterBowWaterMark]++
+		}
+	})
 	return nil
 }
 
