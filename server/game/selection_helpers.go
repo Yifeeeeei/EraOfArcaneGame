@@ -6,6 +6,13 @@ import (
 	"eraofarcane/model"
 )
 
+func firstSelected(selected []string) string {
+	if len(selected) == 0 {
+		return ""
+	}
+	return selected[0]
+}
+
 func candidateInfo(card *CardInstance, zone string, side string) map[string]any {
 	info := cardToInfo(card)
 	info["zone"] = zone

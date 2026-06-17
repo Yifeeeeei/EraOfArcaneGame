@@ -20,6 +20,24 @@ func isSpellBeingCast(ctx *EffectContext) bool {
 	return ctx != nil && ctx.Target == nil
 }
 
+func spellCastSourceElement(ctx *EffectContext) string {
+	if ctx == nil {
+		return ""
+	}
+	if ctx.Target != nil && ctx.Target.Card != nil {
+		return ctx.Target.Card.Category
+	}
+	if ctx.ExtraData == nil {
+		return ""
+	}
+	if skill, ok := ctx.ExtraData["skill"].(map[string]any); ok {
+		if category, ok := skill["category"].(string); ok {
+			return category
+		}
+	}
+	return ""
+}
+
 func isFriendlySpellHit(ctx *EffectContext) bool {
 	if ctx == nil || ctx.ExtraData == nil {
 		return true

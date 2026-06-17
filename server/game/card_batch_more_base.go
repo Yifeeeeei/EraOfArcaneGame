@@ -187,10 +187,12 @@ type Card1121013Arsonist struct{ AlwaysActive }
 func (Card1121013Arsonist) ID() string   { return "1121013" }
 func (Card1121013Arsonist) Name() string { return "纵火者" }
 func (Card1121013Arsonist) OnSpellCast(ctx *EffectContext) error {
-	if !isFriendlySpellCast(ctx) || ctx.Target == nil || ctx.Target.Card.Category != model.ElementFire {
+	if !isFriendlySpellCast(ctx) || spellCastSourceElement(ctx) != model.ElementFire {
 		return nil
 	}
-	candidates := append(ctx.Engine.friendlyUnits(ctx.PlayerID, true, nil), ctx.Engine.enemyUnits(ctx.PlayerID, true, nil)...)
+	candidates := append(ctx.Engine.friendlyUnits(ctx.PlayerID, true, nil), ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
+		return card.Position != nil && ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, cardHasPierce(ctx.Target))
+	})...)
 	if len(candidates) == 0 {
 		return nil
 	}
@@ -218,7 +220,9 @@ func (Card1211002Leviathan) OnConsume(ctx *EffectContext) error {
 	if ctx.Source.Statuses[leviathanCooldownStatus] > 0 {
 		return nil
 	}
-	targets := ctx.Engine.enemyUnits(ctx.PlayerID, false, func(card *CardInstance) bool { return card.Card.IsCompanion() })
+	targets := ctx.Engine.enemyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
+		return card.Card.IsCompanion() && card.Position != nil && ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
+	})
 	if len(targets) == 0 {
 		return nil
 	}
@@ -976,9 +980,25 @@ type Card2321011TeleportRune struct{ AlwaysActive }
 func (Card2321011TeleportRune) ID() string   { return "2321011" }
 func (Card2321011TeleportRune) Name() string { return "传送符文" }
 func (Card2321011TeleportRune) OnUseItem(ctx *EffectContext) error {
-	if target := firstUnitFromCandidates(ctx.Engine, ctx.PlayerID, ctx.Engine.friendlyUnits(ctx.PlayerID, false, nil)); target != nil {
-		resetInstance(target)
+	target := ctx.Target
+	if target == nil || target.Card == nil || !target.Card.IsCompanion() || target.Position == nil {
+		return nil
 	}
+	positions := ctx.Engine.emptyUnitPositionsForPlayer(target.OwnerID, ctx.PlayerID)
+	if len(positions) == 0 {
+		return nil
+	}
+	targetID := target.InstanceID
+	targetOwner := target.OwnerID
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "teleport_rune_position",
+		"Teleport Rune: choose another empty position", positions, 1, 1,
+		func(selected []string) {
+			pos, ok := positionFromSelectionID(firstSelected(selected))
+			if !ok {
+				return
+			}
+			ctx.Engine.moveUnitToPosition(targetOwner, targetID, pos)
+		})
 	return nil
 }
 

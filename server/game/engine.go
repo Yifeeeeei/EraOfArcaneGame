@@ -1699,6 +1699,21 @@ func (e *Engine) spellAffectedUnits(defenderID int, skill *CardInstance, target 
 	defender := e.State.Players[defenderID]
 	units := make([]*CardInstance, 0, 9)
 
+	if skill != nil && skill.Card != nil && skill.Card.Number == "3521010" && target.Position.Valid() {
+		targetUnit := defender.Units[target.Position.Col][target.Position.Row]
+		if targetUnit != nil && targetUnit.Card != nil && targetUnit.Card.IsCompanion() {
+			for col := 0; col < 3; col++ {
+				for row := 0; row < 3; row++ {
+					unit := defender.Units[col][row]
+					if unit != nil && unit.Card != nil && unit.Card.IsCompanion() && unit.Card.Category == targetUnit.Card.Category {
+						units = append(units, unit)
+					}
+				}
+			}
+			return units
+		}
+	}
+
 	switch e.effectiveSpellArea(skill) {
 	case SpellAreaSquare:
 		startCol := min(max(target.Position.Col, 0), 1)
@@ -2683,6 +2698,9 @@ func (e *Engine) handleUseAbility(playerID int, action ActionMessage) error {
 		if card.UltimateUsed {
 			return fmt.Errorf("ultimate already used")
 		}
+		if err := e.validateUltimatePreconditions(card); err != nil {
+			return err
+		}
 	} else {
 		trigger = TriggerPerTurn
 		if !cardHasActivePerTurn(card) {
@@ -2750,6 +2768,24 @@ func (e *Engine) handleUseAbility(playerID int, action ActionMessage) error {
 	})
 
 	e.checkWinCondition()
+	return nil
+}
+
+func (e *Engine) validateUltimatePreconditions(card *CardInstance) error {
+	if card == nil || card.Card == nil {
+		return nil
+	}
+	switch card.Card.Number {
+	case "4311001":
+		if len(e.friendlyHandCards(card.OwnerID, func(candidate *CardInstance) bool {
+			return candidate.Card.Category == model.ElementAir
+		})) < 2 {
+			return fmt.Errorf("Su ultimate requires two air cards in hand")
+		}
+		if len(e.enemyUnits(card.OwnerID, true, nil)) == 0 {
+			return fmt.Errorf("Su ultimate requires an enemy target")
+		}
+	}
 	return nil
 }
 

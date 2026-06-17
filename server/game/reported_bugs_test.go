@@ -1654,17 +1654,23 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		}
 	})
 
-	t.Run("2321011 传送符文 resets a friendly unit with current adapter effect", func(t *testing.T) {
+	t.Run("2321011 传送符文 moves the triggering companion to another same-side position", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
-		target := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
-		target.IsHorizontal = true
-		target.Statuses[StatusCooldown] = 1
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
 		rune := NewCardInstance(baseCard(t, "2321011"), 0, 1)
 
-		engine.triggerEffects(TriggerOnUseItem, rune, nil, nil)
+		engine.triggerEffects(TriggerOnUseItem, rune, target, nil)
 
-		if target.IsHorizontal || target.Statuses[StatusCooldown] != 0 {
-			t.Fatalf("teleport rune should reset selected friendly unit in current adapter, horizontal=%v statuses=%v", target.IsHorizontal, target.Statuses)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "teleport_rune_position" {
+			t.Fatalf("teleport rune should ask for a destination, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{positionSelectionID(Position{Col: 0, Row: 0})},
+		}}); err != nil {
+			t.Fatalf("resolve teleport rune position: %v", err)
+		}
+		if engine.State.Players[1].Units[1][0] != nil || engine.State.Players[1].Units[0][0] != target {
+			t.Fatalf("teleport rune should move the triggering companion on its original side")
 		}
 	})
 
@@ -1934,6 +1940,60 @@ func TestFrenzyRuneCounterTrap(t *testing.T) {
 		}
 		if p0.Equipment[0] != counter || len(p0.Graveyard) != 0 {
 			t.Fatalf("frenzy rune should remain set, equipment=%v grave=%v", p0.Equipment[0], cardsToInfo(p0.Graveyard))
+		}
+	})
+}
+
+func TestDawnRules(t *testing.T) {
+	t.Run("3521010 gains permanent power from friendly light-load companion entering", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		dawn := readySkill(baseCard(t, "3521010"), 0)
+		p0.Skills[0] = dawn
+		lightCompanion := placeUnit(baseCard(t, "1421004"), 0, 1, 1, engine)
+		setElementsGain(lightCompanion, map[string]int{model.ElementLight: 1})
+		nonFriendly := placeUnit(baseCard(t, "1421004"), 1, 1, 1, engine)
+		setElementsGain(nonFriendly, map[string]int{model.ElementLight: 1})
+
+		engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, 0, lightCompanion, map[string]any{"entered_player": 0})
+		engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, 0, nonFriendly, map[string]any{"entered_player": 1})
+
+		if dawn.PowerBonus != 1 {
+			t.Fatalf("Dawn should gain exactly one power from the friendly light-load companion, bonus=%d", dawn.PowerBonus)
+		}
+	})
+
+	t.Run("3521010 can attack only above 8 printed plus permanent plus temporary power", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		dawn := readySkill(baseCard(t, "3521010"), 0)
+		p0.Skills[0] = dawn
+
+		dawn.PowerBonus = 7
+		if err := engine.validateSkillForPurpose(dawn, skillPurposeAttack); err == nil {
+			t.Fatalf("Dawn should not attack at exactly 8 power")
+		}
+		dawn.PowerBonus = 8
+		if err := engine.validateSkillForPurpose(dawn, skillPurposeAttack); err != nil {
+			t.Fatalf("Dawn should attack above 8 power: %v", err)
+		}
+	})
+
+	t.Run("3521010 hits all enemy companions sharing the target element", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		dawn := readySkill(baseCard(t, "3521010"), 0)
+		waterA := placeUnit(baseCard(t, "1221001"), 1, 0, 0, engine)
+		waterB := placeUnit(baseCard(t, "1221002"), 1, 1, 1, engine)
+		fireUnit := placeUnit(baseCard(t, "1121001"), 1, 2, 0, engine)
+		hero := placeUnit(baseCard(t, "4211001"), 1, 1, 0, engine)
+
+		affected := engine.spellAffectedUnits(1, dawn, SpellTarget{Type: "unit", Position: *waterA.Position})
+		ids := map[string]bool{}
+		for _, unit := range affected {
+			ids[unit.InstanceID] = true
+		}
+		if !ids[waterA.InstanceID] || !ids[waterB.InstanceID] || ids[fireUnit.InstanceID] || ids[hero.InstanceID] {
+			t.Fatalf("Dawn should affect only matching-element enemy companions, affected=%v", ids)
 		}
 	})
 }
