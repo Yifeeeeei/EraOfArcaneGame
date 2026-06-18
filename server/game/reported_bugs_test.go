@@ -848,22 +848,49 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 		}
 	})
 
-	t.Run("1611001 观察者 draws one and damages own hero", func(t *testing.T) {
+	t.Run("1611001 观察者 lets player draw any top five then reorder the rest", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		hero := placeUnit(baseCard(t, "4611001"), 0, 1, 1, engine)
 		p0.Hero = hero
 		okoru := placeUnit(baseCard(t, "1611001"), 0, 0, 0, engine)
-		draw := NewCardInstance(baseCard(t, "1021001"), 0, 1)
-		p0.Deck = []*CardInstance{draw}
+		first := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		second := NewCardInstance(baseCard(t, "1021002"), 0, 1)
+		third := NewCardInstance(baseCard(t, "1021003"), 0, 1)
+		fourth := NewCardInstance(baseCard(t, "1021004"), 0, 1)
+		fifth := NewCardInstance(baseCard(t, "1021005"), 0, 1)
+		sixth := NewCardInstance(baseCard(t, "1021006"), 0, 1)
+		p0.Deck = []*CardInstance{first, second, third, fourth, fifth, sixth}
 
 		engine.triggerEffects(TriggerOnEnter, okoru, nil, nil)
 
-		if len(p0.Hand) != 1 || p0.Hand[0].InstanceID != draw.InstanceID {
-			t.Fatalf("observer should draw one, hand=%+v", cardsToInfo(p0.Hand))
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "okoru_observe" {
+			t.Fatalf("observer should ask how to handle top five cards, pending=%+v", engine.State.PendingAction)
 		}
-		if hero.CurrentLife != hero.Card.Life-1 {
-			t.Fatalf("observer should damage own hero by 1, life=%d", hero.CurrentLife)
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected":     []any{second.InstanceID, fourth.InstanceID},
+			"top_order":    []any{fifth.InstanceID, first.InstanceID},
+			"bottom_order": []any{third.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve observer pending action: %v", err)
+		}
+		if len(p0.Hand) != 2 || p0.Hand[0].InstanceID != second.InstanceID || p0.Hand[1].InstanceID != fourth.InstanceID {
+			t.Fatalf("observer should draw selected cards in looked order, hand=%+v", cardsToInfo(p0.Hand))
+		}
+		if p0.DrawCountThisTurn != 2 {
+			t.Fatalf("observer drawn cards should count as draws, count=%d", p0.DrawCountThisTurn)
+		}
+		wantDeck := []string{fifth.InstanceID, first.InstanceID, sixth.InstanceID, third.InstanceID}
+		if len(p0.Deck) != len(wantDeck) {
+			t.Fatalf("observer should keep rest of deck plus reordered cards, deck=%+v", cardsToInfo(p0.Deck))
+		}
+		for i, want := range wantDeck {
+			if p0.Deck[i].InstanceID != want {
+				t.Fatalf("observer deck order mismatch at %d: got %s want %s deck=%+v", i, p0.Deck[i].InstanceID, want, cardsToInfo(p0.Deck))
+			}
+		}
+		if hero.CurrentLife != hero.Card.Life-2 {
+			t.Fatalf("observer should damage own hero by drawn count, life=%d", hero.CurrentLife)
 		}
 	})
 

@@ -200,7 +200,7 @@
                         <div v-if="pendingCandidateDetail(candidate)" class="pending-card-detail">
                             {{ pendingCandidateDetail(candidate) }}
                         </div>
-                        <div v-if="isWaterDivinationPending()" class="pending-card-tools">
+                        <div v-if="isDeckReorderPending()" class="pending-card-tools">
                             <button class="mini-btn" @click.stop="movePendingCandidate(candidate.instance_id, -1)">上移</button>
                             <button class="mini-btn" @click.stop="movePendingCandidate(candidate.instance_id, 1)">下移</button>
                             <button class="mini-btn" @click.stop="togglePendingBottom(candidate.instance_id)">
@@ -2468,12 +2468,12 @@
                 else pendingOverexertSelected.value.push(unit.instance_id);
             }
 
-            function isWaterDivinationPending() {
-                return pendingAction.value?.type === 'water_divination_search';
+            function isDeckReorderPending() {
+                return ['water_divination_search', 'okoru_observe'].includes(pendingAction.value?.type);
             }
 
             function ensurePendingDeckOrder() {
-                if (!isWaterDivinationPending()) return;
+                if (!isDeckReorderPending()) return;
                 const ids = (pendingAction.value?.candidates || []).map(candidate => candidate.instance_id);
                 const key = `${pendingAction.value?.type || ''}:${ids.join('|')}`;
                 if (pendingDeckKey.value === key) return;
@@ -2511,7 +2511,7 @@
             }
 
             function pendingOrderedCandidates() {
-                if (!isWaterDivinationPending()) return pendingAction.value?.candidates || [];
+                if (!isDeckReorderPending()) return pendingAction.value?.candidates || [];
                 ensurePendingDeckOrder();
                 const ordered = pendingDeckOrder.value
                     .map(id => pendingCandidateByID(id))
@@ -2589,7 +2589,7 @@
                     return;
                 }
                 const payload = { selected: [...pendingSelected.value] };
-                if (isWaterDivinationPending()) {
+                if (isDeckReorderPending()) {
                     payload.top_order = pendingTopOrder();
                     payload.bottom_order = pendingBottomOrder();
                 }
@@ -3045,7 +3045,7 @@
                             togglePendingSelect(candidate);
                             repaint();
                         });
-                        if (isWaterDivinationPending()) {
+                        if (isDeckReorderPending()) {
                             const tools = document.createElement('div');
                             tools.className = 'pending-emergency-tools';
                             const addTool = (label, handler) => {
@@ -3230,7 +3230,7 @@
                 // Pending action
                 pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction, pendingCandidateDetail,
                 isCounterPending, pendingOverexertUnits, pendingOverexertSelected, togglePendingOverexert,
-                isWaterDivinationPending, pendingOrderedCandidates, movePendingCandidate, togglePendingBottom, isPendingBottom,
+                isDeckReorderPending, pendingOrderedCandidates, movePendingCandidate, togglePendingBottom, isPendingBottom,
                 zoneLabel,
                 openPileView, closePileView,
                 // Abilities
