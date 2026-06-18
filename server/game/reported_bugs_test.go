@@ -26,6 +26,47 @@ func setupReportedBugEngine(t *testing.T) *Engine {
 	return engine
 }
 
+func TestArchmageStaffStoresSkillAndRemovesAfterUse(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	staff := NewCardInstance(baseCard(t, "2011001"), 0, 1)
+	stored := readySkill(baseCard(t, "3121002"), 0)
+	p0.Equipment[0] = staff
+	p0.SkillPool = []*CardInstance{stored}
+	for _, elem := range model.AllElements {
+		p0.Elements[elem] = 10
+	}
+	target := placeUnit(baseCard(t, "1221001"), 1, 0, 0, engine)
+
+	engine.triggerEffects(TriggerOnEnter, staff, nil, nil)
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "archmage_staff_store_skill" {
+		t.Fatalf("archmage staff should ask which skill to store, pending=%+v", engine.State.PendingAction)
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+		"selected": []any{stored.InstanceID},
+	}}); err != nil {
+		t.Fatalf("resolve archmage staff store: %v", err)
+	}
+	if len(p0.SkillPool) != 0 || len(staff.BoundSkills) != 1 || staff.BoundSkills[0] != stored {
+		t.Fatalf("archmage staff should move selected skill out of pool onto staff, pool=%v bound=%v", cardsToInfo(p0.SkillPool), cardsToInfo(staff.BoundSkills))
+	}
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": stored.InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(target.Position.Col),
+		"target_row":  float64(target.Position.Row),
+	}}); err != nil {
+		t.Fatalf("cast stored staff skill: %v", err)
+	}
+	if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+		t.Fatalf("resolve stored staff skill hit: %v", err)
+	}
+	if len(staff.BoundSkills) != 0 {
+		t.Fatalf("stored staff skill should be removed after use, bound=%v", cardsToInfo(staff.BoundSkills))
+	}
+}
+
 func TestPrayerAbilitiesTriggerFromTurnStartTiming(t *testing.T) {
 	t.Run("1211001 mermaid phil is prayer timing, not an active per-turn button", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)

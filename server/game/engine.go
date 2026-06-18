@@ -1001,6 +1001,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	if isSorcery {
 		resolveSorcery := func() {
 			e.resolveSpellHit(playerID, skill, target, boostSkills, extraTargets)
+			e.removeStoredArchmageStaffSkillAfterUse(playerID, skill)
 		}
 		if e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, spellCastData, resolveSorcery) {
 			return nil
@@ -1204,6 +1205,7 @@ func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInst
 			Player: -1,
 			Data:   map[string]any{"defender": playerID},
 		})
+		e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
 	} else {
 		// Defense failed, spell hits
 		if e.resolveSpellHit(
@@ -1215,6 +1217,7 @@ func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInst
 		) {
 			return
 		}
+		e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
 	}
 
 	e.State.PendingSpell = nil
@@ -1382,6 +1385,7 @@ func (e *Engine) handleNoDefend(playerID int, action ActionMessage) error {
 		return nil
 	}
 
+	e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
 	e.State.PendingSpell = nil
 	if e.State.PendingAction == nil {
 		e.State.Phase = PhaseMain
@@ -1404,6 +1408,7 @@ func (e *Engine) cancelPendingSpell(playerID int, source *CardInstance, reason s
 			"reason": reason,
 		},
 	})
+	e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
 	e.State.PendingSpell = nil
 	if e.State.PendingAction == nil {
 		e.State.Phase = PhaseMain
@@ -1544,6 +1549,7 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 		afterCounterWindow := func() {
 			finishHit()
 			if e.State.PendingSpell != nil && e.State.PendingSpell.Skill == skill {
+				e.removeStoredArchmageStaffSkillAfterUse(attackerID, skill)
 				e.State.PendingSpell = nil
 				if e.State.PendingAction == nil {
 					e.State.Phase = PhaseMain
