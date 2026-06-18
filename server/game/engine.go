@@ -567,6 +567,10 @@ func (e *Engine) resetCards(ps *PlayerState) {
 		if ps.Equipment[i] != nil {
 			e.resetCard(ps.Equipment[i])
 			ps.Equipment[i].UsedThisTurn = 0
+			for _, skill := range ps.Equipment[i].BoundSkills {
+				e.resetCard(skill)
+				skill.UsedThisTurn = 0
+			}
 		}
 	}
 }
@@ -997,6 +1001,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	if isSorcery {
 		resolveSorcery := func() {
 			e.resolveSpellHit(playerID, skill, target, boostSkills, extraTargets)
+			e.removeStoredArchmageStaffSkillAfterUse(playerID, skill)
 		}
 		if e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, spellCastData, resolveSorcery) {
 			return nil
@@ -1200,6 +1205,7 @@ func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInst
 			Player: -1,
 			Data:   map[string]any{"defender": playerID},
 		})
+		e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
 	} else {
 		// Defense failed, spell hits
 		if e.resolveSpellHit(
@@ -1211,6 +1217,7 @@ func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInst
 		) {
 			return
 		}
+		e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
 	}
 
 	e.State.PendingSpell = nil
@@ -1378,6 +1385,7 @@ func (e *Engine) handleNoDefend(playerID int, action ActionMessage) error {
 		return nil
 	}
 
+	e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
 	e.State.PendingSpell = nil
 	if e.State.PendingAction == nil {
 		e.State.Phase = PhaseMain
@@ -1400,6 +1408,7 @@ func (e *Engine) cancelPendingSpell(playerID int, source *CardInstance, reason s
 			"reason": reason,
 		},
 	})
+	e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
 	e.State.PendingSpell = nil
 	if e.State.PendingAction == nil {
 		e.State.Phase = PhaseMain
@@ -1468,6 +1477,7 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 		dmg = max(override, 0)
 	}
 	dmg = e.effectiveSpellDamage(attackerID, skill, dmg, boostSkills)
+	e.consumeNextElementSpellDamageBonus(e.State.Players[attackerID], skill)
 
 	{
 		totalPower := e.effectiveSpellPower(attackerID, skill, boostSkills, target)
@@ -1539,6 +1549,7 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 		afterCounterWindow := func() {
 			finishHit()
 			if e.State.PendingSpell != nil && e.State.PendingSpell.Skill == skill {
+				e.removeStoredArchmageStaffSkillAfterUse(attackerID, skill)
 				e.State.PendingSpell = nil
 				if e.State.PendingAction == nil {
 					e.State.Phase = PhaseMain
@@ -1698,6 +1709,21 @@ func (e *Engine) spellAffectedUnits(defenderID int, skill *CardInstance, target 
 	}
 	defender := e.State.Players[defenderID]
 	units := make([]*CardInstance, 0, 9)
+
+	if skill != nil && skill.Card != nil && skill.Card.Number == "3521010" && target.Position.Valid() {
+		targetUnit := defender.Units[target.Position.Col][target.Position.Row]
+		if targetUnit != nil && targetUnit.Card != nil && targetUnit.Card.IsCompanion() {
+			for col := 0; col < 3; col++ {
+				for row := 0; row < 3; row++ {
+					unit := defender.Units[col][row]
+					if unit != nil && unit.Card != nil && unit.Card.IsCompanion() && unit.Card.Category == targetUnit.Card.Category {
+						units = append(units, unit)
+					}
+				}
+			}
+			return units
+		}
+	}
 
 	switch e.effectiveSpellArea(skill) {
 	case SpellAreaSquare:
@@ -2056,6 +2082,10 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 		return
 	}
 	if target.Statuses["防止致命"] > 0 && target.CurrentLife-amount <= 0 {
+		target.Statuses["防止致命"]--
+		if target.Statuses["防止致命"] <= 0 {
+			delete(target.Statuses, "防止致命")
+		}
 		e.emit(GameEvent{
 			Type:   "damage_prevented",
 			Player: -1,
@@ -2679,6 +2709,9 @@ func (e *Engine) handleUseAbility(playerID int, action ActionMessage) error {
 		if card.UltimateUsed {
 			return fmt.Errorf("ultimate already used")
 		}
+		if err := e.validateUltimatePreconditions(card); err != nil {
+			return err
+		}
 	} else {
 		trigger = TriggerPerTurn
 		if !cardHasActivePerTurn(card) {
@@ -2746,6 +2779,24 @@ func (e *Engine) handleUseAbility(playerID int, action ActionMessage) error {
 	})
 
 	e.checkWinCondition()
+	return nil
+}
+
+func (e *Engine) validateUltimatePreconditions(card *CardInstance) error {
+	if card == nil || card.Card == nil {
+		return nil
+	}
+	switch card.Card.Number {
+	case "4311001":
+		if len(e.friendlyHandCards(card.OwnerID, func(candidate *CardInstance) bool {
+			return candidate.Card.Category == model.ElementAir
+		})) < 2 {
+			return fmt.Errorf("Su ultimate requires two air cards in hand")
+		}
+		if len(e.enemyUnits(card.OwnerID, true, nil)) == 0 {
+			return fmt.Errorf("Su ultimate requires an enemy target")
+		}
+	}
 	return nil
 }
 

@@ -191,6 +191,12 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 						continue
 					}
 					hero.IsHorizontal = false
+					if card.Number == "4311001" && trigger.typ == TriggerUltimate {
+						ps.Hand = append(ps.Hand,
+							NewCardInstance(cards.PlayableCardDB["3321005"], 0, engine.State.TurnNumber),
+							NewCardInstance(cards.PlayableCardDB["3321006"], 0, engine.State.TurnNumber),
+						)
+					}
 					if err := engine.HandleAction(0, ActionMessage{
 						Action: "use_ability",
 						Data: map[string]any{
@@ -243,6 +249,9 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 				}
 				if canUseSkillForPurpose(card, skillPurposeAttack) {
 					ps.Skills[0].IsHorizontal = false
+					if card.Number == "3521010" {
+						ps.Skills[0].PowerBonus = 8
+					}
 					setAllElements(ps, 99)
 					err := engine.HandleAction(0, ActionMessage{
 						Action: "cast_spell",

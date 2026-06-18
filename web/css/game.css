@@ -1213,6 +1213,41 @@ body::before {
     background: rgba(39,30,20,0.82);
 }
 
+.bound-skill-bar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.bound-skill-action {
+    min-height: 34px;
+    border: 1px solid rgba(198,174,116,0.28);
+    background: rgba(8,6,5,0.62);
+    color: var(--gold-bright);
+    font: inherit;
+    font-size: 12px;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+
+.bound-skill-action.castable {
+    border-color: rgba(211,180,106,0.64);
+    background: rgba(43,33,20,0.82);
+}
+
+.bound-skill-action.horizontal,
+.bound-skill-action:disabled {
+    opacity: 0.48;
+    cursor: not-allowed;
+}
+
+.bound-skill-action small {
+    display: block;
+    margin-top: 2px;
+    color: var(--text-muted);
+    font-size: 10px;
+}
+
 .element-chip {
     display: inline-flex;
     align-items: center;

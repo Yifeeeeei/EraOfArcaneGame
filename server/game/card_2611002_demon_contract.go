@@ -9,13 +9,11 @@ func (Card2611002DemonContract) Name() string { return "与恶魔的契约书" }
 
 func (Card2611002DemonContract) OnUseItem(ctx *EffectContext) error {
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
-	sacrifices := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
-		return card.Card.IsCompanion()
-	})
+	sacrifices := ctx.Engine.friendlyUnits(ctx.PlayerID, true, nil)
 	if len(sacrifices) == 0 {
 		return nil
 	}
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "demon_contract_sacrifice", "选择1个友方伙伴作为献祭对象", sacrifices, 1, 1,
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "demon_contract_sacrifice", "选择1个友方单位作为献祭对象", sacrifices, 1, 1,
 		func(selected []string) {
 			if len(selected) == 0 {
 				return

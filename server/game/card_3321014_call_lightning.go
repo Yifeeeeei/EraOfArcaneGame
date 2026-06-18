@@ -10,7 +10,9 @@ func (Card3321014CallLightning) OnSpellCast(ctx *EffectContext) error {
 		return nil
 	}
 	hand := ctx.Engine.friendlyHandCards(ctx.PlayerID, nil)
-	targets := ctx.Engine.enemyUnits(ctx.PlayerID, false, nil)
+	targets := ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
+		return card != nil && card.Position.Valid() && ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
+	})
 	if len(hand) == 0 || len(targets) == 0 {
 		return nil
 	}

@@ -18,6 +18,9 @@ func (Card4511001Maris) OnDamaged(ctx *EffectContext) error {
 	if attacker, ok := ctx.ExtraData["attacker"].(int); ok && attacker == ctx.PlayerID {
 		return nil
 	}
+	if ctx.Source.UltimateUsed {
+		return nil
+	}
 	choice := cardToInfo(ctx.Source)
 	choice["name"] = "使用玛丽斯: 获得2光辉元素"
 	choice["zone"] = "choice"
@@ -28,6 +31,10 @@ func (Card4511001Maris) OnDamaged(ctx *EffectContext) error {
 			if len(selected) == 0 {
 				return
 			}
+			if ctx.Source.UltimateUsed {
+				return
+			}
+			ctx.Source.UltimateUsed = true
 			ctx.Engine.State.Players[ctx.PlayerID].Elements[model.ElementLight] += 2
 			ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 				"source": cardToInfo(ctx.Source),

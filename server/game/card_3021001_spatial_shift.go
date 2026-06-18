@@ -41,6 +41,10 @@ func (Card3021001SpatialShift) OnSpellCast(ctx *EffectContext) error {
 }
 
 func (e *Engine) moveFriendlyUnitToPosition(playerID int, instanceID string, pos Position) bool {
+	return e.moveUnitToPosition(playerID, instanceID, pos)
+}
+
+func (e *Engine) moveUnitToPosition(playerID int, instanceID string, pos Position) bool {
 	if !pos.Valid() {
 		return false
 	}

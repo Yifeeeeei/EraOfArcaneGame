@@ -28,8 +28,19 @@ func positionFromSelectionID(id string) (Position, bool) {
 }
 
 func (e *Engine) friendlyEmptyUnitPositions(playerID int) []map[string]any {
-	ps := e.State.Players[playerID]
+	return e.emptyUnitPositionsForPlayer(playerID, playerID)
+}
+
+func (e *Engine) emptyUnitPositionsForPlayer(boardPlayerID int, viewerID int) []map[string]any {
+	if boardPlayerID < 0 || boardPlayerID >= len(e.State.Players) {
+		return nil
+	}
+	ps := e.State.Players[boardPlayerID]
 	candidates := make([]map[string]any, 0, 9)
+	side := "own"
+	if boardPlayerID != viewerID {
+		side = "enemy"
+	}
 	for col := 0; col < 3; col++ {
 		for row := 0; row < 3; row++ {
 			if ps.Units[col][row] != nil {
@@ -40,7 +51,7 @@ func (e *Engine) friendlyEmptyUnitPositions(playerID int) []map[string]any {
 				"instance_id": positionSelectionID(pos),
 				"name":        fmt.Sprintf("位置 (%d,%d)", col, row),
 				"zone":        "unit_position",
-				"side":        "own",
+				"side":        side,
 				"position":    pos,
 			})
 		}

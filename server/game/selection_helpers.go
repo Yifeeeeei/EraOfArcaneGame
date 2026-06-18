@@ -6,6 +6,13 @@ import (
 	"eraofarcane/model"
 )
 
+func firstSelected(selected []string) string {
+	if len(selected) == 0 {
+		return ""
+	}
+	return selected[0]
+}
+
 func candidateInfo(card *CardInstance, zone string, side string) map[string]any {
 	info := cardToInfo(card)
 	info["zone"] = zone
@@ -112,6 +119,26 @@ func (e *Engine) friendlySkills(playerID int, predicate func(*CardInstance) bool
 			continue
 		}
 		candidates = append(candidates, candidateInfo(skill, "skill", "own"))
+	}
+	return candidates
+}
+
+func (e *Engine) friendlySkillsIncludingBound(playerID int, predicate func(*CardInstance) bool) []map[string]any {
+	ps := e.State.Players[playerID]
+	candidates := e.friendlySkills(playerID, predicate)
+	for _, card := range e.getAllFieldCards(ps) {
+		if card == nil {
+			continue
+		}
+		for _, skill := range card.BoundSkills {
+			if skill == nil {
+				continue
+			}
+			if predicate != nil && !predicate(skill) {
+				continue
+			}
+			candidates = append(candidates, candidateInfo(skill, "bound_skill", "own"))
+		}
 	}
 	return candidates
 }

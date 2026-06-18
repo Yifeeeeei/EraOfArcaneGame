@@ -15,6 +15,7 @@ const (
 	TempModNextNoCooldown               = "next_skill_no_cooldown"
 	TempModNextSpellHitStatus           = "next_spell_hit_status"
 	TempModNextElementSpellPowerBonus   = "next_element_spell_power_bonus"
+	TempModNextElementSpellDamageBonus  = "next_element_spell_damage_bonus"
 	TempModDelayedElementGain           = "delayed_element_gain"
 	TempModResetSkillsOnOpponentTurnEnd = "reset_skills_on_opponent_turn_end"
 	TempModNextEarthSkillLearnCostMinus = "next_earth_skill_learn_cost_minus"
@@ -177,12 +178,54 @@ func (e *Engine) consumeNextElementSpellPowerBonus(ps *PlayerState, skill *CardI
 	}
 }
 
+func (e *Engine) temporarySpellDamageBonus(playerID int, skill *CardInstance) int {
+	total := 0
+	for _, modifier := range e.State.Players[playerID].TempModifiers {
+		if modifier.Type != TempModNextElementSpellDamageBonus {
+			continue
+		}
+		if modifier.RemainingUses == 0 || modifier.Status != skill.Card.Category {
+			continue
+		}
+		total += modifier.Amount
+	}
+	return total
+}
+
+func (e *Engine) consumeNextElementSpellDamageBonus(ps *PlayerState, skill *CardInstance) {
+	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
+		if modifier.Type != TempModNextElementSpellDamageBonus {
+			continue
+		}
+		if modifier.RemainingUses == 0 || modifier.Status != skill.Card.Category {
+			continue
+		}
+		modifier.RemainingUses--
+		if modifier.RemainingUses <= 0 {
+			e.removeTemporaryModifier(ps.PlayerID, modifier.ID)
+		}
+	}
+}
+
 func (e *Engine) addNextElementSpellPowerBonus(playerID int, elem string, amount int) {
 	if amount <= 0 {
 		return
 	}
 	e.addTemporaryModifier(playerID, TemporaryModifier{
 		Type:          TempModNextElementSpellPowerBonus,
+		Status:        elem,
+		Amount:        amount,
+		RemainingUses: 1,
+		ExpiresTurn:   e.State.TurnNumber + 2,
+	})
+}
+
+func (e *Engine) addNextElementSpellDamageBonus(playerID int, elem string, amount int) {
+	if amount <= 0 {
+		return
+	}
+	e.addTemporaryModifier(playerID, TemporaryModifier{
+		Type:          TempModNextElementSpellDamageBonus,
 		Status:        elem,
 		Amount:        amount,
 		RemainingUses: 1,

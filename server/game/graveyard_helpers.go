@@ -66,6 +66,27 @@ func (e *Engine) removeEquipmentFromGame(playerID int, instanceID string) bool {
 	return false
 }
 
+func (e *Engine) removeStoredArchmageStaffSkillAfterUse(playerID int, skill *CardInstance) bool {
+	if skill == nil || skill.Statuses[archmageStaffStoredSkillStatus] <= 0 {
+		return false
+	}
+	ps := e.State.Players[playerID]
+	for _, host := range e.getAllFieldCards(ps) {
+		if host == nil {
+			continue
+		}
+		for i, bound := range host.BoundSkills {
+			if bound == nil || bound.InstanceID != skill.InstanceID {
+				continue
+			}
+			host.BoundSkills = append(host.BoundSkills[:i], host.BoundSkills[i+1:]...)
+			e.emit(GameEvent{Type: "card_removed_from_game", Player: playerID, Data: map[string]any{"card": cardToInfo(skill)}})
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Engine) nonHeroFieldCardCandidates(playerID int) []map[string]any {
 	candidates := make([]map[string]any, 0)
 	for ownerID, ps := range e.State.Players {

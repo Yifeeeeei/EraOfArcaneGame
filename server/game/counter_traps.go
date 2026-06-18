@@ -104,6 +104,10 @@ func (e *Engine) promptCounterTrapIfEligible(counter *CardInstance, trigger Effe
 				return err
 			}
 			e.executeCounterTrap(counter, trigger, eventSource, extraData)
+			if e.State.PendingAction != nil && e.State.PendingAction.Type != "counter_trigger" {
+				e.wrapPendingActionContinuation(afterResolve)
+				return nil
+			}
 			if afterResolve != nil {
 				afterResolve()
 			}
@@ -197,7 +201,7 @@ func (e *Engine) counterTrapConditionMet(counter *CardInstance, trigger EffectTr
 
 	switch counter.Card.Number {
 	case "2021018":
-		return trigger == TriggerOnSpellCast && sourceOwner != ownerID
+		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && len(e.friendlySkillsIncludingBound(ownerID, nil)) > 0
 	case "2021022":
 		return trigger == TriggerOnUseItem && sourceOwner != ownerID && eventSource != nil && counterRuneCanCancel(eventSource.Card.Number)
 	case "2121002":
@@ -209,7 +213,8 @@ func (e *Engine) counterTrapConditionMet(counter *CardInstance, trigger EffectTr
 	case "2221005":
 		return trigger == TriggerOnTurnEnd && sourceOwner != ownerID
 	case "2221010":
-		return trigger == TriggerOnDraw && sourceOwner != ownerID && drawCountFromData(extraData) >= 3
+		return trigger == TriggerOnDraw && sourceOwner != ownerID && drawCountFromData(extraData) >= 3 &&
+			len(e.friendlyUnits(ownerID, false, isWaterCompanion)) > 0
 	case "2221011":
 		return trigger == TriggerOnDamaged && sourceOwner == ownerID
 	case "2321002":
@@ -217,7 +222,8 @@ func (e *Engine) counterTrapConditionMet(counter *CardInstance, trigger EffectTr
 	case "2321010":
 		return trigger == TriggerOnSpellCast && sourceOwner != ownerID
 	case "2321011":
-		return eventSource != nil && eventSource.Card.IsCompanion()
+		return eventSource != nil && eventSource.Card.IsCompanion() && eventSource.Position != nil &&
+			len(e.emptyUnitPositionsForPlayer(eventSource.OwnerID, ownerID)) > 0
 	case "2521002":
 		return trigger == TriggerOnSpellHitBeforeDamage && sourceOwner != ownerID && spellPowerFromData(extraData) < 10
 	case "2521004":

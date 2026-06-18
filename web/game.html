@@ -200,7 +200,7 @@
                         <div v-if="pendingCandidateDetail(candidate)" class="pending-card-detail">
                             {{ pendingCandidateDetail(candidate) }}
                         </div>
-                        <div v-if="isWaterDivinationPending()" class="pending-card-tools">
+                        <div v-if="isDeckReorderPending()" class="pending-card-tools">
                             <button class="mini-btn" @click.stop="movePendingCandidate(candidate.instance_id, -1)">上移</button>
                             <button class="mini-btn" @click.stop="movePendingCandidate(candidate.instance_id, 1)">下移</button>
                             <button class="mini-btn" @click.stop="togglePendingBottom(candidate.instance_id)">
@@ -713,7 +713,7 @@
                                     <img :src="getCardImage(getMyUnit(col, row))" class="unit-img"
                                          :class="{horizontal: getMyUnit(col, row).is_horizontal, 'inside-terrain': getMyTerrain(col, row)}"
                                          @mouseenter.stop="previewCard(getMyUnit(col, row))"
-                                         @click.stop="showCardDetail(getMyUnit(col, row))">
+                                         @click.stop="handleUnitImageClick(mySlot, col, row, getMyUnit(col, row))">
                                     <div class="unit-overlay">
                                         <span class="unit-hp">{{ getMyUnit(col, row).current_life }}</span>
                                         <span v-if="getMyUnit(col, row).current_attack > 0" class="unit-atk">{{ getMyUnit(col, row).current_attack }}</span>
@@ -795,6 +795,20 @@
                                             </template>
                                         </div>
                                     </div>
+                                </div>
+                            </div>
+                            <div class="slot-lane" v-if="allMyBoundSkills.length">
+                                <span class="slot-label">绑定</span>
+                                <div class="bound-skill-bar">
+                                    <button v-for="skill in allMyBoundSkills" :key="skill.instance_id"
+                                            class="bound-skill-action"
+                                            :class="{castable: canCastSkill(skill), horizontal: skill.is_horizontal}"
+                                            :disabled="!canCastSkill(skill)"
+                                            @mouseenter="previewCard(skill)"
+                                            @click.stop="selectSkillToCast(skill)">
+                                        <span>{{ skill.name }}</span>
+                                        <small v-if="canShowCostHint(skill)">{{ missingCostText(skillUseCost(skill)) }}</small>
+                                    </button>
                                 </div>
                             </div>
                             <div class="pile-controls">
@@ -1053,15 +1067,21 @@
             });
             const mySkills = computed(() => myState.value.skills || [null,null,null,null,null]);
             const myEquipment = computed(() => myState.value.equipment || [null,null,null,null,null]);
-            const allMySkills = computed(() => {
-                const skills = [...mySkills.value.filter(Boolean)];
+            const allMyBoundSkills = computed(() => {
+                const skills = [];
                 for (const unit of allMyFieldCards()) {
                     for (const bound of unit.bound_skills || []) {
                         skills.push(bound);
                     }
                 }
+                for (const equipment of myEquipment.value.filter(Boolean)) {
+                    for (const bound of equipment.bound_skills || []) {
+                        skills.push(bound);
+                    }
+                }
                 return skills;
             });
+            const allMySkills = computed(() => [...mySkills.value.filter(Boolean), ...allMyBoundSkills.value]);
             const replaceableSkills = computed(() => mySkills.value.filter(skill => skill && !skill.is_horizontal));
             const replaceableEquipment = computed(() => myEquipment.value.filter(equipment => equipment && !equipment.is_horizontal));
             const isMyTurn = computed(() => gameState.value && gameState.value.current_turn === mySlot.value);
@@ -1750,9 +1770,9 @@
                     if (!getMyUnit(col, row)) { summonCard(selectedHandCard.value, col, row); return; }
                 }
                 if (ownerSlot === mySlot.value && selectedSkill.value && isFriendlySpellTarget(col, row)) { castSpellAt(col, row); return; }
-                if (ownerSlot !== mySlot.value && selectedAttacker.value) { attackTarget(col, row); return; }
-                if (ownerSlot !== mySlot.value && selectedItemSpellScroll.value) { useSpellScrollAt(col, row); return; }
-                if (ownerSlot !== mySlot.value && selectedSkill.value) { castSpellAt(col, row); return; }
+                if (ownerSlot !== mySlot.value && selectedAttacker.value && isValidOpponentTarget(col, row)) { attackTarget(col, row); return; }
+                if (ownerSlot !== mySlot.value && selectedItemSpellScroll.value && isValidOpponentTarget(col, row)) { useSpellScrollAt(col, row); return; }
+                if (ownerSlot !== mySlot.value && selectedSkill.value && isValidOpponentTarget(col, row)) { castSpellAt(col, row); return; }
             }
 
             function handleUnitImageClick(ownerSlot, col, row, unit) {
@@ -1939,11 +1959,17 @@
             }
             const hasActiveTargeting = computed(() => !!selectedAttacker.value || !!selectedSkill.value || !!selectedItemSpellScroll.value);
             function isValidOpponentTarget(col, row) {
-                if (!getOpponentUnit(col, row)) return false;
-                if (selectedAttacker.value) return row === opponentFrontRow.value;
-                if (!selectedSkill.value) return false;
-                if (pendingExtraTargetCast.value && selectedSkill.value.number === '3321001') return true;
-                return selectedSkillHasPierce() || row === opponentFrontRow.value;
+                const unit = getOpponentUnit(col, row);
+                if (selectedAttacker.value) return !!unit && row === opponentFrontRow.value;
+                const spell = activeTargetSpell();
+                if (!spell) return false;
+                if (pendingExtraTargetCast.value && selectedSkill.value?.number === '3321001') return !!unit;
+                const inRange = activeTargetSpellHasPierce() || row === opponentFrontRow.value;
+                if (unit) return inRange;
+                if ((spell.spell_area || 'single') === 'column' && inRange) {
+                    return opponentColumnHasUnit(col);
+                }
+                return false;
             }
             function isSpellTarget(col, row) {
                 return !!selectedSkill.value && isValidOpponentTarget(col, row);
@@ -1977,6 +2003,25 @@
             }
             function isFriendlySpellTarget(col, row) {
                 return !!selectedSkill.value && !!selectedSkill.value.allows_friendly_target && !!getMyUnit(col, row);
+            }
+            function activeTargetSpell() {
+                return selectedSkill.value || selectedItemSpellScroll.value || null;
+            }
+            function activeTargetSpellHasPierce() {
+                const spell = activeTargetSpell();
+                if (!spell) return false;
+                if (spell.has_pierce) return true;
+                if (!selectedSkill.value) return false;
+                return selectedBoostSkills.value.some(id => {
+                    const boost = allMySkills.value.find(skill => skill && skill.instance_id === id);
+                    return boost?.number === '3121015';
+                });
+            }
+            function opponentColumnHasUnit(col) {
+                for (let row = 0; row < 3; row++) {
+                    if (getOpponentUnit(col, row)) return true;
+                }
+                return false;
             }
             function attackTarget(col, row) {
                 if (!selectedAttacker.value) return;
@@ -2028,12 +2073,7 @@
                 return true;
             }
             function selectedSkillHasPierce() {
-                if (!selectedSkill.value) return false;
-                if (selectedSkill.value.has_pierce) return true;
-                return selectedBoostSkills.value.some(id => {
-                    const boost = allMySkills.value.find(skill => skill && skill.instance_id === id);
-                    return boost?.number === '3121015';
-                });
+                return activeTargetSpellHasPierce();
             }
             function toggleBoostSkill(skill) {
                 const idx = selectedBoostSkills.value.indexOf(skill.instance_id);
@@ -2428,12 +2468,12 @@
                 else pendingOverexertSelected.value.push(unit.instance_id);
             }
 
-            function isWaterDivinationPending() {
-                return pendingAction.value?.type === 'water_divination_search';
+            function isDeckReorderPending() {
+                return ['water_divination_search', 'okoru_observe'].includes(pendingAction.value?.type);
             }
 
             function ensurePendingDeckOrder() {
-                if (!isWaterDivinationPending()) return;
+                if (!isDeckReorderPending()) return;
                 const ids = (pendingAction.value?.candidates || []).map(candidate => candidate.instance_id);
                 const key = `${pendingAction.value?.type || ''}:${ids.join('|')}`;
                 if (pendingDeckKey.value === key) return;
@@ -2471,7 +2511,7 @@
             }
 
             function pendingOrderedCandidates() {
-                if (!isWaterDivinationPending()) return pendingAction.value?.candidates || [];
+                if (!isDeckReorderPending()) return pendingAction.value?.candidates || [];
                 ensurePendingDeckOrder();
                 const ordered = pendingDeckOrder.value
                     .map(id => pendingCandidateByID(id))
@@ -2549,16 +2589,39 @@
                     return;
                 }
                 const payload = { selected: [...pendingSelected.value] };
-                if (isWaterDivinationPending()) {
+                if (isDeckReorderPending()) {
                     payload.top_order = pendingTopOrder();
                     payload.bottom_order = pendingBottomOrder();
                 }
                 if (pendingCanOverexert()) {
                     payload.overexert_ids = [...pendingOverexertSelected.value];
                 }
+                if (pendingRequiresPaymentChoice()) {
+                    const cost = pendingAction.value?.cost || {};
+                    const payment = calculatePayment(cost);
+                    if (!payment) {
+                        addLog('元素不足');
+                        return;
+                    }
+                    if (needsPaymentChoice(cost)) {
+                        paymentSelection.value = {};
+                        paymentRequest.value = {
+                            action: 'resolve_action',
+                            data: payload,
+                            cost: { ...cost },
+                            title: pendingAction.value?.prompt || '支付费用',
+                            afterSend: resetPendingSelectionState,
+                        };
+                        return;
+                    }
+                }
                 sendAction('resolve_action', payload);
                 resetPendingSelectionState();
                 addLog('确认选择');
+            }
+
+            function pendingRequiresPaymentChoice() {
+                return !!pendingAction.value?.cost && totalCost(pendingAction.value.cost) > 0 && !pendingCanOverexert();
             }
 
             function zoneLabel(zone) {
@@ -3005,7 +3068,7 @@
                             togglePendingSelect(candidate);
                             repaint();
                         });
-                        if (isWaterDivinationPending()) {
+                        if (isDeckReorderPending()) {
                             const tools = document.createElement('div');
                             tools.className = 'pending-emergency-tools';
                             const addTool = (label, handler) => {
@@ -3159,7 +3222,7 @@
                 gameState, mySlot, roomID, mulliganSubmitted, detailCard, hoverCard, activePreviewCard,
                 selectedHandCard, selectedAttacker, selectedSkill, selectedItemSpellScroll, selectedBoostSkills, pileView, actionLog,
                 isTestRoom, testCardNumber, testElement, testElementAmount, ELEMENT_ORDER,
-                myState, opponent, myHand, opponentHandCards, mySkills, myEquipment, allMySkills,
+                myState, opponent, myHand, opponentHandCards, mySkills, myEquipment, allMySkills, allMyBoundSkills,
                 isMyTurn, showDefenseWindow, myFrontRow, opponentFrontRow,
                 getCardImage, getElementIcon, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, costHTML, hasCost, hasUseCost, hasGain, playCost, learnCost, entryCostLabel, effectLabels,
                 pendingSpellTargetLabel, pendingSpellExtraTargetLabels, pendingSpellSources,
@@ -3190,7 +3253,7 @@
                 // Pending action
                 pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction, pendingCandidateDetail,
                 isCounterPending, pendingOverexertUnits, pendingOverexertSelected, togglePendingOverexert,
-                isWaterDivinationPending, pendingOrderedCandidates, movePendingCandidate, togglePendingBottom, isPendingBottom,
+                isDeckReorderPending, pendingOrderedCandidates, movePendingCandidate, togglePendingBottom, isPendingBottom,
                 zoneLabel,
                 openPileView, closePileView,
                 // Abilities
