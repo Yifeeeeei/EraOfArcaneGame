@@ -1,6 +1,10 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"fmt"
+
+	"eraofarcane/model"
+)
 
 func emitBatchEffect(ctx *EffectContext, effect string) {
 	if ctx == nil || ctx.Engine == nil {
@@ -622,20 +626,40 @@ func (Card1511001WhiteRobeSage) OnUltimate(ctx *EffectContext) error {
 			if !ctx.Engine.IsInSpellRange(ctx.PlayerID, target.Position.Col, target.Position.Row, cardHasPierce(ctx.Source)) {
 				return
 			}
-			pos := ps.FindEmptyPosition()
-			if pos == nil {
-				return
-			}
 			cost := ctx.Engine.effectiveCardPlayCost(ps, target)
-			if !ps.PayCost(cost) {
-				return
-			}
-			op := ctx.Engine.State.Players[ctx.OpponentID]
-			op.Units[target.Position.Col][target.Position.Row] = nil
-			target.OwnerID = ctx.PlayerID
-			target.Position = pos
-			ps.Units[pos.Col][pos.Row] = target
+			candidate := candidateInfo(target, "unit", "enemy")
+			ctx.Engine.SetPendingActionWithError(ctx.PlayerID, "white_robe_sage_payment",
+				"白袍大贤者:支付目标入场费用以获得控制权", []map[string]any{candidate}, 1, 1, cost, false,
+				func(selected []string, data map[string]any) error {
+					if len(selected) == 0 || selected[0] != target.InstanceID {
+						return fmt.Errorf("invalid control target")
+					}
+					return resolveWhiteRobeSageControl(ctx, target, cost, data)
+				})
 		})
+	return nil
+}
+
+func resolveWhiteRobeSageControl(ctx *EffectContext, target *CardInstance, cost map[string]int, data map[string]any) error {
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	if target == nil || target.Position == nil || !target.Card.IsCompanion() || target.OwnerID != ctx.OpponentID {
+		return fmt.Errorf("invalid control target")
+	}
+	if !ctx.Engine.IsInSpellRange(ctx.PlayerID, target.Position.Col, target.Position.Row, cardHasPierce(ctx.Source)) {
+		return fmt.Errorf("target out of range")
+	}
+	pos := ps.FindEmptyPosition()
+	if pos == nil {
+		return fmt.Errorf("no empty position")
+	}
+	if !payCostForAction(ps, cost, ActionMessage{Data: data}) {
+		return fmt.Errorf("invalid payment")
+	}
+	op := ctx.Engine.State.Players[ctx.OpponentID]
+	op.Units[target.Position.Col][target.Position.Row] = nil
+	target.OwnerID = ctx.PlayerID
+	target.Position = pos
+	ps.Units[pos.Col][pos.Row] = target
 	return nil
 }
 

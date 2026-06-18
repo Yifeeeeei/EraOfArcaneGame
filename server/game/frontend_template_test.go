@@ -21,3 +21,22 @@ func TestGameHTMLFriendlyUnitImageCanSelectFriendlySpellTarget(t *testing.T) {
 		t.Fatalf("friendly unit image should not stop clicks by directly opening detail")
 	}
 }
+
+func TestGameHTMLPendingActionCostUsesPaymentRequest(t *testing.T) {
+	content, err := os.ReadFile("../../web/game.html")
+	if err != nil {
+		t.Fatalf("read game.html: %v", err)
+	}
+	html := string(content)
+	for _, want := range []string{
+		"pendingRequiresPaymentChoice()",
+		"paymentRequest.value = {",
+		"action: 'resolve_action'",
+		"afterSend: resetPendingSelectionState",
+		"sendAction(req.action, { ...req.data, payment: { ...paymentSelection.value } })",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("pending action costs should route through payment request, missing %q", want)
+		}
+	}
+}

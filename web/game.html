@@ -2596,9 +2596,32 @@
                 if (pendingCanOverexert()) {
                     payload.overexert_ids = [...pendingOverexertSelected.value];
                 }
+                if (pendingRequiresPaymentChoice()) {
+                    const cost = pendingAction.value?.cost || {};
+                    const payment = calculatePayment(cost);
+                    if (!payment) {
+                        addLog('元素不足');
+                        return;
+                    }
+                    if (needsPaymentChoice(cost)) {
+                        paymentSelection.value = {};
+                        paymentRequest.value = {
+                            action: 'resolve_action',
+                            data: payload,
+                            cost: { ...cost },
+                            title: pendingAction.value?.prompt || '支付费用',
+                            afterSend: resetPendingSelectionState,
+                        };
+                        return;
+                    }
+                }
                 sendAction('resolve_action', payload);
                 resetPendingSelectionState();
                 addLog('确认选择');
+            }
+
+            function pendingRequiresPaymentChoice() {
+                return !!pendingAction.value?.cost && totalCost(pendingAction.value.cost) > 0 && !pendingCanOverexert();
             }
 
             function zoneLabel(zone) {

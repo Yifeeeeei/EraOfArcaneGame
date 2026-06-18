@@ -835,7 +835,15 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{target.InstanceID},
 		}}); err != nil {
-			t.Fatalf("resolve white robe sage control: %v", err)
+			t.Fatalf("choose white robe sage control target: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "white_robe_sage_payment" {
+			t.Fatalf("sage should ask for target entry cost payment, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve white robe sage control payment: %v", err)
 		}
 
 		if target.OwnerID != 0 || target.Position == nil || engine.State.Players[1].Units[1][0] != nil {
@@ -843,6 +851,56 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 		}
 		if engine.State.Players[0].Units[target.Position.Col][target.Position.Row] != target {
 			t.Fatalf("stolen target should be on friendly board")
+		}
+	})
+
+	t.Run("1511001 白袍大贤者 uses explicit payment for arcane target cost", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		sage := placeUnit(baseCard(t, "1511001"), 0, 1, 1, engine)
+		p0.Elements[model.ElementFire] = 1
+		p0.Elements[model.ElementWater] = 1
+		targetCard := &model.Card{
+			Number:       "test_arcane_cost_companion",
+			Type:         model.CardTypeCompanion,
+			Name:         "测试奥术费用伙伴",
+			Category:     model.ElementArcane,
+			ElementsCost: map[string]int{model.ElementArcane: 1},
+			ElementsGain: map[string]int{},
+			Attack:       1,
+			Life:         1,
+			Power:        -1,
+		}
+		target := NewCardInstance(targetCard, 1, engine.State.TurnNumber)
+		target.Position = &Position{Col: 1, Row: 0}
+		p1.Units[1][0] = target
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  sage.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("use white robe sage ultimate: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose arcane-cost control target: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "white_robe_sage_payment" || engine.State.PendingAction.Cost[model.ElementArcane] != 1 {
+			t.Fatalf("sage should expose arcane cost payment pending, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+			"payment":  map[string]any{model.ElementWater: float64(1)},
+		}}); err != nil {
+			t.Fatalf("pay chosen water for arcane-cost control target: %v", err)
+		}
+		if p0.Elements[model.ElementWater] != 0 || p0.Elements[model.ElementFire] != 1 {
+			t.Fatalf("sage should only spend explicitly selected water, elements=%v", p0.Elements)
+		}
+		if target.OwnerID != 0 || p1.Units[1][0] != nil {
+			t.Fatalf("sage should control arcane-cost target after payment, owner=%d enemy_slot=%v", target.OwnerID, p1.Units[1][0])
 		}
 	})
 
