@@ -1171,6 +1171,14 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("use executor ultimate: %v", err)
 		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "black_robe_executor_destroy" {
+			t.Fatalf("executor should ask which companion to destroy, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{enemy.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve executor ultimate: %v", err)
+		}
 		if engine.State.Players[1].Units[1][0] != nil || len(engine.State.Players[1].Graveyard) != 1 || engine.State.Players[1].Graveyard[0].InstanceID != enemy.InstanceID {
 			t.Fatalf("executor should destroy enemy companion, units=%v grave=%+v", engine.State.Players[1].Units[1][0], cardsToInfo(engine.State.Players[1].Graveyard))
 		}
