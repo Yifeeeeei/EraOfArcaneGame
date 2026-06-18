@@ -1796,6 +1796,8 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		contract := NewCardInstance(baseCard(t, "2611002"), 0, 1)
 		p0.Hand = []*CardInstance{contract}
 		p0.Elements[model.ElementShadow] = 10
+		hero := placeUnit(baseCard(t, "4611001"), 0, 0, 1, engine)
+		p0.Hero = hero
 		sacrifice := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
 		sacrifice.CurrentLife = 1
 		enemy := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
@@ -1808,6 +1810,15 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "demon_contract_sacrifice" {
 			t.Fatalf("demon contract should ask for sacrifice, pending=%+v enemy=%v", engine.State.PendingAction, enemy.InstanceID)
+		}
+		heroOffered := false
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == hero.InstanceID {
+				heroOffered = true
+			}
+		}
+		if !heroOffered {
+			t.Fatalf("demon contract sacrifice candidates should include friendly hero, candidates=%v", engine.State.PendingAction.Candidates)
 		}
 		shadowAfterEntryCost := p0.Elements[model.ElementShadow]
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
