@@ -803,15 +803,39 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 	})
 
 	t.Run("1511001 白袍大贤者 steals an enemy companion with ultimate", func(t *testing.T) {
+		noPayEngine := setupReportedBugEngine(t)
+		noPaySage := placeUnit(baseCard(t, "1511001"), 0, 1, 1, noPayEngine)
+		placeUnit(baseCard(t, "1021001"), 1, 1, 0, noPayEngine)
+		if err := noPayEngine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  noPaySage.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("use white robe sage ultimate without payment: %v", err)
+		}
+		if noPayEngine.State.PendingAction != nil {
+			t.Fatalf("sage should not open control window without enough elements, pending=%+v", noPayEngine.State.PendingAction)
+		}
+
 		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
 		sage := placeUnit(baseCard(t, "1511001"), 0, 1, 1, engine)
 		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
-
+		for _, elem := range model.AllElements {
+			p0.Elements[elem] = 10
+		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
 			"instance_id":  sage.InstanceID,
 			"ability_type": "ultimate",
 		}}); err != nil {
 			t.Fatalf("use white robe sage ultimate: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "white_robe_sage_control" {
+			t.Fatalf("sage should ask which enemy companion to control, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve white robe sage control: %v", err)
 		}
 
 		if target.OwnerID != 0 || target.Position == nil || engine.State.Players[1].Units[1][0] != nil {

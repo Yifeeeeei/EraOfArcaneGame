@@ -596,21 +596,46 @@ type Card1511001WhiteRobeSage struct{ AlwaysActive }
 func (Card1511001WhiteRobeSage) ID() string   { return "1511001" }
 func (Card1511001WhiteRobeSage) Name() string { return "白袍大贤者 掌号使" }
 func (Card1511001WhiteRobeSage) OnUltimate(ctx *EffectContext) error {
-	targets := ctx.Engine.enemyUnits(ctx.PlayerID, false, func(card *CardInstance) bool { return card.Card.IsCompanion() })
-	target := firstUnitFromCandidates(ctx.Engine, ctx.PlayerID, targets)
-	if target == nil {
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	if ps.FindEmptyPosition() == nil {
 		return nil
 	}
-	op := ctx.Engine.State.Players[ctx.OpponentID]
-	ps := ctx.Engine.State.Players[ctx.PlayerID]
-	if target.Position != nil {
-		op.Units[target.Position.Col][target.Position.Row] = nil
-		if pos := ps.FindEmptyPosition(); pos != nil {
+	targets := ctx.Engine.enemyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
+		if card == nil || card.Position == nil || !card.Card.IsCompanion() {
+			return false
+		}
+		if !ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, cardHasPierce(ctx.Source)) {
+			return false
+		}
+		return ps.CanPayCost(ctx.Engine.effectiveCardPlayCost(ps, card))
+	})
+	if len(targets) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "white_robe_sage_control",
+		"白袍大贤者:选择法力范围内1个可支付费用的敌方伙伴获得控制权", targets, 1, 1,
+		func(selected []string) {
+			target := selectedUnitFromCandidates(ctx.Engine, selected, targets)
+			if target == nil || target.Position == nil || !target.Card.IsCompanion() {
+				return
+			}
+			if !ctx.Engine.IsInSpellRange(ctx.PlayerID, target.Position.Col, target.Position.Row, cardHasPierce(ctx.Source)) {
+				return
+			}
+			pos := ps.FindEmptyPosition()
+			if pos == nil {
+				return
+			}
+			cost := ctx.Engine.effectiveCardPlayCost(ps, target)
+			if !ps.PayCost(cost) {
+				return
+			}
+			op := ctx.Engine.State.Players[ctx.OpponentID]
+			op.Units[target.Position.Col][target.Position.Row] = nil
 			target.OwnerID = ctx.PlayerID
 			target.Position = pos
 			ps.Units[pos.Col][pos.Row] = target
-		}
-	}
+		})
 	return nil
 }
 
