@@ -40,10 +40,12 @@ func selectedUnitFromCandidates(e *Engine, selected []string, candidates []map[s
 			allowed[id] = true
 		}
 	}
-	if !allowed[selected[0]] {
-		return nil
+	for _, id := range selected {
+		if allowed[id] {
+			return e.findUnitByInstanceID(id)
+		}
 	}
-	return e.findUnitByInstanceID(selected[0])
+	return nil
 }
 
 func healUnit(card *CardInstance, amount int) {

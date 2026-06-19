@@ -2061,6 +2061,7 @@ func TestDragIntoAbyssCounterTrap(t *testing.T) {
 		ally.CurrentLife = 2
 		enemy := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
 		enemy.CurrentLife = 5
+		backEnemy := placeUnit(baseCard(t, "1021002"), 1, 1, 1, engine)
 
 		engine.dealDamageWithExtra(ally, 2, 0, map[string]any{"damage_source": "spell", "attacker": 1})
 		if ally.DamageTakenThisTurn != 2 || len(p0.Graveyard) == 0 || p0.Graveyard[0] != ally {
@@ -2076,6 +2077,11 @@ func TestDragIntoAbyssCounterTrap(t *testing.T) {
 		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "drag_into_abyss_target" {
 			t.Fatalf("expected drag into abyss target prompt, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == backEnemy.InstanceID {
+				t.Fatalf("drag into abyss should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{enemy.InstanceID},
@@ -2935,6 +2941,7 @@ func TestMulingUltimateReturnsOneCompanionFromEachSide(t *testing.T) {
 	muling := placeUnit(baseCard(t, "4311003"), 0, 1, 1, engine)
 	own := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
 	enemy := placeUnit(baseCard(t, "1321010"), 1, 1, 0, engine)
+	backEnemy := placeUnit(baseCard(t, "1321010"), 1, 1, 1, engine)
 	p0.Elements[model.ElementAir] = 2
 
 	if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
@@ -2945,6 +2952,11 @@ func TestMulingUltimateReturnsOneCompanionFromEachSide(t *testing.T) {
 	}
 	if engine.State.Phase != PhaseWaitingAction {
 		t.Fatalf("expected muling selection, phase=%v", engine.State.Phase)
+	}
+	for _, candidate := range engine.State.PendingAction.Candidates {
+		if candidate["instance_id"] == backEnemy.InstanceID {
+			t.Fatalf("muling should not offer enemy companions outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+		}
 	}
 	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 		"selected": []any{own.InstanceID, enemy.InstanceID},
