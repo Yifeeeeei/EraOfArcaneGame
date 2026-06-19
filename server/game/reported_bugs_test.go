@@ -770,9 +770,18 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		firethorn := placeUnit(baseCard(t, "1121014"), 0, 0, 0, engine)
 		enemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		backEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
 
 		engine.destroyUnit(firethorn, 0)
 
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "firethorn_death_burn" {
+			t.Fatalf("firethorn should ask for a burn target, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == backEnemy.InstanceID {
+				t.Fatalf("firethorn should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
+		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{enemy.InstanceID},
 		}}); err != nil {
@@ -1427,6 +1436,8 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		booster := NewCardInstance(baseCard(t, "2021015"), 0, 1)
 		skill := readySkill(baseCard(t, "3321007"), 0)
 		p0.Skills[0] = skill
+		secondSkill := readySkill(baseCard(t, "3021005"), 0)
+		p0.Skills[1] = secondSkill
 
 		engine.triggerEffects(TriggerOnUseItem, booster, nil, nil)
 		cost := engine.effectiveSkillUseCost(p0, skill)
@@ -1442,6 +1453,9 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 		if skill.Statuses[StatusCooldown] != 3 {
 			t.Fatalf("mana booster C should add cooldown 2 on top of printed cooldown 1, statuses=%v", skill.Statuses)
+		}
+		if cost := engine.effectiveSkillUseCost(p0, secondSkill); totalCost(cost) != 0 {
+			t.Fatalf("mana booster C should keep this turn's later spell uses free, cost=%v modifiers=%v", cost, p0.TempModifiers)
 		}
 	})
 
@@ -5687,6 +5701,48 @@ func TestSkillContributionModifiers(t *testing.T) {
 			t.Fatalf("all fires as one should deal 2 at 5 power, life=%d", target.CurrentLife)
 		}
 	})
+
+	t.Run("all fires as one calculates attack from final power", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		p0.Skills[0] = readySkill(baseCard(t, "3101002"), 0)
+		p0.Elements[model.ElementFire] = 10
+		p0.Elements[model.ElementArcane] = 10
+		potionA := NewCardInstance(baseCard(t, "2121005"), 0, 1)
+		potionB := NewCardInstance(baseCard(t, "2121005"), 0, 1)
+		p0.Hand = []*CardInstance{potionA, potionB}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": potionA.InstanceID,
+			"payment":     map[string]any{model.ElementFire: float64(1), model.ElementArcane: float64(1)},
+		}}); err != nil {
+			t.Fatalf("use first divine flame potion: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": potionB.InstanceID,
+			"payment":     map[string]any{model.ElementFire: float64(1), model.ElementArcane: float64(1)},
+		}}); err != nil {
+			t.Fatalf("use second divine flame potion: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast all fires as one with potion power: %v", err)
+		}
+		if engine.State.PendingSpell == nil || engine.State.PendingSpell.TotalPower != 9 {
+			t.Fatalf("two divine flame potions should stack to 9 power, pending=%+v", engine.State.PendingSpell)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve all fires as one with potion power: %v", err)
+		}
+		if target.CurrentLife != target.Card.Life-2 {
+			t.Fatalf("all fires as one should deal 2 at final 9 power, life=%d", target.CurrentLife)
+		}
+	})
 }
 
 func TestSplashBlizzardAndSoulBiteEffects(t *testing.T) {
@@ -6920,6 +6976,37 @@ func TestReviewCardsLoadReviveAndFriendlyTargetSpells(t *testing.T) {
 		}
 		if target.IsHorizontal || target.Statuses[StatusCooldown] != 0 {
 			t.Fatalf("regeneration should reset earth companion, horizontal=%v statuses=%v", target.IsHorizontal, target.Statuses)
+		}
+	})
+
+	t.Run("regeneration in skill area does not trigger from other spells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		placeUnit(baseCard(t, "1421003"), 1, 1, 0, engine)
+		earth := placeUnit(baseCard(t, "1421003"), 0, 1, 0, engine)
+		earth.IsHorizontal = true
+		p0.Skills[0] = readySkill(baseCard(t, "3421004"), 0)
+		p1.Skills[0] = readySkill(baseCard(t, "3121001"), 1)
+		p1.Elements[model.ElementFire] = 10
+		engine.State.CurrentTurn = 1
+
+		if err := engine.HandleAction(1, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p1.Skills[0].InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast unrelated spell into regeneration owner: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve unrelated spell: %v", err)
+		}
+		if engine.State.PendingAction != nil {
+			t.Fatalf("regeneration should not create a reset prompt for other spells, pending=%+v", engine.State.PendingAction)
+		}
+		if !earth.IsHorizontal {
+			t.Fatalf("regeneration should not reset earth companion from unrelated spell")
 		}
 	})
 
