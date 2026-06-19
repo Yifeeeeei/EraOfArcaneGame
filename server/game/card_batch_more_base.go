@@ -16,20 +16,6 @@ func emitBatchEffect(ctx *EffectContext, effect string) {
 	}})
 }
 
-func firstUnitFromCandidates(e *Engine, playerID int, candidates []map[string]any) *CardInstance {
-	for _, candidate := range candidates {
-		if id, _ := candidate["instance_id"].(string); id != "" {
-			if card, _ := e.findFriendlyCandidate(playerID, id); card != nil {
-				return card
-			}
-			if card, _ := e.findFriendlyCandidate(1-playerID, id); card != nil {
-				return card
-			}
-		}
-	}
-	return nil
-}
-
 func selectedUnitFromCandidates(e *Engine, selected []string, candidates []map[string]any) *CardInstance {
 	if e == nil || len(selected) == 0 {
 		return nil

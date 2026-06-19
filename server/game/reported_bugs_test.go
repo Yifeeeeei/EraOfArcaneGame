@@ -7498,6 +7498,38 @@ func TestHighRiskSkillReactionAndBoostSemantics(t *testing.T) {
 }
 
 func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
+	t.Run("1421001 sand mage chooses any enemy ignoring spell range", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		front := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		back := placeUnit(baseCard(t, "1021002"), 1, 0, 2, engine)
+		mage := placeUnit(baseCard(t, "1421001"), 0, 1, 1, engine)
+
+		engine.triggerEffects(TriggerOnEnter, mage, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "sand_mage_petrify" {
+			t.Fatalf("sand mage should ask for a target, pending=%+v", engine.State.PendingAction)
+		}
+		foundBack := false
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == back.InstanceID {
+				foundBack = true
+			}
+		}
+		if !foundBack {
+			t.Fatalf("sand mage should offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+		}
+		if front.Statuses[StatusPetrify] != 0 {
+			t.Fatalf("sand mage should not auto-petrify the front target")
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{back.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose sand mage target: %v", err)
+		}
+		if back.Statuses[StatusPetrify] != 1 {
+			t.Fatalf("sand mage should petrify the selected enemy, statuses=%v", back.Statuses)
+		}
+	})
+
 	t.Run("1111001 火龙辉煌 requires fire devour and binds fire breath to itself", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]

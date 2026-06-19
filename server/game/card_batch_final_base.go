@@ -36,16 +36,6 @@ func allFriendlyUnits(ctx *EffectContext) []*CardInstance {
 	return ctx.Engine.getAllFieldCards(ctx.Engine.State.Players[ctx.PlayerID])
 }
 
-func firstEnemyUnit(ctx *EffectContext) *CardInstance {
-	return firstUnitFromCandidates(ctx.Engine, ctx.PlayerID, ctx.Engine.enemyUnits(ctx.PlayerID, true, nil))
-}
-
-func firstFriendlyCompanion(ctx *EffectContext) *CardInstance {
-	return firstUnitFromCandidates(ctx.Engine, ctx.PlayerID, ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
-		return card.Card.IsCompanion()
-	}))
-}
-
 type Card2411001AncientTreeHeart struct{ AlwaysActive }
 
 func (Card2411001AncientTreeHeart) ID() string   { return "2411001" }
