@@ -155,6 +155,9 @@ func (Card2511002ShiningShield) ModifySpellStats(ctx *EffectContext, stats *Spel
 }
 func (Card2511002ShiningShield) OnPerTurn(ctx *EffectContext) error {
 	for _, target := range ctx.Engine.getAllFieldCards(ctx.Engine.State.Players[ctx.OpponentID]) {
+		if target == nil || target.Position == nil || !ctx.Engine.IsInSpellRange(ctx.PlayerID, target.Position.Col, target.Position.Row, false) {
+			continue
+		}
 		target.Statuses[StatusStun]++
 	}
 	return nil

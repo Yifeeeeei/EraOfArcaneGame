@@ -537,7 +537,7 @@ func TestIssue25PlaytestRegressions(t *testing.T) {
 }
 
 func TestHighRiskWaterAndAirCompanionSemantics(t *testing.T) {
-	t.Run("1221008 冰域恶魔 freezes every enemy field unit", func(t *testing.T) {
+	t.Run("1221008 冰域恶魔 freezes every enemy in spell range", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		demon := placeUnit(baseCard(t, "1221008"), 0, 1, 1, engine)
 		enemyA := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
@@ -545,25 +545,33 @@ func TestHighRiskWaterAndAirCompanionSemantics(t *testing.T) {
 
 		engine.triggerEffects(TriggerOnEnter, demon, nil, nil)
 
-		if enemyA.Statuses[StatusFreeze] != 1 || enemyB.Statuses[StatusFreeze] != 1 {
-			t.Fatalf("icefield demon should freeze all enemy units, a=%v b=%v", enemyA.Statuses, enemyB.Statuses)
+		if enemyA.Statuses[StatusFreeze] != 1 || enemyB.Statuses[StatusFreeze] != 0 {
+			t.Fatalf("icefield demon should freeze only enemies in spell range, a=%v b=%v", enemyA.Statuses, enemyB.Statuses)
 		}
 	})
 
-	t.Run("1221004 寒霜傀儡 freezes selected target or enemy front row fallback", func(t *testing.T) {
+	t.Run("1221004 寒霜傀儡 asks for an enemy companion in spell range", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		puppet := placeUnit(baseCard(t, "1221004"), 0, 1, 1, engine)
 		selected := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
-		front := placeUnit(baseCard(t, "1021002"), 1, 2, 1, engine)
-
-		engine.triggerEffects(TriggerOnEnter, puppet, selected, nil)
-		if selected.Statuses[StatusFreeze] != 1 || front.Statuses[StatusFreeze] != 0 {
-			t.Fatalf("selected target should be frozen exclusively, selected=%v front=%v", selected.Statuses, front.Statuses)
-		}
+		back := placeUnit(baseCard(t, "1021002"), 1, 2, 1, engine)
 
 		engine.triggerEffects(TriggerOnEnter, puppet, nil, nil)
-		if selected.Statuses[StatusFreeze] != 2 {
-			t.Fatalf("fallback should freeze first enemy front-row unit, selected=%v", selected.Statuses)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "frost_puppet_freeze" {
+			t.Fatalf("frost puppet should ask for an enemy companion, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == back.InstanceID {
+				t.Fatalf("frost puppet should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{selected.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve frost puppet: %v", err)
+		}
+		if selected.Statuses[StatusFreeze] != 1 || back.Statuses[StatusFreeze] != 0 {
+			t.Fatalf("selected target should be frozen exclusively, selected=%v back=%v", selected.Statuses, back.Statuses)
 		}
 	})
 
@@ -682,8 +690,22 @@ func TestHighRiskWaterAndAirCompanionSemantics(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		elemental := placeUnit(baseCard(t, "1321004"), 0, 1, 1, engine)
 		target := placeUnit(baseCard(t, "1011002"), 1, 1, 0, engine)
+		backTarget := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
 
-		engine.triggerEffects(TriggerOnEnter, elemental, target, nil)
+		engine.triggerEffects(TriggerOnEnter, elemental, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "lightning_elemental_stun" {
+			t.Fatalf("lightning elemental should ask for a companion target, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == backTarget.InstanceID {
+				t.Fatalf("lightning elemental should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve lightning elemental: %v", err)
+		}
 
 		if target.Statuses[StatusStun] != 1 {
 			t.Fatalf("lightning elemental should stun selected target, statuses=%v", target.Statuses)
@@ -1769,8 +1791,12 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 
 	t.Run("2511002 and 2601002 modify defense or weaken enemy skills", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
 		shield := NewCardInstance(baseCard(t, "2511002"), 0, 1)
+		p0.Equipment[0] = shield
 		book := NewCardInstance(baseCard(t, "2601002"), 0, 1)
+		frontEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		backEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
 		enemyA := readySkill(baseCard(t, "3021005"), 1)
 		enemyB := readySkill(baseCard(t, "3021008"), 1)
 		engine.State.Players[1].Skills[0] = enemyA
@@ -1780,10 +1806,19 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		if modifier, ok := globalRegistry.GetBehavior("2511002").(SpellStatModifier); ok {
 			modifier.ModifySpellStats(&EffectContext{Engine: engine, Source: shield, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"purpose": string(skillPurposeDefend)}}, stats)
 		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  shield.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use shining shield per-turn: %v", err)
+		}
 		engine.triggerEffects(TriggerOnEnter, book, nil, nil)
 
 		if stats.PowerBonus != 2 {
 			t.Fatalf("shining shield should add +2 defense power, stats=%+v", stats)
+		}
+		if frontEnemy.Statuses[StatusStun] != 1 || backEnemy.Statuses[StatusStun] != 0 {
+			t.Fatalf("shining shield should stun only enemies in spell range, front=%v back=%v", frontEnemy.Statuses, backEnemy.Statuses)
 		}
 		if enemyA.Statuses[StatusWeaken] != 1 || enemyB.Statuses[StatusWeaken] != 1 {
 			t.Fatalf("spellbook should weaken all enemy skills, a=%v b=%v", enemyA.Statuses, enemyB.Statuses)
