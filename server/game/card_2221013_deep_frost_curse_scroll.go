@@ -6,15 +6,17 @@ func (Card2221013DeepFrostCurseScroll) ID() string   { return "2221013" }
 func (Card2221013DeepFrostCurseScroll) Name() string { return "深寒诅咒卷轴" }
 
 func (Card2221013DeepFrostCurseScroll) OnUseItem(ctx *EffectContext) error {
-	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, false, nil)
+	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
+		return card.Card.IsCompanion() && card.Position != nil && ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
+	})
 	if len(candidates) == 0 {
 		return nil
 	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "deep_frost_curse",
 		"选择1个敌方伙伴永久冻结", candidates, 1, 1,
 		func(selected []string) {
-			target := findEnemyByID(ctx, selected)
-			if target == nil || !target.Card.IsCompanion() {
+			target := selectedUnitFromCandidates(ctx.Engine, selected, candidates)
+			if target == nil {
 				return
 			}
 			target.Statuses[StatusFreeze] += 99

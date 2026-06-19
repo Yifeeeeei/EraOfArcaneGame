@@ -419,6 +419,7 @@ func TestIssue25PlaytestRegressions(t *testing.T) {
 		arrow := NewCardInstance(baseCard(t, "2121004"), 0, 1)
 		p0.Equipment[0] = arrow
 		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		backTarget := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
 			"instance_id":  arrow.InstanceID,
@@ -428,6 +429,11 @@ func TestIssue25PlaytestRegressions(t *testing.T) {
 		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "fire_arrow_damage" {
 			t.Fatalf("fire arrow should ask target, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == backTarget.InstanceID {
+				t.Fatalf("fire arrow should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{target.InstanceID},
@@ -4463,11 +4469,20 @@ func TestConsumableTargetedItemEffects(t *testing.T) {
 		p0.Hand = []*CardInstance{item}
 		p0.Elements[model.ElementFire] = 10
 		target := placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
+		backTarget := placeUnit(baseCard(t, "1021004"), 1, 1, 1, engine)
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
 			"instance_id": item.InstanceID,
 		}}); err != nil {
 			t.Fatalf("use fire arrow item: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "fire_arrow_damage" {
+			t.Fatalf("fire arrow item should ask target, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == backTarget.InstanceID {
+				t.Fatalf("fire arrow item should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{target.InstanceID},
@@ -5498,6 +5513,7 @@ func TestUtilityScrollAndForesightEffects(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		target := placeUnit(baseCard(t, "1021007"), 1, 1, 0, engine)
+		backTarget := placeUnit(baseCard(t, "1021007"), 1, 1, 1, engine)
 		scroll := NewCardInstance(baseCard(t, "2221013"), 0, 1)
 		p0.Hand = []*CardInstance{scroll}
 		p0.Elements[model.ElementWater] = 3
@@ -5506,6 +5522,14 @@ func TestUtilityScrollAndForesightEffects(t *testing.T) {
 			"instance_id": scroll.InstanceID,
 		}}); err != nil {
 			t.Fatalf("use deep frost curse: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "deep_frost_curse" {
+			t.Fatalf("deep frost curse should ask target, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == backTarget.InstanceID {
+				t.Fatalf("deep frost curse should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{target.InstanceID},

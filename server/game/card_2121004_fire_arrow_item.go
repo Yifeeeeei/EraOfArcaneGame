@@ -14,7 +14,9 @@ func (Card2121004FireArrowItem) OnUltimate(ctx *EffectContext) error {
 }
 
 func fireArrowSelectAndDamage(ctx *EffectContext, sacrificeSelf bool) error {
-	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, true, nil)
+	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
+		return card.Position != nil && ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
+	})
 	if len(candidates) == 0 {
 		return nil
 	}
@@ -27,7 +29,7 @@ func fireArrowSelectAndDamage(ctx *EffectContext, sacrificeSelf bool) error {
 			if sacrificeSelf && !ctx.Engine.sacrificeEquipment(ctx.PlayerID, ctx.Source.InstanceID) {
 				return
 			}
-			target := ctx.Engine.findCardOnField(ctx.Engine.State.Players[ctx.OpponentID], selected[0])
+			target := selectedUnitFromCandidates(ctx.Engine, selected, candidates)
 			if target == nil {
 				return
 			}
