@@ -1458,6 +1458,66 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 	})
 
+	t.Run("2021012 sketch scroll uses normal spell target validation", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		frontTarget := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		backTarget := placeUnit(baseCard(t, "1021002"), 1, 0, 2, engine)
+		skill := readySkill(baseCard(t, "3121002"), 0)
+		p0.Skills[0] = skill
+		p0.Elements[model.ElementFire] = 10
+		scroll := NewCardInstance(baseCard(t, "2021012"), 0, 1)
+
+		engine.triggerEffects(TriggerOnUseItem, scroll, nil, nil)
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{skill.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose sketch skill: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "sketch_scroll_target" {
+			t.Fatalf("sketch scroll should ask for target, pending=%+v", engine.State.PendingAction)
+		}
+		foundFront := false
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			switch candidate["instance_id"] {
+			case frontTarget.InstanceID:
+				foundFront = true
+			case backTarget.InstanceID:
+				t.Fatalf("sketch scroll should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
+		}
+		if !foundFront {
+			t.Fatalf("sketch scroll should offer the front-row legal target, candidates=%+v", engine.State.PendingAction.Candidates)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{backTarget.InstanceID},
+		}}); err == nil {
+			t.Fatalf("forged sketch scroll target outside candidates should be rejected")
+		}
+	})
+
+	t.Run("2021012 sketch scroll does not cast targeted spells without legal targets", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		skill := readySkill(baseCard(t, "3121002"), 0)
+		p0.Skills[0] = skill
+		p0.Elements[model.ElementFire] = 10
+		scroll := NewCardInstance(baseCard(t, "2021012"), 0, 1)
+
+		engine.triggerEffects(TriggerOnUseItem, scroll, nil, nil)
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{skill.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose sketch skill: %v", err)
+		}
+		if engine.State.PendingSpell != nil {
+			t.Fatalf("targeted sketch spell should not cast without legal targets, pending=%+v", engine.State.PendingSpell)
+		}
+		if engine.State.PendingAction != nil {
+			t.Fatalf("targeted sketch spell should not leave a target prompt with no targets, pending=%+v", engine.State.PendingAction)
+		}
+	})
+
 	t.Run("2021015 法力增强剂C makes this turn skill use free but adds cooldown", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
