@@ -1143,7 +1143,7 @@ type Card2321010IllusionScroll struct{ AlwaysActive }
 func (Card2321010IllusionScroll) ID() string   { return "2321010" }
 func (Card2321010IllusionScroll) Name() string { return "幻术卷轴" }
 func (Card2321010IllusionScroll) OnUseItem(ctx *EffectContext) error {
-	emitBatchEffect(ctx, "rearrange_units_prompt")
+	ctx.Engine.startIllusionScrollRearrange(ctx.PlayerID, ctx.Source, ctx.ExtraData)
 	return nil
 }
 

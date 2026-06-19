@@ -1018,6 +1018,9 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 			ExtraTargets: extraTargets,
 		}
 		openDefenseWindow := func() {
+			if e.State.PendingSpell == nil {
+				return
+			}
 			e.State.ResumePhase = PhaseDefenseWindow
 			e.State.Phase = PhaseDefenseWindow
 			e.emit(GameEvent{
@@ -2587,6 +2590,9 @@ func (e *Engine) startSpellScrollCast(playerID int, scroll *CardInstance, target
 		BoostSkills:  boostSkills,
 	}
 	openDefenseWindow := func() {
+		if e.State.PendingSpell == nil {
+			return
+		}
 		e.State.ResumePhase = PhaseDefenseWindow
 		e.State.Phase = PhaseDefenseWindow
 		e.emit(GameEvent{Type: "defense_window", Player: 1 - playerID, Data: map[string]any{"timeout": 30}})

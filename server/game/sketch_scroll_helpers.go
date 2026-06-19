@@ -90,6 +90,9 @@ func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, ta
 		BoostSkills: nil,
 	}
 	openDefenseWindow := func() {
+		if e.State.PendingSpell == nil {
+			return
+		}
 		e.State.ResumePhase = PhaseDefenseWindow
 		e.State.Phase = PhaseDefenseWindow
 		e.emit(GameEvent{Type: "defense_window", Player: 1 - playerID, Data: map[string]any{"timeout": 30}})

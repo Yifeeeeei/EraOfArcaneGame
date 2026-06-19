@@ -1949,6 +1949,114 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		}
 	})
 
+	t.Run("2321010 illusion scroll rearranges units and asks attacker to retarget", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		front := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		back := placeUnit(baseCard(t, "1021002"), 1, 0, 2, engine)
+		skill := readySkill(baseCard(t, "3121002"), 0)
+		p0.Skills[0] = skill
+		engine.State.PendingSpell = &SpellCast{
+			AttackerID: 0,
+			Skill:      skill,
+			Target:     SpellTarget{Type: "unit", Position: *front.Position},
+			TotalPower: skill.Card.Power,
+		}
+		scroll := NewCardInstance(baseCard(t, "2321010"), 1, 1)
+
+		engine.triggerEffects(TriggerOnUseItem, scroll, nil, map[string]any{})
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "illusion_scroll_unit" || engine.State.PendingAction.PlayerID != 1 {
+			t.Fatalf("illusion scroll should ask defender which unit to rearrange, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{front.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose illusion unit: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "illusion_scroll_position" {
+			t.Fatalf("illusion scroll should ask for a destination, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{positionSelectionID(*back.Position)},
+		}}); err != nil {
+			t.Fatalf("choose illusion destination: %v", err)
+		}
+		if front.Position.Col != 0 || front.Position.Row != 2 || back.Position.Col != 1 || back.Position.Row != 0 {
+			t.Fatalf("illusion scroll should swap occupied positions, front=%+v back=%+v", front.Position, back.Position)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "illusion_scroll_unit" {
+			t.Fatalf("illusion scroll should allow further rearrangement or completion, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{illusionScrollDoneID},
+		}}); err != nil {
+			t.Fatalf("finish illusion rearrangement: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "illusion_scroll_retarget" || engine.State.PendingAction.PlayerID != 0 {
+			t.Fatalf("illusion scroll should ask attacker to retarget, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{back.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose illusion retarget: %v", err)
+		}
+		if engine.State.PendingSpell == nil || engine.State.PendingSpell.Target.Position != *back.Position {
+			t.Fatalf("illusion scroll should update the pending spell target, pending=%+v back=%+v", engine.State.PendingSpell, back.Position)
+		}
+	})
+
+	t.Run("2321010 illusion scroll resumes the spell flow after retargeting", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		skill := readySkill(baseCard(t, "3121002"), 0)
+		p0.Skills[0] = skill
+		p0.Elements[model.ElementFire] = 10
+		p1.Elements[model.ElementAir] = 10
+		scroll := NewCardInstance(baseCard(t, "2321010"), 1, 1)
+		scroll.IsSetCounter = true
+		scroll.IsHorizontal = true
+		scroll.SlotIndex = 0
+		p1.Equipment[0] = scroll
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": skill.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(target.Position.Col),
+			"target_row":  float64(target.Position.Row),
+		}}); err != nil {
+			t.Fatalf("cast spell into illusion scroll: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "counter_trigger" || engine.State.PendingAction.PlayerID != 1 {
+			t.Fatalf("illusion scroll should prompt as a counter, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{scroll.InstanceID},
+		}}); err != nil {
+			t.Fatalf("reveal illusion scroll: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "illusion_scroll_unit" {
+			t.Fatalf("illusion scroll should open rearrange prompt, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{illusionScrollDoneID},
+		}}); err != nil {
+			t.Fatalf("finish illusion rearrangement: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "illusion_scroll_retarget" || engine.State.PendingAction.PlayerID != 0 {
+			t.Fatalf("illusion scroll should ask attacker to retarget, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose illusion retarget: %v", err)
+		}
+		if engine.State.Phase != PhaseDefenseWindow || engine.State.PendingSpell == nil {
+			t.Fatalf("illusion scroll should resume into defense window, phase=%s pending=%+v", engine.State.Phase, engine.State.PendingSpell)
+		}
+	})
+
 	t.Run("2321011 传送符文 moves the triggering companion to another same-side position", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
