@@ -9,5 +9,9 @@ func (Card3101002AllFiresAsOne) ModifySkillContribution(ctx *EffectContext, stat
 	if ctx.ExtraData["purpose"] != string(skillPurposeAttack) {
 		return
 	}
-	stats.DamageBonus += max(stats.PowerBonus, 0) / 5
+	power := stats.PowerBonus
+	if finalPower, ok := ctx.ExtraData["final_power"].(int); ok {
+		power = finalPower
+	}
+	stats.DamageBonus += max(power, 0) / 5
 }

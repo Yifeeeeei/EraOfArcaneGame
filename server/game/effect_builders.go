@@ -150,29 +150,6 @@ func ApplyStatusToTarget(status string, amount int) EffectHandler {
 	}
 }
 
-// ApplyStatusAuto 对前排敌方施加状态（无目标时自动选择）
-func ApplyStatusAuto(status string, amount int) EffectHandler {
-	return func(ctx *EffectContext) error {
-		target := ctx.Target
-		if target == nil {
-			opponent := ctx.Engine.State.Players[ctx.OpponentID]
-			target = findFrontRowUnit(opponent)
-		}
-		if target == nil {
-			return nil
-		}
-		target.Statuses[status] += amount
-		ctx.Engine.emit(GameEvent{
-			Type: "effect_trigger", Player: -1,
-			Data: map[string]any{
-				"source": cardToInfo(ctx.Source), "effect": "apply_status",
-				"status": status, "amount": amount, "target": cardToInfo(target),
-			},
-		})
-		return nil
-	}
-}
-
 // ApplyStatusToSelf 对自身施加状态
 func ApplyStatusToSelf(status string, amount int) EffectHandler {
 	return func(ctx *EffectContext) error {

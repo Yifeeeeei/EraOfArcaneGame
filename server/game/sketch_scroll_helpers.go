@@ -6,23 +6,49 @@ func (e *Engine) resolveSketchScrollSkill(playerID int, skillID string) {
 	if skill == nil || skill.Card == nil || !canUseSkillForPurpose(skill.Card, skillPurposeAttack) {
 		return
 	}
-	targets := e.enemyUnits(playerID, true, nil)
-	if skillNeedsTargetInstance(skill) && len(targets) > 0 {
+	targets := e.spellTargetCandidates(playerID, skill)
+	if skillNeedsTargetInstance(skill) {
+		if len(targets) == 0 {
+			return
+		}
 		e.SetPendingAction(playerID, "sketch_scroll_target",
 			"选择速写卷轴释放目标", targets, 1, 1,
 			func(selected []string) {
 				if len(selected) == 0 {
 					return
 				}
-				target := e.findUnitByID(1-playerID, selected[0])
+				target := selectedUnitFromCandidates(e, selected, targets)
 				if target == nil || target.Position == nil {
 					return
 				}
-				e.castSkillFromSketchScroll(playerID, skill, SpellTarget{Type: "unit", Position: *target.Position})
+				spellTarget := SpellTarget{Type: "unit", Position: *target.Position}
+				if err := e.validateSpellTarget(playerID, skill, spellTarget); err != nil {
+					return
+				}
+				e.castSkillFromSketchScroll(playerID, skill, spellTarget)
 			})
 		return
 	}
 	e.castSkillFromSketchScroll(playerID, skill, SpellTarget{Type: "none"})
+}
+
+func (e *Engine) spellTargetCandidates(playerID int, skill *CardInstance) []map[string]any {
+	candidates := make([]map[string]any, 0)
+	ps := e.State.Players[1-playerID]
+	for col := 0; col < 3; col++ {
+		for row := 0; row < 3; row++ {
+			unit := ps.Units[col][row]
+			if unit == nil || unit.Position == nil {
+				continue
+			}
+			target := SpellTarget{Type: "unit", Position: *unit.Position}
+			if err := e.validateSpellTarget(playerID, skill, target); err != nil {
+				continue
+			}
+			candidates = append(candidates, candidateInfo(unit, "unit", "enemy"))
+		}
+	}
+	return candidates
 }
 
 func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, target SpellTarget) {
@@ -64,6 +90,9 @@ func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, ta
 		BoostSkills: nil,
 	}
 	openDefenseWindow := func() {
+		if e.State.PendingSpell == nil {
+			return
+		}
 		e.State.ResumePhase = PhaseDefenseWindow
 		e.State.Phase = PhaseDefenseWindow
 		e.emit(GameEvent{Type: "defense_window", Player: 1 - playerID, Data: map[string]any{"timeout": 30}})
@@ -73,17 +102,4 @@ func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, ta
 		return
 	}
 	openDefenseWindow()
-}
-
-func (e *Engine) findUnitByID(playerID int, instanceID string) *CardInstance {
-	ps := e.State.Players[playerID]
-	for col := 0; col < 3; col++ {
-		for row := 0; row < 3; row++ {
-			unit := ps.Units[col][row]
-			if unit != nil && unit.InstanceID == instanceID {
-				return unit
-			}
-		}
-	}
-	return nil
 }

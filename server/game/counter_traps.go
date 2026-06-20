@@ -220,7 +220,7 @@ func (e *Engine) counterTrapConditionMet(counter *CardInstance, trigger EffectTr
 	case "2321002":
 		return trigger == TriggerOnConsume && sourceOwner != ownerID && eventSource != nil && (eventSource.Card.IsHero() || eventSource.Card.IsCompanion())
 	case "2321010":
-		return trigger == TriggerOnSpellCast && sourceOwner != ownerID
+		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && eventSource != nil && !isSorcerySkill(eventSource.Card) && e.State.PendingSpell != nil
 	case "2321011":
 		return eventSource != nil && eventSource.Card.IsCompanion() && eventSource.Position != nil &&
 			len(e.emptyUnitPositionsForPlayer(eventSource.OwnerID, ownerID)) > 0
@@ -393,6 +393,9 @@ func counterWindowCancelled(data map[string]any) bool {
 		return true
 	}
 	if cancelled, ok := data["cancel_spell_hit"].(*bool); ok && cancelled != nil && *cancelled {
+		return true
+	}
+	if cancelled, ok := data["cancel_spell_cast"].(*bool); ok && cancelled != nil && *cancelled {
 		return true
 	}
 	return false

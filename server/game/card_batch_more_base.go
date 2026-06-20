@@ -16,20 +16,6 @@ func emitBatchEffect(ctx *EffectContext, effect string) {
 	}})
 }
 
-func firstUnitFromCandidates(e *Engine, playerID int, candidates []map[string]any) *CardInstance {
-	for _, candidate := range candidates {
-		if id, _ := candidate["instance_id"].(string); id != "" {
-			if card, _ := e.findFriendlyCandidate(playerID, id); card != nil {
-				return card
-			}
-			if card, _ := e.findFriendlyCandidate(1-playerID, id); card != nil {
-				return card
-			}
-		}
-	}
-	return nil
-}
-
 func selectedUnitFromCandidates(e *Engine, selected []string, candidates []map[string]any) *CardInstance {
 	if e == nil || len(selected) == 0 {
 		return nil
@@ -40,10 +26,12 @@ func selectedUnitFromCandidates(e *Engine, selected []string, candidates []map[s
 			allowed[id] = true
 		}
 	}
-	if !allowed[selected[0]] {
-		return nil
+	for _, id := range selected {
+		if allowed[id] {
+			return e.findUnitByInstanceID(id)
+		}
 	}
-	return e.findUnitByInstanceID(selected[0])
+	return nil
 }
 
 func healUnit(card *CardInstance, amount int) {
@@ -868,7 +856,7 @@ func (Card2021015ManaBoosterC) ID() string   { return "2021015" }
 func (Card2021015ManaBoosterC) Name() string { return "法力增强剂C型" }
 func (Card2021015ManaBoosterC) OnUseItem(ctx *EffectContext) error {
 	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
-		Type:             TempModNextSkillCostZero,
+		Type:             TempModCurrentTurnSkillCostZero,
 		SourceCardNumber: ctx.Source.Card.Number,
 		SourceName:       ctx.Source.Card.Name,
 		RemainingUses:    99,
@@ -1155,7 +1143,7 @@ type Card2321010IllusionScroll struct{ AlwaysActive }
 func (Card2321010IllusionScroll) ID() string   { return "2321010" }
 func (Card2321010IllusionScroll) Name() string { return "幻术卷轴" }
 func (Card2321010IllusionScroll) OnUseItem(ctx *EffectContext) error {
-	emitBatchEffect(ctx, "rearrange_units_prompt")
+	ctx.Engine.startIllusionScrollRearrange(ctx.PlayerID, ctx.Source, ctx.ExtraData)
 	return nil
 }
 

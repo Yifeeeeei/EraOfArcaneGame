@@ -36,16 +36,6 @@ func allFriendlyUnits(ctx *EffectContext) []*CardInstance {
 	return ctx.Engine.getAllFieldCards(ctx.Engine.State.Players[ctx.PlayerID])
 }
 
-func firstEnemyUnit(ctx *EffectContext) *CardInstance {
-	return firstUnitFromCandidates(ctx.Engine, ctx.PlayerID, ctx.Engine.enemyUnits(ctx.PlayerID, true, nil))
-}
-
-func firstFriendlyCompanion(ctx *EffectContext) *CardInstance {
-	return firstUnitFromCandidates(ctx.Engine, ctx.PlayerID, ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
-		return card.Card.IsCompanion()
-	}))
-}
-
 type Card2411001AncientTreeHeart struct{ AlwaysActive }
 
 func (Card2411001AncientTreeHeart) ID() string   { return "2411001" }
@@ -155,6 +145,9 @@ func (Card2511002ShiningShield) ModifySpellStats(ctx *EffectContext, stats *Spel
 }
 func (Card2511002ShiningShield) OnPerTurn(ctx *EffectContext) error {
 	for _, target := range ctx.Engine.getAllFieldCards(ctx.Engine.State.Players[ctx.OpponentID]) {
+		if target == nil || target.Position == nil || !ctx.Engine.IsInSpellRange(ctx.PlayerID, target.Position.Col, target.Position.Row, false) {
+			continue
+		}
 		target.Statuses[StatusStun]++
 	}
 	return nil
@@ -313,12 +306,11 @@ func (Card2621010DragIntoAbyss) OnUseItem(ctx *EffectContext) error {
 		return nil
 	}
 	damage := ctx.Target.DamageTakenThisTurn
-	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, false, nil)
+	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
+		return card.Position != nil && ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
+	})
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "drag_into_abyss_target", "Drag Into Abyss: choose an enemy unit", candidates, 1, 1, func(selected []string) {
-		if len(selected) == 0 {
-			return
-		}
-		target := ctx.Engine.findFieldCardByInstance(ctx.Engine.State.Players[ctx.OpponentID], selected[0])
+		target := selectedUnitFromCandidates(ctx.Engine, selected, candidates)
 		if target != nil {
 			ctx.Engine.dealDamage(target, damage, ctx.OpponentID)
 		}

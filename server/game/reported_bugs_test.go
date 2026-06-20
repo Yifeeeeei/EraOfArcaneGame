@@ -419,6 +419,7 @@ func TestIssue25PlaytestRegressions(t *testing.T) {
 		arrow := NewCardInstance(baseCard(t, "2121004"), 0, 1)
 		p0.Equipment[0] = arrow
 		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		backTarget := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
 			"instance_id":  arrow.InstanceID,
@@ -428,6 +429,11 @@ func TestIssue25PlaytestRegressions(t *testing.T) {
 		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "fire_arrow_damage" {
 			t.Fatalf("fire arrow should ask target, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == backTarget.InstanceID {
+				t.Fatalf("fire arrow should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{target.InstanceID},
@@ -531,7 +537,7 @@ func TestIssue25PlaytestRegressions(t *testing.T) {
 }
 
 func TestHighRiskWaterAndAirCompanionSemantics(t *testing.T) {
-	t.Run("1221008 冰域恶魔 freezes every enemy field unit", func(t *testing.T) {
+	t.Run("1221008 冰域恶魔 freezes every enemy in spell range", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		demon := placeUnit(baseCard(t, "1221008"), 0, 1, 1, engine)
 		enemyA := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
@@ -539,25 +545,33 @@ func TestHighRiskWaterAndAirCompanionSemantics(t *testing.T) {
 
 		engine.triggerEffects(TriggerOnEnter, demon, nil, nil)
 
-		if enemyA.Statuses[StatusFreeze] != 1 || enemyB.Statuses[StatusFreeze] != 1 {
-			t.Fatalf("icefield demon should freeze all enemy units, a=%v b=%v", enemyA.Statuses, enemyB.Statuses)
+		if enemyA.Statuses[StatusFreeze] != 1 || enemyB.Statuses[StatusFreeze] != 0 {
+			t.Fatalf("icefield demon should freeze only enemies in spell range, a=%v b=%v", enemyA.Statuses, enemyB.Statuses)
 		}
 	})
 
-	t.Run("1221004 寒霜傀儡 freezes selected target or enemy front row fallback", func(t *testing.T) {
+	t.Run("1221004 寒霜傀儡 asks for an enemy companion in spell range", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		puppet := placeUnit(baseCard(t, "1221004"), 0, 1, 1, engine)
 		selected := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
-		front := placeUnit(baseCard(t, "1021002"), 1, 2, 1, engine)
-
-		engine.triggerEffects(TriggerOnEnter, puppet, selected, nil)
-		if selected.Statuses[StatusFreeze] != 1 || front.Statuses[StatusFreeze] != 0 {
-			t.Fatalf("selected target should be frozen exclusively, selected=%v front=%v", selected.Statuses, front.Statuses)
-		}
+		back := placeUnit(baseCard(t, "1021002"), 1, 2, 1, engine)
 
 		engine.triggerEffects(TriggerOnEnter, puppet, nil, nil)
-		if selected.Statuses[StatusFreeze] != 2 {
-			t.Fatalf("fallback should freeze first enemy front-row unit, selected=%v", selected.Statuses)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "frost_puppet_freeze" {
+			t.Fatalf("frost puppet should ask for an enemy companion, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == back.InstanceID {
+				t.Fatalf("frost puppet should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{selected.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve frost puppet: %v", err)
+		}
+		if selected.Statuses[StatusFreeze] != 1 || back.Statuses[StatusFreeze] != 0 {
+			t.Fatalf("selected target should be frozen exclusively, selected=%v back=%v", selected.Statuses, back.Statuses)
 		}
 	})
 
@@ -676,8 +690,22 @@ func TestHighRiskWaterAndAirCompanionSemantics(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		elemental := placeUnit(baseCard(t, "1321004"), 0, 1, 1, engine)
 		target := placeUnit(baseCard(t, "1011002"), 1, 1, 0, engine)
+		backTarget := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
 
-		engine.triggerEffects(TriggerOnEnter, elemental, target, nil)
+		engine.triggerEffects(TriggerOnEnter, elemental, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "lightning_elemental_stun" {
+			t.Fatalf("lightning elemental should ask for a companion target, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == backTarget.InstanceID {
+				t.Fatalf("lightning elemental should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve lightning elemental: %v", err)
+		}
 
 		if target.Statuses[StatusStun] != 1 {
 			t.Fatalf("lightning elemental should stun selected target, statuses=%v", target.Statuses)
@@ -770,9 +798,18 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		firethorn := placeUnit(baseCard(t, "1121014"), 0, 0, 0, engine)
 		enemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		backEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
 
 		engine.destroyUnit(firethorn, 0)
 
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "firethorn_death_burn" {
+			t.Fatalf("firethorn should ask for a burn target, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == backEnemy.InstanceID {
+				t.Fatalf("firethorn should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
+		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{enemy.InstanceID},
 		}}); err != nil {
@@ -1421,12 +1458,74 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 	})
 
+	t.Run("2021012 sketch scroll uses normal spell target validation", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		frontTarget := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		backTarget := placeUnit(baseCard(t, "1021002"), 1, 0, 2, engine)
+		skill := readySkill(baseCard(t, "3121002"), 0)
+		p0.Skills[0] = skill
+		p0.Elements[model.ElementFire] = 10
+		scroll := NewCardInstance(baseCard(t, "2021012"), 0, 1)
+
+		engine.triggerEffects(TriggerOnUseItem, scroll, nil, nil)
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{skill.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose sketch skill: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "sketch_scroll_target" {
+			t.Fatalf("sketch scroll should ask for target, pending=%+v", engine.State.PendingAction)
+		}
+		foundFront := false
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			switch candidate["instance_id"] {
+			case frontTarget.InstanceID:
+				foundFront = true
+			case backTarget.InstanceID:
+				t.Fatalf("sketch scroll should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
+		}
+		if !foundFront {
+			t.Fatalf("sketch scroll should offer the front-row legal target, candidates=%+v", engine.State.PendingAction.Candidates)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{backTarget.InstanceID},
+		}}); err == nil {
+			t.Fatalf("forged sketch scroll target outside candidates should be rejected")
+		}
+	})
+
+	t.Run("2021012 sketch scroll does not cast targeted spells without legal targets", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		skill := readySkill(baseCard(t, "3121002"), 0)
+		p0.Skills[0] = skill
+		p0.Elements[model.ElementFire] = 10
+		scroll := NewCardInstance(baseCard(t, "2021012"), 0, 1)
+
+		engine.triggerEffects(TriggerOnUseItem, scroll, nil, nil)
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{skill.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose sketch skill: %v", err)
+		}
+		if engine.State.PendingSpell != nil {
+			t.Fatalf("targeted sketch spell should not cast without legal targets, pending=%+v", engine.State.PendingSpell)
+		}
+		if engine.State.PendingAction != nil {
+			t.Fatalf("targeted sketch spell should not leave a target prompt with no targets, pending=%+v", engine.State.PendingAction)
+		}
+	})
+
 	t.Run("2021015 法力增强剂C makes this turn skill use free but adds cooldown", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		booster := NewCardInstance(baseCard(t, "2021015"), 0, 1)
 		skill := readySkill(baseCard(t, "3321007"), 0)
 		p0.Skills[0] = skill
+		secondSkill := readySkill(baseCard(t, "3021005"), 0)
+		p0.Skills[1] = secondSkill
 
 		engine.triggerEffects(TriggerOnUseItem, booster, nil, nil)
 		cost := engine.effectiveSkillUseCost(p0, skill)
@@ -1442,6 +1541,9 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 		if skill.Statuses[StatusCooldown] != 3 {
 			t.Fatalf("mana booster C should add cooldown 2 on top of printed cooldown 1, statuses=%v", skill.Statuses)
+		}
+		if cost := engine.effectiveSkillUseCost(p0, secondSkill); totalCost(cost) != 0 {
+			t.Fatalf("mana booster C should keep this turn's later spell uses free, cost=%v modifiers=%v", cost, p0.TempModifiers)
 		}
 	})
 
@@ -1749,8 +1851,12 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 
 	t.Run("2511002 and 2601002 modify defense or weaken enemy skills", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
 		shield := NewCardInstance(baseCard(t, "2511002"), 0, 1)
+		p0.Equipment[0] = shield
 		book := NewCardInstance(baseCard(t, "2601002"), 0, 1)
+		frontEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		backEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
 		enemyA := readySkill(baseCard(t, "3021005"), 1)
 		enemyB := readySkill(baseCard(t, "3021008"), 1)
 		engine.State.Players[1].Skills[0] = enemyA
@@ -1760,10 +1866,19 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		if modifier, ok := globalRegistry.GetBehavior("2511002").(SpellStatModifier); ok {
 			modifier.ModifySpellStats(&EffectContext{Engine: engine, Source: shield, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"purpose": string(skillPurposeDefend)}}, stats)
 		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  shield.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use shining shield per-turn: %v", err)
+		}
 		engine.triggerEffects(TriggerOnEnter, book, nil, nil)
 
 		if stats.PowerBonus != 2 {
 			t.Fatalf("shining shield should add +2 defense power, stats=%+v", stats)
+		}
+		if frontEnemy.Statuses[StatusStun] != 1 || backEnemy.Statuses[StatusStun] != 0 {
+			t.Fatalf("shining shield should stun only enemies in spell range, front=%v back=%v", frontEnemy.Statuses, backEnemy.Statuses)
 		}
 		if enemyA.Statuses[StatusWeaken] != 1 || enemyB.Statuses[StatusWeaken] != 1 {
 			t.Fatalf("spellbook should weaken all enemy skills, a=%v b=%v", enemyA.Statuses, enemyB.Statuses)
@@ -1831,6 +1946,114 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		}
 		if !types["shelter_rune"] || !types["holy_sanction"] {
 			t.Fatalf("shelter and sanction should create temporary modifiers, modifiers=%v", p0.TempModifiers)
+		}
+	})
+
+	t.Run("2321010 illusion scroll rearranges units and asks attacker to retarget", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		front := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		back := placeUnit(baseCard(t, "1021002"), 1, 0, 2, engine)
+		skill := readySkill(baseCard(t, "3121002"), 0)
+		p0.Skills[0] = skill
+		engine.State.PendingSpell = &SpellCast{
+			AttackerID: 0,
+			Skill:      skill,
+			Target:     SpellTarget{Type: "unit", Position: *front.Position},
+			TotalPower: skill.Card.Power,
+		}
+		scroll := NewCardInstance(baseCard(t, "2321010"), 1, 1)
+
+		engine.triggerEffects(TriggerOnUseItem, scroll, nil, map[string]any{})
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "illusion_scroll_unit" || engine.State.PendingAction.PlayerID != 1 {
+			t.Fatalf("illusion scroll should ask defender which unit to rearrange, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{front.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose illusion unit: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "illusion_scroll_position" {
+			t.Fatalf("illusion scroll should ask for a destination, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{positionSelectionID(*back.Position)},
+		}}); err != nil {
+			t.Fatalf("choose illusion destination: %v", err)
+		}
+		if front.Position.Col != 0 || front.Position.Row != 2 || back.Position.Col != 1 || back.Position.Row != 0 {
+			t.Fatalf("illusion scroll should swap occupied positions, front=%+v back=%+v", front.Position, back.Position)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "illusion_scroll_unit" {
+			t.Fatalf("illusion scroll should allow further rearrangement or completion, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{illusionScrollDoneID},
+		}}); err != nil {
+			t.Fatalf("finish illusion rearrangement: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "illusion_scroll_retarget" || engine.State.PendingAction.PlayerID != 0 {
+			t.Fatalf("illusion scroll should ask attacker to retarget, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{back.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose illusion retarget: %v", err)
+		}
+		if engine.State.PendingSpell == nil || engine.State.PendingSpell.Target.Position != *back.Position {
+			t.Fatalf("illusion scroll should update the pending spell target, pending=%+v back=%+v", engine.State.PendingSpell, back.Position)
+		}
+	})
+
+	t.Run("2321010 illusion scroll resumes the spell flow after retargeting", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		skill := readySkill(baseCard(t, "3121002"), 0)
+		p0.Skills[0] = skill
+		p0.Elements[model.ElementFire] = 10
+		p1.Elements[model.ElementAir] = 10
+		scroll := NewCardInstance(baseCard(t, "2321010"), 1, 1)
+		scroll.IsSetCounter = true
+		scroll.IsHorizontal = true
+		scroll.SlotIndex = 0
+		p1.Equipment[0] = scroll
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": skill.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(target.Position.Col),
+			"target_row":  float64(target.Position.Row),
+		}}); err != nil {
+			t.Fatalf("cast spell into illusion scroll: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "counter_trigger" || engine.State.PendingAction.PlayerID != 1 {
+			t.Fatalf("illusion scroll should prompt as a counter, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{scroll.InstanceID},
+		}}); err != nil {
+			t.Fatalf("reveal illusion scroll: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "illusion_scroll_unit" {
+			t.Fatalf("illusion scroll should open rearrange prompt, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{illusionScrollDoneID},
+		}}); err != nil {
+			t.Fatalf("finish illusion rearrangement: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "illusion_scroll_retarget" || engine.State.PendingAction.PlayerID != 0 {
+			t.Fatalf("illusion scroll should ask attacker to retarget, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose illusion retarget: %v", err)
+		}
+		if engine.State.Phase != PhaseDefenseWindow || engine.State.PendingSpell == nil {
+			t.Fatalf("illusion scroll should resume into defense window, phase=%s pending=%+v", engine.State.Phase, engine.State.PendingSpell)
 		}
 	})
 
@@ -2006,6 +2229,7 @@ func TestDragIntoAbyssCounterTrap(t *testing.T) {
 		ally.CurrentLife = 2
 		enemy := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
 		enemy.CurrentLife = 5
+		backEnemy := placeUnit(baseCard(t, "1021002"), 1, 1, 1, engine)
 
 		engine.dealDamageWithExtra(ally, 2, 0, map[string]any{"damage_source": "spell", "attacker": 1})
 		if ally.DamageTakenThisTurn != 2 || len(p0.Graveyard) == 0 || p0.Graveyard[0] != ally {
@@ -2021,6 +2245,11 @@ func TestDragIntoAbyssCounterTrap(t *testing.T) {
 		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "drag_into_abyss_target" {
 			t.Fatalf("expected drag into abyss target prompt, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == backEnemy.InstanceID {
+				t.Fatalf("drag into abyss should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{enemy.InstanceID},
@@ -2880,6 +3109,7 @@ func TestMulingUltimateReturnsOneCompanionFromEachSide(t *testing.T) {
 	muling := placeUnit(baseCard(t, "4311003"), 0, 1, 1, engine)
 	own := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
 	enemy := placeUnit(baseCard(t, "1321010"), 1, 1, 0, engine)
+	backEnemy := placeUnit(baseCard(t, "1321010"), 1, 1, 1, engine)
 	p0.Elements[model.ElementAir] = 2
 
 	if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
@@ -2890,6 +3120,11 @@ func TestMulingUltimateReturnsOneCompanionFromEachSide(t *testing.T) {
 	}
 	if engine.State.Phase != PhaseWaitingAction {
 		t.Fatalf("expected muling selection, phase=%v", engine.State.Phase)
+	}
+	for _, candidate := range engine.State.PendingAction.Candidates {
+		if candidate["instance_id"] == backEnemy.InstanceID {
+			t.Fatalf("muling should not offer enemy companions outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+		}
 	}
 	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 		"selected": []any{own.InstanceID, enemy.InstanceID},
@@ -4449,11 +4684,20 @@ func TestConsumableTargetedItemEffects(t *testing.T) {
 		p0.Hand = []*CardInstance{item}
 		p0.Elements[model.ElementFire] = 10
 		target := placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
+		backTarget := placeUnit(baseCard(t, "1021004"), 1, 1, 1, engine)
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
 			"instance_id": item.InstanceID,
 		}}); err != nil {
 			t.Fatalf("use fire arrow item: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "fire_arrow_damage" {
+			t.Fatalf("fire arrow item should ask target, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == backTarget.InstanceID {
+				t.Fatalf("fire arrow item should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{target.InstanceID},
@@ -5484,6 +5728,7 @@ func TestUtilityScrollAndForesightEffects(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		target := placeUnit(baseCard(t, "1021007"), 1, 1, 0, engine)
+		backTarget := placeUnit(baseCard(t, "1021007"), 1, 1, 1, engine)
 		scroll := NewCardInstance(baseCard(t, "2221013"), 0, 1)
 		p0.Hand = []*CardInstance{scroll}
 		p0.Elements[model.ElementWater] = 3
@@ -5492,6 +5737,14 @@ func TestUtilityScrollAndForesightEffects(t *testing.T) {
 			"instance_id": scroll.InstanceID,
 		}}); err != nil {
 			t.Fatalf("use deep frost curse: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "deep_frost_curse" {
+			t.Fatalf("deep frost curse should ask target, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == backTarget.InstanceID {
+				t.Fatalf("deep frost curse should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{target.InstanceID},
@@ -5685,6 +5938,48 @@ func TestSkillContributionModifiers(t *testing.T) {
 		}
 		if target.CurrentLife != target.Card.Life-2 {
 			t.Fatalf("all fires as one should deal 2 at 5 power, life=%d", target.CurrentLife)
+		}
+	})
+
+	t.Run("all fires as one calculates attack from final power", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		p0.Skills[0] = readySkill(baseCard(t, "3101002"), 0)
+		p0.Elements[model.ElementFire] = 10
+		p0.Elements[model.ElementArcane] = 10
+		potionA := NewCardInstance(baseCard(t, "2121005"), 0, 1)
+		potionB := NewCardInstance(baseCard(t, "2121005"), 0, 1)
+		p0.Hand = []*CardInstance{potionA, potionB}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": potionA.InstanceID,
+			"payment":     map[string]any{model.ElementFire: float64(1), model.ElementArcane: float64(1)},
+		}}); err != nil {
+			t.Fatalf("use first divine flame potion: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": potionB.InstanceID,
+			"payment":     map[string]any{model.ElementFire: float64(1), model.ElementArcane: float64(1)},
+		}}); err != nil {
+			t.Fatalf("use second divine flame potion: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast all fires as one with potion power: %v", err)
+		}
+		if engine.State.PendingSpell == nil || engine.State.PendingSpell.TotalPower != 9 {
+			t.Fatalf("two divine flame potions should stack to 9 power, pending=%+v", engine.State.PendingSpell)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve all fires as one with potion power: %v", err)
+		}
+		if target.CurrentLife != target.Card.Life-2 {
+			t.Fatalf("all fires as one should deal 2 at final 9 power, life=%d", target.CurrentLife)
 		}
 	})
 }
@@ -6923,6 +7218,37 @@ func TestReviewCardsLoadReviveAndFriendlyTargetSpells(t *testing.T) {
 		}
 	})
 
+	t.Run("regeneration in skill area does not trigger from other spells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		placeUnit(baseCard(t, "1421003"), 1, 1, 0, engine)
+		earth := placeUnit(baseCard(t, "1421003"), 0, 1, 0, engine)
+		earth.IsHorizontal = true
+		p0.Skills[0] = readySkill(baseCard(t, "3421004"), 0)
+		p1.Skills[0] = readySkill(baseCard(t, "3121001"), 1)
+		p1.Elements[model.ElementFire] = 10
+		engine.State.CurrentTurn = 1
+
+		if err := engine.HandleAction(1, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p1.Skills[0].InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast unrelated spell into regeneration owner: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve unrelated spell: %v", err)
+		}
+		if engine.State.PendingAction != nil {
+			t.Fatalf("regeneration should not create a reset prompt for other spells, pending=%+v", engine.State.PendingAction)
+		}
+		if !earth.IsHorizontal {
+			t.Fatalf("regeneration should not reset earth companion from unrelated spell")
+		}
+	})
+
 	t.Run("holy fire cleanses friendly target and damages enemy target", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
@@ -7280,6 +7606,38 @@ func TestHighRiskSkillReactionAndBoostSemantics(t *testing.T) {
 }
 
 func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
+	t.Run("1421001 sand mage chooses any enemy ignoring spell range", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		front := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		back := placeUnit(baseCard(t, "1021002"), 1, 0, 2, engine)
+		mage := placeUnit(baseCard(t, "1421001"), 0, 1, 1, engine)
+
+		engine.triggerEffects(TriggerOnEnter, mage, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "sand_mage_petrify" {
+			t.Fatalf("sand mage should ask for a target, pending=%+v", engine.State.PendingAction)
+		}
+		foundBack := false
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == back.InstanceID {
+				foundBack = true
+			}
+		}
+		if !foundBack {
+			t.Fatalf("sand mage should offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+		}
+		if front.Statuses[StatusPetrify] != 0 {
+			t.Fatalf("sand mage should not auto-petrify the front target")
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{back.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose sand mage target: %v", err)
+		}
+		if back.Statuses[StatusPetrify] != 1 {
+			t.Fatalf("sand mage should petrify the selected enemy, statuses=%v", back.Statuses)
+		}
+	})
+
 	t.Run("1111001 火龙辉煌 requires fire devour and binds fire breath to itself", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]

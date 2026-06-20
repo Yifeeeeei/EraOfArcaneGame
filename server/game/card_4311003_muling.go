@@ -8,8 +8,8 @@ func (Card4311003Muling) ID() string   { return "4311003" }
 func (Card4311003Muling) Name() string { return "掌门 穆伶" }
 
 func (Card4311003Muling) OnUltimate(ctx *EffectContext) error {
-	ownCandidates := mulingCandidates(ctx.Engine.State.Players[ctx.PlayerID], "own")
-	enemyCandidates := mulingCandidates(ctx.Engine.State.Players[ctx.OpponentID], "enemy")
+	ownCandidates := mulingCandidates(ctx.Engine, ctx.PlayerID, ctx.PlayerID, "own")
+	enemyCandidates := mulingCandidates(ctx.Engine, ctx.PlayerID, ctx.OpponentID, "enemy")
 	if len(ownCandidates) == 0 || len(enemyCandidates) == 0 {
 		return nil
 	}
@@ -19,8 +19,8 @@ func (Card4311003Muling) OnUltimate(ctx *EffectContext) error {
 		"选择双方各1个伙伴，支付入场费用差值的大气，将它们移回手牌",
 		candidates, 2, 2,
 		func(selected []string) {
-			own := findSelectedUnit(ctx.Engine.State.Players[ctx.PlayerID], selected)
-			enemy := findSelectedUnit(ctx.Engine.State.Players[ctx.OpponentID], selected)
+			own := selectedUnitFromCandidates(ctx.Engine, selected, ownCandidates)
+			enemy := selectedUnitFromCandidates(ctx.Engine, selected, enemyCandidates)
 			if own == nil || enemy == nil {
 				return
 			}
@@ -41,12 +41,16 @@ func (Card4311003Muling) OnUltimate(ctx *EffectContext) error {
 	return nil
 }
 
-func mulingCandidates(ps *PlayerState, side string) []map[string]any {
+func mulingCandidates(e *Engine, playerID int, ownerID int, side string) []map[string]any {
+	ps := e.State.Players[ownerID]
 	candidates := make([]map[string]any, 0)
 	for col := 0; col < 3; col++ {
 		for row := 0; row < 3; row++ {
 			unit := ps.Units[col][row]
 			if unit == nil || unit.Card.IsHero() || !unit.Card.IsCompanion() {
+				continue
+			}
+			if ownerID != playerID && !e.IsInSpellRange(playerID, col, row, false) {
 				continue
 			}
 			info := cardToInfo(unit)
