@@ -389,6 +389,7 @@ func (e *Engine) totalEffectiveSkillPower(playerID int, skills []*CardInstance, 
 	total := 0
 	for _, skill := range skills {
 		total += e.skillContributionStats(playerID, skill, nil, purpose).PowerBonus
+		total += e.spellStatBonuses(playerID, skill, purpose).PowerBonus
 	}
 	return max(total, 0)
 }

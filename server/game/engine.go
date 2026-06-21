@@ -3155,6 +3155,7 @@ func (e *Engine) checkWinCondition() {
 	case p0Dead && p1Dead:
 		e.State.Winner = -2
 		e.State.Phase = PhaseGameOver
+		e.clearPendingForGameOver()
 		e.emit(GameEvent{
 			Type:   "game_over",
 			Player: -1,
@@ -3166,6 +3167,7 @@ func (e *Engine) checkWinCondition() {
 	case p0Dead:
 		e.State.Winner = 1
 		e.State.Phase = PhaseGameOver
+		e.clearPendingForGameOver()
 		e.emit(GameEvent{
 			Type:   "game_over",
 			Player: -1,
@@ -3177,6 +3179,7 @@ func (e *Engine) checkWinCondition() {
 	case p1Dead:
 		e.State.Winner = 0
 		e.State.Phase = PhaseGameOver
+		e.clearPendingForGameOver()
 		e.emit(GameEvent{
 			Type:   "game_over",
 			Player: -1,
@@ -3186,6 +3189,12 @@ func (e *Engine) checkWinCondition() {
 			},
 		})
 	}
+}
+
+func (e *Engine) clearPendingForGameOver() {
+	e.State.PendingAction = nil
+	e.State.PendingSpell = nil
+	e.State.ResumePhase = PhaseGameOver
 }
 
 func payCostForAction(ps *PlayerState, cost map[string]int, action ActionMessage) bool {
@@ -3603,7 +3612,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 	// Skills
 	skills := [5]any{}
 	for i := 0; i < 5; i++ {
-		skills[i] = cardToInfo(ps.Skills[i])
+		skills[i] = e.cardToInfoForPlayer(ps, ps.Skills[i])
 	}
 	info["skills"] = skills
 
@@ -3642,7 +3651,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 func (e *Engine) cardsToInfoWithEffectiveCosts(ps *PlayerState, cards []*CardInstance, learn bool) []map[string]any {
 	result := make([]map[string]any, len(cards))
 	for i, c := range cards {
-		info := cardToInfo(c)
+		info := e.cardToInfoForPlayer(ps, c)
 		if c != nil && c.Card != nil {
 			if learn {
 				info["effective_learn_cost"] = e.effectiveSkillLearnCost(ps, c)
@@ -3653,4 +3662,27 @@ func (e *Engine) cardsToInfoWithEffectiveCosts(ps *PlayerState, cards []*CardIns
 		result[i] = info
 	}
 	return result
+}
+
+func (e *Engine) cardToInfoForPlayer(ps *PlayerState, card *CardInstance) map[string]any {
+	info := cardToInfo(card)
+	if ps == nil || card == nil || card.Card == nil {
+		return info
+	}
+	if isSpellLikeCard(card.Card) {
+		info["effective_defense_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeDefend)
+		info["effective_defense_boost_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeDefenseBoost)
+		info["effective_attack_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeAttack)
+		info["effective_attack_boost_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeAttackBoost)
+	}
+	return info
+}
+
+func (e *Engine) effectiveSkillPowerForPurpose(playerID int, skill *CardInstance, purpose skillPurpose) int {
+	if skill == nil || skill.Card == nil {
+		return 0
+	}
+	power := e.skillContributionStats(playerID, skill, nil, purpose).PowerBonus
+	power += e.spellStatBonuses(playerID, skill, purpose).PowerBonus
+	return max(power, 0)
 }

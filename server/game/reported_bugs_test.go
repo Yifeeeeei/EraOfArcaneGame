@@ -4305,6 +4305,38 @@ func TestSpellStatPassivePowerAndDamageModifiers(t *testing.T) {
 		}
 	})
 
+	t.Run("celtic lion increases spell power when the spell is used for defense", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		target := placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
+		placeUnit(baseCard(t, "1121004"), 1, 0, 0, engine)
+		p0.Skills[0] = readySkill(baseCard(t, "3121002"), 0)
+		p1.Skills[0] = readySkill(baseCard(t, "3121001"), 1)
+		p0.Elements[model.ElementFire] = 10
+		p1.Elements[model.ElementFire] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast burn: %v", err)
+		}
+		if engine.State.PendingSpell == nil || engine.State.PendingSpell.TotalPower != 4 {
+			t.Fatalf("burn should attack at 4 power, pending=%+v", engine.State.PendingSpell)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "defend", Data: map[string]any{
+			"skill_ids": []any{p1.Skills[0].InstanceID},
+		}}); err != nil {
+			t.Fatalf("defend with fireball under celtic lion: %v", err)
+		}
+		if target.CurrentLife != target.Card.Life {
+			t.Fatalf("celtic lion should make fireball defend at 4 power and prevent hit, life=%d", target.CurrentLife)
+		}
+	})
+
 	t.Run("raincaller gives water and air spells plus one power", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
@@ -8076,6 +8108,25 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 		engine.dealDamageWithExtra(friend, 1, 0, map[string]any{"attacker": 1})
 		if engine.State.PendingAction != nil {
 			t.Fatalf("Maris should not offer the triggered ultimate more than once, pending=%v", engine.State.PendingAction)
+		}
+	})
+
+	t.Run("4511001 玛丽斯 triggered choice is cleared when the damage ends the game", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		maris := NewCardInstance(baseCard(t, "4511001"), 0, 1)
+		p0.Hero = maris
+		p0.Units[1][1] = maris
+		maris.Position = &Position{Col: 1, Row: 1}
+		maris.CurrentLife = 1
+
+		engine.dealDamageWithExtra(maris, 1, 0, map[string]any{"attacker": 1})
+
+		if engine.State.Phase != PhaseGameOver || engine.State.Winner != 1 {
+			t.Fatalf("Maris lethal damage should end the game, phase=%v winner=%d", engine.State.Phase, engine.State.Winner)
+		}
+		if engine.State.PendingAction != nil || engine.State.PendingSpell != nil {
+			t.Fatalf("game over should clear Maris pending windows, pending=%+v spell=%+v", engine.State.PendingAction, engine.State.PendingSpell)
 		}
 	})
 

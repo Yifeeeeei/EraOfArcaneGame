@@ -2360,18 +2360,26 @@
                 const skills = myState.value.skills || [];
                 for (const id of defenseSelected.value) {
                     const sk = skills.find(s => s && s.instance_id === id);
-                    if (sk) power += Math.max(sk.power || 0, 0);
+                    if (sk) power += defensePower(sk);
                 }
                 for (const id of defenseScrollSelected.value) {
                     const scroll = myHand.value.find(s => s && s.instance_id === id);
-                    if (scroll) power += Math.max(scroll.power || 0, 0);
+                    if (scroll) power += defensePower(scroll);
                 }
                 for (const id of defenseBoostSelected.value) {
                     const sk = skills.find(s => s && s.instance_id === id);
-                    if (sk) power += Math.max(sk.power || 0, 0);
+                    if (sk) power += defenseBoostPower(sk);
                 }
                 return power;
             });
+
+            function defensePower(card) {
+                return Math.max(Number(card?.effective_defense_power ?? card?.power ?? 0), 0);
+            }
+
+            function defenseBoostPower(card) {
+                return Math.max(Number(card?.effective_defense_boost_power ?? card?.power ?? 0), 0);
+            }
 
             const canSubmitDefense = computed(() => {
                 if (Number(gameState.value?.pending_spell?.power || 0) <= 0) return true;
