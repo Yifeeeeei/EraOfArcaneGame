@@ -1595,6 +1595,50 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 	})
 
+	t.Run("2521014 祝福之杖 does not pay consume or marker cost without a friendly companion target", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		staff := NewCardInstance(baseCard(t, "2521014"), 0, 1)
+		staff.IsHorizontal = false
+		staff.Statuses[blessingStaffCounter] = 3
+		p0.Equipment[0] = staff
+
+		err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  staff.InstanceID,
+			"ability_type": "per_turn",
+		}})
+		if err == nil {
+			t.Fatalf("blessing staff should reject use without a friendly companion target")
+		}
+		if staff.IsHorizontal || staff.Statuses[blessingStaffCounter] != 3 || staff.UsedThisTurn != 0 || engine.State.PendingAction != nil {
+			t.Fatalf("blessing staff should not pay costs or leave pending on invalid use, horizontal=%v statuses=%v used=%d pending=%+v", staff.IsHorizontal, staff.Statuses, staff.UsedThisTurn, engine.State.PendingAction)
+		}
+	})
+
+	t.Run("2621014 埋葬者 does not pay consume or marker cost without a shadow companion in deck", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		burier := NewCardInstance(baseCard(t, "2621014"), 0, 1)
+		burier.IsHorizontal = false
+		burier.Statuses[burierCounter] = 3
+		p0.Equipment[0] = burier
+		p0.Deck = []*CardInstance{
+			NewCardInstance(baseCard(t, "1021001"), 0, 1),
+			NewCardInstance(baseCard(t, "1121001"), 0, 1),
+		}
+
+		err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  burier.InstanceID,
+			"ability_type": "per_turn",
+		}})
+		if err == nil {
+			t.Fatalf("burier should reject use without a shadow companion in deck")
+		}
+		if burier.IsHorizontal || burier.Statuses[burierCounter] != 3 || burier.UsedThisTurn != 0 || engine.State.PendingAction != nil {
+			t.Fatalf("burier should not pay costs or leave pending on invalid use, horizontal=%v statuses=%v used=%d pending=%+v", burier.IsHorizontal, burier.Statuses, burier.UsedThisTurn, engine.State.PendingAction)
+		}
+	})
+
 	t.Run("2111002 努尔之眼 counts only fire damage and converts markers", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]

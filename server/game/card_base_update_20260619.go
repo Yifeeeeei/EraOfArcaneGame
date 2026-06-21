@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"math/rand"
 
 	"eraofarcane/model"
@@ -142,6 +143,7 @@ type markerEquipment struct {
 	counter  string
 	counters int
 	limit    int
+	canUse   func(*EffectContext) bool
 	effect   func(*EffectContext) error
 }
 
@@ -163,6 +165,9 @@ func (m markerEquipment) OnPerTurn(ctx *EffectContext) error {
 	}
 	if ctx.Source.Statuses[m.counter] <= 0 {
 		return nil
+	}
+	if m.canUse != nil && !m.canUse(ctx) {
+		return fmt.Errorf("%s has no valid target", m.name)
 	}
 	ctx.Source.IsHorizontal = true
 	ctx.Source.Statuses[m.counter]--
@@ -209,7 +214,10 @@ func newForestStorage() CardBehavior {
 }
 
 func newBlessingStaff() CardBehavior {
-	return markerEquipment{id: "2521014", name: "祝福之杖", counter: blessingStaffCounter, counters: 3, effect: func(ctx *EffectContext) error {
+	canUse := func(ctx *EffectContext) bool {
+		return len(ctx.Engine.friendlyUnits(ctx.PlayerID, false, nil)) > 0
+	}
+	return markerEquipment{id: "2521014", name: "祝福之杖", counter: blessingStaffCounter, counters: 3, canUse: canUse, effect: func(ctx *EffectContext) error {
 		candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, nil)
 		ctx.Engine.SetPendingAction(ctx.PlayerID, "blessing_staff", "祝福之杖:选择1个友方单位+1血", candidates, 1, 1, func(selected []string) {
 			target := selectedUnitFromCandidates(ctx.Engine, selected, candidates)
@@ -224,7 +232,12 @@ func newBlessingStaff() CardBehavior {
 }
 
 func newBurier() CardBehavior {
-	return markerEquipment{id: "2621014", name: "埋葬者", counter: burierCounter, counters: 3, effect: func(ctx *EffectContext) error {
+	canUse := func(ctx *EffectContext) bool {
+		return len(ctx.Engine.friendlyDeckCards(ctx.PlayerID, func(card *CardInstance) bool {
+			return card.Card.IsCompanion() && card.Card.Category == model.ElementShadow
+		})) > 0
+	}
+	return markerEquipment{id: "2621014", name: "埋葬者", counter: burierCounter, counters: 3, canUse: canUse, effect: func(ctx *EffectContext) error {
 		candidates := ctx.Engine.friendlyDeckCards(ctx.PlayerID, func(card *CardInstance) bool {
 			return card.Card.IsCompanion() && card.Card.Category == model.ElementShadow
 		})
