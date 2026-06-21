@@ -25,7 +25,7 @@
     "version_number": "1",
     "version_name": "基础包",
     "attack": 2,
-    "life": 4,
+    "life": 5,
     "duration": -1,
     "power": -1,
     "spawns": [
@@ -39,16 +39,12 @@
     "name": "巫师之塔 通天阁",
     "category": "无",
     "tag": "传奇-造物",
-    "description": "引魔.光环:你的法力范围变为全场",
+    "description": "引魔.入场:你的技能槽每有1个技能,就获得1点其属性对应的元素.光环:你的法力范围变为全场",
     "quote": "俯瞰着整片大陆,难道你不想将世界收入囊中吗?",
     "elements_cost": {
-      "无": 7
+      "无": 8
     },
-    "elements_gain": {
-      "光": 1,
-      "无": 1,
-      "暗": 1
-    },
+    "elements_gain": {},
     "elements_expense": {},
     "version_number": "1",
     "version_name": "基础包",
@@ -226,7 +222,7 @@
     "version_number": "1",
     "version_name": "基础包",
     "attack": -1,
-    "life": 1,
+    "life": 2,
     "duration": -1,
     "power": -1,
     "spawns": [],
@@ -495,6 +491,28 @@
     "output_path": "output\\基础包\\伙伴\\无\\1021017.jpg"
   },
   {
+    "number": "1021018",
+    "type": "伙伴",
+    "name": "奥术壁垒",
+    "category": "无",
+    "tag": "造物",
+    "description": "遗言:对方获得2\\无",
+    "quote": "",
+    "elements_cost": {
+      "无": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "基础包",
+    "attack": -1,
+    "life": 5,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\基础包\\伙伴\\无\\1021018.jpg"
+  },
+  {
     "number": "1111001",
     "type": "伙伴",
     "name": "火龙 \"辉煌\"",
@@ -526,7 +544,7 @@
     "name": "炎狱大将军 狄斯托德",
     "category": "火",
     "tag": "传奇-巫师",
-    "description": "诱发:每当对方召唤1个伙伴时,使其获得点燃1和石化1",
+    "description": "诱发:每当对方召唤1个伙伴时,使其获得点燃2和石化2",
     "quote": "\"我的使命,就是将地狱带到人间\"",
     "elements_cost": {
       "地": 2,
@@ -555,10 +573,10 @@
     "description": "引魔.光环:敌方单位受到的点燃伤害+1",
     "quote": "始于灰烬,终于灰烬",
     "elements_cost": {
-      "火": 5
+      "火": 4
     },
     "elements_gain": {
-      "火": 2
+      "火": 1
     },
     "elements_expense": {},
     "version_number": "1",
@@ -772,7 +790,7 @@
     "name": "赤鹰",
     "category": "火",
     "tag": "野兽",
-    "description": "入场:检索1个入场花费大于4的火焰伙伴",
+    "description": "入场:检索1个入场花费大于等于4的火焰伙伴",
     "quote": "每只赤鹰都想成为凤凰,前提是它们身上的羽毛还没有被猎人拔光",
     "elements_cost": {
       "火": 3
@@ -939,6 +957,28 @@
     "output_path": "output\\基础包\\伙伴\\火\\1121015.jpg"
   },
   {
+    "number": "1121016",
+    "type": "伙伴",
+    "name": "舞火者",
+    "category": "火",
+    "tag": "人类",
+    "description": "入场,遗言:使你场上的所有火焰卡牌免疫负面状态(仍可处于)直到你的下一次回合结束",
+    "quote": "",
+    "elements_cost": {
+      "火": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "基础包",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\基础包\\伙伴\\火\\1121016.jpg"
+  },
+  {
     "number": "1211001",
     "type": "伙伴",
     "name": "人鱼 菲尔",
@@ -994,7 +1034,7 @@
     "name": "\"雪女\" 天户凌",
     "category": "水",
     "tag": "传奇-巫师",
-    "description": "引魔.诱发回合技3:在你检索1张水纹卡牌后,使1个前排敌人冻结1",
+    "description": "引魔.诱发回合技3:在你检索1张水纹卡牌后,选择1个法力范围内的敌人,使其冻结1",
     "quote": "我梦到北方纷飞的大雪,那里便是我的归宿",
     "elements_cost": {
       "水": 5
@@ -1018,7 +1058,7 @@
     "name": "海豚伙伴",
     "category": "水",
     "tag": "野兽",
-    "description": "献祭:防止1个其他友方单位受到的1次致命伤害",
+    "description": "诱发:当1个其他友方单位将要受到致命伤害时,将此卡献祭才能发动,防止该伤害",
     "quote": "",
     "elements_cost": {
       "水": 1
@@ -1113,10 +1153,11 @@
     "name": "西境海妖",
     "category": "水",
     "tag": "异兽",
-    "description": "祈咒:消耗法力范围内的1个伙伴",
+    "description": "祈咒:选择法力范围内的1个敌方伙伴,将其横置",
     "quote": "很难想象什么样的水手没能禁住诱惑",
     "elements_cost": {
-      "水": 5
+      "无": 1,
+      "水": 4
     },
     "elements_gain": {
       "水": 2
@@ -1356,7 +1397,7 @@
     "name": "眺望者商舰",
     "category": "水",
     "tag": "机械",
-    "description": "祈咒:检索1个水纹卡牌,然后将1张手牌洗回卡组",
+    "description": "祈咒:检索1个水纹卡牌,然后选择1张手牌洗回卡组",
     "quote": "群屿大陆绝不会停止的两件事:战争和贸易",
     "elements_cost": {
       "气": 2,
@@ -1375,6 +1416,29 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\伙伴\\水\\1221015.jpg"
+  },
+  {
+    "number": "1221016",
+    "type": "伙伴",
+    "name": "冰刺堡垒",
+    "category": "水",
+    "tag": "造物",
+    "description": "诱发:每当此卡受到敌方伤害,选择法力范围内1个敌人冻结1,如果已冻结,则改为造成1点伤害",
+    "quote": "",
+    "elements_cost": {
+      "无": 1,
+      "水": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "基础包",
+    "attack": -1,
+    "life": 4,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\基础包\\伙伴\\水\\1221016.jpg"
   },
   {
     "number": "1311001",
@@ -1434,7 +1498,7 @@
     "name": "\"风刃\" 卡琳娜",
     "category": "气",
     "tag": "传奇-人类",
-    "description": "你的没有穿透的大气技能获得穿透和使用花费+1\\气(不需要选择目标的技能不受影响)",
+    "description": "引魔.光环:你的没有穿透的大气技能获得穿透和使用花费+1\\气(不需要选择目标的技能不受影响)",
     "quote": "匕首的价值,取决于它架在谁的脖子上",
     "elements_cost": {
       "气": 1
@@ -1816,6 +1880,28 @@
     "output_path": "output\\基础包\\伙伴\\气\\1321015.jpg"
   },
   {
+    "number": "1321016",
+    "type": "伙伴",
+    "name": "雷傀儡",
+    "category": "气",
+    "tag": "造物",
+    "description": "遗言:对手丢弃1张手牌",
+    "quote": "",
+    "elements_cost": {
+      "气": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "基础包",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\基础包\\伙伴\\气\\1321016.jpg"
+  },
+  {
     "number": "1401001",
     "type": "伙伴",
     "name": "生命种子",
@@ -1917,7 +2003,7 @@
     "name": "沙之魔巫 梭默",
     "category": "地",
     "tag": "传奇-巫师",
-    "description": "你的没有范围效果的地脉法术获得范围:方阵",
+    "description": "光环:你的没有范围效果的地脉法术获得范围:方阵",
     "quote": "沙瓦尔大陆的守护者,旅行者的指路人,屠魔者的灾星",
     "elements_cost": {
       "地": 4,
@@ -2299,6 +2385,28 @@
     "output_path": "output\\基础包\\伙伴\\地\\1421015.jpg"
   },
   {
+    "number": "1421016",
+    "type": "伙伴",
+    "name": "食腐者",
+    "category": "地",
+    "tag": "野兽",
+    "description": "引魔.诱发:每当其他友方单位受到对方伤害,你获得2\\地",
+    "quote": "",
+    "elements_cost": {
+      "地": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "基础包",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\基础包\\伙伴\\地\\1421016.jpg"
+  },
+  {
     "number": "1501001",
     "type": "伙伴",
     "name": "孪生天使",
@@ -2426,7 +2534,7 @@
     "name": "光铸泰坦",
     "category": "光",
     "tag": "精灵",
-    "description": "入场:抽2张牌.神秘和聚能法术对本卡造成的伤害+1",
+    "description": "入场:抽2张牌.光环:驱动、神秘和聚能法术对本卡造成的伤害+1",
     "quote": "",
     "elements_cost": {
       "光": 5
@@ -2760,6 +2868,28 @@
     "output_path": "output\\基础包\\伙伴\\光\\1521015.jpg"
   },
   {
+    "number": "1521016",
+    "type": "伙伴",
+    "name": "索洛城的坚守者",
+    "category": "光",
+    "tag": "人类",
+    "description": "诱发:此卡在满血受到治疗效果时,获得+1\\血",
+    "quote": "",
+    "elements_cost": {
+      "光": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "基础包",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\基础包\\伙伴\\光\\1521016.jpg"
+  },
+  {
     "number": "1611001",
     "type": "伙伴",
     "name": "\"观察者\" 欧柯茹",
@@ -2961,14 +3091,14 @@
     "description": "诱发:每当其他友方单位死亡后,此卡获得+1\\血",
     "quote": "",
     "elements_cost": {
-      "暗": 4
+      "暗": 3
     },
     "elements_gain": {},
     "elements_expense": {},
     "version_number": "1",
     "version_name": "基础包",
     "attack": 1,
-    "life": 2,
+    "life": 1,
     "duration": -1,
     "power": -1,
     "spawns": [],
@@ -3189,6 +3319,28 @@
     "output_path": "output\\基础包\\伙伴\\暗\\1621015.jpg"
   },
   {
+    "number": "1621016",
+    "type": "伙伴",
+    "name": "复仇死者",
+    "category": "暗",
+    "tag": "造物",
+    "description": "遗言:对此卡造成致命伤害来源一方的人物牌受到2点伤害",
+    "quote": "",
+    "elements_cost": {
+      "暗": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "基础包",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\基础包\\伙伴\\暗\\1621016.jpg"
+  },
+  {
     "number": "2011001",
     "type": "道具",
     "name": "大法师之杖",
@@ -3242,7 +3394,7 @@
     "name": "君王法袍 至贤",
     "category": "无",
     "tag": "传奇-装备-防具",
-    "description": "诱发绝技:当敌方法术命中时,如果你场上的负载多于敌方,每多2点使本回合所有敌方法术-1\\攻",
+    "description": "诱发:当敌方法术命中时,你可以将1张技能牌从技能池移出游戏来发动,该敌方攻击法术在本回合-2\\攻",
     "quote": "它实在是太重了,大部分时间都被挂在架子上",
     "elements_cost": {
       "无": 5
@@ -3380,10 +3532,10 @@
     "name": "百宝锦囊",
     "category": "无",
     "tag": "装备",
-    "description": "献祭:从卡组检索1张消耗品道具牌",
+    "description": "主动:消耗并献祭此卡才能发动,从卡组检索1张消耗品道具牌",
     "quote": "",
     "elements_cost": {
-      "无": 2
+      "无": 1
     },
     "elements_gain": {},
     "elements_expense": {},
@@ -3402,10 +3554,10 @@
     "name": "巫师齐射线列",
     "category": "无",
     "tag": "消耗品-卷轴",
-    "description": "重置你的一个法术,下一次它的范围变成AOE:前排",
+    "description": "如果你的场上至少有7个伙伴,重置你的一个法术,下一次它的范围变成AOE:前排",
     "quote": "\"准备,1,2…我还没数3呢!\"",
     "elements_cost": {
-      "无": 3
+      "无": 2
     },
     "elements_gain": {},
     "elements_expense": {},
@@ -3518,7 +3670,7 @@
     "name": "速写卷轴",
     "category": "无",
     "tag": "消耗品-卷轴",
-    "description": "释放1个你已经学习的法术并支付其使用花费,无需消耗",
+    "description": "释放1个你已经学习的法术并支付其使用花费,无需消耗该法术",
     "quote": "",
     "elements_cost": {
       "无": 2
@@ -3589,7 +3741,7 @@
     "description": "本回合你的法术使用花费为0,但在使用后获得冷却2",
     "quote": "有相关研究表明,其记忆衰退的副作用是由于过量的法力涌入,以致对大脑造成不可逆的伤害.",
     "elements_cost": {
-      "无": 3
+      "无": 2
     },
     "elements_gain": {},
     "elements_expense": {},
@@ -3718,10 +3870,10 @@
     "name": "聚能卷轴",
     "category": "无",
     "tag": "消耗品-卷轴",
-    "description": "在你的下个回合开始时获得3\\无",
+    "description": "在你的下个回合开始时获得5\\无",
     "quote": "",
     "elements_cost": {
-      "无": 2
+      "无": 3
     },
     "elements_gain": {},
     "elements_expense": {},
@@ -3757,15 +3909,37 @@
     "output_path": "output\\基础包\\道具\\无\\2021022.jpg"
   },
   {
+    "number": "2021023",
+    "type": "道具",
+    "name": "奥术魔法筒",
+    "category": "无",
+    "tag": "装备",
+    "description": "入场:放置3个标记物.主动回合技:消耗此卡并取除1个标记物才能发动,获得2\\无",
+    "quote": "",
+    "elements_cost": {
+      "无": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "基础包",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\基础包\\道具\\无\\2021023.jpg"
+  },
+  {
     "number": "2111001",
     "type": "道具",
     "name": "火龙之心",
     "category": "火",
     "tag": "传奇-装备-神器",
-    "description": "主动回合技:献祭最多3点\\火,每1点火使下一次火焰法术获得+1\\攻或者+3\\威",
+    "description": "主动回合技:献祭包含最多3点\\火负载的卡牌,每1点\\火使下一次火焰法术获得+1\\攻或者+3\\威",
     "quote": "辉煌死后,索拓尔使用它的心脏炼制了这件神器.只是没人看见火龙是怎么死的",
     "elements_cost": {
-      "火": 7
+      "火": 6
     },
     "elements_gain": {
       "火": 3
@@ -3808,7 +3982,7 @@
     "name": "凤凰之羽",
     "category": "火",
     "tag": "装备-神器",
-    "description": "入场:放置3个火焰标记物.主动回合技:取除1个火焰标记物,获得1\\火",
+    "description": "入场:放置4个标记物.主动回合技:取除1个标记物才能发动,获得1\\火",
     "quote": "",
     "elements_cost": {
       "火": 1
@@ -3875,10 +4049,10 @@
     "name": "火焰箭",
     "category": "火",
     "tag": "装备-武器",
-    "description": "献祭:对法力范围内1个敌人造成1点伤害",
+    "description": "主动:消耗并献祭此卡才能发动,对任意1个敌人造成1点伤害",
     "quote": "",
     "elements_cost": {
-      "火": 1
+      "火": 2
     },
     "elements_gain": {},
     "elements_expense": {},
@@ -4102,6 +4276,28 @@
     "output_path": "output\\基础包\\道具\\火\\2121013.jpg"
   },
   {
+    "number": "2121014",
+    "type": "道具",
+    "name": "火匣子",
+    "category": "火",
+    "tag": "装备",
+    "description": "入场:放置3个标记物.主动回合技:消耗此卡并取除1个标记物才能发动,获得2\\火",
+    "quote": "",
+    "elements_cost": {
+      "火": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "基础包",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\基础包\\道具\\火\\2121014.jpg"
+  },
+  {
     "number": "2211001",
     "type": "道具",
     "name": "人鱼之泪",
@@ -4131,10 +4327,10 @@
     "name": "嗜魔弓 凛冬",
     "category": "水",
     "tag": "传奇-装备-武器",
-    "description": "诱发:每当有玩家使用法术时,可以花费1\\水在此卡上放置1个水纹标记物.绑定技能:凛冬将至",
+    "description": "诱发:每当有玩家使用法术时,在此卡上放置1个水纹标记物.绑定技能:凛冬将至",
     "quote": "一箭霜降,两箭严寒",
     "elements_cost": {
-      "水": 8
+      "水": 7
     },
     "elements_gain": {
       "水": 3
@@ -4449,12 +4645,34 @@
     "output_path": "output\\基础包\\道具\\水\\2221013.jpg"
   },
   {
+    "number": "2221014",
+    "type": "道具",
+    "name": "水之咏叹",
+    "category": "水",
+    "tag": "装备",
+    "description": "入场:放置4个标记物.主动回合技:消耗此卡并取除1个标记物才能发动,获得3\\水",
+    "quote": "",
+    "elements_cost": {
+      "水": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "基础包",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\基础包\\道具\\水\\2221014.jpg"
+  },
+  {
     "number": "2311001",
     "type": "道具",
     "name": "雷之源",
     "category": "气",
     "tag": "传奇-装备-神器",
-    "description": "光环:你的卡牌入场花费和使用花费减少1\\气",
+    "description": "光环:你的卡牌入场花费,学习花费和使用花费减少1\\气",
     "quote": "四境雷动,不过弹指之间",
     "elements_cost": {
       "气": 8
@@ -4787,6 +5005,28 @@
     "output_path": "output\\基础包\\道具\\气\\2321013.jpg"
   },
   {
+    "number": "2321014",
+    "type": "道具",
+    "name": "聆风羽毛笔",
+    "category": "气",
+    "tag": "装备",
+    "description": "入场:放置3个标记物.主动回合技:消耗此卡并取除1个标记物才能发动,抽1张牌,获得1\\气",
+    "quote": "",
+    "elements_cost": {
+      "气": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "基础包",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\基础包\\道具\\气\\2321014.jpg"
+  },
+  {
     "number": "2411001",
     "type": "道具",
     "name": "古树之心",
@@ -4886,11 +5126,10 @@
     "name": "坚固卷轴",
     "category": "地",
     "tag": "消耗品-卷轴",
-    "description": "直到下个回合结束,所有友方单位受到的法术伤害-1",
+    "description": "直到下个回合结束,使1个友方单位免疫最多3点伤害",
     "quote": "",
     "elements_cost": {
-      "地": 1,
-      "无": 1
+      "地": 1
     },
     "elements_gain": {},
     "elements_expense": {},
@@ -5135,6 +5374,28 @@
     "output_path": "output\\基础包\\道具\\地\\2421013.jpg"
   },
   {
+    "number": "2421014",
+    "type": "道具",
+    "name": "森之贮藏",
+    "category": "地",
+    "tag": "装备",
+    "description": "入场:放置4个标记物.主动:消耗此卡并取除1个标记物才能发动,获得4\\地",
+    "quote": "",
+    "elements_cost": {
+      "地": 6
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "基础包",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\基础包\\道具\\地\\2421014.jpg"
+  },
+  {
     "number": "2501001",
     "type": "道具",
     "name": "桎梏",
@@ -5296,7 +5557,7 @@
     "name": "新生卷轴",
     "category": "光",
     "tag": "消耗品-卷轴",
-    "description": "复活你的1个死亡的光辉伙伴并花费相应的入场所需元素",
+    "description": "选择你的一个弃牌堆中的光辉伙伴,支付其入场花费才能发动,将其复活",
     "quote": "",
     "elements_cost": {
       "光": 1
@@ -5493,6 +5754,28 @@
     "power": 8,
     "spawns": [],
     "output_path": "output\\基础包\\道具\\光\\2521013.jpg"
+  },
+  {
+    "number": "2521014",
+    "type": "道具",
+    "name": "祝福之杖",
+    "category": "光",
+    "tag": "装备-武器",
+    "description": "入场:放置3个标记物.主动回合技:消耗此卡并取除1个标记物才能发动,使1个友方单位+1\\血,然后你获得2点\\光元素",
+    "quote": "",
+    "elements_cost": {
+      "光": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "基础包",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\基础包\\道具\\光\\2521014.jpg"
   },
   {
     "number": "2601001",
@@ -5883,6 +6166,28 @@
     "output_path": "output\\基础包\\道具\\暗\\2621013.jpg"
   },
   {
+    "number": "2621014",
+    "type": "道具",
+    "name": "埋葬者",
+    "category": "暗",
+    "tag": "装备-武器",
+    "description": "入场:放置3个标记物.主动回合技:消耗此卡并取除1个标记物才能发动,从卡组将1张暗影伙伴送去弃牌堆,然后获得2点\\暗",
+    "quote": "",
+    "elements_cost": {
+      "暗": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "基础包",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\基础包\\道具\\暗\\2621014.jpg"
+  },
+  {
     "number": "3001001",
     "type": "技能",
     "name": "破灭魔光",
@@ -5893,16 +6198,15 @@
     "elements_cost": {},
     "elements_gain": {},
     "elements_expense": {
-      "光": 1,
       "地": 1,
-      "暗": 1,
+      "无": 1,
       "气": 1,
       "水": 1,
       "火": 1
     },
     "version_number": "1",
     "version_name": "基础包",
-    "attack": 3,
+    "attack": 2,
     "life": -1,
     "duration": -1,
     "power": 10,
@@ -6005,7 +6309,7 @@
     "name": "刻印",
     "category": "无",
     "tag": "咒术-代赎",
-    "description": "冷却1.丢弃1张手牌才能发动,从卡组上方开始,抽取翻出的第1张卷轴或符文",
+    "description": "冷却1.丢弃1张手牌才能发动,从卡组检索1张卷轴或符文",
     "quote": "",
     "elements_cost": {
       "无": 1
@@ -6053,7 +6357,7 @@
     "name": "洞察之眼",
     "category": "无",
     "tag": "咒术-灵媒",
-    "description": "冷却1.摧毁1张敌方盖放的卡牌",
+    "description": "速攻.冷却1.摧毁1张敌方盖放的卡牌",
     "quote": "",
     "elements_cost": {
       "无": 2
@@ -6101,7 +6405,7 @@
     "name": "缴械",
     "category": "无",
     "tag": "法术-驱动",
-    "description": "速攻.冷却1.诱发:命中敌方单位时,摧毁敌方的1个装备",
+    "description": "速攻.冷却1.命中:摧毁目标控制者的1个装备",
     "quote": "除你武器!",
     "elements_cost": {
       "无": 2
@@ -6149,7 +6453,7 @@
     "name": "解咒",
     "category": "无",
     "tag": "咒术-幻变",
-    "description": "冷却1.当敌方使用防御法术时使用,将其无效",
+    "description": "冷却1.诱发:当敌方使用防御型法术时才能使用此卡,将那个敌方法术无效",
     "quote": "我破防了!",
     "elements_cost": {
       "无": 2
@@ -6243,7 +6547,7 @@
     "name": "万火合一术",
     "category": "火",
     "tag": "衍生-法术-聚能",
-    "description": "每5点\\威获得+1\\攻",
+    "description": "光环:此卡每有5点\\威获得+1\\攻,包括强化获得的\\威",
     "quote": "",
     "elements_cost": {
       "火": 3
@@ -6621,7 +6925,7 @@
     "attack": 1,
     "life": -1,
     "duration": -1,
-    "power": 3,
+    "power": 2,
     "spawns": [],
     "output_path": "output\\基础包\\技能\\火\\3121015.jpg"
   },
@@ -6659,7 +6963,9 @@
     "quote": "",
     "elements_cost": {},
     "elements_gain": {},
-    "elements_expense": {},
+    "elements_expense": {
+      "水": 4
+    },
     "version_number": "1",
     "version_name": "基础包",
     "attack": 1,
@@ -6891,7 +7197,7 @@
     "name": "水幻影",
     "category": "水",
     "tag": "咒术-创造",
-    "description": "冷却1.本回合你召唤的下一个水纹伙伴将会额外产生1个只有1\\血的复制.",
+    "description": "冷却1.选择1个本回合你召唤的水纹伙伴,召唤1个只有1\\血的复制.",
     "quote": "",
     "elements_cost": {
       "暗": 1,
@@ -7666,7 +7972,7 @@
     "name": "自然生长",
     "category": "地",
     "tag": "咒术-幻变",
-    "description": "选择你的1个负载小于4的地脉伙伴,它在本回合结束时获得负载+1\\地",
+    "description": "选择你的1个横置状态且负载小于4的地脉伙伴,使其获得负载+1\\地",
     "quote": "",
     "elements_cost": {
       "地": 1
@@ -7762,7 +8068,7 @@
     "name": "急袭沙暴",
     "category": "地",
     "tag": "咒术-驱动",
-    "description": "冷却2.速攻.异能:所有原始威力小于5的法术-2\\攻-2\\威(最低为0)",
+    "description": "冷却2.速攻.异能:双方所有原始威力小于5的法术-2\\攻-2\\威(最低为0)",
     "quote": "",
     "elements_cost": {
       "地": 1,
@@ -8036,7 +8342,7 @@
     "name": "破晓",
     "category": "光",
     "tag": "法术-驱动",
-    "description": "如果攻击目标为伙伴,将同时命中所有与之属性相同的敌方伙伴.你每召唤1个负载有光的伙伴此卡获得永久+1\\威.此卡仅当\\威大于8时才能用于攻击",
+    "description": "如果攻击目标为敌方伙伴,将同时命中所有与之属性相同的敌人.你每召唤1个负载有光的伙伴此卡获得永久+1\\威.此卡仅当\\威大于8时才能用于攻击",
     "quote": "\"结束了?我们...胜利了吗?\"",
     "elements_cost": {
       "光": 2
@@ -8404,10 +8710,10 @@
     "name": "血魔爆",
     "category": "暗",
     "tag": "咒术-代赎",
-    "description": "冷却1.献祭你的1个伙伴才能发动,对前排所有敌人造成该伙伴生命值的伤害",
+    "description": "冷却1.献祭你的1个前排暗影伙伴才能发动此卡,对法力范围内1个敌人造成该伙伴生命值的伤害",
     "quote": "",
     "elements_cost": {
-      "暗": 4
+      "暗": 3
     },
     "elements_gain": {},
     "elements_expense": {
@@ -8478,7 +8784,7 @@
     "name": "亡灵护壁",
     "category": "暗",
     "tag": "法术-驱动",
-    "description": "防御.如果本回合或上个回合有友方单位死亡,此法术+2\\威",
+    "description": "防御.光环:如果当回合或上个回合有友方单位死亡,此法术+2\\威",
     "quote": "",
     "elements_cost": {
       "暗": 2
@@ -8526,7 +8832,7 @@
     "name": "虹吸",
     "category": "暗",
     "tag": "咒术-聚能",
-    "description": "冷却2.诱发:当敌方法术命中时可以使用此卡,将造成的伤害改为回复生命值",
+    "description": "冷却2.诱发:当敌方法术命中时可以使用此卡,将即将造成的伤害改为对目标回复生命值",
     "quote": "",
     "elements_cost": {
       "光": 1,
@@ -8866,7 +9172,7 @@
     "name": "圣使 玛丽斯 南森埃尔",
     "category": "光",
     "tag": "",
-    "description": "诱发绝技:当敌方将要造成可以发动,直到你的下个回合结束,你的每个单位每次受到对方伤害,获得2\\光",
+    "description": "诱发绝技:当敌方将要造成伤害时可以发动,直到你的下个回合结束,你的每个单位每次受到对方伤害,获得2\\光",
     "quote": "\"我从未迷茫,因为唯一的道路早已被照亮\"",
     "elements_cost": {},
     "elements_gain": {
@@ -8958,7 +9264,7 @@
     "name": "芙雅夫人",
     "category": "暗",
     "tag": "",
-    "description": "主动绝技:使你的1个伙伴攻击和负载翻倍,但会在回合结束时死亡",
+    "description": "主动绝技:使你的1个伙伴攻击和负载翻倍,但会在当回合结束时死亡",
     "quote": "\"你是想现在就为我服务,还是死后再为我服务?\"",
     "elements_cost": {},
     "elements_gain": {

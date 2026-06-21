@@ -20,6 +20,9 @@ func (e *Engine) negativeStatusIneffective(card *CardInstance, status string) bo
 	if card == nil || card.Card == nil || !isNegativeStatus(status) {
 		return false
 	}
+	if card.Statuses[fireNegativeStatusImmunityUntil] >= e.State.TurnNumber && card.Card.Category == "火" {
+		return true
+	}
 	if immune, ok := behaviorForNumber(card.Card.Number).(NegativeStatusImmunityBehavior); ok && immune.HasActiveNegativeStatusImmunity(card) && immune.HasNegativeStatusImmunity() {
 		return true
 	}

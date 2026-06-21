@@ -665,6 +665,7 @@
                                     <span>卡组</span><strong>{{ opponent.deck_count || 0 }}</strong>
                                 </button>
                                 <button class="pile-button grave" @click="openPileView('opponent', 'graveyard')">
+                                    <img v-if="graveyardFlash.opponent" :src="getCardImage(graveyardFlash.opponent)" class="graveyard-flash-card">
                                     <span>弃牌</span><strong>{{ opponent.graveyard?.length || 0 }}</strong>
                                 </button>
                             </div>
@@ -816,6 +817,7 @@
                                     <span>卡组</span><strong>{{ myState.deck_count || 0 }}</strong>
                                 </button>
                                 <button class="pile-button grave" @click="openPileView('me', 'graveyard')">
+                                    <img v-if="graveyardFlash.me" :src="getCardImage(graveyardFlash.me)" class="graveyard-flash-card">
                                     <span>弃牌</span><strong>{{ myState.graveyard?.length || 0 }}</strong>
                                 </button>
                             </div>
@@ -982,6 +984,10 @@
             const mulliganSubmitted = ref(false);
             const detailCard = ref(null);
             const hoverCard = ref(null);
+            const recentDiscardCard = ref(null);
+            const graveyardFlash = ref({ me: null, opponent: null });
+            let recentDiscardTimer = null;
+            let graveyardFlashTimer = null;
             const selectedHandCard = ref(null);
             const selectedAttacker = ref(null);
             const selectedSkill = ref(null);
@@ -1083,7 +1089,10 @@
             });
             const allMySkills = computed(() => [...mySkills.value.filter(Boolean), ...allMyBoundSkills.value]);
             const replaceableSkills = computed(() => mySkills.value.filter(skill => skill && !skill.is_horizontal));
-            const replaceableEquipment = computed(() => myEquipment.value.filter(equipment => equipment && !equipment.is_horizontal));
+            const replaceableEquipment = computed(() => {
+                const card = equipmentReplaceRequest.value?.card || selectedHandCard.value;
+                return replaceableEquipmentForCard(card);
+            });
             const isMyTurn = computed(() => gameState.value && gameState.value.current_turn === mySlot.value);
 
             function getMyTerrain(col, row) { return myState.value.terrain?.[col]?.[row] || null; }
@@ -1095,6 +1104,7 @@
             );
 
             const activePreviewCard = computed(() =>
+                recentDiscardCard.value ||
                 hoverCard.value ||
                 selectedHandCard.value ||
                 selectedSkill.value ||
@@ -1188,7 +1198,12 @@
                 return cards;
             }
             function showCardDetail(card) { detailCard.value = card; }
-            function previewCard(card) { if (card) hoverCard.value = card; }
+            function previewCard(card) {
+                if (card) {
+                    recentDiscardCard.value = null;
+                    hoverCard.value = card;
+                }
+            }
 
             function cloneElements(elements) {
                 const result = {};
@@ -1673,6 +1688,26 @@
             function hasEmptyEquipmentSlot() {
                 return myEquipment.value.some(equipment => !equipment);
             }
+            function equipmentSubtype(card) {
+                const tag = String(card?.tag || '');
+                for (const subtype of ['武器', '防具', '饰物', '神器']) {
+                    if (tag.includes(subtype)) return subtype;
+                }
+                return '';
+            }
+            function replaceableEquipmentForCard(card) {
+                if (!card) return myEquipment.value.filter(equipment => equipment && !equipment.is_horizontal);
+                const subtype = equipmentSubtype(card);
+                return myEquipment.value.filter(equipment => {
+                    if (!equipment || equipment.is_horizontal) return false;
+                    return !subtype || equipmentSubtype(equipment) === subtype;
+                });
+            }
+            function sameSubtypeEquipment(card) {
+                const subtype = equipmentSubtype(card);
+                if (!subtype) return [];
+                return myEquipment.value.filter(equipment => equipment && equipmentSubtype(equipment) === subtype);
+            }
             function canSetCounterCard(card) {
                 return !!card && card.is_counter_trap && isMyTurn.value && gameState.value.phase === 'main' && hasEmptyEquipmentSlot();
             }
@@ -1688,7 +1723,11 @@
             function canEquipCard(card) {
                 if (!isEquippableItem(card) || !isMyTurn.value || gameState.value.phase !== 'main') return false;
                 if (!canPayCost(playCost(card))) return false;
-                return hasEmptyEquipmentSlot() || replaceableEquipment.value.length > 0;
+                const sameSubtype = sameSubtypeEquipment(card);
+                if (sameSubtype.length > 0) {
+                    return sameSubtype.some(equipment => !equipment.is_horizontal);
+                }
+                return hasEmptyEquipmentSlot() || replaceableEquipmentForCard(card).length > 0;
             }
             function equipCard(card) {
                 if (!canEquipCard(card)) {
@@ -1696,7 +1735,7 @@
                     return;
                 }
                 selectedHandCard.value = null;
-                if (!hasEmptyEquipmentSlot()) {
+                if (sameSubtypeEquipment(card).length > 0 || !hasEmptyEquipmentSlot()) {
                     equipmentReplaceRequest.value = { card, replaceId: '' };
                     return;
                 }
@@ -2321,18 +2360,26 @@
                 const skills = myState.value.skills || [];
                 for (const id of defenseSelected.value) {
                     const sk = skills.find(s => s && s.instance_id === id);
-                    if (sk) power += Math.max(sk.power || 0, 0);
+                    if (sk) power += defensePower(sk);
                 }
                 for (const id of defenseScrollSelected.value) {
                     const scroll = myHand.value.find(s => s && s.instance_id === id);
-                    if (scroll) power += Math.max(scroll.power || 0, 0);
+                    if (scroll) power += defensePower(scroll);
                 }
                 for (const id of defenseBoostSelected.value) {
                     const sk = skills.find(s => s && s.instance_id === id);
-                    if (sk) power += Math.max(sk.power || 0, 0);
+                    if (sk) power += defenseBoostPower(sk);
                 }
                 return power;
             });
+
+            function defensePower(card) {
+                return Math.max(Number(card?.effective_defense_power ?? card?.power ?? 0), 0);
+            }
+
+            function defenseBoostPower(card) {
+                return Math.max(Number(card?.effective_defense_boost_power ?? card?.power ?? 0), 0);
+            }
 
             const canSubmitDefense = computed(() => {
                 if (Number(gameState.value?.pending_spell?.power || 0) <= 0) return true;
@@ -2894,13 +2941,34 @@
                         applyPendingActionEvent(d);
                         addLog(`等待选择: ${d.prompt}`);
                         break;
-                    case 'discard': addLog(`弃置 ${d.card.name}`); break;
+                    case 'discard':
+                        addLog(`弃置 ${d.card.name}`);
+                        flashGraveyardCard(d.player, d.card);
+                        break;
+                    case 'use_item':
+                        addLog((d.card && d.card.name ? d.card.name : 'item') + ' to graveyard');
+                        flashGraveyardCard(d.player, d.card);
+                        break;
                     case 'search_card': addLog(`检索 ${d.card.name}`); break;
                     case 'place_terrain': addLog(`放置地形 ${d.card.name}`); break;
                     case 'consume': addLog(`消耗 ${d.instance_id}`); break;
                 }
             }
 
+            function flashGraveyardCard(player, card) {
+                if (!card) return;
+                const side = Number(player) === mySlot.value ? 'me' : 'opponent';
+                graveyardFlash.value = { ...graveyardFlash.value, [side]: card };
+                recentDiscardCard.value = card;
+                clearTimeout(graveyardFlashTimer);
+                clearTimeout(recentDiscardTimer);
+                graveyardFlashTimer = setTimeout(() => {
+                    graveyardFlash.value = { me: null, opponent: null };
+                }, 1300);
+                recentDiscardTimer = setTimeout(() => {
+                    if (!hoverCard.value) recentDiscardCard.value = null;
+                }, 2200);
+            }
             function hasFullPendingAction(action) {
                 return !!action && Array.isArray(action.candidates);
             }
@@ -3219,7 +3287,7 @@
 
             return {
                 connected, connectionStatus, error,
-                gameState, mySlot, roomID, mulliganSubmitted, detailCard, hoverCard, activePreviewCard,
+                gameState, mySlot, roomID, mulliganSubmitted, detailCard, hoverCard, recentDiscardCard, graveyardFlash, activePreviewCard,
                 selectedHandCard, selectedAttacker, selectedSkill, selectedItemSpellScroll, selectedBoostSkills, pileView, actionLog,
                 isTestRoom, testCardNumber, testElement, testElementAmount, ELEMENT_ORDER,
                 myState, opponent, myHand, opponentHandCards, mySkills, myEquipment, allMySkills, allMyBoundSkills,

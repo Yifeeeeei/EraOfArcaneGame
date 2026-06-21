@@ -11,13 +11,10 @@ func (Card3521001Healing) AllowsFriendlySpellTarget() bool {
 
 func (Card3521001Healing) OnSpellHit(ctx *EffectContext) error {
 	target := ctx.Target
-	if target == nil || target.OwnerID != ctx.PlayerID || target.CurrentLife >= target.Card.Life {
+	if target == nil || target.OwnerID != ctx.PlayerID {
 		return nil
 	}
-	target.CurrentLife += 2
-	if target.CurrentLife > target.Card.Life {
-		target.CurrentLife = target.Card.Life
-	}
+	healUnit(target, 2)
 	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 		"source": cardToInfo(ctx.Source),
 		"target": cardToInfo(target),

@@ -10,12 +10,12 @@ func (Card2121001PhoenixFeather) ID() string   { return "2121001" }
 func (Card2121001PhoenixFeather) Name() string { return "凤凰之羽" }
 
 func (Card2121001PhoenixFeather) OnEnter(ctx *EffectContext) error {
-	ctx.Source.Statuses[phoenixFeatherCounter] += 3
+	ctx.Source.Statuses[phoenixFeatherCounter] += 4
 	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 		"source":  cardToInfo(ctx.Source),
 		"effect":  "add_counter",
 		"counter": phoenixFeatherCounter,
-		"amount":  3,
+		"amount":  4,
 	}})
 	return nil
 }

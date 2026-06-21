@@ -38,10 +38,22 @@ func healUnit(card *CardInstance, amount int) {
 	if card == nil || amount <= 0 {
 		return
 	}
+	wasFull := maxLife(card) > 0 && card.CurrentLife >= maxLife(card)
 	card.CurrentLife += amount
-	if card.Card != nil && card.Card.Life > 0 && card.CurrentLife > card.Card.Life {
-		card.CurrentLife = card.Card.Life
+	if life := maxLife(card); life > 0 && card.CurrentLife > life {
+		card.CurrentLife = life
 	}
+	if wasFull && card.Card != nil && card.Card.Number == "1521016" {
+		card.Statuses["max_life_bonus"]++
+		card.CurrentLife++
+	}
+}
+
+func maxLife(card *CardInstance) int {
+	if card == nil || card.Card == nil {
+		return 0
+	}
+	return card.Card.Life + card.Statuses["max_life_bonus"]
 }
 
 func addGeneratedCardToHand(ctx *EffectContext, cardNumber string) {

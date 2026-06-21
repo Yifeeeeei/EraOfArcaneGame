@@ -36,6 +36,24 @@ type WeaponCard interface {
 	isWeaponCard()
 }
 
+// ArmorCard marks an equipment item whose card tag includes armor behavior.
+type ArmorCard interface {
+	EquipmentCard
+	isArmorCard()
+}
+
+// AccessoryCard marks an equipment item whose card tag includes accessory behavior.
+type AccessoryCard interface {
+	EquipmentCard
+	isAccessoryCard()
+}
+
+// ArtifactCard marks an equipment item whose card tag includes artifact behavior.
+type ArtifactCard interface {
+	EquipmentCard
+	isArtifactCard()
+}
+
 // ConsumableCard marks an item that is used from hand and then discarded.
 type ConsumableCard interface {
 	ItemCard

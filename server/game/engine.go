@@ -1481,6 +1481,7 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 	}
 	dmg = e.effectiveSpellDamage(attackerID, skill, dmg, boostSkills)
 	e.consumeNextElementSpellDamageBonus(e.State.Players[attackerID], skill)
+	e.consumeFriendlySpellDamageMinus(e.State.Players[defenderID], skill)
 
 	{
 		totalPower := e.effectiveSpellPower(attackerID, skill, boostSkills, target)
@@ -1496,6 +1497,7 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 			"affected_units":   affectedUnits,
 			"boost_skills":     boostSkills,
 			"cancel_spell_hit": &hitCancelled,
+			"damage_ptr":       &dmg,
 		}
 		finishHit := func() {
 			if hitCancelled {
@@ -1912,7 +1914,7 @@ func (e *Engine) handleAttack(playerID int, action ActionMessage) error {
 
 	// Deal damage (unit attacks cannot be defended)
 	if dmg > 0 {
-		e.dealDamageWithExtra(target, dmg, 1-playerID, map[string]any{"damage_source": "attack"})
+		e.dealDamageWithExtra(target, dmg, 1-playerID, map[string]any{"damage_source": "attack", "attacker": playerID})
 		// Trigger 命中 effects
 	}
 
@@ -2071,6 +2073,28 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 		return
 	}
 
+	if target.Statuses[sturdyScrollShieldStatus] > 0 && target.Statuses[sturdyScrollShieldUntilStatus] >= e.State.TurnNumber {
+		prevented := min(amount, target.Statuses[sturdyScrollShieldStatus])
+		target.Statuses[sturdyScrollShieldStatus] -= prevented
+		if target.Statuses[sturdyScrollShieldStatus] <= 0 {
+			delete(target.Statuses, sturdyScrollShieldStatus)
+			delete(target.Statuses, sturdyScrollShieldUntilStatus)
+		}
+		amount -= prevented
+		e.emit(GameEvent{
+			Type:   "damage_prevented",
+			Player: -1,
+			Data: map[string]any{
+				"target": cardToInfo(target),
+				"amount": prevented,
+				"reason": "sturdy_scroll",
+			},
+		})
+		if amount <= 0 {
+			return
+		}
+	}
+
 	// Apply shield damage reduction
 	amount = ApplyShieldDamage(target, amount)
 	if amount <= 0 {
@@ -2135,6 +2159,11 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 	e.triggerHiddenFriendlyDamaged(ownerID, target, fieldDamageData)
 
 	if target.CurrentLife <= 0 {
+		if attacker, ok := damageData["attacker"].(int); ok {
+			target.Statuses["lethal_source_player"] = attacker + 1
+		} else {
+			delete(target.Statuses, "lethal_source_player")
+		}
 		e.queueDeath(target, ownerID)
 		if e.resolutionDepth == 0 && !e.resolvingDeaths {
 			e.resolvePendingDeaths()
@@ -2225,6 +2254,9 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 	if !card.Card.IsItem() {
 		return fmt.Errorf("card is not an item")
 	}
+	if !isEquipmentCard(card.Card) {
+		return fmt.Errorf("card is not equipment")
+	}
 	cost := e.effectiveCardPlayCost(ps, card)
 	if !ps.CanPayCost(cost) {
 		return fmt.Errorf("not enough elements")
@@ -2232,11 +2264,15 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 
 	slotIdx := -1
 	var replacedEquipment *CardInstance
+	newSubtype := restrictedEquipmentSubtype(card.Card)
 	if replaceID != "" {
 		for i := 0; i < 5; i++ {
 			if ps.Equipment[i] != nil && ps.Equipment[i].InstanceID == replaceID {
 				if ps.Equipment[i].IsHorizontal {
 					return fmt.Errorf("can only replace vertical equipment")
+				}
+				if newSubtype != "" && restrictedEquipmentSubtype(ps.Equipment[i].Card) != newSubtype {
+					return fmt.Errorf("restricted equipment can only replace same subtype")
 				}
 				replacedEquipment = ps.Equipment[i]
 				slotIdx = i
@@ -2247,6 +2283,16 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 			return fmt.Errorf("replacement equipment not found")
 		}
 	} else {
+		if newSubtype != "" {
+			for _, equipment := range ps.Equipment {
+				if equipment != nil && restrictedEquipmentSubtype(equipment.Card) == newSubtype {
+					if equipment.IsHorizontal {
+						return fmt.Errorf("same subtype equipment is horizontal and cannot be replaced")
+					}
+					return fmt.Errorf("same subtype equipment must be replaced")
+				}
+			}
+		}
 		// Find empty equipment slot
 		for i := 0; i < 5; i++ {
 			if ps.Equipment[i] == nil {
@@ -3109,6 +3155,7 @@ func (e *Engine) checkWinCondition() {
 	case p0Dead && p1Dead:
 		e.State.Winner = -2
 		e.State.Phase = PhaseGameOver
+		e.clearPendingForGameOver()
 		e.emit(GameEvent{
 			Type:   "game_over",
 			Player: -1,
@@ -3120,6 +3167,7 @@ func (e *Engine) checkWinCondition() {
 	case p0Dead:
 		e.State.Winner = 1
 		e.State.Phase = PhaseGameOver
+		e.clearPendingForGameOver()
 		e.emit(GameEvent{
 			Type:   "game_over",
 			Player: -1,
@@ -3131,6 +3179,7 @@ func (e *Engine) checkWinCondition() {
 	case p1Dead:
 		e.State.Winner = 0
 		e.State.Phase = PhaseGameOver
+		e.clearPendingForGameOver()
 		e.emit(GameEvent{
 			Type:   "game_over",
 			Player: -1,
@@ -3140,6 +3189,12 @@ func (e *Engine) checkWinCondition() {
 			},
 		})
 	}
+}
+
+func (e *Engine) clearPendingForGameOver() {
+	e.State.PendingAction = nil
+	e.State.PendingSpell = nil
+	e.State.ResumePhase = PhaseGameOver
 }
 
 func payCostForAction(ps *PlayerState, cost map[string]int, action ActionMessage) bool {
@@ -3365,7 +3420,7 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		"tag":              ci.Card.Tag,
 		"description":      ci.Card.Description,
 		"attack":           ci.Card.Attack + ci.AttackBonus,
-		"life":             ci.Card.Life,
+		"life":             maxLife(ci),
 		"power":            ci.Card.Power + ci.PowerBonus,
 		"duration":         ci.Card.Duration,
 		"elements_cost":    ci.Card.ElementsCost,
@@ -3557,7 +3612,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 	// Skills
 	skills := [5]any{}
 	for i := 0; i < 5; i++ {
-		skills[i] = cardToInfo(ps.Skills[i])
+		skills[i] = e.cardToInfoForPlayer(ps, ps.Skills[i])
 	}
 	info["skills"] = skills
 
@@ -3596,7 +3651,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 func (e *Engine) cardsToInfoWithEffectiveCosts(ps *PlayerState, cards []*CardInstance, learn bool) []map[string]any {
 	result := make([]map[string]any, len(cards))
 	for i, c := range cards {
-		info := cardToInfo(c)
+		info := e.cardToInfoForPlayer(ps, c)
 		if c != nil && c.Card != nil {
 			if learn {
 				info["effective_learn_cost"] = e.effectiveSkillLearnCost(ps, c)
@@ -3607,4 +3662,27 @@ func (e *Engine) cardsToInfoWithEffectiveCosts(ps *PlayerState, cards []*CardIns
 		result[i] = info
 	}
 	return result
+}
+
+func (e *Engine) cardToInfoForPlayer(ps *PlayerState, card *CardInstance) map[string]any {
+	info := cardToInfo(card)
+	if ps == nil || card == nil || card.Card == nil {
+		return info
+	}
+	if isSpellLikeCard(card.Card) {
+		info["effective_defense_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeDefend)
+		info["effective_defense_boost_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeDefenseBoost)
+		info["effective_attack_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeAttack)
+		info["effective_attack_boost_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeAttackBoost)
+	}
+	return info
+}
+
+func (e *Engine) effectiveSkillPowerForPurpose(playerID int, skill *CardInstance, purpose skillPurpose) int {
+	if skill == nil || skill.Card == nil {
+		return 0
+	}
+	power := e.skillContributionStats(playerID, skill, nil, purpose).PowerBonus
+	power += e.spellStatBonuses(playerID, skill, purpose).PowerBonus
+	return max(power, 0)
 }

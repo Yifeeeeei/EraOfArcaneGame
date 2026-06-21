@@ -278,12 +278,14 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 				}
 				instance := NewCardInstance(card, 0, engine.State.TurnNumber)
 				ps.Hand = append(ps.Hand, instance)
-				action := "equip"
+				action := "use_item"
 				data := map[string]any{"instance_id": instance.InstanceID}
 				if cards.IsTerrain(card.Number) {
 					action = "place_terrain"
 					data["col"] = float64(0)
 					data["row"] = float64(0)
+				} else if isEquipmentCard(card) {
+					action = "equip"
 				} else if isConsumableItem(card) {
 					action = "use_item"
 					if isSpellScrollCard(card) && skillNeedsTargetCard(card) {

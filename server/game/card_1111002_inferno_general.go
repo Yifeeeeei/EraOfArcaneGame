@@ -10,7 +10,7 @@ func (Card1111002InfernoGeneral) OnUnitEnter(ctx *EffectContext) error {
 		return nil
 	}
 	ctx.Target.Statuses[StatusBurn]++
-	ctx.Target.Statuses[StatusPetrify]++
+	ctx.Target.Statuses[StatusPetrify] += 2
 	ctx.Engine.emit(GameEvent{
 		Type:   "effect_trigger",
 		Player: ctx.PlayerID,
@@ -18,7 +18,7 @@ func (Card1111002InfernoGeneral) OnUnitEnter(ctx *EffectContext) error {
 			"source":   cardToInfo(ctx.Source),
 			"target":   cardToInfo(ctx.Target),
 			"effect":   "apply_status",
-			"statuses": map[string]int{StatusBurn: 1, StatusPetrify: 1},
+			"statuses": map[string]int{StatusBurn: 1, StatusPetrify: 2},
 		},
 	})
 	return nil
