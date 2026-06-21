@@ -18,6 +18,32 @@ func addSkillToPool(ctx *EffectContext, cardNumber string) {
 	}})
 }
 
+func replaceSkillInPool(ctx *EffectContext, oldCardNumber, newCardNumber string) bool {
+	if ctx == nil || ctx.Engine == nil {
+		return false
+	}
+	card := getCardDB()[newCardNumber]
+	if card == nil {
+		return false
+	}
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	for i, oldSkill := range ps.SkillPool {
+		if oldSkill == nil || oldSkill.Card == nil || oldSkill.Card.Number != oldCardNumber {
+			continue
+		}
+		newSkill := NewCardInstance(card, ctx.PlayerID, ctx.Engine.State.TurnNumber)
+		ps.SkillPool[i] = newSkill
+		ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
+			"source":   cardToInfo(ctx.Source),
+			"effect":   "replace_skill_pool",
+			"replaced": cardToInfo(oldSkill),
+			"card":     cardToInfo(newSkill),
+		}})
+		return true
+	}
+	return false
+}
+
 func bindSkillToHost(ctx *EffectContext, cardNumber string) {
 	if ctx == nil || ctx.Source == nil {
 		return

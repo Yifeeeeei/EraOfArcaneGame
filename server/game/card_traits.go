@@ -171,7 +171,7 @@ func hasPerTurnAbilityNumber(number string) bool {
 	case "1211001", "1211003", "1221005", "1221014", "1221015",
 		"1321001", "1321013", "1321015", "1421009", "1421010",
 		"1421012", "1521001", "1621009", "2111001", "2111002", "2121001",
-		"2311002", "2411001", "2421011", "2511002", "2601001", "2621013",
+		"2311002", "2411001", "2421011", "2621013",
 		"4111002":
 		return true
 	default:
@@ -472,8 +472,8 @@ func isRuneOrScroll(card *CardInstance) bool {
 	if card == nil || card.Card == nil {
 		return false
 	}
-	number := card.Card.Number
-	return cards.IsConsumable(number) && !cards.IsEquipment(number)
+	return cards.IsConsumable(card.Card.Number) && !cards.IsEquipment(card.Card.Number) &&
+		(strings.Contains(card.Card.Tag, "卷轴") || strings.Contains(card.Card.Tag, "符文"))
 }
 
 func ruleInfoForCard(card *model.Card) map[string]any {

@@ -302,6 +302,9 @@ func (e *Engine) triggerFieldEffectsWithData(trigger EffectTrigger, playerID int
 			}
 			continue
 		}
+		if trigger == TriggerOnDefend && isSpellLikeCard(card.Card) {
+			continue
+		}
 		e.triggerEffects(trigger, card, eventSource, extraData)
 	}
 	return e.promptCounterTrapQueue(counterCandidates, trigger, eventSource, extraData, nil)

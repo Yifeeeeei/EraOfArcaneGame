@@ -5,12 +5,21 @@ type Card1621005CursedGolem struct{ AlwaysActive }
 func (Card1621005CursedGolem) ID() string   { return "1621005" }
 func (Card1621005CursedGolem) Name() string { return "诅咒魔像" }
 func (Card1621005CursedGolem) OnEnter(ctx *EffectContext) error {
-	opponent := ctx.Engine.State.Players[ctx.OpponentID]
-	for _, skill := range opponent.Skills {
-		if skill != nil {
-			skill.Statuses[StatusWeaken] += 2
-			return nil
-		}
+	candidates := ctx.Engine.enemySkills(ctx.PlayerID, nil)
+	if len(candidates) == 0 {
+		return nil
 	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "cursed_golem_weaken",
+		"诅咒魔像:选择1个敌方法术虚弱2", candidates, 1, 1,
+		func(selected []string) {
+			if len(selected) == 0 {
+				return
+			}
+			for _, skill := range ctx.Engine.State.Players[ctx.OpponentID].Skills {
+				if skill != nil && skill.InstanceID == selected[0] {
+					skill.Statuses[StatusWeaken] += 2
+				}
+			}
+		})
 	return nil
 }

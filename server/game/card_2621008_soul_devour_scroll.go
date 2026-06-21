@@ -6,6 +6,9 @@ func (Card2621008SoulDevourScroll) ID() string   { return "2621008" }
 func (Card2621008SoulDevourScroll) Name() string { return "魂噬卷轴" }
 
 func (Card2621008SoulDevourScroll) OnSpellHit(ctx *EffectContext) error {
+	if ctx.Target != nil && ctx.Target.Card != nil && ctx.Target.Card.IsSkill() {
+		return nil
+	}
 	candidates := ctx.Engine.enemySkills(ctx.PlayerID, nil)
 	if len(candidates) == 0 {
 		return nil

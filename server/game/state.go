@@ -420,7 +420,7 @@ func NewGameState(gameID string) *GameState {
 	return &GameState{
 		GameID:    gameID,
 		Winner:    -1,
-		HandLimit: 7,
+		HandLimit: 5,
 		Phase:     PhaseWaitingPlayers,
 	}
 }

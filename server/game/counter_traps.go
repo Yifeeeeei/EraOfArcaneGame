@@ -225,7 +225,7 @@ func (e *Engine) counterTrapConditionMet(counter *CardInstance, trigger EffectTr
 		return eventSource != nil && eventSource.Card.IsCompanion() && eventSource.Position != nil &&
 			len(e.emptyUnitPositionsForPlayer(eventSource.OwnerID, ownerID)) > 0
 	case "2521002":
-		return trigger == TriggerOnSpellHitBeforeDamage && sourceOwner != ownerID && spellPowerFromData(extraData) < 10
+		return trigger == TriggerOnSpellHitBeforeDamage && sourceOwner != ownerID && eventSource != nil && !isSorcerySkill(eventSource.Card) && spellPowerFromData(extraData) < 10
 	case "2521004":
 		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && eventSource != nil && isSorcerySkill(eventSource.Card)
 	case "2521011":

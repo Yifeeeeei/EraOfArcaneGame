@@ -18,7 +18,7 @@ func (Card2021010SealingScroll) OnUseItem(ctx *EffectContext) error {
 			}
 			target := ctx.Engine.findFieldCardByInstance(ctx.Engine.State.Players[ctx.OpponentID], selected[0])
 			if target != nil {
-				target.Statuses[StatusSeal] = 2
+				target.Statuses[StatusSeal] = 1
 			}
 		})
 	return nil

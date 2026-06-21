@@ -518,7 +518,10 @@
                         <span v-if="isMyTurn" class="turn-badge active">你的回合</span>
                     </div>
                     <div class="hero-row" v-if="myState.hero">
-                        <div class="hero-portrait" @mouseenter="previewCard(myState.hero)" @click="showCardDetail(myState.hero)">
+                        <div class="hero-portrait"
+                             :class="{ 'spell-target': isFriendlyHeroSpellTarget(), 'invalid-target': selectedSkill && selectedSkill.allows_friendly_target && !isFriendlyHeroSpellTarget() }"
+                             @mouseenter="previewCard(myState.hero)"
+                             @click="handleMyHeroClick">
                             <img :src="getCardImage(myState.hero)" :alt="myState.hero.name">
                         </div>
                         <div>
@@ -2043,6 +2046,9 @@
             function isFriendlySpellTarget(col, row) {
                 return !!selectedSkill.value && !!selectedSkill.value.allows_friendly_target && !!getMyUnit(col, row);
             }
+            function isFriendlyHeroSpellTarget() {
+                return !!selectedSkill.value && !!selectedSkill.value.allows_friendly_target && !!myState.value?.hero;
+            }
             function activeTargetSpell() {
                 return selectedSkill.value || selectedItemSpellScroll.value || null;
             }
@@ -2180,6 +2186,35 @@
                     selectedBoostSkills.value = [];
                     pendingExtraTargetCast.value = null;
                 });
+            }
+
+            function castSpellAtHero() {
+                if (!selectedSkill.value || !isFriendlyHeroSpellTarget()) return;
+                const data = {
+                    instance_id: selectedSkill.value.instance_id,
+                    target_type: 'hero'
+                };
+                if (selectedBoostSkills.value.length > 0) {
+                    data.boost_ids = [...selectedBoostSkills.value];
+                }
+                const skillName = selectedSkill.value.name;
+                const boostCount = selectedBoostSkills.value.length;
+                const cost = mergedDefenseCost([selectedSkill.value.instance_id, ...selectedBoostSkills.value]);
+                sendPaidAction('cast_spell', data, cost, `施放 ${skillName}`, () => {
+                    addLog(`施放 ${skillName} → 人物` +
+                        (boostCount > 0 ? ` (+${boostCount}强化)` : ''));
+                    selectedSkill.value = null;
+                    selectedBoostSkills.value = [];
+                    pendingExtraTargetCast.value = null;
+                });
+            }
+
+            function handleMyHeroClick() {
+                if (isFriendlyHeroSpellTarget()) {
+                    castSpellAtHero();
+                    return;
+                }
+                showCardDetail(myState.value.hero);
             }
 
             function castSpellWithoutTarget() {
@@ -3301,7 +3336,7 @@
                 abilityLabel,
                 canCastSkill, selectSkillToCast, canBoostWith, toggleBoostSkill, noDefend,
                 guideKicker, currentHint, waitingNotice, clearSelection, statusEntries,
-                hasActiveTargeting, isValidOpponentTarget, isSpellTarget, isFriendlySpellTarget, canUseMyCell,
+                hasActiveTargeting, isValidOpponentTarget, isSpellTarget, isFriendlySpellTarget, isFriendlyHeroSpellTarget, handleMyHeroClick, canUseMyCell,
                 canShowCostHint, missingCostText, skillUseCost, canLearnSkill, costLabel,
                 skillReplaceRequest, replaceableSkills, confirmSkillReplacement,
                 equipmentReplaceRequest, replaceableEquipment, confirmEquipmentReplacement,

@@ -726,16 +726,13 @@ type Card1621013WordSpirit struct{ AlwaysActive }
 func (Card1621013WordSpirit) ID() string   { return "1621013" }
 func (Card1621013WordSpirit) Name() string { return "言灵" }
 func (Card1621013WordSpirit) OnSpellCast(ctx *EffectContext) error {
-	if !isEnemySpellCast(ctx) || ctx.Target == nil {
+	if !isEnemySpellCast(ctx) {
 		return nil
 	}
-	castPlayer, _ := ctx.ExtraData["cast_player"].(int)
-	total := 0
-	for _, count := range ctx.Engine.State.Players[castPlayer].SpellsCastThisTurn {
-		total += count
-	}
-	if total >= 3 {
-		ctx.Target.Statuses[StatusWeaken]++
+	for _, skill := range ctx.Engine.State.Players[ctx.OpponentID].Skills {
+		if skill != nil && skill.IsHorizontal {
+			skill.Statuses[StatusWeaken]++
+		}
 	}
 	return nil
 }
@@ -1076,6 +1073,9 @@ type Card2311001ThunderSource struct{ AlwaysActive }
 
 func (Card2311001ThunderSource) ID() string   { return "2311001" }
 func (Card2311001ThunderSource) Name() string { return "雷之源" }
+func (Card2311001ThunderSource) ModifyCardPlayCost(ctx *EffectContext, card *CardInstance, cost map[string]int) {
+	reduceCost(cost, model.ElementAir, 1)
+}
 func (Card2311001ThunderSource) ModifySkillUseCost(ctx *EffectContext, cost map[string]int) {
 	reduceCost(cost, model.ElementAir, 1)
 }
