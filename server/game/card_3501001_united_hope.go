@@ -13,17 +13,27 @@ func (Card3501001UnitedHope) OnSpellCast(ctx *EffectContext) error {
 	}
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	limit := min(5, len(ps.Deck))
+	candidates := make([]map[string]any, 0, limit)
 	for i := 0; i < limit; i++ {
 		card := ps.Deck[i]
 		if card == nil || !card.Card.IsCompanion() || card.Card.Category != model.ElementLight {
 			continue
 		}
-		ps.Hand = append(ps.Hand, card)
-		ps.Deck = append(ps.Deck[:i], ps.Deck[i+1:]...)
+		candidates = append(candidates, candidateInfo(card, "deck", "own"))
+	}
+	if len(candidates) == 0 {
 		ctx.Engine.shuffleDeck(ctx.PlayerID)
-		ctx.Engine.emit(GameEvent{Type: "search_card", Player: ctx.PlayerID, Data: map[string]any{"card": cardToInfo(card)}})
 		return nil
 	}
-	ctx.Engine.shuffleDeck(ctx.PlayerID)
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "united_hope_search",
+		"团结的希望:从卡组上方5张中选择1张光辉伙伴加入手牌", candidates, 1, 1,
+		func(selected []string) {
+			if len(selected) == 0 {
+				ctx.Engine.shuffleDeck(ctx.PlayerID)
+				return
+			}
+			ctx.Engine.searchDeckToHand(ctx.PlayerID, selected[0])
+			ctx.Engine.shuffleDeck(ctx.PlayerID)
+		})
 	return nil
 }

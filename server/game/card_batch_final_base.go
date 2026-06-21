@@ -101,19 +101,7 @@ func (Card2421013GeographyPrimer) ModifyCardPlayCost(ctx *EffectContext, card *C
 	if card == nil || card.Card.TotalCost() <= 5 {
 		return
 	}
-	primerCount := 0
-	for _, fieldCard := range ctx.Engine.getAllFieldCards(ctx.Engine.State.Players[ctx.PlayerID]) {
-		if fieldCard != nil && fieldCard.Card != nil && fieldCard.Card.Number == "2421013" && !ctx.Engine.hasEffectiveStatus(fieldCard, StatusPetrify) {
-			primerCount++
-		}
-	}
-	if primerCount <= 1 || ctx.Source == firstActiveCardByNumber(ctx.Engine, ctx.Engine.State.Players[ctx.PlayerID], "2421013") {
-		reduction := 2
-		if primerCount >= 2 {
-			reduction = 3
-		}
-		reduceCost(cost, model.ElementEarth, reduction)
-	}
+	reduceCost(cost, model.ElementEarth, 2)
 }
 
 func firstActiveCardByNumber(e *Engine, ps *PlayerState, number string) *CardInstance {
@@ -143,7 +131,12 @@ func (Card2511002ShiningShield) ModifySpellStats(ctx *EffectContext, stats *Spel
 		stats.PowerBonus += 2
 	}
 }
-func (Card2511002ShiningShield) OnPerTurn(ctx *EffectContext) error {
+func (Card2511002ShiningShield) OnDefend(ctx *EffectContext) error {
+	success, _ := ctx.ExtraData["defense_success"].(bool)
+	defender, _ := ctx.ExtraData["defender"].(int)
+	if !success || defender != ctx.PlayerID {
+		return nil
+	}
 	for _, target := range ctx.Engine.getAllFieldCards(ctx.Engine.State.Players[ctx.OpponentID]) {
 		if target == nil || target.Position == nil || !ctx.Engine.IsInSpellRange(ctx.PlayerID, target.Position.Col, target.Position.Row, false) {
 			continue
@@ -175,12 +168,22 @@ type Card2601001PhantomPain struct{ AlwaysActive }
 
 func (Card2601001PhantomPain) ID() string   { return "2601001" }
 func (Card2601001PhantomPain) Name() string { return "幻痛" }
-func (Card2601001PhantomPain) OnPerTurn(ctx *EffectContext) error {
-	for _, skill := range ctx.Engine.State.Players[ctx.OpponentID].Skills {
-		if skill != nil {
-			skill.Statuses[StatusWeaken] += 2
+func (Card2601001PhantomPain) OnDefend(ctx *EffectContext) error {
+	success, _ := ctx.ExtraData["defense_success"].(bool)
+	defender, _ := ctx.ExtraData["defender"].(int)
+	if !success || defender == ctx.PlayerID {
+		return nil
+	}
+	weakenDefenseCards := func(key string) {
+		skills, _ := ctx.ExtraData[key].([]*CardInstance)
+		for _, skill := range skills {
+			if skill != nil {
+				skill.Statuses[StatusWeaken] += 2
+			}
 		}
 	}
+	weakenDefenseCards("defense_skills")
+	weakenDefenseCards("defense_boosts")
 	return nil
 }
 
@@ -733,7 +736,9 @@ func (Card4511003Lexia) ID() string   { return "4511003" }
 func (Card4511003Lexia) Name() string { return "骑士团长 蕾曦娅" }
 func (Card4511003Lexia) OnTurnStart(ctx *EffectContext) error {
 	if ctx.Source.Statuses["团结希望"] == 0 {
-		addSkillToPool(ctx, "3501001")
+		if !replaceSkillInPool(ctx, "3521007", "3501001") {
+			addSkillToPool(ctx, "3501001")
+		}
 		ctx.Source.Statuses["团结希望"] = 1
 	}
 	return nil

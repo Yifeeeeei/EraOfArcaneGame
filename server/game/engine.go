@@ -1196,10 +1196,14 @@ func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInst
 		"defense_success": defenseSuccess,
 		"attack_skill":    e.State.PendingSpell.Skill,
 		"boost_skills":    e.State.PendingSpell.BoostSkills,
+		"defense_skills":  defenseSkills,
+		"defense_boosts":  boostSkills,
 	}
 	for _, defenseSkill := range defenseSkills {
 		e.triggerEffects(TriggerOnDefend, defenseSkill, nil, defendData)
 	}
+	e.triggerFieldEffectsWithData(TriggerOnDefend, playerID, e.State.PendingSpell.Skill, defendData)
+	e.triggerFieldEffectsWithData(TriggerOnDefend, e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill, defendData)
 
 	if defenseSuccess {
 		// Defense successful
@@ -1430,6 +1434,9 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 			defenderID = attackerID
 		}
 	}
+	if target.Type == "hero" {
+		defenderID = attackerID
+	}
 	affectedUnits := e.spellAffectedUnits(defenderID, skill, target)
 	for _, extraTarget := range extraTargets {
 		if extraTarget.Type != "unit" || !extraTarget.Position.Valid() {
@@ -1464,6 +1471,9 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 		return false
 	}
 	var targetUnit *CardInstance
+	if target.Type == "hero" {
+		targetUnit = e.State.Players[attackerID].Hero
+	}
 	if len(affectedUnits) > 0 {
 		targetUnit = affectedUnits[0]
 	}
@@ -1536,7 +1546,7 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 			}
 			resolvedUnits := e.unitsStillOnField(affectedUnits)
 			resolvedTargetUnit := targetUnit
-			if !e.unitStillOnField(resolvedTargetUnit) {
+			if target.Type != "hero" && !e.unitStillOnField(resolvedTargetUnit) {
 				resolvedTargetUnit = nil
 			}
 			hitData["affected_units"] = resolvedUnits
@@ -2556,14 +2566,22 @@ func (e *Engine) handleUseSpellScrollItem(playerID int, action ActionMessage, ca
 
 	target := SpellTarget{Type: "none"}
 	if skillNeedsTargetInstance(card) {
-		colF, hasCol := action.Data["target_col"].(float64)
-		rowF, hasRow := action.Data["target_row"].(float64)
-		if !hasCol || !hasRow {
-			return fmt.Errorf("spell scroll requires a target")
-		}
-		target = SpellTarget{Type: "unit", Position: Position{Col: int(colF), Row: int(rowF)}}
-		if err := e.validateSpellTarget(playerID, card, target); err != nil {
-			return err
+		targetType, _ := action.Data["target_type"].(string)
+		if targetType == "hero" {
+			target = SpellTarget{Type: "hero"}
+			if err := e.validateSpellTarget(playerID, card, target); err != nil {
+				return err
+			}
+		} else {
+			colF, hasCol := action.Data["target_col"].(float64)
+			rowF, hasRow := action.Data["target_row"].(float64)
+			if !hasCol || !hasRow {
+				return fmt.Errorf("spell scroll requires a target")
+			}
+			target = SpellTarget{Type: "unit", Position: Position{Col: int(colF), Row: int(rowF)}}
+			if err := e.validateSpellTarget(playerID, card, target); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -2939,14 +2957,18 @@ func (e *Engine) SetPendingActionWithData(playerID int, actionType string, promp
 }
 
 func (e *Engine) SetPendingActionWithError(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, callback func([]string, map[string]any) error) {
-	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, cost, canOverexert, nil, nil, callback)
+	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, cost, canOverexert, nil, nil, callback, nil)
+}
+
+func (e *Engine) SetPendingActionWithErrorAndContext(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, context map[string]any, callback func([]string, map[string]any) error) {
+	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, cost, canOverexert, nil, nil, callback, context)
 }
 
 func (e *Engine) setPendingAction(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, callback func([]string), callbackData func([]string, map[string]any)) {
-	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, nil, false, callback, callbackData, nil)
+	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, nil, false, callback, callbackData, nil, nil)
 }
 
-func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, callback func([]string), callbackData func([]string, map[string]any), callbackErr func([]string, map[string]any) error) {
+func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, callback func([]string), callbackData func([]string, map[string]any), callbackErr func([]string, map[string]any) error, context map[string]any) {
 	if minSelect > 0 && len(candidates) == 0 {
 		return
 	}
@@ -2959,6 +2981,7 @@ func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, pr
 		Candidates:   candidates,
 		MinSelect:    minSelect,
 		MaxSelect:    maxSelect,
+		Context:      context,
 		Cost:         cost,
 		CanOverexert: canOverexert,
 		Callback:     callback,
@@ -2973,6 +2996,9 @@ func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, pr
 		"candidates": candidates,
 		"min_select": minSelect,
 		"max_select": maxSelect,
+	}
+	if context != nil {
+		data["context"] = context
 	}
 	if cost != nil {
 		data["cost"] = cost
@@ -3001,8 +3027,9 @@ func (e *Engine) endTurn() {
 	ps := e.State.Players[e.State.CurrentTurn]
 
 	// Discard to hand limit
-	if len(ps.Hand) > e.State.HandLimit {
-		discardCount := len(ps.Hand) - e.State.HandLimit
+	handLimit := e.handLimitForPlayer(ps)
+	if len(ps.Hand) > handLimit {
+		discardCount := len(ps.Hand) - handLimit
 		// Build candidates from hand cards
 		candidates := make([]map[string]any, len(ps.Hand))
 		for i, c := range ps.Hand {
@@ -3278,6 +3305,7 @@ func (e *Engine) GetStateForPlayer(playerID int) map[string]any {
 					"candidates":    state.PendingAction.Candidates,
 					"min_select":    state.PendingAction.MinSelect,
 					"max_select":    state.PendingAction.MaxSelect,
+					"context":       state.PendingAction.Context,
 					"cost":          state.PendingAction.Cost,
 					"can_overexert": state.PendingAction.CanOverexert,
 				}
@@ -3682,7 +3710,5 @@ func (e *Engine) effectiveSkillPowerForPurpose(playerID int, skill *CardInstance
 	if skill == nil || skill.Card == nil {
 		return 0
 	}
-	power := e.skillContributionStats(playerID, skill, nil, purpose).PowerBonus
-	power += e.spellStatBonuses(playerID, skill, purpose).PowerBonus
-	return max(power, 0)
+	return e.effectiveSkillPowerForPurposeWithData(playerID, skill, nil, purpose, map[string]any{"stat": "power"})
 }

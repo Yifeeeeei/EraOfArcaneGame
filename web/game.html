@@ -185,6 +185,7 @@
         <div v-if="showPendingAction" class="overlay pending-action-overlay">
             <div class="overlay-content pending-action-panel">
                 <h2>{{ pendingAction.prompt }}</h2>
+                <div v-if="pendingContextText()" class="pending-context">{{ pendingContextText() }}</div>
                 <div class="pending-candidates">
                     <div v-for="candidate in pendingOrderedCandidates()" :key="candidate.instance_id"
                          class="pending-card"
@@ -518,7 +519,10 @@
                         <span v-if="isMyTurn" class="turn-badge active">你的回合</span>
                     </div>
                     <div class="hero-row" v-if="myState.hero">
-                        <div class="hero-portrait" @mouseenter="previewCard(myState.hero)" @click="showCardDetail(myState.hero)">
+                        <div class="hero-portrait"
+                             :class="{ 'spell-target': isFriendlyHeroSpellTarget(), 'invalid-target': selectedSkill && selectedSkill.allows_friendly_target && !isFriendlyHeroSpellTarget() }"
+                             @mouseenter="previewCard(myState.hero)"
+                             @click="handleMyHeroClick">
                             <img :src="getCardImage(myState.hero)" :alt="myState.hero.name">
                         </div>
                         <div>
@@ -566,6 +570,7 @@
                         <strong>{{ pendingAction.prompt }}</strong>
                         <span>{{ pendingSelected.length }} / {{ pendingAction.min_select }}-{{ pendingAction.max_select }}</span>
                     </div>
+                    <div v-if="pendingContextText()" class="pending-inline-context">{{ pendingContextText() }}</div>
                     <div class="pending-inline-cards">
                         <button v-for="candidate in pendingOrderedCandidates()" :key="candidate.instance_id"
                                 class="pending-inline-card"
@@ -2043,6 +2048,9 @@
             function isFriendlySpellTarget(col, row) {
                 return !!selectedSkill.value && !!selectedSkill.value.allows_friendly_target && !!getMyUnit(col, row);
             }
+            function isFriendlyHeroSpellTarget() {
+                return !!selectedSkill.value && !!selectedSkill.value.allows_friendly_target && !!myState.value?.hero;
+            }
             function activeTargetSpell() {
                 return selectedSkill.value || selectedItemSpellScroll.value || null;
             }
@@ -2180,6 +2188,35 @@
                     selectedBoostSkills.value = [];
                     pendingExtraTargetCast.value = null;
                 });
+            }
+
+            function castSpellAtHero() {
+                if (!selectedSkill.value || !isFriendlyHeroSpellTarget()) return;
+                const data = {
+                    instance_id: selectedSkill.value.instance_id,
+                    target_type: 'hero'
+                };
+                if (selectedBoostSkills.value.length > 0) {
+                    data.boost_ids = [...selectedBoostSkills.value];
+                }
+                const skillName = selectedSkill.value.name;
+                const boostCount = selectedBoostSkills.value.length;
+                const cost = mergedDefenseCost([selectedSkill.value.instance_id, ...selectedBoostSkills.value]);
+                sendPaidAction('cast_spell', data, cost, `施放 ${skillName}`, () => {
+                    addLog(`施放 ${skillName} → 人物` +
+                        (boostCount > 0 ? ` (+${boostCount}强化)` : ''));
+                    selectedSkill.value = null;
+                    selectedBoostSkills.value = [];
+                    pendingExtraTargetCast.value = null;
+                });
+            }
+
+            function handleMyHeroClick() {
+                if (isFriendlyHeroSpellTarget()) {
+                    castSpellAtHero();
+                    return;
+                }
+                showCardDetail(myState.value.hero);
             }
 
             function castSpellWithoutTarget() {
@@ -2555,6 +2592,42 @@
                     parts.push(`位置 ${candidate.position.col + 1}-${candidate.position.row + 1}`);
                 }
                 return parts.join(' · ');
+            }
+
+            function pendingContextPlayerLabel(playerID) {
+                if (playerID === undefined || playerID === null) return '';
+                const id = Number(playerID);
+                if (!Number.isFinite(id)) return '';
+                if (id === mySlot.value) return '你';
+                if (id === 1 - mySlot.value) return '对手';
+                return `玩家${id + 1}`;
+            }
+
+            function pendingContextCardLabel(card, playerID) {
+                if (!card) return '';
+                const owner = pendingContextPlayerLabel(playerID);
+                const name = card.name || card.number || card.instance_id || '未知卡牌';
+                return owner ? `${owner}的${name}` : name;
+            }
+
+            function pendingContextText() {
+                const ctx = pendingAction.value?.context;
+                if (!ctx) return '';
+                const parts = [];
+                if (ctx.trigger_label) parts.push(`触发:${ctx.trigger_label}`);
+                if (ctx.source) parts.push(`来源:${pendingContextCardLabel(ctx.source, ctx.source_player)}`);
+                if (ctx.target) parts.push(`目标:${pendingContextCardLabel(ctx.target, ctx.target_player)}`);
+                if (ctx.draw_count) parts.push(`抽牌:${ctx.draw_count}`);
+                if (ctx.power) parts.push(`威力:${ctx.power}`);
+                if (ctx.spell_target && !ctx.target) {
+                    const targetType = ctx.spell_target.type || '';
+                    if (targetType === 'hero') parts.push('目标:人物');
+                    else if (ctx.spell_target.position) {
+                        const pos = ctx.spell_target.position;
+                        parts.push(`目标:${Number(pos.col) + 1}-${Number(pos.row) + 1}`);
+                    }
+                }
+                return parts.join(' | ');
             }
 
             function pendingOrderedCandidates() {
@@ -3097,6 +3170,7 @@
                         <strong></strong>
                         <span></span>
                     </div>
+                    <div class="pending-emergency-context" hidden></div>
                     <div class="pending-emergency-cards"></div>
                     <div class="pending-emergency-overexert" hidden>
                         <div class="pending-emergency-subtitle"></div>
@@ -3108,6 +3182,7 @@
                 `;
                 const title = panel.querySelector('strong');
                 const count = panel.querySelector('.pending-emergency-head span');
+                const context = panel.querySelector('.pending-emergency-context');
                 const cards = panel.querySelector('.pending-emergency-cards');
                 const overexert = panel.querySelector('.pending-emergency-overexert');
                 const overexertTitle = panel.querySelector('.pending-emergency-subtitle');
@@ -3116,6 +3191,9 @@
                 const repaint = () => {
                     title.textContent = pendingAction.value?.prompt || '请选择';
                     count.textContent = `${pendingSelected.value.length} / ${pendingAction.value?.min_select ?? 0}-${pendingAction.value?.max_select ?? 0}`;
+                    const contextText = pendingContextText();
+                    context.textContent = contextText;
+                    context.hidden = !contextText;
                     cards.innerHTML = '';
                     for (const candidate of pendingOrderedCandidates()) {
                         const button = document.createElement('button');
@@ -3301,7 +3379,7 @@
                 abilityLabel,
                 canCastSkill, selectSkillToCast, canBoostWith, toggleBoostSkill, noDefend,
                 guideKicker, currentHint, waitingNotice, clearSelection, statusEntries,
-                hasActiveTargeting, isValidOpponentTarget, isSpellTarget, isFriendlySpellTarget, canUseMyCell,
+                hasActiveTargeting, isValidOpponentTarget, isSpellTarget, isFriendlySpellTarget, isFriendlyHeroSpellTarget, handleMyHeroClick, canUseMyCell,
                 canShowCostHint, missingCostText, skillUseCost, canLearnSkill, costLabel,
                 skillReplaceRequest, replaceableSkills, confirmSkillReplacement,
                 equipmentReplaceRequest, replaceableEquipment, confirmEquipmentReplacement,
@@ -3319,7 +3397,7 @@
                 totalDefensePower, totalDefenseCost, defenseAvailableElements, toggleDefenseSkill, toggleDefenseBoost, toggleDefenseOverexert, reactSpell, submitDefend,
                 hoverOpponentCell, clearHoverOpponentCell, isSpellAreaPreview,
                 // Pending action
-                pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction, pendingCandidateDetail,
+                pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction, pendingCandidateDetail, pendingContextText,
                 isCounterPending, pendingOverexertUnits, pendingOverexertSelected, togglePendingOverexert,
                 isDeckReorderPending, pendingOrderedCandidates, movePendingCandidate, togglePendingBottom, isPendingBottom,
                 zoneLabel,

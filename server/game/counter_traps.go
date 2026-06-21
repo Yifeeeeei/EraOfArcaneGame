@@ -87,9 +87,10 @@ func (e *Engine) promptCounterTrapIfEligible(counter *CardInstance, trigger Effe
 	candidate := cardToInfo(counter)
 	candidate["zone"] = "equipment"
 	candidate["side"] = "own"
-	e.SetPendingActionWithError(ownerID, "counter_trigger",
+	context := e.counterTrapPendingContext(trigger, eventSource, extraData)
+	e.SetPendingActionWithErrorAndContext(ownerID, "counter_trigger",
 		fmt.Sprintf("是否发动盖放的「%s」？", counter.Card.Name),
-		[]map[string]any{candidate}, 0, 1, cost, true,
+		[]map[string]any{candidate}, 0, 1, cost, true, context,
 		func(selected []string, data map[string]any) error {
 			if len(selected) == 0 {
 				if afterResolve != nil {
@@ -159,6 +160,109 @@ func (e *Engine) promptCounterTrapQueue(counters []*CardInstance, trigger Effect
 	return e.State.PendingAction != nil && e.State.PendingAction.Type == "counter_trigger"
 }
 
+func (e *Engine) counterTrapPendingContext(trigger EffectTrigger, eventSource *CardInstance, extraData map[string]any) map[string]any {
+	context := map[string]any{
+		"trigger":       triggerKey(trigger),
+		"trigger_label": triggerLabel(trigger),
+	}
+	if eventSource != nil {
+		context["source"] = cardToInfo(eventSource)
+		context["source_player"] = eventSource.OwnerID
+	}
+	if extraData == nil {
+		return context
+	}
+	if target, ok := extraData["target"].(*CardInstance); ok && target != nil {
+		context["target"] = cardToInfo(target)
+		context["target_player"] = target.OwnerID
+	}
+	if target, ok := extraData["target"].(SpellTarget); ok {
+		context["spell_target"] = target
+	}
+	if castPlayer, ok := extraData["cast_player"].(int); ok {
+		context["source_player"] = castPlayer
+	}
+	if consumedPlayer, ok := extraData["consumed_player"].(int); ok {
+		context["source_player"] = consumedPlayer
+	}
+	if usedPlayer, ok := extraData["used_player"].(int); ok {
+		context["source_player"] = usedPlayer
+	}
+	if enteredPlayer, ok := extraData["entered_player"].(int); ok {
+		context["source_player"] = enteredPlayer
+	}
+	if damagedPlayer, ok := extraData["damaged_player"].(int); ok {
+		context["target_player"] = damagedPlayer
+	}
+	if drawnPlayer, ok := extraData["drawn_player"].(int); ok {
+		context["source_player"] = drawnPlayer
+	}
+	if endedPlayer, ok := extraData["ended_player"].(int); ok {
+		context["source_player"] = endedPlayer
+	}
+	if drawCount := drawCountFromData(extraData); drawCount > 0 {
+		context["draw_count"] = drawCount
+	}
+	if power := spellPowerFromData(extraData); power > 0 {
+		context["power"] = power
+	}
+	return context
+}
+
+func triggerLabel(trigger EffectTrigger) string {
+	switch trigger {
+	case TriggerOnConsume:
+		return "消耗"
+	case TriggerOnSpellCast:
+		return "施放法术"
+	case TriggerOnUseItem:
+		return "使用道具"
+	case TriggerOnUnitEnter:
+		return "伙伴入场"
+	case TriggerOnTurnEnd:
+		return "回合结束"
+	case TriggerOnDraw:
+		return "抽牌"
+	case TriggerOnDamaged:
+		return "受到伤害"
+	case TriggerOnFriendlyDeath:
+		return "友方死亡"
+	case TriggerOnEnemyDeath:
+		return "敌方死亡"
+	case TriggerOnSpellHitBeforeDamage:
+		return "法术命中"
+	default:
+		return fmt.Sprintf("触发%d", trigger)
+	}
+}
+
+func triggerKey(trigger EffectTrigger) string {
+	switch trigger {
+	case TriggerOnConsume:
+		return "consume"
+	case TriggerOnSpellCast:
+		return "spell_cast"
+	case TriggerOnUseItem:
+		return "use_item"
+	case TriggerOnUnitEnter:
+		return "unit_enter"
+	case TriggerOnTurnEnd:
+		return "turn_end"
+	case TriggerOnDraw:
+		return "draw"
+	case TriggerOnDamaged:
+		return "damaged"
+	case TriggerOnFriendlyDeath:
+		return "friendly_death"
+	case TriggerOnEnemyDeath:
+		return "enemy_death"
+	case TriggerOnSpellHitBeforeDamage:
+		return "spell_hit_before_damage"
+	default:
+		return fmt.Sprintf("trigger_%d", trigger)
+	}
+}
+
 func counterTrapHasTrigger(number string, trigger EffectTrigger) bool {
 	for _, candidate := range counterTrapTriggers[number] {
 		if candidate == trigger {
@@ -225,7 +329,7 @@ func (e *Engine) counterTrapConditionMet(counter *CardInstance, trigger EffectTr
 		return eventSource != nil && eventSource.Card.IsCompanion() && eventSource.Position != nil &&
 			len(e.emptyUnitPositionsForPlayer(eventSource.OwnerID, ownerID)) > 0
 	case "2521002":
-		return trigger == TriggerOnSpellHitBeforeDamage && sourceOwner != ownerID && spellPowerFromData(extraData) < 10
+		return trigger == TriggerOnSpellHitBeforeDamage && sourceOwner != ownerID && eventSource != nil && !isSorcerySkill(eventSource.Card) && spellPowerFromData(extraData) < 10
 	case "2521004":
 		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && eventSource != nil && isSorcerySkill(eventSource.Card)
 	case "2521011":

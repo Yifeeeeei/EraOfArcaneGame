@@ -359,6 +359,7 @@ type PendingAction struct {
 	Candidates   []map[string]any                                   `json:"candidates"` // selectable options (cards or positions)
 	MinSelect    int                                                `json:"min_select"` // minimum selections required
 	MaxSelect    int                                                `json:"max_select"` // maximum selections allowed
+	Context      map[string]any                                     `json:"context,omitempty"`
 	Cost         map[string]int                                     `json:"cost,omitempty"`
 	CanOverexert bool                                               `json:"can_overexert,omitempty"`
 	Callback     func(selected []string)                            `json:"-"` // called when resolved
@@ -420,7 +421,7 @@ func NewGameState(gameID string) *GameState {
 	return &GameState{
 		GameID:    gameID,
 		Winner:    -1,
-		HandLimit: 7,
+		HandLimit: 5,
 		Phase:     PhaseWaitingPlayers,
 	}
 }

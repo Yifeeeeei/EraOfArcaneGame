@@ -167,6 +167,17 @@ func mergeElementCosts(costs ...map[string]int) map[string]int {
 	return merged
 }
 
+func (e *Engine) handLimitForPlayer(ps *PlayerState) int {
+	if ps == nil {
+		return e.State.HandLimit
+	}
+	limit := e.State.HandLimit
+	if ps.Hero != nil && ps.Hero.Card != nil && ps.Hero.Card.Number == "4311002" {
+		limit++
+	}
+	return limit
+}
+
 func stringsFromAnySlice(values []any) []string {
 	result := make([]string, 0, len(values))
 	for _, value := range values {
@@ -319,14 +330,10 @@ func (e *Engine) effectiveSpellPower(playerID int, skill *CardInstance, boostSki
 			extra["spell_target_unit"] = unit
 		}
 	}
-	power := e.skillContributionStatsWithData(playerID, skill, skill, skillPurposeAttack, extra).PowerBonus
+	power := e.effectiveSkillPowerForPurposeWithData(playerID, skill, skill, skillPurposeAttack, extra)
 	for _, boostSkill := range boostSkills {
-		power += e.skillContributionStatsWithData(playerID, boostSkill, skill, skillPurposeAttackBoost, extra).PowerBonus
-		power += e.spellStatBonusesWithData(playerID, boostSkill, skillPurposeAttackBoost, extra).PowerBonus
+		power += e.effectiveSkillPowerForPurposeWithData(playerID, boostSkill, skill, skillPurposeAttackBoost, extra)
 	}
-	power += e.spellStatBonusesWithData(playerID, skill, skillPurposeAttack, extra).PowerBonus
-	power += e.genericSpellBonus(playerID, skill, "威")
-	power += e.temporarySpellPowerBonus(playerID, skill)
 	return max(power, 0)
 }
 
@@ -356,14 +363,11 @@ func (e *Engine) spellPowerSources(playerID int, skill *CardInstance, boostSkill
 		}
 	}
 
-	mainPower := e.skillContributionStatsWithData(playerID, skill, skill, skillPurposeAttack, extra).PowerBonus
-	mainPower += e.spellStatBonusesWithData(playerID, skill, skillPurposeAttack, extra).PowerBonus
-	mainPower += e.temporarySpellPowerBonus(playerID, skill)
+	mainPower := e.effectiveSkillPowerForPurposeWithData(playerID, skill, skill, skillPurposeAttack, extra)
 	sources := []SpellPowerSource{spellPowerSourceForCard(skill, max(mainPower, 0), true)}
 	sum := sources[0].Power
 	for _, boostSkill := range boostSkills {
-		boostPower := e.skillContributionStatsWithData(playerID, boostSkill, skill, skillPurposeAttackBoost, extra).PowerBonus
-		boostPower += e.spellStatBonusesWithData(playerID, boostSkill, skillPurposeAttackBoost, extra).PowerBonus
+		boostPower := e.effectiveSkillPowerForPurposeWithData(playerID, boostSkill, skill, skillPurposeAttackBoost, extra)
 		source := spellPowerSourceForCard(boostSkill, max(boostPower, 0), false)
 		sources = append(sources, source)
 		sum += source.Power
@@ -388,8 +392,7 @@ func spellPowerSourceForCard(card *CardInstance, power int, isMain bool) SpellPo
 func (e *Engine) totalEffectiveSkillPower(playerID int, skills []*CardInstance, purpose skillPurpose) int {
 	total := 0
 	for _, skill := range skills {
-		total += e.skillContributionStats(playerID, skill, nil, purpose).PowerBonus
-		total += e.spellStatBonuses(playerID, skill, purpose).PowerBonus
+		total += e.effectiveSkillPowerForPurposeWithData(playerID, skill, nil, purpose, map[string]any{"stat": "power"})
 	}
 	return max(total, 0)
 }
@@ -400,9 +403,6 @@ func (e *Engine) skillContributionStats(playerID int, skill *CardInstance, targe
 
 func (e *Engine) skillContributionStatsWithData(playerID int, skill *CardInstance, target *CardInstance, purpose skillPurpose, extra map[string]any) SpellStats {
 	stats := SpellStats{PowerBonus: max(skill.Card.Power+skill.PowerBonus, 0)}
-	if weak := skill.Statuses[StatusWeaken]; weak > 0 {
-		stats.PowerBonus = max(stats.PowerBonus-weak, 0)
-	}
 	behavior := globalRegistry.GetBehavior(skill.Card.Number)
 	if modifier, ok := behavior.(SkillContributionModifier); ok && modifier.HasActiveSkillContributionModifier(skill) {
 		data := map[string]any{"purpose": string(purpose)}
@@ -422,6 +422,20 @@ func (e *Engine) skillContributionStatsWithData(playerID int, skill *CardInstanc
 	stats.PowerBonus = max(stats.PowerBonus, 0)
 	stats.DamageBonus = max(stats.DamageBonus, 0)
 	return stats
+}
+
+func (e *Engine) effectiveSkillPowerForPurposeWithData(playerID int, skill *CardInstance, target *CardInstance, purpose skillPurpose, extra map[string]any) int {
+	if skill == nil || skill.Card == nil {
+		return 0
+	}
+	power := e.skillContributionStatsWithData(playerID, skill, target, purpose, extra).PowerBonus
+	power += e.spellStatBonusesWithData(playerID, skill, purpose, extra).PowerBonus
+	power += e.genericSpellBonus(playerID, skill, "威")
+	power += e.temporarySpellPowerBonus(playerID, skill)
+	if weak := skill.Statuses[StatusWeaken]; weak > 0 {
+		power -= weak
+	}
+	return max(power, 0)
 }
 
 func (e *Engine) spellTargetUnit(defenderID int, target SpellTarget) *CardInstance {
@@ -520,6 +534,12 @@ func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance
 		if target.Type == "" || target.Type == "none" {
 			return nil
 		}
+	}
+	if target.Type == "hero" {
+		if friendly, ok := behaviorForNumber(skill.Card.Number).(FriendlySpellTargetBehavior); ok && friendly.HasActiveFriendlySpellTarget(skill) && friendly.AllowsFriendlySpellTarget() {
+			return nil
+		}
+		return fmt.Errorf("spell cannot target hero")
 	}
 	if target.Type != "unit" {
 		return fmt.Errorf("unsupported spell target type: %s", target.Type)

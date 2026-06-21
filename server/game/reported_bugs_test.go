@@ -1034,7 +1034,7 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 		}
 	})
 
-	t.Run("1621005 诅咒魔像 weakens the first enemy skill on enter", func(t *testing.T) {
+	t.Run("1621005 诅咒魔像 asks which enemy skill to weaken on enter", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p1 := engine.State.Players[1]
 		p1.Skills[0] = readySkill(baseCard(t, "3021005"), 1)
@@ -1042,6 +1042,14 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 
 		engine.triggerEffects(TriggerOnEnter, golem, nil, nil)
 
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "cursed_golem_weaken" {
+			t.Fatalf("cursed golem should ask for an enemy skill, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{p1.Skills[0].InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve cursed golem: %v", err)
+		}
 		if p1.Skills[0].Statuses[StatusWeaken] != 2 {
 			t.Fatalf("cursed golem should weaken enemy skill by 2, skill=%v", p1.Skills[0].Statuses)
 		}
@@ -1413,7 +1421,7 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("resolve sealing scroll: %v", err)
 		}
-		if p1.Skills[2].Statuses[StatusSeal] != 2 {
+		if p1.Skills[2].Statuses[StatusSeal] != 1 {
 			t.Fatalf("selected enemy skill should be sealed to next turn end, statuses=%v", p1.Skills[2].Statuses)
 		}
 	})
@@ -1910,12 +1918,10 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		if modifier, ok := globalRegistry.GetBehavior("2511002").(SpellStatModifier); ok {
 			modifier.ModifySpellStats(&EffectContext{Engine: engine, Source: shield, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"purpose": string(skillPurposeDefend)}}, stats)
 		}
-		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
-			"instance_id":  shield.InstanceID,
-			"ability_type": "per_turn",
-		}}); err != nil {
-			t.Fatalf("use shining shield per-turn: %v", err)
-		}
+		engine.triggerEffects(TriggerOnDefend, shield, nil, map[string]any{
+			"defense_success": true,
+			"defender":        0,
+		})
 		engine.triggerEffects(TriggerOnEnter, book, nil, nil)
 
 		if stats.PowerBonus != 2 {
@@ -2544,6 +2550,14 @@ func TestCounterTrapCanBeSetHiddenAndTriggeredWithOverexert(t *testing.T) {
 	pending := state["pending_action"].(map[string]any)
 	if pending["can_overexert"] != true || pending["cost"] == nil {
 		t.Fatalf("counter trigger state should expose overexert payment data: %+v", pending)
+	}
+	context, ok := pending["context"].(map[string]any)
+	if !ok {
+		t.Fatalf("counter trigger state should expose trigger context: %+v", pending)
+	}
+	source, ok := context["source"].(map[string]any)
+	if !ok || source["instance_id"] != target.InstanceID || context["trigger_label"] != "消耗" {
+		t.Fatalf("counter context should identify consumed source, context=%+v", context)
 	}
 	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 		"selected":      []any{counter.InstanceID},
@@ -3795,6 +3809,59 @@ func TestWindcallingScrollDrawsTwoAndSkipsNextDraw(t *testing.T) {
 	}
 }
 
+func TestEndTurnDiscardUsesCurrentHandLimit(t *testing.T) {
+	t.Run("default hand limit is five", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		for i := 0; i < 7; i++ {
+			p0.Hand = append(p0.Hand, NewCardInstance(baseCard(t, "1021001"), 0, 1))
+		}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "end_turn", Data: map[string]any{}}); err != nil {
+			t.Fatalf("end turn: %v", err)
+		}
+		if engine.State.Phase != PhaseWaitingAction || engine.State.PendingAction == nil || engine.State.PendingAction.Type != "discard" {
+			t.Fatalf("ending with seven cards should ask for discard, phase=%v pending=%+v", engine.State.Phase, engine.State.PendingAction)
+		}
+		if engine.State.PendingAction.MinSelect != 2 || engine.State.PendingAction.MaxSelect != 2 {
+			t.Fatalf("default hand limit should discard exactly two from seven, pending=%+v", engine.State.PendingAction)
+		}
+		selected := []any{p0.Hand[0].InstanceID, p0.Hand[1].InstanceID}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{"selected": selected}}); err != nil {
+			t.Fatalf("resolve discard: %v", err)
+		}
+		if len(p0.Hand) != 5 || len(p0.Graveyard) != 2 {
+			t.Fatalf("discard should leave five cards in hand, hand=%d graveyard=%d", len(p0.Hand), len(p0.Graveyard))
+		}
+	})
+
+	t.Run("Raven hero increases hand limit to six", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p0.Hero = NewCardInstance(baseCard(t, "4311002"), 0, 1)
+		for i := 0; i < 7; i++ {
+			p0.Hand = append(p0.Hand, NewCardInstance(baseCard(t, "1021001"), 0, 1))
+		}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "end_turn", Data: map[string]any{}}); err != nil {
+			t.Fatalf("end turn: %v", err)
+		}
+		if engine.State.Phase != PhaseWaitingAction || engine.State.PendingAction == nil || engine.State.PendingAction.Type != "discard" {
+			t.Fatalf("ending with seven cards should ask for discard, phase=%v pending=%+v", engine.State.Phase, engine.State.PendingAction)
+		}
+		if engine.State.PendingAction.MinSelect != 1 || engine.State.PendingAction.MaxSelect != 1 {
+			t.Fatalf("Raven hand limit should discard exactly one from seven, pending=%+v", engine.State.PendingAction)
+		}
+		selected := []any{p0.Hand[0].InstanceID}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{"selected": selected}}); err != nil {
+			t.Fatalf("resolve discard: %v", err)
+		}
+		if len(p0.Hand) != 6 || len(p0.Graveyard) != 1 {
+			t.Fatalf("Raven discard should leave six cards in hand, hand=%d graveyard=%d", len(p0.Hand), len(p0.Graveyard))
+		}
+	})
+}
+
 func TestArcaneArmorerSearchesEquipmentWhenNoEquipment(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
@@ -4855,10 +4922,11 @@ func TestSkillPendingChoiceEffects(t *testing.T) {
 		p0 := engine.State.Players[0]
 		skill := readySkill(baseCard(t, "3021004"), 0)
 		discard := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		potion := NewCardInstance(baseCard(t, "2421002"), 0, 1)
 		scroll := NewCardInstance(baseCard(t, "2321005"), 0, 1)
 		p0.Skills[0] = skill
 		p0.Hand = []*CardInstance{discard}
-		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021002"), 0, 1), scroll}
+		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021002"), 0, 1), potion, scroll}
 		p0.Elements[model.ElementArcane] = 3
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
@@ -4867,18 +4935,31 @@ func TestSkillPendingChoiceEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("cast engrave: %v", err)
 		}
+		if engine.State.Phase != PhaseWaitingAction || engine.State.PendingAction.Type != "engrave_discard" {
+			t.Fatalf("engrave should first ask for a hand discard, phase=%v pending=%+v", engine.State.Phase, engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{discard.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve engrave discard: %v", err)
+		}
 		if engine.State.Phase != PhaseWaitingAction || engine.State.PendingAction.Type != "engrave_search" {
-			t.Fatalf("engrave should wait for deck search choice, phase=%v pending=%+v", engine.State.Phase, engine.State.PendingAction)
+			t.Fatalf("engrave should then wait for deck search choice, phase=%v pending=%+v", engine.State.Phase, engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == potion.InstanceID {
+				t.Fatalf("engrave should not offer non-scroll/rune consumables, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{scroll.InstanceID},
 		}}); err != nil {
 			t.Fatalf("resolve engrave: %v", err)
 		}
-		if len(p0.Graveyard) != 0 || len(p0.Hand) != 2 {
-			t.Fatalf("engrave should not discard and should search to hand, graveyard=%v hand=%v", cardsToInfo(p0.Graveyard), cardsToInfo(p0.Hand))
+		if len(p0.Graveyard) != 1 || p0.Graveyard[0] != discard || len(p0.Hand) != 1 {
+			t.Fatalf("engrave should discard selected hand card and search to hand, graveyard=%v hand=%v", cardsToInfo(p0.Graveyard), cardsToInfo(p0.Hand))
 		}
-		if p0.Hand[1] != scroll {
+		if p0.Hand[0] != scroll {
 			t.Fatalf("engrave should search selected rune or scroll, hand=%v", cardsToInfo(p0.Hand))
 		}
 	})
@@ -4902,6 +4983,26 @@ func TestSkillPendingChoiceEffects(t *testing.T) {
 		}
 		if target.CurrentLife != 3 {
 			t.Fatalf("healing should restore 2 life, life=%d", target.CurrentLife)
+		}
+	})
+
+	t.Run("healing spell can target and heal the hero", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p0.Hero = NewCardInstance(baseCard(t, "4311002"), 0, 1)
+		p0.Hero.CurrentLife = 3
+		skill := readySkill(baseCard(t, "3521001"), 0)
+		p0.Skills[0] = skill
+		p0.Elements[model.ElementLight] = 2
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": skill.InstanceID,
+			"target_type": "hero",
+		}}); err != nil {
+			t.Fatalf("cast healing at hero: %v", err)
+		}
+		if p0.Hero.CurrentLife != 5 {
+			t.Fatalf("healing should restore hero life, life=%d", p0.Hero.CurrentLife)
 		}
 	})
 
@@ -5609,6 +5710,7 @@ func TestLightSearchSpells(t *testing.T) {
 			NewCardInstance(baseCard(t, "1521005"), 0, 1),
 			NewCardInstance(baseCard(t, "1021004"), 0, 1),
 		}
+		target := p0.Deck[1]
 		p0.Elements[model.ElementLight] = 1
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
@@ -5616,6 +5718,14 @@ func TestLightSearchSpells(t *testing.T) {
 			"target_type": "none",
 		}}); err != nil {
 			t.Fatalf("cast united hope: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "united_hope_search" {
+			t.Fatalf("united hope should ask which top-five light companion to take, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve united hope: %v", err)
 		}
 		if len(p0.Hand) != 1 || p0.Hand[0].Card.Number != "1521005" {
 			t.Fatalf("united hope should find light companion, hand=%v", p0.Hand)
@@ -7815,27 +7925,22 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 		}
 	})
 
-	t.Run("1621013 言灵 weakens only from the opponent third spell onward", func(t *testing.T) {
+	t.Run("1621013 言灵 weakens enemy horizontal skills after opponent uses a skill", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		wordSpirit := placeUnit(baseCard(t, "1621013"), 0, 1, 1, engine)
-		first := readySkill(baseCard(t, "3121001"), 1)
-		second := readySkill(baseCard(t, "3221009"), 1)
-		third := readySkill(baseCard(t, "3321005"), 1)
 		p1 := engine.State.Players[1]
-		p1.SpellsCastThisTurn = map[string]int{model.ElementFire: 1}
-		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, first, map[string]any{"cast_player": 1})
-		if first.Statuses[StatusWeaken] != 0 {
-			t.Fatalf("first enemy spell should not be weakened, source=%v first=%v", wordSpirit.Statuses, first.Statuses)
-		}
-		p1.SpellsCastThisTurn[model.ElementWater] = 1
-		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, second, map[string]any{"cast_player": 1})
-		if second.Statuses[StatusWeaken] != 0 {
-			t.Fatalf("second enemy spell should not be weakened, second=%v", second.Statuses)
-		}
-		p1.SpellsCastThisTurn[model.ElementAir] = 1
-		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, third, map[string]any{"cast_player": 1})
-		if third.Statuses[StatusWeaken] != 1 {
-			t.Fatalf("third enemy spell should be weakened, third=%v", third.Statuses)
+		used := readySkill(baseCard(t, "3121001"), 1)
+		otherHorizontal := readySkill(baseCard(t, "3221009"), 1)
+		vertical := readySkill(baseCard(t, "3321005"), 1)
+		used.IsHorizontal = true
+		otherHorizontal.IsHorizontal = true
+		p1.Skills[0] = used
+		p1.Skills[1] = otherHorizontal
+		p1.Skills[2] = vertical
+
+		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, used, map[string]any{"cast_player": 1})
+		if used.Statuses[StatusWeaken] != 1 || otherHorizontal.Statuses[StatusWeaken] != 1 || vertical.Statuses[StatusWeaken] != 0 {
+			t.Fatalf("word spirit should weaken enemy horizontal skills only, source=%v used=%v other=%v vertical=%v", wordSpirit.Statuses, used.Statuses, otherHorizontal.Statuses, vertical.Statuses)
 		}
 	})
 
