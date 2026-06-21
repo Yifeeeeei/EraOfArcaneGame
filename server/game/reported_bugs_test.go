@@ -2551,6 +2551,14 @@ func TestCounterTrapCanBeSetHiddenAndTriggeredWithOverexert(t *testing.T) {
 	if pending["can_overexert"] != true || pending["cost"] == nil {
 		t.Fatalf("counter trigger state should expose overexert payment data: %+v", pending)
 	}
+	context, ok := pending["context"].(map[string]any)
+	if !ok {
+		t.Fatalf("counter trigger state should expose trigger context: %+v", pending)
+	}
+	source, ok := context["source"].(map[string]any)
+	if !ok || source["instance_id"] != target.InstanceID || context["trigger_label"] != "消耗" {
+		t.Fatalf("counter context should identify consumed source, context=%+v", context)
+	}
 	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 		"selected":      []any{counter.InstanceID},
 		"overexert_ids": []any{payer.InstanceID},

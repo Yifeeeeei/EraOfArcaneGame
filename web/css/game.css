@@ -465,6 +465,12 @@ body::before {
     font-family: var(--font-display);
     font-size: 13px;
 }
+.pending-inline-context {
+    margin-top: 4px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.35;
+}
 .pending-inline-cards {
     display: flex;
     gap: 6px;
@@ -1729,6 +1735,12 @@ body::before {
     font-size: 15px;
     margin-bottom: 8px;
 }
+.pending-emergency-context {
+    margin: -2px 0 8px;
+    color: var(--text-secondary);
+    font-size: 12px;
+    line-height: 1.35;
+}
 .pending-emergency-cards {
     display: flex;
     gap: 8px;
@@ -2526,6 +2538,16 @@ body::before {
     max-width: 560px;
     max-height: 80vh;
     overflow-y: auto;
+}
+.pending-context {
+    margin: -2px auto 10px;
+    padding: 6px 8px;
+    border: 1px solid rgba(198,174,116,0.2);
+    background: rgba(8,6,5,0.42);
+    color: var(--text-secondary);
+    font-size: 13px;
+    line-height: 1.35;
+    text-align: center;
 }
 .pending-candidates {
     display: flex;

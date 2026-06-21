@@ -2957,14 +2957,18 @@ func (e *Engine) SetPendingActionWithData(playerID int, actionType string, promp
 }
 
 func (e *Engine) SetPendingActionWithError(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, callback func([]string, map[string]any) error) {
-	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, cost, canOverexert, nil, nil, callback)
+	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, cost, canOverexert, nil, nil, callback, nil)
+}
+
+func (e *Engine) SetPendingActionWithErrorAndContext(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, context map[string]any, callback func([]string, map[string]any) error) {
+	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, cost, canOverexert, nil, nil, callback, context)
 }
 
 func (e *Engine) setPendingAction(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, callback func([]string), callbackData func([]string, map[string]any)) {
-	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, nil, false, callback, callbackData, nil)
+	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, nil, false, callback, callbackData, nil, nil)
 }
 
-func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, callback func([]string), callbackData func([]string, map[string]any), callbackErr func([]string, map[string]any) error) {
+func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, callback func([]string), callbackData func([]string, map[string]any), callbackErr func([]string, map[string]any) error, context map[string]any) {
 	if minSelect > 0 && len(candidates) == 0 {
 		return
 	}
@@ -2977,6 +2981,7 @@ func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, pr
 		Candidates:   candidates,
 		MinSelect:    minSelect,
 		MaxSelect:    maxSelect,
+		Context:      context,
 		Cost:         cost,
 		CanOverexert: canOverexert,
 		Callback:     callback,
@@ -2991,6 +2996,9 @@ func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, pr
 		"candidates": candidates,
 		"min_select": minSelect,
 		"max_select": maxSelect,
+	}
+	if context != nil {
+		data["context"] = context
 	}
 	if cost != nil {
 		data["cost"] = cost
@@ -3297,6 +3305,7 @@ func (e *Engine) GetStateForPlayer(playerID int) map[string]any {
 					"candidates":    state.PendingAction.Candidates,
 					"min_select":    state.PendingAction.MinSelect,
 					"max_select":    state.PendingAction.MaxSelect,
+					"context":       state.PendingAction.Context,
 					"cost":          state.PendingAction.Cost,
 					"can_overexert": state.PendingAction.CanOverexert,
 				}
