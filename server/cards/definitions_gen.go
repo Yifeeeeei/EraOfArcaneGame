@@ -35,7 +35,7 @@ func (CardDef1011001) Card() model.Card {
 		VersionNum:      "1",
 		VersionName:     "基础包",
 		Attack:          2,
-		Life:            4,
+		Life:            5,
 		Duration:        -1,
 		Power:           -1,
 		Spawns:          []string{"3001001"},
@@ -57,10 +57,10 @@ func (CardDef1011002) Card() model.Card {
 		Name:            "巫师之塔 通天阁",
 		Category:        "无",
 		Tag:             "传奇-造物",
-		Description:     "引魔.光环:你的法力范围变为全场",
+		Description:     "引魔.入场:你的技能槽每有1个技能,就获得1点其属性对应的元素.光环:你的法力范围变为全场",
 		Quote:           "俯瞰着整片大陆,难道你不想将世界收入囊中吗?",
-		ElementsCost:    map[string]int{"无": 7},
-		ElementsGain:    map[string]int{"光": 1, "无": 1, "暗": 1},
+		ElementsCost:    map[string]int{"无": 8},
+		ElementsGain:    map[string]int{},
 		ElementsExpense: map[string]int{},
 		VersionNum:      "1",
 		VersionName:     "基础包",
@@ -275,7 +275,7 @@ func (CardDef1021006) Card() model.Card {
 		VersionNum:      "1",
 		VersionName:     "基础包",
 		Attack:          -1,
-		Life:            1,
+		Life:            2,
 		Duration:        -1,
 		Power:           -1,
 		Spawns:          []string{},
@@ -613,6 +613,36 @@ func (CardDef1021017) Card() model.Card {
 	}
 }
 
+type CardDef1021018 struct{}
+
+func (CardDef1021018) ID() string      { return "1021018" }
+func (CardDef1021018) Name() string    { return "奥术壁垒" }
+func (CardDef1021018) Kind() string    { return "伙伴" }
+func (CardDef1021018) Element() string { return "无" }
+
+func (CardDef1021018) Card() model.Card {
+	return model.Card{
+		Number:          "1021018",
+		Type:            "伙伴",
+		Name:            "奥术壁垒",
+		Category:        "无",
+		Tag:             "造物",
+		Description:     "遗言:对方获得2\\无",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "基础包",
+		Attack:          -1,
+		Life:            5,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\基础包\\伙伴\\无\\1021018.jpg",
+	}
+}
+
 type CardDef1111001 struct{}
 
 func (CardDef1111001) ID() string      { return "1111001" }
@@ -657,7 +687,7 @@ func (CardDef1111002) Card() model.Card {
 		Name:            "炎狱大将军 狄斯托德",
 		Category:        "火",
 		Tag:             "传奇-巫师",
-		Description:     "诱发:每当对方召唤1个伙伴时,使其获得点燃1和石化1",
+		Description:     "诱发:每当对方召唤1个伙伴时,使其获得点燃2和石化2",
 		Quote:           "\"我的使命,就是将地狱带到人间\"",
 		ElementsCost:    map[string]int{"地": 2, "火": 6},
 		ElementsGain:    map[string]int{"地": 1, "火": 2},
@@ -689,8 +719,8 @@ func (CardDef1111003) Card() model.Card {
 		Tag:             "传奇-异兽",
 		Description:     "引魔.光环:敌方单位受到的点燃伤害+1",
 		Quote:           "始于灰烬,终于灰烬",
-		ElementsCost:    map[string]int{"火": 5},
-		ElementsGain:    map[string]int{"火": 2},
+		ElementsCost:    map[string]int{"火": 4},
+		ElementsGain:    map[string]int{"火": 1},
 		ElementsExpense: map[string]int{},
 		VersionNum:      "1",
 		VersionName:     "基础包",
@@ -957,7 +987,7 @@ func (CardDef1121009) Card() model.Card {
 		Name:            "赤鹰",
 		Category:        "火",
 		Tag:             "野兽",
-		Description:     "入场:检索1个入场花费大于4的火焰伙伴",
+		Description:     "入场:检索1个入场花费大于等于4的火焰伙伴",
 		Quote:           "每只赤鹰都想成为凤凰,前提是它们身上的羽毛还没有被猎人拔光",
 		ElementsCost:    map[string]int{"火": 3},
 		ElementsGain:    map[string]int{"火": 1},
@@ -1153,6 +1183,36 @@ func (CardDef1121015) Card() model.Card {
 	}
 }
 
+type CardDef1121016 struct{}
+
+func (CardDef1121016) ID() string      { return "1121016" }
+func (CardDef1121016) Name() string    { return "舞火者" }
+func (CardDef1121016) Kind() string    { return "伙伴" }
+func (CardDef1121016) Element() string { return "火" }
+
+func (CardDef1121016) Card() model.Card {
+	return model.Card{
+		Number:          "1121016",
+		Type:            "伙伴",
+		Name:            "舞火者",
+		Category:        "火",
+		Tag:             "人类",
+		Description:     "入场,遗言:使你场上的所有火焰卡牌免疫负面状态(仍可处于)直到你的下一次回合结束",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "基础包",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\基础包\\伙伴\\火\\1121016.jpg",
+	}
+}
+
 type CardDef1211001 struct{}
 
 func (CardDef1211001) ID() string      { return "1211001" }
@@ -1227,7 +1287,7 @@ func (CardDef1211003) Card() model.Card {
 		Name:            "\"雪女\" 天户凌",
 		Category:        "水",
 		Tag:             "传奇-巫师",
-		Description:     "引魔.诱发回合技3:在你检索1张水纹卡牌后,使1个前排敌人冻结1",
+		Description:     "引魔.诱发回合技3:在你检索1张水纹卡牌后,选择1个法力范围内的敌人,使其冻结1",
 		Quote:           "我梦到北方纷飞的大雪,那里便是我的归宿",
 		ElementsCost:    map[string]int{"水": 5},
 		ElementsGain:    map[string]int{"水": 2},
@@ -1257,7 +1317,7 @@ func (CardDef1221001) Card() model.Card {
 		Name:            "海豚伙伴",
 		Category:        "水",
 		Tag:             "野兽",
-		Description:     "献祭:防止1个其他友方单位受到的1次致命伤害",
+		Description:     "诱发:当1个其他友方单位将要受到致命伤害时,将此卡献祭才能发动,防止该伤害",
 		Quote:           "",
 		ElementsCost:    map[string]int{"水": 1},
 		ElementsGain:    map[string]int{"水": 1},
@@ -1377,9 +1437,9 @@ func (CardDef1221005) Card() model.Card {
 		Name:            "西境海妖",
 		Category:        "水",
 		Tag:             "异兽",
-		Description:     "祈咒:消耗法力范围内的1个伙伴",
+		Description:     "祈咒:选择法力范围内的1个敌方伙伴,将其横置",
 		Quote:           "很难想象什么样的水手没能禁住诱惑",
-		ElementsCost:    map[string]int{"水": 5},
+		ElementsCost:    map[string]int{"无": 1, "水": 4},
 		ElementsGain:    map[string]int{"水": 2},
 		ElementsExpense: map[string]int{},
 		VersionNum:      "1",
@@ -1677,7 +1737,7 @@ func (CardDef1221015) Card() model.Card {
 		Name:            "眺望者商舰",
 		Category:        "水",
 		Tag:             "机械",
-		Description:     "祈咒:检索1个水纹卡牌,然后将1张手牌洗回卡组",
+		Description:     "祈咒:检索1个水纹卡牌,然后选择1张手牌洗回卡组",
 		Quote:           "群屿大陆绝不会停止的两件事:战争和贸易",
 		ElementsCost:    map[string]int{"气": 2, "水": 4},
 		ElementsGain:    map[string]int{"气": 1, "水": 2},
@@ -1690,6 +1750,36 @@ func (CardDef1221015) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\伙伴\\水\\1221015.jpg",
+	}
+}
+
+type CardDef1221016 struct{}
+
+func (CardDef1221016) ID() string      { return "1221016" }
+func (CardDef1221016) Name() string    { return "冰刺堡垒" }
+func (CardDef1221016) Kind() string    { return "伙伴" }
+func (CardDef1221016) Element() string { return "水" }
+
+func (CardDef1221016) Card() model.Card {
+	return model.Card{
+		Number:          "1221016",
+		Type:            "伙伴",
+		Name:            "冰刺堡垒",
+		Category:        "水",
+		Tag:             "造物",
+		Description:     "诱发:每当此卡受到敌方伤害,选择法力范围内1个敌人冻结1,如果已冻结,则改为造成1点伤害",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 1, "水": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "基础包",
+		Attack:          -1,
+		Life:            4,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\基础包\\伙伴\\水\\1221016.jpg",
 	}
 }
 
@@ -1767,7 +1857,7 @@ func (CardDef1311003) Card() model.Card {
 		Name:            "\"风刃\" 卡琳娜",
 		Category:        "气",
 		Tag:             "传奇-人类",
-		Description:     "你的没有穿透的大气技能获得穿透和使用花费+1\\气(不需要选择目标的技能不受影响)",
+		Description:     "引魔.光环:你的没有穿透的大气技能获得穿透和使用花费+1\\气(不需要选择目标的技能不受影响)",
 		Quote:           "匕首的价值,取决于它架在谁的脖子上",
 		ElementsCost:    map[string]int{"气": 1},
 		ElementsGain:    map[string]int{"气": 1},
@@ -2233,6 +2323,36 @@ func (CardDef1321015) Card() model.Card {
 	}
 }
 
+type CardDef1321016 struct{}
+
+func (CardDef1321016) ID() string      { return "1321016" }
+func (CardDef1321016) Name() string    { return "雷傀儡" }
+func (CardDef1321016) Kind() string    { return "伙伴" }
+func (CardDef1321016) Element() string { return "气" }
+
+func (CardDef1321016) Card() model.Card {
+	return model.Card{
+		Number:          "1321016",
+		Type:            "伙伴",
+		Name:            "雷傀儡",
+		Category:        "气",
+		Tag:             "造物",
+		Description:     "遗言:对手丢弃1张手牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "基础包",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\基础包\\伙伴\\气\\1321016.jpg",
+	}
+}
+
 type CardDef1401001 struct{}
 
 func (CardDef1401001) ID() string      { return "1401001" }
@@ -2367,7 +2487,7 @@ func (CardDef1411003) Card() model.Card {
 		Name:            "沙之魔巫 梭默",
 		Category:        "地",
 		Tag:             "传奇-巫师",
-		Description:     "你的没有范围效果的地脉法术获得范围:方阵",
+		Description:     "光环:你的没有范围效果的地脉法术获得范围:方阵",
 		Quote:           "沙瓦尔大陆的守护者,旅行者的指路人,屠魔者的灾星",
 		ElementsCost:    map[string]int{"地": 4, "气": 2},
 		ElementsGain:    map[string]int{"地": 2, "气": 1},
@@ -2833,6 +2953,36 @@ func (CardDef1421015) Card() model.Card {
 	}
 }
 
+type CardDef1421016 struct{}
+
+func (CardDef1421016) ID() string      { return "1421016" }
+func (CardDef1421016) Name() string    { return "食腐者" }
+func (CardDef1421016) Kind() string    { return "伙伴" }
+func (CardDef1421016) Element() string { return "地" }
+
+func (CardDef1421016) Card() model.Card {
+	return model.Card{
+		Number:          "1421016",
+		Type:            "伙伴",
+		Name:            "食腐者",
+		Category:        "地",
+		Tag:             "野兽",
+		Description:     "引魔.诱发:每当其他友方单位受到对方伤害,你获得2\\地",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "基础包",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\基础包\\伙伴\\地\\1421016.jpg",
+	}
+}
+
 type CardDef1501001 struct{}
 
 func (CardDef1501001) ID() string      { return "1501001" }
@@ -2997,7 +3147,7 @@ func (CardDef1521002) Card() model.Card {
 		Name:            "光铸泰坦",
 		Category:        "光",
 		Tag:             "精灵",
-		Description:     "入场:抽2张牌.神秘和聚能法术对本卡造成的伤害+1",
+		Description:     "入场:抽2张牌.光环:驱动、神秘和聚能法术对本卡造成的伤害+1",
 		Quote:           "",
 		ElementsCost:    map[string]int{"光": 5},
 		ElementsGain:    map[string]int{"光": 2},
@@ -3403,6 +3553,36 @@ func (CardDef1521015) Card() model.Card {
 	}
 }
 
+type CardDef1521016 struct{}
+
+func (CardDef1521016) ID() string      { return "1521016" }
+func (CardDef1521016) Name() string    { return "索洛城的坚守者" }
+func (CardDef1521016) Kind() string    { return "伙伴" }
+func (CardDef1521016) Element() string { return "光" }
+
+func (CardDef1521016) Card() model.Card {
+	return model.Card{
+		Number:          "1521016",
+		Type:            "伙伴",
+		Name:            "索洛城的坚守者",
+		Category:        "光",
+		Tag:             "人类",
+		Description:     "诱发:此卡在满血受到治疗效果时,获得+1\\血",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "基础包",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\基础包\\伙伴\\光\\1521016.jpg",
+	}
+}
+
 type CardDef1611001 struct{}
 
 func (CardDef1611001) ID() string      { return "1611001" }
@@ -3659,13 +3839,13 @@ func (CardDef1621006) Card() model.Card {
 		Tag:             "恶魔",
 		Description:     "诱发:每当其他友方单位死亡后,此卡获得+1\\血",
 		Quote:           "",
-		ElementsCost:    map[string]int{"暗": 4},
+		ElementsCost:    map[string]int{"暗": 3},
 		ElementsGain:    map[string]int{},
 		ElementsExpense: map[string]int{},
 		VersionNum:      "1",
 		VersionName:     "基础包",
 		Attack:          1,
-		Life:            2,
+		Life:            1,
 		Duration:        -1,
 		Power:           -1,
 		Spawns:          []string{},
@@ -3943,6 +4123,36 @@ func (CardDef1621015) Card() model.Card {
 	}
 }
 
+type CardDef1621016 struct{}
+
+func (CardDef1621016) ID() string      { return "1621016" }
+func (CardDef1621016) Name() string    { return "复仇死者" }
+func (CardDef1621016) Kind() string    { return "伙伴" }
+func (CardDef1621016) Element() string { return "暗" }
+
+func (CardDef1621016) Card() model.Card {
+	return model.Card{
+		Number:          "1621016",
+		Type:            "伙伴",
+		Name:            "复仇死者",
+		Category:        "暗",
+		Tag:             "造物",
+		Description:     "遗言:对此卡造成致命伤害来源一方的人物牌受到2点伤害",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "基础包",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\基础包\\伙伴\\暗\\1621016.jpg",
+	}
+}
+
 type CardDef2011001 struct{}
 
 func (CardDef2011001) ID() string      { return "2011001" }
@@ -4017,7 +4227,7 @@ func (CardDef2011003) Card() model.Card {
 		Name:            "君王法袍 至贤",
 		Category:        "无",
 		Tag:             "传奇-装备-防具",
-		Description:     "诱发绝技:当敌方法术命中时,如果你场上的负载多于敌方,每多2点使本回合所有敌方法术-1\\攻",
+		Description:     "诱发:当敌方法术命中时,你可以将1张技能牌从技能池移出游戏来发动,该敌方攻击法术在本回合-2\\攻",
 		Quote:           "它实在是太重了,大部分时间都被挂在架子上",
 		ElementsCost:    map[string]int{"无": 5},
 		ElementsGain:    map[string]int{"无": 2},
@@ -4197,9 +4407,9 @@ func (CardDef2021006) Card() model.Card {
 		Name:            "百宝锦囊",
 		Category:        "无",
 		Tag:             "装备",
-		Description:     "献祭:从卡组检索1张消耗品道具牌",
+		Description:     "主动:消耗并献祭此卡才能发动,从卡组检索1张消耗品道具牌",
 		Quote:           "",
-		ElementsCost:    map[string]int{"无": 2},
+		ElementsCost:    map[string]int{"无": 1},
 		ElementsGain:    map[string]int{},
 		ElementsExpense: map[string]int{},
 		VersionNum:      "1",
@@ -4227,9 +4437,9 @@ func (CardDef2021007) Card() model.Card {
 		Name:            "巫师齐射线列",
 		Category:        "无",
 		Tag:             "消耗品-卷轴",
-		Description:     "重置你的一个法术,下一次它的范围变成AOE:前排",
+		Description:     "如果你的场上至少有7个伙伴,重置你的一个法术,下一次它的范围变成AOE:前排",
 		Quote:           "\"准备,1,2…我还没数3呢!\"",
-		ElementsCost:    map[string]int{"无": 3},
+		ElementsCost:    map[string]int{"无": 2},
 		ElementsGain:    map[string]int{},
 		ElementsExpense: map[string]int{},
 		VersionNum:      "1",
@@ -4377,7 +4587,7 @@ func (CardDef2021012) Card() model.Card {
 		Name:            "速写卷轴",
 		Category:        "无",
 		Tag:             "消耗品-卷轴",
-		Description:     "释放1个你已经学习的法术并支付其使用花费,无需消耗",
+		Description:     "释放1个你已经学习的法术并支付其使用花费,无需消耗该法术",
 		Quote:           "",
 		ElementsCost:    map[string]int{"无": 2},
 		ElementsGain:    map[string]int{},
@@ -4469,7 +4679,7 @@ func (CardDef2021015) Card() model.Card {
 		Tag:             "消耗品-药剂",
 		Description:     "本回合你的法术使用花费为0,但在使用后获得冷却2",
 		Quote:           "有相关研究表明,其记忆衰退的副作用是由于过量的法力涌入,以致对大脑造成不可逆的伤害.",
-		ElementsCost:    map[string]int{"无": 3},
+		ElementsCost:    map[string]int{"无": 2},
 		ElementsGain:    map[string]int{},
 		ElementsExpense: map[string]int{},
 		VersionNum:      "1",
@@ -4647,9 +4857,9 @@ func (CardDef2021021) Card() model.Card {
 		Name:            "聚能卷轴",
 		Category:        "无",
 		Tag:             "消耗品-卷轴",
-		Description:     "在你的下个回合开始时获得3\\无",
+		Description:     "在你的下个回合开始时获得5\\无",
 		Quote:           "",
-		ElementsCost:    map[string]int{"无": 2},
+		ElementsCost:    map[string]int{"无": 3},
 		ElementsGain:    map[string]int{},
 		ElementsExpense: map[string]int{},
 		VersionNum:      "1",
@@ -4693,6 +4903,36 @@ func (CardDef2021022) Card() model.Card {
 	}
 }
 
+type CardDef2021023 struct{}
+
+func (CardDef2021023) ID() string      { return "2021023" }
+func (CardDef2021023) Name() string    { return "奥术魔法筒" }
+func (CardDef2021023) Kind() string    { return "道具" }
+func (CardDef2021023) Element() string { return "无" }
+
+func (CardDef2021023) Card() model.Card {
+	return model.Card{
+		Number:          "2021023",
+		Type:            "道具",
+		Name:            "奥术魔法筒",
+		Category:        "无",
+		Tag:             "装备",
+		Description:     "入场:放置3个标记物.主动回合技:消耗此卡并取除1个标记物才能发动,获得2\\无",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "基础包",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\基础包\\道具\\无\\2021023.jpg",
+	}
+}
+
 type CardDef2111001 struct{}
 
 func (CardDef2111001) ID() string      { return "2111001" }
@@ -4707,9 +4947,9 @@ func (CardDef2111001) Card() model.Card {
 		Name:            "火龙之心",
 		Category:        "火",
 		Tag:             "传奇-装备-神器",
-		Description:     "主动回合技:献祭最多3点\\火,每1点火使下一次火焰法术获得+1\\攻或者+3\\威",
+		Description:     "主动回合技:献祭包含最多3点\\火负载的卡牌,每1点\\火使下一次火焰法术获得+1\\攻或者+3\\威",
 		Quote:           "辉煌死后,索拓尔使用它的心脏炼制了这件神器.只是没人看见火龙是怎么死的",
-		ElementsCost:    map[string]int{"火": 7},
+		ElementsCost:    map[string]int{"火": 6},
 		ElementsGain:    map[string]int{"火": 3},
 		ElementsExpense: map[string]int{},
 		VersionNum:      "1",
@@ -4767,7 +5007,7 @@ func (CardDef2121001) Card() model.Card {
 		Name:            "凤凰之羽",
 		Category:        "火",
 		Tag:             "装备-神器",
-		Description:     "入场:放置3个火焰标记物.主动回合技:取除1个火焰标记物,获得1\\火",
+		Description:     "入场:放置4个标记物.主动回合技:取除1个标记物才能发动,获得1\\火",
 		Quote:           "",
 		ElementsCost:    map[string]int{"火": 1},
 		ElementsGain:    map[string]int{},
@@ -4857,9 +5097,9 @@ func (CardDef2121004) Card() model.Card {
 		Name:            "火焰箭",
 		Category:        "火",
 		Tag:             "装备-武器",
-		Description:     "献祭:对法力范围内1个敌人造成1点伤害",
+		Description:     "主动:消耗并献祭此卡才能发动,对任意1个敌人造成1点伤害",
 		Quote:           "",
-		ElementsCost:    map[string]int{"火": 1},
+		ElementsCost:    map[string]int{"火": 2},
 		ElementsGain:    map[string]int{},
 		ElementsExpense: map[string]int{},
 		VersionNum:      "1",
@@ -5143,6 +5383,36 @@ func (CardDef2121013) Card() model.Card {
 	}
 }
 
+type CardDef2121014 struct{}
+
+func (CardDef2121014) ID() string      { return "2121014" }
+func (CardDef2121014) Name() string    { return "火匣子" }
+func (CardDef2121014) Kind() string    { return "道具" }
+func (CardDef2121014) Element() string { return "火" }
+
+func (CardDef2121014) Card() model.Card {
+	return model.Card{
+		Number:          "2121014",
+		Type:            "道具",
+		Name:            "火匣子",
+		Category:        "火",
+		Tag:             "装备",
+		Description:     "入场:放置3个标记物.主动回合技:消耗此卡并取除1个标记物才能发动,获得2\\火",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "基础包",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\基础包\\道具\\火\\2121014.jpg",
+	}
+}
+
 type CardDef2211001 struct{}
 
 func (CardDef2211001) ID() string      { return "2211001" }
@@ -5187,9 +5457,9 @@ func (CardDef2211002) Card() model.Card {
 		Name:            "嗜魔弓 凛冬",
 		Category:        "水",
 		Tag:             "传奇-装备-武器",
-		Description:     "诱发:每当有玩家使用法术时,可以花费1\\水在此卡上放置1个水纹标记物.绑定技能:凛冬将至",
+		Description:     "诱发:每当有玩家使用法术时,在此卡上放置1个水纹标记物.绑定技能:凛冬将至",
 		Quote:           "一箭霜降,两箭严寒",
-		ElementsCost:    map[string]int{"水": 8},
+		ElementsCost:    map[string]int{"水": 7},
 		ElementsGain:    map[string]int{"水": 3},
 		ElementsExpense: map[string]int{},
 		VersionNum:      "1",
@@ -5593,6 +5863,36 @@ func (CardDef2221013) Card() model.Card {
 	}
 }
 
+type CardDef2221014 struct{}
+
+func (CardDef2221014) ID() string      { return "2221014" }
+func (CardDef2221014) Name() string    { return "水之咏叹" }
+func (CardDef2221014) Kind() string    { return "道具" }
+func (CardDef2221014) Element() string { return "水" }
+
+func (CardDef2221014) Card() model.Card {
+	return model.Card{
+		Number:          "2221014",
+		Type:            "道具",
+		Name:            "水之咏叹",
+		Category:        "水",
+		Tag:             "装备",
+		Description:     "入场:放置4个标记物.主动回合技:消耗此卡并取除1个标记物才能发动,获得3\\水",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "基础包",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\基础包\\道具\\水\\2221014.jpg",
+	}
+}
+
 type CardDef2311001 struct{}
 
 func (CardDef2311001) ID() string      { return "2311001" }
@@ -5607,7 +5907,7 @@ func (CardDef2311001) Card() model.Card {
 		Name:            "雷之源",
 		Category:        "气",
 		Tag:             "传奇-装备-神器",
-		Description:     "光环:你的卡牌入场花费和使用花费减少1\\气",
+		Description:     "光环:你的卡牌入场花费,学习花费和使用花费减少1\\气",
 		Quote:           "四境雷动,不过弹指之间",
 		ElementsCost:    map[string]int{"气": 8},
 		ElementsGain:    map[string]int{},
@@ -6043,6 +6343,36 @@ func (CardDef2321013) Card() model.Card {
 	}
 }
 
+type CardDef2321014 struct{}
+
+func (CardDef2321014) ID() string      { return "2321014" }
+func (CardDef2321014) Name() string    { return "聆风羽毛笔" }
+func (CardDef2321014) Kind() string    { return "道具" }
+func (CardDef2321014) Element() string { return "气" }
+
+func (CardDef2321014) Card() model.Card {
+	return model.Card{
+		Number:          "2321014",
+		Type:            "道具",
+		Name:            "聆风羽毛笔",
+		Category:        "气",
+		Tag:             "装备",
+		Description:     "入场:放置3个标记物.主动回合技:消耗此卡并取除1个标记物才能发动,抽1张牌,获得1\\气",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "基础包",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\基础包\\道具\\气\\2321014.jpg",
+	}
+}
+
 type CardDef2411001 struct{}
 
 func (CardDef2411001) ID() string      { return "2411001" }
@@ -6177,9 +6507,9 @@ func (CardDef2421003) Card() model.Card {
 		Name:            "坚固卷轴",
 		Category:        "地",
 		Tag:             "消耗品-卷轴",
-		Description:     "直到下个回合结束,所有友方单位受到的法术伤害-1",
+		Description:     "直到下个回合结束,使1个友方单位免疫最多3点伤害",
 		Quote:           "",
-		ElementsCost:    map[string]int{"地": 1, "无": 1},
+		ElementsCost:    map[string]int{"地": 1},
 		ElementsGain:    map[string]int{},
 		ElementsExpense: map[string]int{},
 		VersionNum:      "1",
@@ -6493,6 +6823,36 @@ func (CardDef2421013) Card() model.Card {
 	}
 }
 
+type CardDef2421014 struct{}
+
+func (CardDef2421014) ID() string      { return "2421014" }
+func (CardDef2421014) Name() string    { return "森之贮藏" }
+func (CardDef2421014) Kind() string    { return "道具" }
+func (CardDef2421014) Element() string { return "地" }
+
+func (CardDef2421014) Card() model.Card {
+	return model.Card{
+		Number:          "2421014",
+		Type:            "道具",
+		Name:            "森之贮藏",
+		Category:        "地",
+		Tag:             "装备",
+		Description:     "入场:放置4个标记物.主动:消耗此卡并取除1个标记物才能发动,获得4\\地",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 6},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "基础包",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\基础包\\道具\\地\\2421014.jpg",
+	}
+}
+
 type CardDef2501001 struct{}
 
 func (CardDef2501001) ID() string      { return "2501001" }
@@ -6717,7 +7077,7 @@ func (CardDef2521005) Card() model.Card {
 		Name:            "新生卷轴",
 		Category:        "光",
 		Tag:             "消耗品-卷轴",
-		Description:     "复活你的1个死亡的光辉伙伴并花费相应的入场所需元素",
+		Description:     "选择你的一个弃牌堆中的光辉伙伴,支付其入场花费才能发动,将其复活",
 		Quote:           "",
 		ElementsCost:    map[string]int{"光": 1},
 		ElementsGain:    map[string]int{},
@@ -6970,6 +7330,36 @@ func (CardDef2521013) Card() model.Card {
 		Power:           8,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\道具\\光\\2521013.jpg",
+	}
+}
+
+type CardDef2521014 struct{}
+
+func (CardDef2521014) ID() string      { return "2521014" }
+func (CardDef2521014) Name() string    { return "祝福之杖" }
+func (CardDef2521014) Kind() string    { return "道具" }
+func (CardDef2521014) Element() string { return "光" }
+
+func (CardDef2521014) Card() model.Card {
+	return model.Card{
+		Number:          "2521014",
+		Type:            "道具",
+		Name:            "祝福之杖",
+		Category:        "光",
+		Tag:             "装备-武器",
+		Description:     "入场:放置3个标记物.主动回合技:消耗此卡并取除1个标记物才能发动,使1个友方单位+1\\血,然后你获得2点\\光元素",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "基础包",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\基础包\\道具\\光\\2521014.jpg",
 	}
 }
 
@@ -7483,6 +7873,36 @@ func (CardDef2621013) Card() model.Card {
 	}
 }
 
+type CardDef2621014 struct{}
+
+func (CardDef2621014) ID() string      { return "2621014" }
+func (CardDef2621014) Name() string    { return "埋葬者" }
+func (CardDef2621014) Kind() string    { return "道具" }
+func (CardDef2621014) Element() string { return "暗" }
+
+func (CardDef2621014) Card() model.Card {
+	return model.Card{
+		Number:          "2621014",
+		Type:            "道具",
+		Name:            "埋葬者",
+		Category:        "暗",
+		Tag:             "装备-武器",
+		Description:     "入场:放置3个标记物.主动回合技:消耗此卡并取除1个标记物才能发动,从卡组将1张暗影伙伴送去弃牌堆,然后获得2点\\暗",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "基础包",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\基础包\\道具\\暗\\2621014.jpg",
+	}
+}
+
 type CardDef3001001 struct{}
 
 func (CardDef3001001) ID() string      { return "3001001" }
@@ -7501,10 +7921,10 @@ func (CardDef3001001) Card() model.Card {
 		Quote:           "",
 		ElementsCost:    map[string]int{},
 		ElementsGain:    map[string]int{},
-		ElementsExpense: map[string]int{"光": 1, "地": 1, "暗": 1, "气": 1, "水": 1, "火": 1},
+		ElementsExpense: map[string]int{"地": 1, "无": 1, "气": 1, "水": 1, "火": 1},
 		VersionNum:      "1",
 		VersionName:     "基础包",
-		Attack:          3,
+		Attack:          2,
 		Life:            -1,
 		Duration:        -1,
 		Power:           10,
@@ -7647,7 +8067,7 @@ func (CardDef3021004) Card() model.Card {
 		Name:            "刻印",
 		Category:        "无",
 		Tag:             "咒术-代赎",
-		Description:     "冷却1.丢弃1张手牌才能发动,从卡组上方开始,抽取翻出的第1张卷轴或符文",
+		Description:     "冷却1.丢弃1张手牌才能发动,从卡组检索1张卷轴或符文",
 		Quote:           "",
 		ElementsCost:    map[string]int{"无": 1},
 		ElementsGain:    map[string]int{},
@@ -7707,7 +8127,7 @@ func (CardDef3021006) Card() model.Card {
 		Name:            "洞察之眼",
 		Category:        "无",
 		Tag:             "咒术-灵媒",
-		Description:     "冷却1.摧毁1张敌方盖放的卡牌",
+		Description:     "速攻.冷却1.摧毁1张敌方盖放的卡牌",
 		Quote:           "",
 		ElementsCost:    map[string]int{"无": 2},
 		ElementsGain:    map[string]int{},
@@ -7767,7 +8187,7 @@ func (CardDef3021008) Card() model.Card {
 		Name:            "缴械",
 		Category:        "无",
 		Tag:             "法术-驱动",
-		Description:     "速攻.冷却1.诱发:命中敌方单位时,摧毁敌方的1个装备",
+		Description:     "速攻.冷却1.命中:摧毁目标控制者的1个装备",
 		Quote:           "除你武器!",
 		ElementsCost:    map[string]int{"无": 2},
 		ElementsGain:    map[string]int{},
@@ -7827,7 +8247,7 @@ func (CardDef3021010) Card() model.Card {
 		Name:            "解咒",
 		Category:        "无",
 		Tag:             "咒术-幻变",
-		Description:     "冷却1.当敌方使用防御法术时使用,将其无效",
+		Description:     "冷却1.诱发:当敌方使用防御型法术时才能使用此卡,将那个敌方法术无效",
 		Quote:           "我破防了!",
 		ElementsCost:    map[string]int{"无": 2},
 		ElementsGain:    map[string]int{},
@@ -7947,7 +8367,7 @@ func (CardDef3101002) Card() model.Card {
 		Name:            "万火合一术",
 		Category:        "火",
 		Tag:             "衍生-法术-聚能",
-		Description:     "每5点\\威获得+1\\攻",
+		Description:     "光环:此卡每有5点\\威获得+1\\攻,包括强化获得的\\威",
 		Quote:           "",
 		ElementsCost:    map[string]int{"火": 3},
 		ElementsGain:    map[string]int{},
@@ -8407,7 +8827,7 @@ func (CardDef3121015) Card() model.Card {
 		Attack:          1,
 		Life:            -1,
 		Duration:        -1,
-		Power:           3,
+		Power:           2,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\技能\\火\\3121015.jpg",
 	}
@@ -8461,7 +8881,7 @@ func (CardDef3201002) Card() model.Card {
 		Quote:           "",
 		ElementsCost:    map[string]int{},
 		ElementsGain:    map[string]int{},
-		ElementsExpense: map[string]int{},
+		ElementsExpense: map[string]int{"水": 4},
 		VersionNum:      "1",
 		VersionName:     "基础包",
 		Attack:          1,
@@ -8757,7 +9177,7 @@ func (CardDef3221010) Card() model.Card {
 		Name:            "水幻影",
 		Category:        "水",
 		Tag:             "咒术-创造",
-		Description:     "冷却1.本回合你召唤的下一个水纹伙伴将会额外产生1个只有1\\血的复制.",
+		Description:     "冷却1.选择1个本回合你召唤的水纹伙伴,召唤1个只有1\\血的复制.",
 		Quote:           "",
 		ElementsCost:    map[string]int{"暗": 1, "水": 2},
 		ElementsGain:    map[string]int{},
@@ -9717,7 +10137,7 @@ func (CardDef3421011) Card() model.Card {
 		Name:            "自然生长",
 		Category:        "地",
 		Tag:             "咒术-幻变",
-		Description:     "选择你的1个负载小于4的地脉伙伴,它在本回合结束时获得负载+1\\地",
+		Description:     "选择你的1个横置状态且负载小于4的地脉伙伴,使其获得负载+1\\地",
 		Quote:           "",
 		ElementsCost:    map[string]int{"地": 1},
 		ElementsGain:    map[string]int{},
@@ -9837,7 +10257,7 @@ func (CardDef3421015) Card() model.Card {
 		Name:            "急袭沙暴",
 		Category:        "地",
 		Tag:             "咒术-驱动",
-		Description:     "冷却2.速攻.异能:所有原始威力小于5的法术-2\\攻-2\\威(最低为0)",
+		Description:     "冷却2.速攻.异能:双方所有原始威力小于5的法术-2\\攻-2\\威(最低为0)",
 		Quote:           "",
 		ElementsCost:    map[string]int{"地": 1, "气": 1},
 		ElementsGain:    map[string]int{},
@@ -10167,7 +10587,7 @@ func (CardDef3521010) Card() model.Card {
 		Name:            "破晓",
 		Category:        "光",
 		Tag:             "法术-驱动",
-		Description:     "如果攻击目标为伙伴,将同时命中所有与之属性相同的敌方伙伴.你每召唤1个负载有光的伙伴此卡获得永久+1\\威.此卡仅当\\威大于8时才能用于攻击",
+		Description:     "如果攻击目标为敌方伙伴,将同时命中所有与之属性相同的敌人.你每召唤1个负载有光的伙伴此卡获得永久+1\\威.此卡仅当\\威大于8时才能用于攻击",
 		Quote:           "\"结束了?我们...胜利了吗?\"",
 		ElementsCost:    map[string]int{"光": 2},
 		ElementsGain:    map[string]int{},
@@ -10617,9 +11037,9 @@ func (CardDef3621010) Card() model.Card {
 		Name:            "血魔爆",
 		Category:        "暗",
 		Tag:             "咒术-代赎",
-		Description:     "冷却1.献祭你的1个伙伴才能发动,对前排所有敌人造成该伙伴生命值的伤害",
+		Description:     "冷却1.献祭你的1个前排暗影伙伴才能发动此卡,对法力范围内1个敌人造成该伙伴生命值的伤害",
 		Quote:           "",
-		ElementsCost:    map[string]int{"暗": 4},
+		ElementsCost:    map[string]int{"暗": 3},
 		ElementsGain:    map[string]int{},
 		ElementsExpense: map[string]int{"暗": 2},
 		VersionNum:      "1",
@@ -10707,7 +11127,7 @@ func (CardDef3621013) Card() model.Card {
 		Name:            "亡灵护壁",
 		Category:        "暗",
 		Tag:             "法术-驱动",
-		Description:     "防御.如果本回合或上个回合有友方单位死亡,此法术+2\\威",
+		Description:     "防御.光环:如果当回合或上个回合有友方单位死亡,此法术+2\\威",
 		Quote:           "",
 		ElementsCost:    map[string]int{"暗": 2},
 		ElementsGain:    map[string]int{},
@@ -10767,7 +11187,7 @@ func (CardDef3621015) Card() model.Card {
 		Name:            "虹吸",
 		Category:        "暗",
 		Tag:             "咒术-聚能",
-		Description:     "冷却2.诱发:当敌方法术命中时可以使用此卡,将造成的伤害改为回复生命值",
+		Description:     "冷却2.诱发:当敌方法术命中时可以使用此卡,将即将造成的伤害改为对目标回复生命值",
 		Quote:           "",
 		ElementsCost:    map[string]int{"光": 1, "暗": 2},
 		ElementsGain:    map[string]int{},
@@ -11217,7 +11637,7 @@ func (CardDef4511001) Card() model.Card {
 		Name:            "圣使 玛丽斯 南森埃尔",
 		Category:        "光",
 		Tag:             "",
-		Description:     "诱发绝技:当敌方将要造成可以发动,直到你的下个回合结束,你的每个单位每次受到对方伤害,获得2\\光",
+		Description:     "诱发绝技:当敌方将要造成伤害时可以发动,直到你的下个回合结束,你的每个单位每次受到对方伤害,获得2\\光",
 		Quote:           "\"我从未迷茫,因为唯一的道路早已被照亮\"",
 		ElementsCost:    map[string]int{},
 		ElementsGain:    map[string]int{"光": 4},
@@ -11337,7 +11757,7 @@ func (CardDef4611002) Card() model.Card {
 		Name:            "芙雅夫人",
 		Category:        "暗",
 		Tag:             "",
-		Description:     "主动绝技:使你的1个伙伴攻击和负载翻倍,但会在回合结束时死亡",
+		Description:     "主动绝技:使你的1个伙伴攻击和负载翻倍,但会在当回合结束时死亡",
 		Quote:           "\"你是想现在就为我服务,还是死后再为我服务?\"",
 		ElementsCost:    map[string]int{},
 		ElementsGain:    map[string]int{"暗": 4},
@@ -11404,6 +11824,7 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef1021015{},
 	CardDef1021016{},
 	CardDef1021017{},
+	CardDef1021018{},
 	CardDef1111001{},
 	CardDef1111002{},
 	CardDef1111003{},
@@ -11422,6 +11843,7 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef1121013{},
 	CardDef1121014{},
 	CardDef1121015{},
+	CardDef1121016{},
 	CardDef1211001{},
 	CardDef1211002{},
 	CardDef1211003{},
@@ -11440,6 +11862,7 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef1221013{},
 	CardDef1221014{},
 	CardDef1221015{},
+	CardDef1221016{},
 	CardDef1311001{},
 	CardDef1311002{},
 	CardDef1311003{},
@@ -11458,6 +11881,7 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef1321013{},
 	CardDef1321014{},
 	CardDef1321015{},
+	CardDef1321016{},
 	CardDef1401001{},
 	CardDef1401002{},
 	CardDef1411001{},
@@ -11478,6 +11902,7 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef1421013{},
 	CardDef1421014{},
 	CardDef1421015{},
+	CardDef1421016{},
 	CardDef1501001{},
 	CardDef1511001{},
 	CardDef1511002{},
@@ -11497,6 +11922,7 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef1521013{},
 	CardDef1521014{},
 	CardDef1521015{},
+	CardDef1521016{},
 	CardDef1611001{},
 	CardDef1611002{},
 	CardDef1611003{},
@@ -11515,6 +11941,7 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef1621013{},
 	CardDef1621014{},
 	CardDef1621015{},
+	CardDef1621016{},
 	CardDef2011001{},
 	CardDef2011002{},
 	CardDef2011003{},
@@ -11540,6 +11967,7 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef2021020{},
 	CardDef2021021{},
 	CardDef2021022{},
+	CardDef2021023{},
 	CardDef2111001{},
 	CardDef2111002{},
 	CardDef2121001{},
@@ -11555,6 +11983,7 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef2121011{},
 	CardDef2121012{},
 	CardDef2121013{},
+	CardDef2121014{},
 	CardDef2211001{},
 	CardDef2211002{},
 	CardDef2221001{},
@@ -11570,6 +11999,7 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef2221011{},
 	CardDef2221012{},
 	CardDef2221013{},
+	CardDef2221014{},
 	CardDef2311001{},
 	CardDef2311002{},
 	CardDef2321001{},
@@ -11585,6 +12015,7 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef2321011{},
 	CardDef2321012{},
 	CardDef2321013{},
+	CardDef2321014{},
 	CardDef2411001{},
 	CardDef2411002{},
 	CardDef2421001{},
@@ -11600,6 +12031,7 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef2421011{},
 	CardDef2421012{},
 	CardDef2421013{},
+	CardDef2421014{},
 	CardDef2501001{},
 	CardDef2511001{},
 	CardDef2511002{},
@@ -11616,6 +12048,7 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef2521011{},
 	CardDef2521012{},
 	CardDef2521013{},
+	CardDef2521014{},
 	CardDef2601001{},
 	CardDef2601002{},
 	CardDef2611001{},
@@ -11633,6 +12066,7 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef2621011{},
 	CardDef2621012{},
 	CardDef2621013{},
+	CardDef2621014{},
 	CardDef3001001{},
 	CardDef3001002{},
 	CardDef3021001{},

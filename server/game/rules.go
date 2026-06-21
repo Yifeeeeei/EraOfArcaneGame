@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"strings"
 
 	"eraofarcane/model"
 )
@@ -36,6 +37,28 @@ func copyElementCost(cost map[string]int) map[string]int {
 		}
 	}
 	return copied
+}
+
+func restrictedEquipmentSubtype(card *model.Card) string {
+	if card == nil || card.Type != model.CardTypeItem || !strings.Contains(card.Tag, "装备") {
+		return ""
+	}
+	switch {
+	case strings.Contains(card.Tag, "武器"):
+		return "武器"
+	case strings.Contains(card.Tag, "防具"):
+		return "防具"
+	case strings.Contains(card.Tag, "饰物"):
+		return "饰物"
+	case strings.Contains(card.Tag, "神器"):
+		return "神器"
+	default:
+		return ""
+	}
+}
+
+func isEquipmentCard(card *model.Card) bool {
+	return card != nil && card.Type == model.CardTypeItem && strings.Contains(card.Tag, "装备")
 }
 
 func (e *Engine) effectiveSkillUseCost(ps *PlayerState, skill *CardInstance) map[string]int {
@@ -470,6 +493,9 @@ func (e *Engine) spellStatBonusesWithData(playerID int, skill *CardInstance, pur
 	}
 	for _, modifier := range opponent.TempModifiers {
 		if modifier.Type == TempModFriendlySpellDamageMinus && modifier.RemainingUses != 0 && data["stat"] == "damage" {
+			if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != skill.InstanceID {
+				continue
+			}
 			stats.DamageBonus -= modifier.Amount
 		}
 	}

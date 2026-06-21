@@ -342,7 +342,7 @@ func isLightSkill(card *CardInstance) bool {
 }
 
 func isFireCompanionWithCostAboveFour(card *CardInstance) bool {
-	return card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementFire && totalElementCost(card.Card.ElementsCost) > 4
+	return card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementFire && totalElementCost(card.Card.ElementsCost) >= 4
 }
 
 func lowCostSkill(card *CardInstance) bool {

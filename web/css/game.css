@@ -641,6 +641,8 @@ body::before {
 }
 
 .pile-button {
+    position: relative;
+    overflow: hidden;
     min-height: 40px;
     display: grid;
     grid-template-columns: 1fr auto;
@@ -698,6 +700,39 @@ body::before {
 
 .pile-button.grave {
     border-left: 2px solid rgba(160,109,94,0.58);
+}
+
+.graveyard-flash-card {
+    position: absolute;
+    right: 38px;
+    bottom: 3px;
+    width: 32px;
+    height: 44px;
+    object-fit: cover;
+    border: 1px solid rgba(245,213,130,0.78);
+    box-shadow: 0 0 16px rgba(245,213,130,0.62);
+    animation: graveyard-flash 1.25s ease-out forwards;
+    pointer-events: none;
+    z-index: 2;
+}
+
+@keyframes graveyard-flash {
+    0% {
+        opacity: 0;
+        transform: translateY(-18px) scale(0.82);
+    }
+    18% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    78% {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: translateY(6px) scale(0.92);
+    }
 }
 
 .slot {

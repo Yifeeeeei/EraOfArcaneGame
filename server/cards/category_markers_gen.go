@@ -41,6 +41,8 @@ func (CardDef1021016) isCompanionCard() {}
 
 func (CardDef1021017) isCompanionCard() {}
 
+func (CardDef1021018) isCompanionCard() {}
+
 func (CardDef1111001) isCompanionCard() {}
 
 func (CardDef1111002) isCompanionCard() {}
@@ -76,6 +78,8 @@ func (CardDef1121013) isCompanionCard() {}
 func (CardDef1121014) isCompanionCard() {}
 
 func (CardDef1121015) isCompanionCard() {}
+
+func (CardDef1121016) isCompanionCard() {}
 
 func (CardDef1211001) isCompanionCard() {}
 
@@ -113,6 +117,8 @@ func (CardDef1221014) isCompanionCard() {}
 
 func (CardDef1221015) isCompanionCard() {}
 
+func (CardDef1221016) isCompanionCard() {}
+
 func (CardDef1311001) isCompanionCard() {}
 
 func (CardDef1311002) isCompanionCard() {}
@@ -148,6 +154,8 @@ func (CardDef1321013) isCompanionCard() {}
 func (CardDef1321014) isCompanionCard() {}
 
 func (CardDef1321015) isCompanionCard() {}
+
+func (CardDef1321016) isCompanionCard() {}
 
 func (CardDef1401001) isCompanionCard() {}
 
@@ -189,6 +197,8 @@ func (CardDef1421014) isCompanionCard() {}
 
 func (CardDef1421015) isCompanionCard() {}
 
+func (CardDef1421016) isCompanionCard() {}
+
 func (CardDef1501001) isCompanionCard() {}
 
 func (CardDef1511001) isCompanionCard() {}
@@ -227,6 +237,8 @@ func (CardDef1521014) isCompanionCard() {}
 
 func (CardDef1521015) isCompanionCard() {}
 
+func (CardDef1521016) isCompanionCard() {}
+
 func (CardDef1611001) isCompanionCard() {}
 
 func (CardDef1611002) isCompanionCard() {}
@@ -263,21 +275,26 @@ func (CardDef1621014) isCompanionCard() {}
 
 func (CardDef1621015) isCompanionCard() {}
 
+func (CardDef1621016) isCompanionCard() {}
+
 func (CardDef2011001) isItemCard()      {}
 func (CardDef2011001) isEquipmentCard() {}
 func (CardDef2011001) isWeaponCard()    {}
 
 func (CardDef2011002) isItemCard()      {}
 func (CardDef2011002) isEquipmentCard() {}
+func (CardDef2011002) isAccessoryCard() {}
 
 func (CardDef2011003) isItemCard()      {}
 func (CardDef2011003) isEquipmentCard() {}
+func (CardDef2011003) isArmorCard()     {}
 
 func (CardDef2021001) isItemCard()      {}
 func (CardDef2021001) isEquipmentCard() {}
 
 func (CardDef2021002) isItemCard()      {}
 func (CardDef2021002) isEquipmentCard() {}
+func (CardDef2021002) isAccessoryCard() {}
 
 func (CardDef2021003) isItemCard()      {}
 func (CardDef2021003) isEquipmentCard() {}
@@ -301,12 +318,14 @@ func (CardDef2021008) isEquipmentCard() {}
 
 func (CardDef2021009) isItemCard()      {}
 func (CardDef2021009) isEquipmentCard() {}
+func (CardDef2021009) isAccessoryCard() {}
 
 func (CardDef2021010) isItemCard()       {}
 func (CardDef2021010) isConsumableCard() {}
 
 func (CardDef2021011) isItemCard()      {}
 func (CardDef2021011) isEquipmentCard() {}
+func (CardDef2021011) isAccessoryCard() {}
 
 func (CardDef2021012) isItemCard()       {}
 func (CardDef2021012) isConsumableCard() {}
@@ -336,6 +355,7 @@ func (CardDef2021019) isConsumableCard() {}
 
 func (CardDef2021020) isItemCard()      {}
 func (CardDef2021020) isEquipmentCard() {}
+func (CardDef2021020) isAccessoryCard() {}
 
 func (CardDef2021021) isItemCard()       {}
 func (CardDef2021021) isConsumableCard() {}
@@ -343,14 +363,20 @@ func (CardDef2021021) isConsumableCard() {}
 func (CardDef2021022) isItemCard()       {}
 func (CardDef2021022) isConsumableCard() {}
 
+func (CardDef2021023) isItemCard()      {}
+func (CardDef2021023) isEquipmentCard() {}
+
 func (CardDef2111001) isItemCard()      {}
 func (CardDef2111001) isEquipmentCard() {}
+func (CardDef2111001) isArtifactCard()  {}
 
 func (CardDef2111002) isItemCard()      {}
 func (CardDef2111002) isEquipmentCard() {}
+func (CardDef2111002) isArtifactCard()  {}
 
 func (CardDef2121001) isItemCard()      {}
 func (CardDef2121001) isEquipmentCard() {}
+func (CardDef2121001) isArtifactCard()  {}
 
 func (CardDef2121002) isItemCard()       {}
 func (CardDef2121002) isConsumableCard() {}
@@ -367,9 +393,11 @@ func (CardDef2121005) isConsumableCard() {}
 
 func (CardDef2121006) isItemCard()      {}
 func (CardDef2121006) isEquipmentCard() {}
+func (CardDef2121006) isAccessoryCard() {}
 
 func (CardDef2121007) isItemCard()      {}
 func (CardDef2121007) isEquipmentCard() {}
+func (CardDef2121007) isArmorCard()     {}
 
 func (CardDef2121008) isItemCard()       {}
 func (CardDef2121008) isConsumableCard() {}
@@ -389,9 +417,14 @@ func (CardDef2121012) isConsumableCard() {}
 
 func (CardDef2121013) isItemCard()      {}
 func (CardDef2121013) isEquipmentCard() {}
+func (CardDef2121013) isArmorCard()     {}
+
+func (CardDef2121014) isItemCard()      {}
+func (CardDef2121014) isEquipmentCard() {}
 
 func (CardDef2211001) isItemCard()      {}
 func (CardDef2211001) isEquipmentCard() {}
+func (CardDef2211001) isArtifactCard()  {}
 
 func (CardDef2211002) isItemCard()      {}
 func (CardDef2211002) isEquipmentCard() {}
@@ -399,6 +432,7 @@ func (CardDef2211002) isWeaponCard()    {}
 
 func (CardDef2221001) isItemCard()      {}
 func (CardDef2221001) isEquipmentCard() {}
+func (CardDef2221001) isArmorCard()     {}
 
 func (CardDef2221002) isItemCard()       {}
 func (CardDef2221002) isConsumableCard() {}
@@ -415,9 +449,11 @@ func (CardDef2221005) isConsumableCard() {}
 
 func (CardDef2221006) isItemCard()      {}
 func (CardDef2221006) isEquipmentCard() {}
+func (CardDef2221006) isAccessoryCard() {}
 
 func (CardDef2221007) isItemCard()      {}
 func (CardDef2221007) isEquipmentCard() {}
+func (CardDef2221007) isAccessoryCard() {}
 
 func (CardDef2221008) isItemCard()       {}
 func (CardDef2221008) isConsumableCard() {}
@@ -433,12 +469,17 @@ func (CardDef2221011) isConsumableCard() {}
 
 func (CardDef2221012) isItemCard()      {}
 func (CardDef2221012) isEquipmentCard() {}
+func (CardDef2221012) isArmorCard()     {}
 
 func (CardDef2221013) isItemCard()       {}
 func (CardDef2221013) isConsumableCard() {}
 
+func (CardDef2221014) isItemCard()      {}
+func (CardDef2221014) isEquipmentCard() {}
+
 func (CardDef2311001) isItemCard()      {}
 func (CardDef2311001) isEquipmentCard() {}
+func (CardDef2311001) isArtifactCard()  {}
 
 func (CardDef2311002) isItemCard()      {}
 func (CardDef2311002) isEquipmentCard() {}
@@ -464,6 +505,7 @@ func (CardDef2321006) isConsumableCard() {}
 
 func (CardDef2321007) isItemCard()      {}
 func (CardDef2321007) isEquipmentCard() {}
+func (CardDef2321007) isAccessoryCard() {}
 
 func (CardDef2321008) isItemCard()       {}
 func (CardDef2321008) isConsumableCard() {}
@@ -479,13 +521,18 @@ func (CardDef2321011) isConsumableCard() {}
 
 func (CardDef2321012) isItemCard()      {}
 func (CardDef2321012) isEquipmentCard() {}
+func (CardDef2321012) isArmorCard()     {}
 
 func (CardDef2321013) isItemCard()      {}
 func (CardDef2321013) isEquipmentCard() {}
 func (CardDef2321013) isWeaponCard()    {}
 
+func (CardDef2321014) isItemCard()      {}
+func (CardDef2321014) isEquipmentCard() {}
+
 func (CardDef2411001) isItemCard()      {}
 func (CardDef2411001) isEquipmentCard() {}
+func (CardDef2411001) isArtifactCard()  {}
 
 func (CardDef2411002) isItemCard()      {}
 func (CardDef2411002) isEquipmentCard() {}
@@ -509,6 +556,7 @@ func (CardDef2421005) isConsumableCard() {}
 
 func (CardDef2421006) isItemCard()      {}
 func (CardDef2421006) isEquipmentCard() {}
+func (CardDef2421006) isArmorCard()     {}
 
 func (CardDef2421007) isItemCard()      {}
 func (CardDef2421007) isEquipmentCard() {}
@@ -524,12 +572,17 @@ func (CardDef2421010) isConsumableCard() {}
 
 func (CardDef2421011) isItemCard()      {}
 func (CardDef2421011) isEquipmentCard() {}
+func (CardDef2421011) isArmorCard()     {}
 
 func (CardDef2421012) isItemCard()      {}
 func (CardDef2421012) isEquipmentCard() {}
+func (CardDef2421012) isArtifactCard()  {}
 
 func (CardDef2421013) isItemCard()      {}
 func (CardDef2421013) isEquipmentCard() {}
+
+func (CardDef2421014) isItemCard()      {}
+func (CardDef2421014) isEquipmentCard() {}
 
 func (CardDef2501001) isItemCard() {}
 
@@ -538,6 +591,7 @@ func (CardDef2511001) isConsumableCard() {}
 
 func (CardDef2511002) isItemCard()      {}
 func (CardDef2511002) isEquipmentCard() {}
+func (CardDef2511002) isArmorCard()     {}
 
 func (CardDef2521001) isItemCard()       {}
 func (CardDef2521001) isConsumableCard() {}
@@ -569,6 +623,7 @@ func (CardDef2521009) isConsumableCard() {}
 
 func (CardDef2521010) isItemCard()      {}
 func (CardDef2521010) isEquipmentCard() {}
+func (CardDef2521010) isArtifactCard()  {}
 
 func (CardDef2521011) isItemCard()       {}
 func (CardDef2521011) isConsumableCard() {}
@@ -579,14 +634,20 @@ func (CardDef2521012) isConsumableCard() {}
 func (CardDef2521013) isItemCard()       {}
 func (CardDef2521013) isConsumableCard() {}
 
+func (CardDef2521014) isItemCard()      {}
+func (CardDef2521014) isEquipmentCard() {}
+func (CardDef2521014) isWeaponCard()    {}
+
 func (CardDef2601001) isItemCard()      {}
 func (CardDef2601001) isEquipmentCard() {}
+func (CardDef2601001) isArtifactCard()  {}
 
 func (CardDef2601002) isItemCard()      {}
 func (CardDef2601002) isEquipmentCard() {}
 
 func (CardDef2611001) isItemCard()      {}
 func (CardDef2611001) isEquipmentCard() {}
+func (CardDef2611001) isArtifactCard()  {}
 
 func (CardDef2611002) isItemCard()       {}
 func (CardDef2611002) isConsumableCard() {}
@@ -608,6 +669,7 @@ func (CardDef2621005) isConsumableCard() {}
 
 func (CardDef2621006) isItemCard()      {}
 func (CardDef2621006) isEquipmentCard() {}
+func (CardDef2621006) isAccessoryCard() {}
 
 func (CardDef2621007) isItemCard()      {}
 func (CardDef2621007) isEquipmentCard() {}
@@ -627,9 +689,15 @@ func (CardDef2621011) isConsumableCard() {}
 
 func (CardDef2621012) isItemCard()      {}
 func (CardDef2621012) isEquipmentCard() {}
+func (CardDef2621012) isArmorCard()     {}
 
 func (CardDef2621013) isItemCard()      {}
 func (CardDef2621013) isEquipmentCard() {}
+func (CardDef2621013) isAccessoryCard() {}
+
+func (CardDef2621014) isItemCard()      {}
+func (CardDef2621014) isEquipmentCard() {}
+func (CardDef2621014) isWeaponCard()    {}
 
 func (CardDef3001001) isSkillCard() {}
 

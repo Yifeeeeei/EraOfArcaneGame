@@ -142,6 +142,15 @@ func generateMarkers(cards []model.Card) []byte {
 			if isWeapon(card) {
 				fmt.Fprintf(&b, "func (%s) isWeaponCard() {}\n", typeName)
 			}
+			if isArmor(card) {
+				fmt.Fprintf(&b, "func (%s) isArmorCard() {}\n", typeName)
+			}
+			if isAccessory(card) {
+				fmt.Fprintf(&b, "func (%s) isAccessoryCard() {}\n", typeName)
+			}
+			if isArtifact(card) {
+				fmt.Fprintf(&b, "func (%s) isArtifactCard() {}\n", typeName)
+			}
 			if isConsumable(card) {
 				fmt.Fprintf(&b, "func (%s) isConsumableCard() {}\n", typeName)
 			}
@@ -214,6 +223,18 @@ func isEquipment(card model.Card) bool {
 
 func isWeapon(card model.Card) bool {
 	return isEquipment(card) && strings.Contains(card.Tag, "武器")
+}
+
+func isArmor(card model.Card) bool {
+	return isEquipment(card) && strings.Contains(card.Tag, "防具")
+}
+
+func isAccessory(card model.Card) bool {
+	return isEquipment(card) && strings.Contains(card.Tag, "饰物")
+}
+
+func isArtifact(card model.Card) bool {
+	return isEquipment(card) && strings.Contains(card.Tag, "神器")
 }
 
 func isConsumable(card model.Card) bool {

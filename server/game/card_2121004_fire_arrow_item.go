@@ -14,9 +14,7 @@ func (Card2121004FireArrowItem) OnUltimate(ctx *EffectContext) error {
 }
 
 func fireArrowSelectAndDamage(ctx *EffectContext, sacrificeSelf bool) error {
-	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
-		return card.Position != nil && ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
-	})
+	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, true, nil)
 	if len(candidates) == 0 {
 		return nil
 	}

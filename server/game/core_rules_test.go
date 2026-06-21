@@ -95,6 +95,7 @@ func setupCoreRulesEngine(t *testing.T) *Engine {
 			Type:         model.CardTypeItem,
 			Name:         "Test Weapon",
 			Category:     model.ElementAir,
+			Tag:          "装备-武器",
 			ElementsCost: map[string]int{model.ElementAir: 1},
 			ElementsGain: map[string]int{model.ElementAir: 1},
 			Life:         -1,
@@ -106,6 +107,7 @@ func setupCoreRulesEngine(t *testing.T) *Engine {
 			Type:         model.CardTypeItem,
 			Name:         "Test Tool",
 			Category:     model.ElementEarth,
+			Tag:          "装备",
 			ElementsCost: map[string]int{model.ElementAir: 1},
 			ElementsGain: map[string]int{model.ElementEarth: 1},
 			Life:         -1,
@@ -426,7 +428,11 @@ func TestReplacingEquipmentSendsOldEquipmentToGraveyard(t *testing.T) {
 	engine := setupCoreRulesEngine(t)
 	p0 := engine.State.Players[0]
 	for i := 0; i < 5; i++ {
-		equipment := NewCardInstance(cardDBRef["item_tool"], 0, engine.State.TurnNumber)
+		card := cardDBRef["item_tool"]
+		if i == 2 {
+			card = cardDBRef["item_weapon"]
+		}
+		equipment := NewCardInstance(card, 0, engine.State.TurnNumber)
 		equipment.IsHorizontal = false
 		equipment.SlotIndex = i
 		p0.Equipment[i] = equipment

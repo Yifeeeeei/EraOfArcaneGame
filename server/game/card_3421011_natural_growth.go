@@ -12,18 +12,19 @@ func (Card3421011NaturalGrowth) OnSpellCast(ctx *EffectContext) error {
 		return nil
 	}
 	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
-		return card.Card.IsCompanion() && card.Card.Category == model.ElementEarth && totalLoad(card) < 4
+		return card.Card.IsCompanion() && card.Card.Category == model.ElementEarth && card.IsHorizontal && totalLoad(card) < 4
 	})
 	if len(candidates) == 0 {
 		return nil
 	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "natural_growth",
-		"选择1个地脉伙伴，回合结束时负载+1地", candidates, 1, 1,
+		"自然生长:选择1个横置且负载小于4的地脉伙伴，获得1地负载", candidates, 1, 1,
 		func(selected []string) {
-			if len(selected) == 0 {
+			card, _ := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, firstSelected(selected))
+			if card == nil || !card.IsHorizontal || totalLoad(card) >= 4 {
 				return
 			}
-			scheduleLoadGainAtTurnEnd(ctx.Engine.State.Players[ctx.PlayerID], selected[0], model.ElementEarth, 1)
+			ctx.Engine.addElementsGainBonus(card, ctx.PlayerID, model.ElementEarth, 1, ctx.Source)
 		})
 	return nil
 }

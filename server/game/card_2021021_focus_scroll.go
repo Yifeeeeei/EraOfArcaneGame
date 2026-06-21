@@ -13,7 +13,7 @@ func (Card2021021FocusScroll) OnUseItem(ctx *EffectContext) error {
 		SourceCardNumber: ctx.Source.Card.Number,
 		SourceName:       ctx.Source.Card.Name,
 		Status:           model.ElementArcane,
-		Amount:           3,
+		Amount:           5,
 	})
 	return nil
 }

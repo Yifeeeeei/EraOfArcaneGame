@@ -96,12 +96,12 @@ func TestPrayerAbilitiesTriggerFromTurnStartTiming(t *testing.T) {
 
 	t.Run("1221005 western siren prayer opens mandatory target choice", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
-		target := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
 		placeUnit(baseCard(t, "1221005"), 0, 1, 1, engine)
 
 		engine.triggerPrayerAbilities(0)
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "western_siren_consume" {
-			t.Fatalf("western siren prayer should ask for a companion to exhaust, pending=%+v", engine.State.PendingAction)
+			t.Fatalf("western siren prayer should ask for an enemy companion to exhaust, pending=%+v", engine.State.PendingAction)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{target.InstanceID},
@@ -109,7 +109,7 @@ func TestPrayerAbilitiesTriggerFromTurnStartTiming(t *testing.T) {
 			t.Fatalf("resolve western siren prayer: %v", err)
 		}
 		if !target.IsHorizontal {
-			t.Fatalf("western siren prayer should turn selected companion horizontal")
+			t.Fatalf("western siren prayer should turn selected enemy companion horizontal")
 		}
 	})
 
@@ -418,7 +418,7 @@ func TestIssue25PlaytestRegressions(t *testing.T) {
 		p0 := engine.State.Players[0]
 		arrow := NewCardInstance(baseCard(t, "2121004"), 0, 1)
 		p0.Equipment[0] = arrow
-		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
 		backTarget := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
@@ -430,18 +430,13 @@ func TestIssue25PlaytestRegressions(t *testing.T) {
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "fire_arrow_damage" {
 			t.Fatalf("fire arrow should ask target, pending=%+v", engine.State.PendingAction)
 		}
-		for _, candidate := range engine.State.PendingAction.Candidates {
-			if candidate["instance_id"] == backTarget.InstanceID {
-				t.Fatalf("fire arrow should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
-			}
-		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
-			"selected": []any{target.InstanceID},
+			"selected": []any{backTarget.InstanceID},
 		}}); err != nil {
 			t.Fatalf("resolve fire arrow: %v", err)
 		}
-		if p0.Equipment[0] != nil || target.CurrentLife != target.Card.Life-1 {
-			t.Fatalf("fire arrow should sacrifice and damage, equipment=%v life=%d", p0.Equipment[0], target.CurrentLife)
+		if p0.Equipment[0] != nil || backTarget.CurrentLife != backTarget.Card.Life-1 {
+			t.Fatalf("fire arrow should sacrifice and damage any chosen enemy, equipment=%v life=%d", p0.Equipment[0], backTarget.CurrentLife)
 		}
 	})
 
@@ -578,7 +573,7 @@ func TestHighRiskWaterAndAirCompanionSemantics(t *testing.T) {
 	t.Run("1221005 西境海妖 exhausts a chosen friendly companion", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		placeUnit(baseCard(t, "1221005"), 0, 1, 1, engine)
-		target := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
 
 		engine.triggerPrayerAbilities(0)
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "western_siren_consume" {
@@ -1573,7 +1568,8 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		p0 := engine.State.Players[0]
 		heart := NewCardInstance(baseCard(t, "2111001"), 0, 1)
 		p0.Equipment[0] = heart
-		p0.Elements[model.ElementFire] = 5
+		food := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		addElementsGainBonus(food, model.ElementFire, 4)
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
 			"instance_id":  heart.InstanceID,
@@ -1581,8 +1577,21 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("use fire dragon heart: %v", err)
 		}
-		if p0.Elements[model.ElementFire] != 2 || len(p0.TempModifiers) == 0 || p0.TempModifiers[0].Amount != 9 {
-			t.Fatalf("fire dragon heart should spend 3 fire for +9 power modifier, elements=%v modifiers=%v", p0.Elements, p0.TempModifiers)
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{food.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose fire dragon heart sacrifice: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{"attack_1"},
+		}}); err != nil {
+			t.Fatalf("choose fire dragon heart bonuses: %v", err)
+		}
+		if p0.Units[1][0] != nil || len(p0.TempModifiers) != 2 {
+			t.Fatalf("fire dragon heart should sacrifice selected card and create bonuses, units=%v modifiers=%v", p0.Units[1][0], p0.TempModifiers)
+		}
+		if p0.TempModifiers[0].Amount+p0.TempModifiers[1].Amount != 7 {
+			t.Fatalf("fire dragon heart should cap at 3 fire load as +1 attack and +6 power, modifiers=%v", p0.TempModifiers)
 		}
 	})
 
@@ -1612,14 +1621,6 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 
 		engine.triggerEffects(TriggerOnEnter, bow, nil, nil)
 		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, readySkill(baseCard(t, "3021005"), 0), map[string]any{"cast_player": 0})
-		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "winter_bow_water_mark" {
-			t.Fatalf("winter bow should ask whether to pay for a water mark, pending=%+v", engine.State.PendingAction)
-		}
-		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
-			"selected": []any{bow.InstanceID},
-		}}); err != nil {
-			t.Fatalf("resolve winter bow payment: %v", err)
-		}
 
 		if len(p0.SkillPool) != 0 {
 			t.Fatalf("winter bow bound skill should not enter skill pool, skill_pool=%+v", cardsToInfo(p0.SkillPool))
@@ -1627,14 +1628,13 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		if len(bow.BoundSkills) != 1 || bow.BoundSkills[0].Card.Number != "3201002" {
 			t.Fatalf("winter bow should bind winter skill, bound=%+v", cardsToInfo(bow.BoundSkills))
 		}
-		if p0.Elements[model.ElementWater] != 0 || bow.Statuses[winterBowWaterMark] != 1 || effectiveElementsGain(bow)[model.ElementWater] != bow.Card.ElementsGain[model.ElementWater] {
-			t.Fatalf("winter bow should pay 1 water for a water mark, elements=%v statuses=%v load=%v", p0.Elements, bow.Statuses, effectiveElementsGain(bow))
+		if engine.State.PendingAction != nil || p0.Elements[model.ElementWater] != 1 || bow.Statuses[winterBowWaterMark] != 1 || effectiveElementsGain(bow)[model.ElementWater] != bow.Card.ElementsGain[model.ElementWater] {
+			t.Fatalf("winter bow should place a mark without payment, pending=%+v elements=%v statuses=%v load=%v", engine.State.PendingAction, p0.Elements, bow.Statuses, effectiveElementsGain(bow))
 		}
 
-		p0.Elements[model.ElementWater] = 1
 		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, readySkill(baseCard(t, "3021005"), 1), map[string]any{"cast_player": 1})
-		if engine.State.PendingAction == nil || engine.State.PendingAction.PlayerID != 0 || engine.State.PendingAction.Type != "winter_bow_water_mark" {
-			t.Fatalf("enemy spell should also offer winter bow payment to the bow owner, pending=%+v", engine.State.PendingAction)
+		if engine.State.PendingAction != nil || bow.Statuses[winterBowWaterMark] != 2 {
+			t.Fatalf("enemy spell should also place a winter bow mark, pending=%+v statuses=%v", engine.State.PendingAction, bow.Statuses)
 		}
 	})
 
@@ -1900,30 +1900,47 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		}
 	})
 
-	t.Run("2011003 君王法袍 lowers enemy spell damage only after ultimate is used", func(t *testing.T) {
+	t.Run("2011003 君王法袍 reacts in the defense window and reduces the current enemy spell damage", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
-		engine.State.CurrentTurn = 1
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		target := placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
 		robe := NewCardInstance(baseCard(t, "2011003"), 1, 1)
-		engine.State.Players[1].Equipment[0] = robe
-		loaded := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
-		addElementsGainBonus(loaded, model.ElementArcane, 4)
-		skill := readySkill(baseCard(t, "3021005"), 0)
+		p1.Equipment[0] = robe
+		poolSkill := NewCardInstance(baseCard(t, "3021005"), 1, 1)
+		p1.SkillPool = []*CardInstance{poolSkill}
+		p0.Skills[0] = readySkill(baseCard(t, "3121002"), 0)
+		p0.Elements[model.ElementFire] = 10
 
-		damage := engine.effectiveSpellDamage(0, skill, 3, nil)
-		if damage != 3 {
-			t.Fatalf("king robe should not passively reduce enemy spell damage, damage=%d", damage)
-		}
-		if err := engine.HandleAction(1, ActionMessage{Action: "use_ability", Data: map[string]any{
-			"instance_id":  robe.InstanceID,
-			"ability_type": "ultimate",
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
 		}}); err != nil {
-			t.Fatalf("use king robe ultimate: %v", err)
+			t.Fatalf("cast burn: %v", err)
 		}
-		damage = engine.effectiveSpellDamage(0, skill, 3, nil)
-
-		expected := max(3-(totalFieldLoad(engine.State.Players[1])-totalFieldLoad(engine.State.Players[0]))/2, 0)
-		if damage != expected {
-			t.Fatalf("king robe ultimate should reduce enemy spell damage by load difference, damage=%d expected=%d", damage, expected)
+		if err := engine.HandleAction(1, ActionMessage{Action: "react_spell", Data: map[string]any{
+			"instance_id": robe.InstanceID,
+		}}); err != nil {
+			t.Fatalf("react with king robe: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "king_robe_remove_skill" {
+			t.Fatalf("king robe should ask whether to remove a skill pool card, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{poolSkill.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve king robe: %v", err)
+		}
+		if len(p1.SkillPool) != 0 || len(p1.TempModifiers) != 1 {
+			t.Fatalf("king robe should remove skill pool card and arm a one-spell modifier, pool=%v modifiers=%v", p1.SkillPool, p1.TempModifiers)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve no defense after king robe: %v", err)
+		}
+		if target.CurrentLife != target.Card.Life || len(p1.TempModifiers) != 0 {
+			t.Fatalf("king robe should reduce burn damage by 2 and consume modifier, life=%d modifiers=%v", target.CurrentLife, p1.TempModifiers)
 		}
 	})
 
@@ -3553,7 +3570,7 @@ func TestIssue27DarkPlaytestRegressions(t *testing.T) {
 		friend := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
 		p0.Skills[0] = readySkill(baseCard(t, "3021005"), 0)
 		p0.Skills[1] = readySkill(baseCard(t, "3621002"), 0)
-		p0.Elements[model.ElementArcane] = 2
+		p0.Elements[model.ElementArcane] = 3
 		p0.Elements[model.ElementShadow] = 2
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
@@ -4329,7 +4346,7 @@ func TestUnitEnterListenersCanReactToEnemySummons(t *testing.T) {
 	}}); err != nil {
 		t.Fatalf("summon enemy unit: %v", err)
 	}
-	if summoned.Statuses[StatusBurn] != 1 || summoned.Statuses[StatusPetrify] != 1 {
+	if summoned.Statuses[StatusBurn] != 1 || summoned.Statuses[StatusPetrify] != 2 {
 		t.Fatalf("inferno general should burn and petrify enemy summons, statuses=%v", summoned.Statuses)
 	}
 	if p0.Hero != nil && p0.Hero.CurrentLife <= 0 {
@@ -4683,7 +4700,7 @@ func TestConsumableTargetedItemEffects(t *testing.T) {
 		item := NewCardInstance(baseCard(t, "2121004"), 0, 1)
 		p0.Hand = []*CardInstance{item}
 		p0.Elements[model.ElementFire] = 10
-		target := placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
+		placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
 		backTarget := placeUnit(baseCard(t, "1021004"), 1, 1, 1, engine)
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
@@ -4694,18 +4711,13 @@ func TestConsumableTargetedItemEffects(t *testing.T) {
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "fire_arrow_damage" {
 			t.Fatalf("fire arrow item should ask target, pending=%+v", engine.State.PendingAction)
 		}
-		for _, candidate := range engine.State.PendingAction.Candidates {
-			if candidate["instance_id"] == backTarget.InstanceID {
-				t.Fatalf("fire arrow item should not offer enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
-			}
-		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
-			"selected": []any{target.InstanceID},
+			"selected": []any{backTarget.InstanceID},
 		}}); err != nil {
 			t.Fatalf("resolve fire arrow: %v", err)
 		}
-		if target.CurrentLife != target.Card.Life-1 {
-			t.Fatalf("fire arrow should deal 1 damage, life=%d", target.CurrentLife)
+		if backTarget.CurrentLife != backTarget.Card.Life-1 {
+			t.Fatalf("fire arrow should deal 1 damage to any chosen enemy, life=%d", backTarget.CurrentLife)
 		}
 	})
 
@@ -4771,7 +4783,7 @@ func TestSkillPendingChoiceEffects(t *testing.T) {
 		p0.Skills[0] = skill
 		p0.Hand = []*CardInstance{discard}
 		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021002"), 0, 1), scroll}
-		p0.Elements[model.ElementArcane] = 2
+		p0.Elements[model.ElementArcane] = 3
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
 			"instance_id": skill.InstanceID,
@@ -4779,19 +4791,19 @@ func TestSkillPendingChoiceEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("cast engrave: %v", err)
 		}
-		if engine.State.Phase != PhaseWaitingAction {
-			t.Fatalf("engrave should wait for discard choice, phase=%v", engine.State.Phase)
+		if engine.State.Phase != PhaseWaitingAction || engine.State.PendingAction.Type != "engrave_search" {
+			t.Fatalf("engrave should wait for deck search choice, phase=%v pending=%+v", engine.State.Phase, engine.State.PendingAction)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
-			"selected": []any{discard.InstanceID},
+			"selected": []any{scroll.InstanceID},
 		}}); err != nil {
 			t.Fatalf("resolve engrave: %v", err)
 		}
-		if len(p0.Graveyard) != 1 || p0.Graveyard[0] != discard {
-			t.Fatalf("engrave should discard selected card, graveyard=%v", cardsToInfo(p0.Graveyard))
+		if len(p0.Graveyard) != 0 || len(p0.Hand) != 2 {
+			t.Fatalf("engrave should not discard and should search to hand, graveyard=%v hand=%v", cardsToInfo(p0.Graveyard), cardsToInfo(p0.Hand))
 		}
-		if len(p0.Hand) != 1 || p0.Hand[0] != scroll {
-			t.Fatalf("engrave should draw first rune or scroll, hand=%v", cardsToInfo(p0.Hand))
+		if p0.Hand[1] != scroll {
+			t.Fatalf("engrave should search selected rune or scroll, hand=%v", cardsToInfo(p0.Hand))
 		}
 	})
 
@@ -4864,7 +4876,7 @@ func TestMoreSkillChoiceEffects(t *testing.T) {
 		p1.Equipment[0] = equipment
 		skill := readySkill(baseCard(t, "3021008"), 0)
 		p0.Skills[0] = skill
-		p0.Elements[model.ElementArcane] = 2
+		p0.Elements[model.ElementArcane] = 3
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
 			"instance_id": skill.InstanceID,
@@ -5149,8 +5161,8 @@ func TestPhoenixFeatherCountersAndPerTurnElement(t *testing.T) {
 	p0.Equipment[0] = feather
 
 	engine.triggerEffects(TriggerOnEnter, feather, nil, nil)
-	if feather.Statuses[phoenixFeatherCounter] != 3 {
-		t.Fatalf("phoenix feather should enter with 3 counters, statuses=%v", feather.Statuses)
+	if feather.Statuses[phoenixFeatherCounter] != 4 {
+		t.Fatalf("phoenix feather should enter with 4 counters, statuses=%v", feather.Statuses)
 	}
 	if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
 		"instance_id":  feather.InstanceID,
@@ -5158,7 +5170,7 @@ func TestPhoenixFeatherCountersAndPerTurnElement(t *testing.T) {
 	}}); err != nil {
 		t.Fatalf("use phoenix feather per-turn ability: %v", err)
 	}
-	if feather.Statuses[phoenixFeatherCounter] != 2 || p0.Elements[model.ElementFire] != 1 {
+	if feather.Statuses[phoenixFeatherCounter] != 3 || p0.Elements[model.ElementFire] != 1 {
 		t.Fatalf("phoenix feather should remove counter and gain fire, counters=%v elements=%v", feather.Statuses, p0.Elements)
 	}
 }
@@ -5563,7 +5575,7 @@ func TestDelayedAndTurnCountEffects(t *testing.T) {
 		p0 := engine.State.Players[0]
 		scroll := NewCardInstance(baseCard(t, "2021021"), 0, 1)
 		p0.Hand = []*CardInstance{scroll}
-		p0.Elements[model.ElementArcane] = 2
+		p0.Elements[model.ElementArcane] = 3
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
 			"instance_id": scroll.InstanceID,
@@ -5580,8 +5592,8 @@ func TestDelayedAndTurnCountEffects(t *testing.T) {
 		if err := engine.HandleAction(1, ActionMessage{Action: "end_turn", Data: map[string]any{}}); err != nil {
 			t.Fatalf("end p1 turn: %v", err)
 		}
-		if p0.Elements[model.ElementArcane] != 3 || len(p0.TempModifiers) != 0 {
-			t.Fatalf("focus scroll should gain 3 arcane next turn, elements=%v modifiers=%v", p0.Elements, p0.TempModifiers)
+		if p0.Elements[model.ElementArcane] != 5 || len(p0.TempModifiers) != 0 {
+			t.Fatalf("focus scroll should gain 5 arcane next turn, elements=%v modifiers=%v", p0.Elements, p0.TempModifiers)
 		}
 	})
 
@@ -6321,6 +6333,7 @@ func TestSelectionSorcerySkillEffects(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		target := placeUnit(baseCard(t, "1421010"), 0, 1, 0, engine)
+		target.IsHorizontal = true
 		p0.Skills[0] = readySkill(baseCard(t, "3421011"), 0)
 		p0.Elements[model.ElementEarth] = 10
 
@@ -6335,14 +6348,8 @@ func TestSelectionSorcerySkillEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("resolve natural growth: %v", err)
 		}
-		if effectiveElementsGain(target)[model.ElementEarth] != 1 {
-			t.Fatalf("natural growth should not apply before end turn, load=%v", effectiveElementsGain(target))
-		}
-		if err := engine.HandleAction(0, ActionMessage{Action: "end_turn", Data: map[string]any{}}); err != nil {
-			t.Fatalf("end turn after natural growth: %v", err)
-		}
 		if effectiveElementsGain(target)[model.ElementEarth] != 2 {
-			t.Fatalf("natural growth should add earth load at end turn, load=%v", effectiveElementsGain(target))
+			t.Fatalf("natural growth should immediately add earth load, load=%v", effectiveElementsGain(target))
 		}
 	})
 
@@ -6351,6 +6358,8 @@ func TestSelectionSorcerySkillEffects(t *testing.T) {
 		p0 := engine.State.Players[0]
 		valid := placeUnit(baseCard(t, "1421010"), 0, 0, 0, engine)
 		invalid := placeUnit(baseCard(t, "1421010"), 0, 2, 0, engine)
+		valid.IsHorizontal = true
+		invalid.IsHorizontal = true
 		addElementsGainBonus(invalid, model.ElementEarth, 3)
 		p0.Skills[0] = readySkill(baseCard(t, "3421011"), 0)
 		p0.Elements[model.ElementEarth] = 10
@@ -6384,10 +6393,10 @@ func TestSelectionSorcerySkillEffects(t *testing.T) {
 		}
 	})
 
-	t.Run("blood demon blast sacrifices companion and damages enemy front row", func(t *testing.T) {
+	t.Run("blood demon blast sacrifices front shadow companion and damages chosen enemy in range", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
-		sacrifice := placeUnit(baseCard(t, "1521002"), 0, 1, 0, engine)
+		sacrifice := placeUnit(baseCard(t, "1621016"), 0, 1, 0, engine)
 		frontA := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
 		frontB := placeUnit(baseCard(t, "1021001"), 1, 2, 0, engine)
 		p0.Skills[0] = readySkill(baseCard(t, "3621010"), 0)
@@ -6404,16 +6413,41 @@ func TestSelectionSorcerySkillEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("resolve blood demon blast: %v", err)
 		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{frontA.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve blood demon blast target: %v", err)
+		}
 		if p0.Units[1][0] != nil || len(p0.Graveyard) == 0 {
 			t.Fatalf("blood demon blast should sacrifice the selected companion")
 		}
-		if frontA.CurrentLife != frontA.Card.Life-sacrifice.Card.Life || frontB.CurrentLife != frontB.Card.Life-sacrifice.Card.Life {
-			t.Fatalf("blood demon blast should damage enemy front row, a=%d b=%d", frontA.CurrentLife, frontB.CurrentLife)
+		if frontA.CurrentLife != frontA.Card.Life-sacrifice.Card.Life || frontB.CurrentLife != frontB.Card.Life {
+			t.Fatalf("blood demon blast should damage only the chosen enemy, a=%d b=%d", frontA.CurrentLife, frontB.CurrentLife)
 		}
 	})
 }
 
 func TestRemainingPassiveSkillEffects(t *testing.T) {
+	t.Run("1521016 独守城卫 gains max life when a healing effect resolves at full life", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		guard := placeUnit(baseCard(t, "1521016"), 0, 1, 0, engine)
+		guard.CurrentLife = guard.Card.Life
+		healing := readySkill(baseCard(t, "3521001"), 0)
+
+		if err := (Card3521001Healing{}).OnSpellHit(&EffectContext{
+			Engine:     engine,
+			Source:     healing,
+			Target:     guard,
+			PlayerID:   0,
+			OpponentID: 1,
+		}); err != nil {
+			t.Fatalf("resolve healing on solo city defender: %v", err)
+		}
+		if guard.Statuses["max_life_bonus"] != 1 || guard.CurrentLife != guard.Card.Life+1 {
+			t.Fatalf("solo city defender should gain one max/current life at full life, life=%d statuses=%v", guard.CurrentLife, guard.Statuses)
+		}
+	})
+
 	t.Run("rapid sandstorm weakens low original power spells", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
@@ -7042,6 +7076,11 @@ func TestReviewCardsDamagePreventionAndEarthLightActives(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("use sturdy scroll: %v", err)
 		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose sturdy scroll target: %v", err)
+		}
 		engine.State.CurrentTurn = 0
 
 		damageSkill := baseCard(t, "3121002")
@@ -7058,9 +7097,9 @@ func TestReviewCardsDamagePreventionAndEarthLightActives(t *testing.T) {
 		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
 			t.Fatalf("resolve fireball into sturdy scroll: %v", err)
 		}
-		wantLife := target.Card.Life - max(damageSkill.Attack-1, 0)
+		wantLife := target.Card.Life
 		if target.CurrentLife != wantLife {
-			t.Fatalf("sturdy scroll should reduce spell damage by 1, life=%d want=%d", target.CurrentLife, wantLife)
+			t.Fatalf("sturdy scroll should prevent the first 3 damage, life=%d want=%d", target.CurrentLife, wantLife)
 		}
 
 		engine = setupReportedBugEngine(t)
@@ -7356,6 +7395,13 @@ func TestWizardVolleyLineResetsSkillAndMakesNextCastFrontRow(t *testing.T) {
 	item := NewCardInstance(baseCard(t, "2021007"), 0, 1)
 	p0.Hand = append(p0.Hand, item)
 	p0.Elements[model.ElementArcane] = 10
+	for _, pos := range []Position{
+		{Col: 0, Row: 0}, {Col: 1, Row: 0}, {Col: 2, Row: 0},
+		{Col: 0, Row: 1}, {Col: 1, Row: 1}, {Col: 2, Row: 1},
+		{Col: 0, Row: 2},
+	} {
+		placeUnit(baseCard(t, "1021001"), 0, pos.Col, pos.Row, engine)
+	}
 
 	if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
 		"instance_id": item.InstanceID,
