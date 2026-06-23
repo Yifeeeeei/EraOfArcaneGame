@@ -3030,7 +3030,8 @@
 
             function flashGraveyardCard(player, card) {
                 if (!card) return;
-                const side = Number(player) === mySlot.value ? 'me' : 'opponent';
+                const owner = card.owner ?? player;
+                const side = Number(owner) === mySlot.value ? 'me' : 'opponent';
                 graveyardFlash.value = { ...graveyardFlash.value, [side]: card };
                 recentDiscardCard.value = card;
                 clearTimeout(graveyardFlashTimer);

@@ -1502,6 +1502,7 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 		hitData := map[string]any{
 			"damage":           dmg,
 			"power":            totalPower,
+			"main_power":       e.effectiveSpellPower(attackerID, skill, nil, target),
 			"attacker":         attackerID,
 			"target":           target,
 			"affected_units":   affectedUnits,
@@ -3081,6 +3082,7 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 	e.applyLoadGainAtTurnEnd(ps)
 
 	e.clearExpiredTemporaryModifiers(ps.PlayerID)
+	e.processAbilityDurations(ps)
 
 	// Remove 临时 (temporary) units before the cleanup/reset steps.
 	e.HandleTemporaryUnits(ps)
@@ -3125,6 +3127,18 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 
 	if e.State.Phase != PhaseGameOver {
 		e.startTurn()
+	}
+}
+
+func (e *Engine) processAbilityDurations(ps *PlayerState) {
+	for _, card := range e.getAllFieldCards(ps) {
+		if card == nil || card.Statuses[StatusAbilityDuration] <= 0 {
+			continue
+		}
+		card.Statuses[StatusAbilityDuration]--
+		if card.Statuses[StatusAbilityDuration] <= 0 {
+			delete(card.Statuses, StatusAbilityDuration)
+		}
 	}
 }
 
@@ -3441,6 +3455,7 @@ func cardToInfo(ci *CardInstance) map[string]any {
 	}
 	info := map[string]any{
 		"instance_id":      ci.InstanceID,
+		"owner":            ci.OwnerID,
 		"number":           ci.Card.Number,
 		"name":             ci.Card.Name,
 		"type":             ci.Card.Type,

@@ -43,7 +43,9 @@ func (e *Engine) applyExplicitSpellHitStatuses(skill *CardInstance, target *Card
 		if amount <= 0 {
 			continue
 		}
-		target.Statuses[status] += amount
+		if !e.addStatus(target, status, amount) {
+			continue
+		}
 		e.emit(GameEvent{
 			Type:   "effect_trigger",
 			Player: -1,

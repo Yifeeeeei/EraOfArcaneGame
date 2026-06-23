@@ -16,6 +16,17 @@ func (e *Engine) hasEffectiveStatus(card *CardInstance, status string) bool {
 	return !e.negativeStatusIneffective(card, status)
 }
 
+func (e *Engine) addStatus(card *CardInstance, status string, amount int) bool {
+	if card == nil || amount <= 0 {
+		return false
+	}
+	if isNegativeStatus(status) && e.negativeStatusIneffective(card, status) {
+		return false
+	}
+	card.Statuses[status] += amount
+	return true
+}
+
 func (e *Engine) negativeStatusIneffective(card *CardInstance, status string) bool {
 	if card == nil || card.Card == nil || !isNegativeStatus(status) {
 		return false

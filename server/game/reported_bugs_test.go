@@ -1603,9 +1603,11 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 	})
 
-	t.Run("2521014 祝福之杖 does not pay consume or marker cost without a friendly companion target", func(t *testing.T) {
+	t.Run("2521014 祝福之杖 can target the friendly hero as a friendly unit", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
+		hero := placeUnit(baseCard(t, "4011001"), 0, 1, 1, engine)
+		p0.Hero = hero
 		staff := NewCardInstance(baseCard(t, "2521014"), 0, 1)
 		staff.IsHorizontal = false
 		staff.Statuses[blessingStaffCounter] = 3
@@ -1615,11 +1617,19 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 			"instance_id":  staff.InstanceID,
 			"ability_type": "per_turn",
 		}})
-		if err == nil {
-			t.Fatalf("blessing staff should reject use without a friendly companion target")
+		if err != nil {
+			t.Fatalf("blessing staff should allow a friendly hero unit target: %v", err)
 		}
-		if staff.IsHorizontal || staff.Statuses[blessingStaffCounter] != 3 || staff.UsedThisTurn != 0 || engine.State.PendingAction != nil {
-			t.Fatalf("blessing staff should not pay costs or leave pending on invalid use, horizontal=%v statuses=%v used=%d pending=%+v", staff.IsHorizontal, staff.Statuses, staff.UsedThisTurn, engine.State.PendingAction)
+		if engine.State.PendingAction == nil {
+			t.Fatalf("blessing staff should ask which friendly unit to bless")
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{hero.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve blessing staff on hero: %v", err)
+		}
+		if hero.CurrentLife != hero.Card.Life+1 || hero.Statuses["max_life_bonus"] != 1 {
+			t.Fatalf("blessing staff should add life to friendly hero unit, life=%d statuses=%v", hero.CurrentLife, hero.Statuses)
 		}
 	})
 
@@ -2794,6 +2804,92 @@ func TestShelterRuneCancelsLowPowerSpellHitBeforeDamage(t *testing.T) {
 	}
 }
 
+func TestIssue48ShelterRuneUsesMainSpellPowerBeforeBoosts(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+	for _, elem := range model.AllElements {
+		p0.Elements[elem] = 10
+		p1.Elements[elem] = 10
+	}
+	main := readySkill(baseCard(t, "3121003"), 0)
+	boost := readySkill(baseCard(t, "3121015"), 0)
+	barrierA := readySkill(baseCard(t, "3121008"), 0)
+	barrierB := readySkill(baseCard(t, "3121008"), 0)
+	barrierA.Statuses[StatusAbilityDuration] = 1
+	barrierB.Statuses[StatusAbilityDuration] = 1
+	p0.Skills[0] = main
+	p0.Skills[1] = boost
+	p0.Skills[2] = barrierA
+	p0.Skills[3] = barrierB
+	target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+	counter := NewCardInstance(baseCard(t, "2521002"), 1, 1)
+	counter.IsSetCounter = true
+	p1.Equipment[0] = counter
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": main.InstanceID,
+		"boost_ids":   []any{boost.InstanceID},
+		"target_type": "unit",
+		"target_col":  float64(target.Position.Col),
+		"target_row":  float64(target.Position.Row),
+	}}); err != nil {
+		t.Fatalf("cast boosted ray: %v", err)
+	}
+	if engine.State.PendingSpell == nil || engine.State.PendingSpell.TotalPower < 10 {
+		t.Fatalf("test setup should produce a boosted spell at 10+ total power, pending=%+v", engine.State.PendingSpell)
+	}
+	if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+		t.Fatalf("skip defense into shelter rune: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "counter_trigger" {
+		t.Fatalf("shelter rune should prompt from main spell power even when boosts raise total power, pending=%+v", engine.State.PendingAction)
+	}
+}
+
+func TestIssue48AbilityDurationExpiresAtOwnersTurnEnd(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+	barrier := readySkill(baseCard(t, "3121008"), 0)
+	fireball := readySkill(baseCard(t, "3121001"), 0)
+	p0.Skills[0] = barrier
+	p0.Skills[1] = fireball
+	p0.Elements[model.ElementFire] = 10
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": barrier.InstanceID,
+	}}); err != nil {
+		t.Fatalf("cast fire barrier: %v", err)
+	}
+	if barrier.Statuses[StatusAbilityDuration] != 1 {
+		t.Fatalf("duration skill should be active after use, statuses=%v", barrier.Statuses)
+	}
+	if got := engine.effectiveSpellPower(0, fireball, nil, SpellTarget{Type: "unit", Position: *target.Position}); got != fireball.Card.Power+2 {
+		t.Fatalf("fire barrier should boost fire spells while active, got=%d", got)
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "end_turn", Data: map[string]any{}}); err != nil {
+		t.Fatalf("end turn: %v", err)
+	}
+	if barrier.Statuses[StatusAbilityDuration] != 0 {
+		t.Fatalf("duration 1 should expire at owner's turn end, statuses=%v", barrier.Statuses)
+	}
+	if got := engine.effectiveSpellPower(0, fireball, nil, SpellTarget{Type: "unit", Position: *target.Position}); got != fireball.Card.Power {
+		t.Fatalf("expired fire barrier should no longer boost fire spells, got=%d", got)
+	}
+}
+
+func TestIssue48DivineGuardianRejectsCommonNegativeStatusApplication(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	guardian := placeUnit(baseCard(t, "1521010"), 1, 1, 0, engine)
+	spell := readySkill(baseCard(t, "2221003"), 0)
+
+	engine.applyExplicitSpellHitStatuses(spell, guardian)
+	if guardian.Statuses[StatusFreeze] != 0 {
+		t.Fatalf("divine guardian should not receive negative spell-hit statuses, statuses=%v", guardian.Statuses)
+	}
+}
+
 func TestBoundSkillAttachesToHostInsteadOfSkillPool(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
@@ -3465,6 +3561,7 @@ func TestIssue29PlaytestRegressions(t *testing.T) {
 		p0.Skills[0] = barrier
 		p0.Skills[1] = main
 		p0.Skills[2] = boost
+		barrier.Statuses[StatusAbilityDuration] = 1
 
 		withoutBarrier := main.Card.Power + boost.Card.Power
 		withBarrier := engine.effectiveSpellPower(0, main, []*CardInstance{boost}, SpellTarget{Type: "unit", Position: Position{Col: 1, Row: 0}})
@@ -4330,6 +4427,7 @@ func TestPassionOfFireDrawsWhenFriendlyFireSpellHits(t *testing.T) {
 	p0 := engine.State.Players[0]
 	p0.Skills[0] = readySkill(baseCard(t, "3121007"), 0)
 	p0.Skills[1] = readySkill(baseCard(t, "3121001"), 0)
+	p0.Skills[0].Statuses[StatusAbilityDuration] = 1
 	p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1)}
 	p0.Elements[model.ElementFire] = 1
 	placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
@@ -5464,6 +5562,7 @@ func TestFireBarrierBoostsFireSpellsAndAddsBurn(t *testing.T) {
 	target := placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
 	p0.Skills[0] = readySkill(baseCard(t, "3121008"), 0)
 	p0.Skills[1] = readySkill(baseCard(t, "3121001"), 0)
+	p0.Skills[0].Statuses[StatusAbilityDuration] = 1
 	p0.Elements[model.ElementFire] = 3
 
 	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
@@ -6224,6 +6323,7 @@ func TestSplashBlizzardAndSoulBiteEffects(t *testing.T) {
 		target.CurrentLife = 2
 		p0.Skills[0] = readySkill(baseCard(t, "3221002"), 0)
 		p0.Skills[1] = readySkill(baseCard(t, "3221015"), 0)
+		p0.Skills[1].Statuses[StatusAbilityDuration] = 1
 		p0.Elements[model.ElementWater] = 10
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
@@ -6286,6 +6386,7 @@ func TestStormEarthAndDeadFuryEffects(t *testing.T) {
 		placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
 		p0.Skills[0] = readySkill(baseCard(t, "3321005"), 0)
 		p0.Skills[1] = readySkill(baseCard(t, "3301001"), 0)
+		p0.Skills[1].Statuses[StatusAbilityDuration] = 1
 		p0.Hand = []*CardInstance{
 			NewCardInstance(baseCard(t, "1021001"), 0, 1),
 			NewCardInstance(baseCard(t, "1021002"), 0, 1),
@@ -6440,6 +6541,7 @@ func TestDefenseAndPositionSkillEffects(t *testing.T) {
 		back := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
 		p0.Skills[0] = readySkill(baseCard(t, "3421013"), 0)
 		p0.Skills[1] = readySkill(baseCard(t, "3321012"), 0)
+		p0.Skills[1].Statuses[StatusAbilityDuration] = 1
 		p0.Elements[model.ElementEarth] = 10
 		p0.Elements[model.ElementAir] = 10
 
@@ -6640,6 +6742,7 @@ func TestRemainingPassiveSkillEffects(t *testing.T) {
 		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
 		p0.Skills[0] = readySkill(baseCard(t, "3121001"), 0)
 		p0.Skills[1] = readySkill(baseCard(t, "3421015"), 0)
+		p0.Skills[1].Statuses[StatusAbilityDuration] = 2
 		p0.Elements[model.ElementFire] = 10
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{

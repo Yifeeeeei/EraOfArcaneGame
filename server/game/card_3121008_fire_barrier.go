@@ -7,6 +7,13 @@ type Card3121008FireBarrier struct{ AlwaysActive }
 func (Card3121008FireBarrier) ID() string   { return "3121008" }
 func (Card3121008FireBarrier) Name() string { return "火焰结界" }
 
+func (Card3121008FireBarrier) HasActiveSpellStatModifier(card *CardInstance) bool {
+	return abilityDurationActive(card)
+}
+func (Card3121008FireBarrier) HasActiveSpellHit(card *CardInstance) bool {
+	return abilityDurationActive(card)
+}
+
 func (Card3121008FireBarrier) ModifySpellStats(ctx *EffectContext, stats *SpellStats) {
 	if ctx.Target == nil || ctx.Target.Card == nil || ctx.Target.Card.Category != model.ElementFire {
 		return
@@ -19,7 +26,7 @@ func (Card3121008FireBarrier) OnSpellHit(ctx *EffectContext) error {
 		return nil
 	}
 	for _, unit := range affectedUnitsFromHit(ctx) {
-		unit.Statuses[StatusBurn]++
+		ctx.Engine.addStatus(unit, StatusBurn, 1)
 		ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 			"source": cardToInfo(ctx.Source),
 			"target": cardToInfo(unit),
