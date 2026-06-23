@@ -432,7 +432,7 @@ func (e *Engine) effectiveSkillPowerForPurposeWithData(playerID int, skill *Card
 	power += e.spellStatBonusesWithData(playerID, skill, purpose, extra).PowerBonus
 	power += e.genericSpellBonus(playerID, skill, "威")
 	power += e.temporarySpellPowerBonus(playerID, skill)
-	if weak := skill.Statuses[StatusWeaken]; weak > 0 {
+	if weak := skill.Statuses[StatusWeaken]; weak > 0 && e.hasEffectiveStatus(skill, StatusWeaken) {
 		power -= weak
 	}
 	return max(power, 0)

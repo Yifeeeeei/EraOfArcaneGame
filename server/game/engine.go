@@ -3148,8 +3148,11 @@ func (e *Engine) processEndOfTurnStatuses(ps *PlayerState) {
 	for _, card := range allCards {
 		// 点燃: remove 1 stack, deal 1 fire damage
 		if card.Statuses[StatusBurn] > 0 {
+			effective := e.hasEffectiveStatus(card, StatusBurn)
 			card.Statuses[StatusBurn]--
-			e.dealDamageWithExtra(card, 1, ps.PlayerID, map[string]any{"status_damage": StatusBurn})
+			if effective {
+				e.dealDamageWithExtra(card, 1, ps.PlayerID, map[string]any{"status_damage": StatusBurn})
+			}
 		}
 		// 冻结: remove 1 stack
 		if card.Statuses[StatusFreeze] > 0 {

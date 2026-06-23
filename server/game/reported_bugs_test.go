@@ -7633,10 +7633,13 @@ func TestReviewCardsNegativeStatusImmunity(t *testing.T) {
 		priest := placeUnit(baseCard(t, "1421002"), 0, 1, 1, engine)
 		adjacent := placeUnit(baseCard(t, "1021013"), 0, 1, 0, engine)
 		far := placeUnit(baseCard(t, "1021013"), 0, 0, 0, engine)
-		for _, unit := range []*CardInstance{priest, adjacent, far} {
-			unit.Statuses[StatusStun] = 1
-			unit.Statuses[StatusFreeze] = 1
+		for _, unit := range []*CardInstance{priest, adjacent} {
+			if !engine.addStatus(unit, StatusStun, 1) || !engine.addStatus(unit, StatusFreeze, 1) {
+				t.Fatalf("priest protection should allow negative marks to be added, unit=%s statuses=%v", unit.Card.Number, unit.Statuses)
+			}
 		}
+		far.Statuses[StatusStun] = 1
+		far.Statuses[StatusFreeze] = 1
 
 		if !engine.canConsumeCard(priest) || !engine.canConsumeCard(adjacent) {
 			t.Fatalf("priest and adjacent unit should ignore stun")
@@ -7656,6 +7659,39 @@ func TestReviewCardsNegativeStatusImmunity(t *testing.T) {
 		}
 		if priest.Statuses[StatusStun] != 1 || adjacent.Statuses[StatusFreeze] != 1 {
 			t.Fatalf("protection should not erase visible marks, priest=%v adjacent=%v", priest.Statuses, adjacent.Statuses)
+		}
+	})
+
+	t.Run("fire dancer protection keeps negative marks visible but ineffective", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		fireUnit := placeUnit(baseCard(t, "1121001"), 0, 1, 0, engine)
+		fireSkill := readySkill(baseCard(t, "3121001"), 0)
+		p0.Skills[0] = fireSkill
+		dancer := placeUnit(baseCard(t, "1121016"), 0, 1, 1, engine)
+		engine.triggerEffects(TriggerOnEnter, dancer, nil, nil)
+
+		if !engine.addStatus(fireUnit, StatusBurn, 1) || !engine.addStatus(fireUnit, StatusFreeze, 1) || !engine.addStatus(fireSkill, StatusWeaken, 2) {
+			t.Fatalf("fire dancer protection should allow negative marks to be added, unit=%v skill=%v", fireUnit.Statuses, fireSkill.Statuses)
+		}
+		if fireUnit.Statuses[StatusBurn] != 1 || fireUnit.Statuses[StatusFreeze] != 1 || fireSkill.Statuses[StatusWeaken] != 2 {
+			t.Fatalf("fire dancer protection should keep marks visible, unit=%v skill=%v", fireUnit.Statuses, fireSkill.Statuses)
+		}
+		fireUnit.IsHorizontal = true
+		engine.resetCards(p0)
+		if fireUnit.IsHorizontal {
+			t.Fatalf("fire dancer protection should make freeze ineffective for reset")
+		}
+		if got := engine.effectiveSkillPowerForPurposeWithData(0, fireSkill, nil, skillPurposeAttack, map[string]any{"stat": "power"}); got != fireSkill.Card.Power {
+			t.Fatalf("fire dancer protection should make weaken ineffective, got=%d want=%d", got, fireSkill.Card.Power)
+		}
+		life := fireUnit.CurrentLife
+		engine.processEndOfTurnStatuses(p0)
+		if fireUnit.CurrentLife != life {
+			t.Fatalf("fire dancer protection should make burn damage ineffective, life=%d want=%d", fireUnit.CurrentLife, life)
+		}
+		if fireUnit.Statuses[StatusBurn] != 0 || fireUnit.Statuses[StatusFreeze] != 0 || fireSkill.Statuses[StatusWeaken] != 1 {
+			t.Fatalf("negative marks should still decay normally, unit=%v skill=%v", fireUnit.Statuses, fireSkill.Statuses)
 		}
 	})
 }
