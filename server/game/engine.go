@@ -1502,7 +1502,6 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 		hitData := map[string]any{
 			"damage":           dmg,
 			"power":            totalPower,
-			"main_power":       e.effectiveSpellPower(attackerID, skill, nil, target),
 			"attacker":         attackerID,
 			"target":           target,
 			"affected_units":   affectedUnits,

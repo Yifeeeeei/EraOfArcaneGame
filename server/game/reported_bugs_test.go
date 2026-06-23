@@ -2804,49 +2804,6 @@ func TestShelterRuneCancelsLowPowerSpellHitBeforeDamage(t *testing.T) {
 	}
 }
 
-func TestIssue48ShelterRuneUsesMainSpellPowerBeforeBoosts(t *testing.T) {
-	engine := setupReportedBugEngine(t)
-	p0 := engine.State.Players[0]
-	p1 := engine.State.Players[1]
-	for _, elem := range model.AllElements {
-		p0.Elements[elem] = 10
-		p1.Elements[elem] = 10
-	}
-	main := readySkill(baseCard(t, "3121003"), 0)
-	boost := readySkill(baseCard(t, "3121015"), 0)
-	barrierA := readySkill(baseCard(t, "3121008"), 0)
-	barrierB := readySkill(baseCard(t, "3121008"), 0)
-	barrierA.Statuses[StatusAbilityDuration] = 1
-	barrierB.Statuses[StatusAbilityDuration] = 1
-	p0.Skills[0] = main
-	p0.Skills[1] = boost
-	p0.Skills[2] = barrierA
-	p0.Skills[3] = barrierB
-	target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
-	counter := NewCardInstance(baseCard(t, "2521002"), 1, 1)
-	counter.IsSetCounter = true
-	p1.Equipment[0] = counter
-
-	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
-		"instance_id": main.InstanceID,
-		"boost_ids":   []any{boost.InstanceID},
-		"target_type": "unit",
-		"target_col":  float64(target.Position.Col),
-		"target_row":  float64(target.Position.Row),
-	}}); err != nil {
-		t.Fatalf("cast boosted ray: %v", err)
-	}
-	if engine.State.PendingSpell == nil || engine.State.PendingSpell.TotalPower < 10 {
-		t.Fatalf("test setup should produce a boosted spell at 10+ total power, pending=%+v", engine.State.PendingSpell)
-	}
-	if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
-		t.Fatalf("skip defense into shelter rune: %v", err)
-	}
-	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "counter_trigger" {
-		t.Fatalf("shelter rune should prompt from main spell power even when boosts raise total power, pending=%+v", engine.State.PendingAction)
-	}
-}
-
 func TestIssue48AbilityDurationExpiresAtOwnersTurnEnd(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]

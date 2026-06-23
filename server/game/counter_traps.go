@@ -329,7 +329,7 @@ func (e *Engine) counterTrapConditionMet(counter *CardInstance, trigger EffectTr
 		return eventSource != nil && eventSource.Card.IsCompanion() && eventSource.Position != nil &&
 			len(e.emptyUnitPositionsForPlayer(eventSource.OwnerID, ownerID)) > 0
 	case "2521002":
-		return trigger == TriggerOnSpellHitBeforeDamage && sourceOwner != ownerID && eventSource != nil && !isSorcerySkill(eventSource.Card) && shelterRunePowerFromData(extraData) < 10
+		return trigger == TriggerOnSpellHitBeforeDamage && sourceOwner != ownerID && eventSource != nil && !isSorcerySkill(eventSource.Card) && spellPowerFromData(extraData) < 10
 	case "2521004":
 		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && eventSource != nil && isSorcerySkill(eventSource.Card)
 	case "2521011":
@@ -472,19 +472,6 @@ func spellPowerFromData(data map[string]any) int {
 		return int(f)
 	}
 	return 0
-}
-
-func shelterRunePowerFromData(data map[string]any) int {
-	if data == nil {
-		return 0
-	}
-	if n, ok := data["main_power"].(int); ok {
-		return n
-	}
-	if f, ok := data["main_power"].(float64); ok {
-		return int(f)
-	}
-	return spellPowerFromData(data)
 }
 
 func counterRuneCanCancel(number string) bool {
