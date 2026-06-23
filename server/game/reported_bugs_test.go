@@ -7597,6 +7597,37 @@ func TestReviewCardsNegativeStatusImmunity(t *testing.T) {
 		}
 	})
 
+	t.Run("divine guardian rejects rune and pending-action negative statuses", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		guardian := placeUnit(baseCard(t, "1521010"), 1, 1, 0, engine)
+
+		fireRune := NewCardInstance(baseCard(t, "2121002"), 0, 1)
+		engine.triggerEffects(TriggerOnConsume, fireRune, guardian, map[string]any{"consumed_player": 1})
+		if guardian.Statuses[StatusBurn] != 0 {
+			t.Fatalf("divine guardian should reject fire rune burn, statuses=%v", guardian.Statuses)
+		}
+
+		frostRune := NewCardInstance(baseCard(t, "2221002"), 0, 1)
+		engine.triggerEffects(TriggerOnConsume, frostRune, guardian, map[string]any{"consumed_player": 1})
+		if guardian.Statuses[StatusFreeze] != 0 {
+			t.Fatalf("divine guardian should reject frost rune freeze, statuses=%v", guardian.Statuses)
+		}
+
+		frostPuppet := NewCardInstance(baseCard(t, "1221004"), 0, 1)
+		engine.triggerEffects(TriggerOnEnter, frostPuppet, nil, nil)
+		if engine.State.PendingAction == nil {
+			t.Fatalf("frost puppet should ask for a freeze target")
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{guardian.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve frost puppet target: %v", err)
+		}
+		if guardian.Statuses[StatusFreeze] != 0 {
+			t.Fatalf("divine guardian should reject frost puppet freeze, statuses=%v", guardian.Statuses)
+		}
+	})
+
 	t.Run("blessing priest protects itself and adjacent units while marks remain visible", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		priest := placeUnit(baseCard(t, "1421002"), 0, 1, 1, engine)

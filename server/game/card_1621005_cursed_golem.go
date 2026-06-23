@@ -17,7 +17,7 @@ func (Card1621005CursedGolem) OnEnter(ctx *EffectContext) error {
 			}
 			for _, skill := range ctx.Engine.State.Players[ctx.OpponentID].Skills {
 				if skill != nil && skill.InstanceID == selected[0] {
-					skill.Statuses[StatusWeaken] += 2
+					ctx.Engine.addStatus(skill, StatusWeaken, 2)
 				}
 			}
 		})

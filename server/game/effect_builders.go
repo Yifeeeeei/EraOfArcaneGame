@@ -138,7 +138,9 @@ func ApplyStatusToTarget(status string, amount int) EffectHandler {
 		if ctx.Target == nil {
 			return nil
 		}
-		ctx.Target.Statuses[status] += amount
+		if !ctx.Engine.addStatus(ctx.Target, status, amount) {
+			return nil
+		}
 		ctx.Engine.emit(GameEvent{
 			Type: "effect_trigger", Player: -1,
 			Data: map[string]any{
@@ -153,7 +155,9 @@ func ApplyStatusToTarget(status string, amount int) EffectHandler {
 // ApplyStatusToSelf 对自身施加状态
 func ApplyStatusToSelf(status string, amount int) EffectHandler {
 	return func(ctx *EffectContext) error {
-		ctx.Source.Statuses[status] += amount
+		if !ctx.Engine.addStatus(ctx.Source, status, amount) {
+			return nil
+		}
 		ctx.Engine.emit(GameEvent{
 			Type: "effect_trigger", Player: -1,
 			Data: map[string]any{

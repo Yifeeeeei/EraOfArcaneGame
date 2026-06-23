@@ -8,7 +8,7 @@ func (Card2601002Spellbook) OnEnter(ctx *EffectContext) error {
 	opponent := ctx.Engine.State.Players[ctx.OpponentID]
 	for _, skill := range opponent.Skills {
 		if skill != nil {
-			skill.Statuses[StatusWeaken]++
+			ctx.Engine.addStatus(skill, StatusWeaken, 1)
 		}
 	}
 	return nil

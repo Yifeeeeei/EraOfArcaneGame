@@ -16,7 +16,7 @@ func (Card1221004FrostPuppet) OnEnter(ctx *EffectContext) error {
 		func(selected []string) {
 			target := selectedUnitFromCandidates(ctx.Engine, selected, candidates)
 			if target != nil {
-				target.Statuses[StatusFreeze]++
+				ctx.Engine.addStatus(target, StatusFreeze, 1)
 			}
 		})
 	return nil

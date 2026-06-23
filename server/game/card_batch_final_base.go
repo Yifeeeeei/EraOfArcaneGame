@@ -141,7 +141,7 @@ func (Card2511002ShiningShield) OnDefend(ctx *EffectContext) error {
 		if target == nil || target.Position == nil || !ctx.Engine.IsInSpellRange(ctx.PlayerID, target.Position.Col, target.Position.Row, false) {
 			continue
 		}
-		target.Statuses[StatusStun]++
+		ctx.Engine.addStatus(target, StatusStun, 1)
 	}
 	return nil
 }
@@ -178,7 +178,7 @@ func (Card2601001PhantomPain) OnDefend(ctx *EffectContext) error {
 		skills, _ := ctx.ExtraData[key].([]*CardInstance)
 		for _, skill := range skills {
 			if skill != nil {
-				skill.Statuses[StatusWeaken] += 2
+				ctx.Engine.addStatus(skill, StatusWeaken, 2)
 			}
 		}
 	}
@@ -359,7 +359,7 @@ func (Card2621013WitchcraftRing) Name() string { return "巫术指环" }
 func (Card2621013WitchcraftRing) OnPerTurn(ctx *EffectContext) error {
 	for _, skill := range ctx.Engine.State.Players[ctx.OpponentID].Skills {
 		if skill != nil && skill.Statuses[StatusWeaken] > 0 {
-			skill.Statuses[StatusWeaken]++
+			ctx.Engine.addStatus(skill, StatusWeaken, 1)
 		}
 	}
 	return nil

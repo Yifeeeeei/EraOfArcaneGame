@@ -14,7 +14,7 @@ func (Card1421001SandMage) OnEnter(ctx *EffectContext) error {
 		func(selected []string) {
 			target := selectedUnitFromCandidates(ctx.Engine, selected, candidates)
 			if target != nil {
-				target.Statuses[StatusPetrify]++
+				ctx.Engine.addStatus(target, StatusPetrify, 1)
 			}
 		})
 	return nil

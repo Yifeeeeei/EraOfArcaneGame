@@ -77,7 +77,7 @@ func (Card1221016IceSpikeFortress) OnDamaged(ctx *EffectContext) error {
 				ctx.Engine.dealDamageWithExtra(target, 1, target.OwnerID, map[string]any{"damage_source": "effect", "attacker": ctx.PlayerID})
 				return
 			}
-			target.Statuses[StatusFreeze]++
+			ctx.Engine.addStatus(target, StatusFreeze, 1)
 		})
 	return nil
 }

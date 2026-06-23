@@ -28,7 +28,7 @@ func (Card3321014CallLightning) OnSpellCast(ctx *EffectContext) error {
 					for _, id := range selected {
 						card := ctx.Engine.findFieldCardByInstance(ctx.Engine.State.Players[ctx.OpponentID], id)
 						if card != nil {
-							card.Statuses[StatusStun]++
+							ctx.Engine.addStatus(card, StatusStun, 1)
 						}
 						return
 					}

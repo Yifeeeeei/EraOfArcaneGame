@@ -20,13 +20,13 @@ func (Card4211003CrystalHeart) OnSpellHit(ctx *EffectContext) error {
 	if targets, ok := ctx.ExtraData["affected_units"].([]*CardInstance); ok {
 		for _, target := range targets {
 			if target != nil {
-				target.Statuses[StatusFreeze]++
+				ctx.Engine.addStatus(target, StatusFreeze, 1)
 			}
 		}
 		return nil
 	}
 	if ctx.Target != nil && !ctx.Target.Card.IsSkill() {
-		ctx.Target.Statuses[StatusFreeze]++
+		ctx.Engine.addStatus(ctx.Target, StatusFreeze, 1)
 	}
 	return nil
 }

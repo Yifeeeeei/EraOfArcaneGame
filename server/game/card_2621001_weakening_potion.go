@@ -16,7 +16,7 @@ func (Card2621001WeakeningPotion) OnUseItem(ctx *EffectContext) error {
 			for _, id := range selected {
 				for _, skill := range ctx.Engine.State.Players[ctx.OpponentID].Skills {
 					if skill != nil && skill.InstanceID == id {
-						skill.Statuses[StatusWeaken] += 2
+						ctx.Engine.addStatus(skill, StatusWeaken, 2)
 					}
 				}
 			}

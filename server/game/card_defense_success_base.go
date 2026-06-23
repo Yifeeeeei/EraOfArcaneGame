@@ -14,7 +14,9 @@ func (Card3121013FireBacklash) OnDefend(ctx *EffectContext) error {
 	if hero == nil {
 		return nil
 	}
-	hero.Statuses[StatusBurn]++
+	if !ctx.Engine.addStatus(hero, StatusBurn, 1) {
+		return nil
+	}
 	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 		"source": cardToInfo(ctx.Source),
 		"target": cardToInfo(hero),
@@ -45,7 +47,9 @@ func (Card3221014IceField) OnDefend(ctx *EffectContext) error {
 		if unit == nil {
 			continue
 		}
-		unit.Statuses[StatusFreeze]++
+		if !ctx.Engine.addStatus(unit, StatusFreeze, 1) {
+			continue
+		}
 		ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 			"source": cardToInfo(ctx.Source),
 			"target": cardToInfo(unit),
@@ -71,7 +75,9 @@ func (Card3621014Karma) OnDefend(ctx *EffectContext) error {
 	if attackSkill == nil {
 		return nil
 	}
-	attackSkill.Statuses[StatusWeaken] += 2
+	if !ctx.Engine.addStatus(attackSkill, StatusWeaken, 2) {
+		return nil
+	}
 	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 		"source": cardToInfo(ctx.Source),
 		"target": cardToInfo(attackSkill),
