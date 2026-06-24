@@ -17,6 +17,9 @@ func (Card3521002HolyFire) SpellDamage(ctx *EffectContext) int {
 	return ctx.Source.Card.Attack
 }
 func (Card3521002HolyFire) OnSpellHit(ctx *EffectContext) error {
+	if !isOwnSpellHit(ctx) {
+		return nil
+	}
 	if ctx.Target == nil || ctx.Target.OwnerID != ctx.PlayerID {
 		return nil
 	}

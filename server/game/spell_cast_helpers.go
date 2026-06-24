@@ -46,6 +46,10 @@ func isFriendlySpellHit(ctx *EffectContext) bool {
 	return !ok || attacker == ctx.PlayerID
 }
 
+func isOwnSpellHit(ctx *EffectContext) bool {
+	return ctx != nil && ctx.ExtraData != nil && ctx.ExtraData["spell_source"] == ctx.Source
+}
+
 func (e *Engine) triggerSpellCastFieldEffectsWithContinuation(casterID int, source *CardInstance, extraData map[string]any, afterDone func()) bool {
 	runFieldEffectsAndCounters := func() bool {
 		fieldData := cloneExtraData(extraData)

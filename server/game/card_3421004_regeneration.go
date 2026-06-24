@@ -10,6 +10,9 @@ func (Card3421004Regeneration) NeedsSpellTarget() bool {
 	return false
 }
 func (Card3421004Regeneration) OnSpellHit(ctx *EffectContext) error {
+	if !isOwnSpellHit(ctx) {
+		return nil
+	}
 	if ctx.Target != nil && ctx.Target.Card != nil && ctx.Target.Card.IsSkill() && ctx.Target.InstanceID != ctx.Source.InstanceID {
 		return nil
 	}

@@ -279,6 +279,11 @@ type OnDrawBehavior interface {
 	OnDraw(*EffectContext) error
 }
 
+type OnSelfDrawBehavior interface {
+	HasActiveDraw(*CardInstance) bool
+	OnSelfDraw(*EffectContext) error
+}
+
 type OnLoadGainBehavior interface {
 	HasActiveLoadGain(*CardInstance) bool
 	OnLoadGain(*EffectContext) error

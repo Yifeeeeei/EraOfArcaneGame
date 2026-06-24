@@ -10,6 +10,9 @@ func (Card3521001Healing) AllowsFriendlySpellTarget() bool {
 }
 
 func (Card3521001Healing) OnSpellHit(ctx *EffectContext) error {
+	if !isOwnSpellHit(ctx) {
+		return nil
+	}
 	target := ctx.Target
 	if target == nil || target.OwnerID != ctx.PlayerID {
 		return nil

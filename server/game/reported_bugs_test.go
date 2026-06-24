@@ -2180,6 +2180,62 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		}
 	})
 
+	t.Run("2501001 桎梏 reveals and replaces itself when drawn during play", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		shackle := NewCardInstance(baseCard(t, "2501001"), 0, 1)
+		replacement := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Deck = []*CardInstance{shackle, replacement}
+
+		drawn := engine.drawCards(0, 1)
+
+		if len(drawn) != 1 || drawn[0] != shackle {
+			t.Fatalf("expected to draw shackle first, drawn=%+v", cardsToInfo(drawn))
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != replacement {
+			t.Fatalf("shackle should discard itself and draw replacement, hand=%+v", cardsToInfo(p0.Hand))
+		}
+		if len(p0.Graveyard) != 1 || p0.Graveyard[0] != shackle {
+			t.Fatalf("shackle should move to graveyard, grave=%+v", cardsToInfo(p0.Graveyard))
+		}
+		if p0.RevealedHand[shackle.InstanceID] {
+			t.Fatalf("discarded shackle should no longer be revealed in hand")
+		}
+	})
+
+	t.Run("2321001 风息罗盘 does not trigger when drawn into hand", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		compass := NewCardInstance(baseCard(t, "2321001"), 0, 1)
+		p0.Deck = []*CardInstance{compass}
+
+		engine.drawCards(0, 1)
+
+		if engine.State.PendingAction != nil {
+			t.Fatalf("drawing windbreath compass itself should not open prompt, pending=%+v", engine.State.PendingAction)
+		}
+		if compass.Statuses[windbreathCompassPendingStatus] != 0 {
+			t.Fatalf("drawing windbreath compass itself should not add pending status, statuses=%v", compass.Statuses)
+		}
+	})
+
+	t.Run("2321001 风息罗盘 still triggers from field when owner draws", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		compass := NewCardInstance(baseCard(t, "2321001"), 0, 1)
+		p0.Equipment[0] = compass
+		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1)}
+
+		engine.drawCards(0, 1)
+
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "windbreath_compass" {
+			t.Fatalf("field windbreath compass should prompt on owner draw, pending=%+v", engine.State.PendingAction)
+		}
+		if compass.Statuses[windbreathCompassPendingStatus] != 1 {
+			t.Fatalf("field windbreath compass should add one pending status, statuses=%v", compass.Statuses)
+		}
+	})
+
 	t.Run("2611002 与恶魔的契约书 pays current-life difference then shuffles back", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
@@ -5131,6 +5187,67 @@ func TestMoreSkillChoiceEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("disarm does not trigger from unrelated spell hits", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		target := placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
+		equipment := NewCardInstance(baseCard(t, "2021004"), 1, 1)
+		p1.Equipment[0] = equipment
+		p0.Skills[0] = readySkill(baseCard(t, "3021008"), 0)
+		lightning := readySkill(baseCard(t, "3321002"), 0)
+		p0.Skills[1] = lightning
+
+		engine.resolveSpellHit(0, lightning, SpellTarget{Type: "unit", Position: *target.Position}, nil, nil)
+
+		if engine.State.PendingAction != nil && engine.State.PendingAction.Type == "disarm_destroy_equipment" {
+			t.Fatalf("unrelated spell should not open disarm destroy prompt, pending=%+v", engine.State.PendingAction)
+		}
+		if p1.Equipment[0] != equipment {
+			t.Fatalf("unrelated spell should not destroy enemy equipment, equipment=%v graveyard=%v", p1.Equipment[0], cardsToInfo(p1.Graveyard))
+		}
+	})
+
+	t.Run("self hit skills do not trigger from unrelated spell hits", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		target := placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
+		equipment := NewCardInstance(baseCard(t, "2021004"), 1, 1)
+		p1.Equipment[0] = equipment
+		p0.Skills[0] = readySkill(baseCard(t, "3021006"), 0)
+		p0.Skills[1] = readySkill(baseCard(t, "3221010"), 0)
+		p0.Skills[2] = readySkill(baseCard(t, "3521011"), 0)
+		lightning := readySkill(baseCard(t, "3321002"), 0)
+		p0.Skills[3] = lightning
+
+		engine.resolveSpellHit(0, lightning, SpellTarget{Type: "unit", Position: *target.Position}, nil, nil)
+
+		if p1.Equipment[0] != equipment || len(p1.Graveyard) != 0 {
+			t.Fatalf("insight eye should not destroy equipment from unrelated spell, equipment=%v graveyard=%v", p1.Equipment[0], cardsToInfo(p1.Graveyard))
+		}
+		if len(p0.TempModifiers) != 0 {
+			t.Fatalf("water phantom should not add copy modifier from unrelated spell, modifiers=%v", p0.TempModifiers)
+		}
+		if target.Statuses["防止致命"] != 0 {
+			t.Fatalf("light shelter should not protect unrelated spell target, statuses=%v", target.Statuses)
+		}
+	})
+
+	t.Run("lightforged titan takes one extra damage from driven mystery and charge spells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		titan := placeUnit(baseCard(t, "1521002"), 1, 1, 0, engine)
+		lightning := readySkill(baseCard(t, "3321002"), 0)
+		engine.State.Players[0].Skills[0] = lightning
+
+		engine.resolveSpellHit(0, lightning, SpellTarget{Type: "unit", Position: *titan.Position}, nil, nil)
+
+		wantLife := titan.Card.Life - max(lightning.Card.Attack, 0) - 1
+		if titan.CurrentLife != wantLife {
+			t.Fatalf("lightforged titan should take +1 from driven lightning, life=%d want=%d", titan.CurrentLife, wantLife)
+		}
+	})
+
 	t.Run("blessing of light buffs friendly companion", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
@@ -6061,9 +6178,20 @@ func TestRebirthScrollRevivesLightCompanion(t *testing.T) {
 	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 		"selected": []any{dead.InstanceID},
 	}}); err != nil {
-		t.Fatalf("resolve rebirth scroll: %v", err)
+		t.Fatalf("resolve rebirth scroll target: %v", err)
 	}
-	if len(p0.Graveyard) != 1 || dead.Position == nil || p0.Units[dead.Position.Col][dead.Position.Row] != dead {
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "rebirth_scroll_position" {
+		t.Fatalf("rebirth scroll should ask for revive position, pending=%+v", engine.State.PendingAction)
+	}
+	if dead.Position != nil || len(p0.Graveyard) != 2 {
+		t.Fatalf("rebirth should wait for position before reviving, graveyard=%d position=%v", len(p0.Graveyard), dead.Position)
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+		"selected": []any{positionSelectionID(Position{Col: 2, Row: 2})},
+	}}); err != nil {
+		t.Fatalf("resolve rebirth scroll position: %v", err)
+	}
+	if len(p0.Graveyard) != 1 || dead.Position == nil || *dead.Position != (Position{Col: 2, Row: 2}) || p0.Units[2][2] != dead {
 		t.Fatalf("rebirth should revive companion onto board, graveyard=%d position=%v", len(p0.Graveyard), dead.Position)
 	}
 	if dead.CurrentLife != dead.Card.Life {
@@ -6685,6 +6813,7 @@ func TestRemainingPassiveSkillEffects(t *testing.T) {
 			Target:     guard,
 			PlayerID:   0,
 			OpponentID: 1,
+			ExtraData:  map[string]any{"spell_source": healing},
 		}); err != nil {
 			t.Fatalf("resolve healing on solo city defender: %v", err)
 		}

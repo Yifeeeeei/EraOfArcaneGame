@@ -6,6 +6,9 @@ func (Card3621006DeadSoulBite) ID() string   { return "3621006" }
 func (Card3621006DeadSoulBite) Name() string { return "死魂之噬" }
 
 func (Card3621006DeadSoulBite) OnSpellHit(ctx *EffectContext) error {
+	if !isOwnSpellHit(ctx) {
+		return nil
+	}
 	if ctx.Target != nil && ctx.Target.Card != nil && ctx.Target.Card.IsSkill() {
 		return nil
 	}

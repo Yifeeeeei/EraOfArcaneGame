@@ -117,6 +117,36 @@ type Card2501001Shackle struct{ AlwaysActive }
 
 func (Card2501001Shackle) ID() string   { return "2501001" }
 func (Card2501001Shackle) Name() string { return "桎梏" }
+func (Card2501001Shackle) RevealsOnDraw() bool {
+	return true
+}
+func (Card2501001Shackle) OnSelfDraw(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil {
+		return nil
+	}
+	if ctx.ExtraData != nil {
+		if initial, _ := ctx.ExtraData["initial_hand"].(bool); initial {
+			return nil
+		}
+	}
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	for i, card := range ps.Hand {
+		if card == nil || card.InstanceID != ctx.Source.InstanceID {
+			continue
+		}
+		ps.Hand = append(ps.Hand[:i], ps.Hand[i+1:]...)
+		ps.Graveyard = append(ps.Graveyard, card)
+		delete(ps.RevealedHand, card.InstanceID)
+		ctx.Engine.emit(GameEvent{
+			Type:   "discard",
+			Player: ctx.PlayerID,
+			Data:   map[string]any{"card": cardToInfo(card)},
+		})
+		ctx.Engine.drawCards(ctx.PlayerID, 1)
+		return nil
+	}
+	return nil
+}
 func (Card2501001Shackle) OnUseItem(ctx *EffectContext) error {
 	ctx.Engine.drawCards(ctx.PlayerID, 1)
 	return nil
@@ -370,6 +400,9 @@ type Card3021006InsightEye struct{ AlwaysActive }
 func (Card3021006InsightEye) ID() string   { return "3021006" }
 func (Card3021006InsightEye) Name() string { return "洞察之眼" }
 func (Card3021006InsightEye) OnSpellHit(ctx *EffectContext) error {
+	if !isOwnSpellHit(ctx) {
+		return nil
+	}
 	for _, equipment := range ctx.Engine.State.Players[ctx.OpponentID].Equipment {
 		if equipment != nil {
 			ctx.Engine.destroyEnemyEquipment(ctx.PlayerID, equipment.InstanceID)
@@ -498,6 +531,9 @@ type Card3221010WaterPhantom struct{ AlwaysActive }
 func (Card3221010WaterPhantom) ID() string   { return "3221010" }
 func (Card3221010WaterPhantom) Name() string { return "水幻影" }
 func (Card3221010WaterPhantom) OnSpellHit(ctx *EffectContext) error {
+	if !isOwnSpellHit(ctx) {
+		return nil
+	}
 	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: "next_water_copy", RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 1})
 	return nil
 }
@@ -538,6 +574,9 @@ func (Card3521011LightShelter) AllowsFriendlySpellTarget() bool {
 	return true
 }
 func (Card3521011LightShelter) OnSpellHit(ctx *EffectContext) error {
+	if !isOwnSpellHit(ctx) {
+		return nil
+	}
 	target := ctx.Target
 	if target != nil && target.Card.IsCompanion() {
 		target.Statuses["防止致命"] = 1
