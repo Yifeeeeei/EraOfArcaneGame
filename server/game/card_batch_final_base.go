@@ -120,7 +120,7 @@ func (Card2501001Shackle) Name() string { return "桎梏" }
 func (Card2501001Shackle) RevealsOnDraw() bool {
 	return true
 }
-func (Card2501001Shackle) OnDraw(ctx *EffectContext) error {
+func (Card2501001Shackle) OnSelfDraw(ctx *EffectContext) error {
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil {
 		return nil
 	}

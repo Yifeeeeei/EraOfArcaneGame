@@ -537,12 +537,20 @@ func (e *Engine) drawCards(playerID int, n int) []*CardInstance {
 			"draw_count_this_turn": ps.DrawCountThisTurn,
 			"initial_hand":         e.State.Phase == PhaseWaitingPlayers || e.State.Phase == PhaseMulligan,
 		})
-		e.triggerEffects(TriggerOnDraw, card, card, map[string]any{
-			"drawn_card":           card,
-			"drawn_player":         playerID,
-			"draw_count_this_turn": ps.DrawCountThisTurn,
-			"initial_hand":         e.State.Phase == PhaseWaitingPlayers || e.State.Phase == PhaseMulligan,
-		})
+		if h, ok := cardBehavior(card).(OnSelfDrawBehavior); ok && h.HasActiveDraw(card) {
+			_ = h.OnSelfDraw(&EffectContext{
+				Engine:     e,
+				Source:     card,
+				PlayerID:   playerID,
+				OpponentID: 1 - playerID,
+				ExtraData: map[string]any{
+					"drawn_card":           card,
+					"drawn_player":         playerID,
+					"draw_count_this_turn": ps.DrawCountThisTurn,
+					"initial_hand":         e.State.Phase == PhaseWaitingPlayers || e.State.Phase == PhaseMulligan,
+				},
+			})
+		}
 	}
 	return drawn
 }

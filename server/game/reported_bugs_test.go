@@ -2203,6 +2203,39 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		}
 	})
 
+	t.Run("2321001 风息罗盘 does not trigger when drawn into hand", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		compass := NewCardInstance(baseCard(t, "2321001"), 0, 1)
+		p0.Deck = []*CardInstance{compass}
+
+		engine.drawCards(0, 1)
+
+		if engine.State.PendingAction != nil {
+			t.Fatalf("drawing windbreath compass itself should not open prompt, pending=%+v", engine.State.PendingAction)
+		}
+		if compass.Statuses[windbreathCompassPendingStatus] != 0 {
+			t.Fatalf("drawing windbreath compass itself should not add pending status, statuses=%v", compass.Statuses)
+		}
+	})
+
+	t.Run("2321001 风息罗盘 still triggers from field when owner draws", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		compass := NewCardInstance(baseCard(t, "2321001"), 0, 1)
+		p0.Equipment[0] = compass
+		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1)}
+
+		engine.drawCards(0, 1)
+
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "windbreath_compass" {
+			t.Fatalf("field windbreath compass should prompt on owner draw, pending=%+v", engine.State.PendingAction)
+		}
+		if compass.Statuses[windbreathCompassPendingStatus] != 1 {
+			t.Fatalf("field windbreath compass should add one pending status, statuses=%v", compass.Statuses)
+		}
+	})
+
 	t.Run("2611002 与恶魔的契约书 pays current-life difference then shuffles back", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
