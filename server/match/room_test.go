@@ -127,3 +127,33 @@ func TestSendGameEventSkipsSpectatorsBeforeStartPublished(t *testing.T) {
 		t.Fatal("setup-time public events should not reach spectators before state_sync baseline is available")
 	}
 }
+
+func TestBroadcastSpectatorStateDoesNotHoldRoomLock(t *testing.T) {
+	engine := game.NewEngine("broadcast-state", nil)
+	engine.State.Players[0] = &game.PlayerState{PlayerID: 0, PlayerName: "P1"}
+	engine.State.Players[1] = &game.PlayerState{PlayerID: 1, PlayerName: "P2"}
+	room := &Room{
+		ID:         "broadcast-state",
+		IsStarted:  true,
+		Engine:     engine,
+		Spectators: make(map[string]*RoomSpectator),
+	}
+	done := make(chan struct{}, 1)
+	room.Spectators["watcher"] = &RoomSpectator{
+		ID:          "watcher",
+		Name:        "Watcher",
+		IsConnected: true,
+		SendFn: func(game.GameEvent) {
+			_ = room.RoomInfo()
+			done <- struct{}{}
+		},
+	}
+
+	room.BroadcastSpectatorState()
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("BroadcastSpectatorState should not hold room lock while serializing or sending")
+	}
+}

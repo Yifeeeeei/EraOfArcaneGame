@@ -340,46 +340,68 @@ func (r *Room) sendGameEvent(event game.GameEvent, targetPlayer int) {
 // BroadcastState sends each connected player their own serialized view.
 func (r *Room) BroadcastState() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.Engine == nil {
+	engine := r.Engine
+	if engine == nil {
+		r.mu.Unlock()
 		return
 	}
+	type playerRecipient struct {
+		player int
+		sendFn func(game.GameEvent)
+	}
+	players := make([]playerRecipient, 0, 2)
 	for i := 0; i < 2; i++ {
 		if r.Players[i] == nil || r.Players[i].SendFn == nil {
 			continue
 		}
-		r.LogStateSync(i)
-		r.Players[i].SendFn(game.GameEvent{
+		players = append(players, playerRecipient{player: i, sendFn: r.Players[i].SendFn})
+	}
+	spectators := r.spectatorSendFnsLocked()
+	r.mu.Unlock()
+
+	for _, recipient := range players {
+		r.LogStateSync(recipient.player)
+		recipient.sendFn(game.GameEvent{
 			Type:   "state_sync",
-			Player: i,
-			Data:   r.Engine.GetStateForPlayer(i),
+			Player: recipient.player,
+			Data:   engine.GetStateForPlayer(recipient.player),
 		})
 	}
-	r.broadcastSpectatorStateLocked()
+	r.sendSpectatorState(engine, spectators)
 }
 
 // BroadcastSpectatorState sends the public serialized view to connected spectators.
 func (r *Room) BroadcastSpectatorState() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.Engine == nil {
+	engine := r.Engine
+	if engine == nil {
+		r.mu.Unlock()
 		return
 	}
-	r.broadcastSpectatorStateLocked()
+	spectators := r.spectatorSendFnsLocked()
+	r.mu.Unlock()
+
+	r.sendSpectatorState(engine, spectators)
 }
 
-func (r *Room) broadcastSpectatorStateLocked() {
+func (r *Room) spectatorSendFnsLocked() []func(game.GameEvent) {
+	sendFns := make([]func(game.GameEvent), 0, len(r.Spectators))
 	for _, spectator := range r.Spectators {
 		if spectator == nil || spectator.SendFn == nil {
 			continue
 		}
+		sendFns = append(sendFns, spectator.SendFn)
+	}
+	return sendFns
+}
+
+func (r *Room) sendSpectatorState(engine *game.Engine, sendFns []func(game.GameEvent)) {
+	for _, sendFn := range sendFns {
 		r.LogStateSync(-1)
-		spectator.SendFn(game.GameEvent{
+		sendFn(game.GameEvent{
 			Type:   "state_sync",
 			Player: -1,
-			Data:   r.Engine.GetStateForSpectator(),
+			Data:   engine.GetStateForSpectator(),
 		})
 	}
 }
