@@ -3,6 +3,7 @@ package match
 import (
 	"eraofarcane/game"
 	"testing"
+	"time"
 )
 
 func TestDisconnectPlayerAndSpectatorWithSameIDAreRoleSpecific(t *testing.T) {
@@ -40,5 +41,30 @@ func TestDisconnectPlayerAndSpectatorWithSameIDAreRoleSpecific(t *testing.T) {
 	}
 	if spectator := room.Spectators["shared"]; spectator == nil || spectator.IsConnected || spectator.SendFn != nil {
 		t.Fatalf("spectator should be marked disconnected, got %+v", spectator)
+	}
+}
+
+func TestSendGameEventSnapshotsBeforeSending(t *testing.T) {
+	room := &Room{
+		ID:         "event-send",
+		Spectators: make(map[string]*RoomSpectator),
+	}
+	done := make(chan struct{}, 1)
+	room.Spectators["watcher"] = &RoomSpectator{
+		ID:          "watcher",
+		Name:        "Watcher",
+		IsConnected: true,
+		SendFn: func(game.GameEvent) {
+			_ = room.RoomInfo()
+			done <- struct{}{}
+		},
+	}
+
+	room.sendGameEvent(game.GameEvent{Type: "game_start", Player: -1}, -1)
+
+	select {
+	case <-done:
+	case <-time.After(time.Second):
+		t.Fatal("sendGameEvent should not hold room lock while invoking SendFn")
 	}
 }

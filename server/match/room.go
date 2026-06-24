@@ -263,51 +263,72 @@ func (r *Room) IsReconnection(playerID string) bool {
 // StartGame initializes and starts the game
 func (r *Room) StartGame() error {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 
 	if !r.IsFull() {
+		r.mu.Unlock()
 		return fmt.Errorf("room is not full")
 	}
 	if r.IsStarted {
+		r.mu.Unlock()
 		return fmt.Errorf("game already started")
 	}
+	player0 := r.Players[0]
+	player1 := r.Players[1]
 
 	// Create engine with event callback
-	r.Engine = game.NewEngine(r.ID, func(event game.GameEvent, targetPlayer int) {
-		r.LogGameEvent(event, targetPlayer)
-		if targetPlayer == -1 {
-			// Send to both players
-			for i := 0; i < 2; i++ {
-				if r.Players[i] != nil && r.Players[i].SendFn != nil {
-					r.Players[i].SendFn(event)
-				}
-			}
-			for _, spectator := range r.Spectators {
-				if spectator != nil && spectator.SendFn != nil && isPublicSpectatorEvent(event) {
-					spectator.SendFn(event)
-				}
-			}
-		} else if targetPlayer >= 0 && targetPlayer < 2 {
-			if r.Players[targetPlayer] != nil && r.Players[targetPlayer].SendFn != nil {
-				r.Players[targetPlayer].SendFn(event)
-			}
-		}
+	engine := game.NewEngine(r.ID, func(event game.GameEvent, targetPlayer int) {
+		r.sendGameEvent(event, targetPlayer)
 	})
+	r.mu.Unlock()
 
 	// Setup game
 	firstPlayer := rand.Intn(2)
-	err := r.Engine.SetupGameWithFirstPlayer(
-		r.Players[0].Name, r.Players[0].Deck,
-		r.Players[1].Name, r.Players[1].Deck,
+	err := engine.SetupGameWithFirstPlayer(
+		player0.Name, player0.Deck,
+		player1.Name, player1.Deck,
 		firstPlayer,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to setup game: %w", err)
 	}
 
+	r.mu.Lock()
+	r.Engine = engine
 	r.IsStarted = true
+	r.mu.Unlock()
+
 	r.LogRoomEvent("game_started", r.stateSnapshot())
 	return nil
+}
+
+func (r *Room) sendGameEvent(event game.GameEvent, targetPlayer int) {
+	r.mu.Lock()
+	r.LogGameEvent(event, targetPlayer)
+
+	sendFns := make([]func(game.GameEvent), 0, 3)
+	if targetPlayer == -1 {
+		for i := 0; i < 2; i++ {
+			if r.Players[i] != nil && r.Players[i].SendFn != nil {
+				sendFns = append(sendFns, r.Players[i].SendFn)
+			}
+		}
+		if isPublicSpectatorEvent(event) {
+			for _, spectator := range r.Spectators {
+				if spectator != nil && spectator.SendFn != nil {
+					sendFns = append(sendFns, spectator.SendFn)
+				}
+			}
+		}
+	} else if targetPlayer >= 0 && targetPlayer < 2 {
+		if r.Players[targetPlayer] != nil && r.Players[targetPlayer].SendFn != nil {
+			sendFns = append(sendFns, r.Players[targetPlayer].SendFn)
+		}
+	}
+	r.mu.Unlock()
+
+	for _, sendFn := range sendFns {
+		sendFn(event)
+	}
 }
 
 // BroadcastState sends each connected player their own serialized view.
