@@ -77,6 +77,36 @@ func TestGameSetup(t *testing.T) {
 	}
 }
 
+func TestSpectatorStateHidesPrivateZones(t *testing.T) {
+	engine := setupTestEngine(t)
+
+	state := engine.GetStateForSpectator()
+	if state["is_spectator"] != true {
+		t.Fatalf("spectator state should be marked as spectator")
+	}
+	for _, key := range []string{"you", "opponent"} {
+		player, ok := state[key].(map[string]any)
+		if !ok {
+			t.Fatalf("%s should be a player state, got %T", key, state[key])
+		}
+		if _, ok := player["hand"]; ok {
+			t.Fatalf("%s should not expose hand", key)
+		}
+		if _, ok := player["skill_pool"]; ok {
+			t.Fatalf("%s should not expose skill pool", key)
+		}
+		if _, ok := player["deck_summary"]; ok {
+			t.Fatalf("%s should not expose deck summary", key)
+		}
+		if _, ok := player["hand_count"]; !ok {
+			t.Fatalf("%s should expose hand count", key)
+		}
+		if _, ok := player["skill_pool_count"]; !ok {
+			t.Fatalf("%s should expose skill pool count", key)
+		}
+	}
+}
+
 func TestMulligan(t *testing.T) {
 	engine := setupTestEngine(t)
 

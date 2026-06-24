@@ -21,7 +21,7 @@
 
         <div v-if="connected && !gameState" class="overlay">
             <div class="overlay-content">
-                <h2>等待对手加入...</h2>
+                <h2>{{ isSpectator ? '等待对局开始...' : '等待对手加入...' }}</h2>
                 <div>房间 #{{ roomID }}</div>
                 <a href="/" class="btn btn-primary" style="margin-top:16px;display:inline-block;text-decoration:none">返回大厅</a>
             </div>
@@ -30,7 +30,9 @@
         <!-- ═══ GAME OVER OVERLAY ═══ -->
         <div v-if="gameState && gameState.phase === 'game_over'" class="overlay">
             <div class="overlay-content">
-                <h2 v-if="gameState.winner === -2" class="draw">平 局</h2>
+                <h2 v-if="isSpectator && gameState.winner === -2" class="draw">平 局</h2>
+                <h2 v-else-if="isSpectator" class="win">玩家{{ gameState.winner + 1 }} 获胜</h2>
+                <h2 v-else-if="gameState.winner === -2" class="draw">平 局</h2>
                 <h2 v-else-if="gameState.winner === mySlot" class="win">胜 利</h2>
                 <h2 v-else class="lose">战 败</h2>
                 <a href="/" class="btn btn-primary" style="margin-top:16px;display:inline-block;text-decoration:none">返回大厅</a>
@@ -38,7 +40,7 @@
         </div>
 
         <!-- ═══ MULLIGAN OVERLAY ═══ -->
-        <div v-if="gameState && gameState.phase === 'mulligan' && !mulliganSubmitted" class="overlay">
+        <div v-if="!isSpectator && gameState && gameState.phase === 'mulligan' && !mulliganSubmitted" class="overlay">
             <div class="overlay-content mulligan-panel">
                 <h2>选择初始手牌</h2>
                 <div class="mulligan-order" :class="mySlot === gameState.first_player ? 'is-first' : 'is-second'">
@@ -58,7 +60,7 @@
         </div>
 
         <!-- ═══ DEFENSE WINDOW OVERLAY ═══ -->
-        <div v-if="showDefenseWindow" class="overlay defense-overlay">
+        <div v-if="!isSpectator && showDefenseWindow" class="overlay defense-overlay">
             <div class="overlay-content defense-panel">
                 <h2>对手施放法术！</h2>
                 <div v-if="gameState.pending_spell" class="spell-info">
@@ -474,7 +476,7 @@
                 <!-- Opponent Panel -->
                 <div class="player-panel is-opponent">
                     <div class="panel-header">
-                        <span class="name opp">{{ opponent.player_name || '对手' }}</span>
+                        <span class="name opp">{{ opponent.player_name || (isSpectator ? '玩家2' : '对手') }}</span>
                         <span v-if="!isMyTurn" class="turn-badge waiting">当前回合</span>
                     </div>
                     <div class="hero-row" v-if="opponent.hero">
@@ -515,7 +517,7 @@
                 <!-- My Panel -->
                 <div class="player-panel is-active">
                     <div class="panel-header">
-                        <span class="name">{{ myState.player_name || '你' }}</span>
+                        <span class="name">{{ myState.player_name || (isSpectator ? '玩家1' : '你') }}</span>
                         <span v-if="isMyTurn" class="turn-badge active">你的回合</span>
                     </div>
                     <div class="hero-row" v-if="myState.hero">
@@ -537,7 +539,7 @@
                         </div>
                     </div>
                     <div class="player-meta">
-                        <span>手牌 {{ myHand.length }}</span>
+                        <span>手牌 {{ isSpectator ? (myState.hand_count || 0) : myHand.length }}</span>
                         <span>卡组 {{ myState.deck_count || 0 }}</span>
                     </div>
                     <div class="elem-grid">
@@ -591,7 +593,7 @@
                 <div class="boards-wrapper">
                     <div class="player-board opponent-board">
                         <div class="board-title">
-                            <span>{{ opponent.player_name || '对手' }}</span>
+                            <span>{{ opponent.player_name || (isSpectator ? '玩家2' : '对手') }}</span>
                             <small>战场</small>
                         </div>
                         <!-- Opponent Grid (row 2 at top = back, row 0 at bottom = front) -->
@@ -689,7 +691,7 @@
 
                     <div class="player-board my-board">
                         <div class="board-title">
-                            <span>{{ myState.player_name || '你' }}</span>
+                            <span>{{ myState.player_name || (isSpectator ? '玩家1' : '你') }}</span>
                             <small>战场</small>
                         </div>
                         <!-- My Grid (row 0 = front) -->
@@ -818,7 +820,7 @@
                                 </div>
                             </div>
                             <div class="pile-controls">
-                                <button class="pile-button deck" @click="openPileView('me', 'deck')">
+                                <button v-if="!isSpectator" class="pile-button deck" @click="openPileView('me', 'deck')">
                                     <span>卡组</span><strong>{{ myState.deck_count || 0 }}</strong>
                                 </button>
                                 <button class="pile-button grave" @click="openPileView('me', 'graveyard')">
@@ -914,7 +916,7 @@
                 </div>
 
                 <!-- Test Room Tools -->
-                <div class="test-tools-panel" v-if="isTestRoom">
+                <div class="test-tools-panel" v-if="isTestRoom && !isSpectator">
                     <h3>测试工具</h3>
                     <div class="test-tool-row">
                         <input v-model.trim="testCardNumber" class="test-tool-input" placeholder="卡号，例如 2011002">
@@ -943,8 +945,11 @@
 
             <!-- ── HAND BAR ── -->
             <div class="hand-bar">
-                <div class="hand-label">手 牌</div>
+                <div class="hand-label">{{ isSpectator ? '观 战' : '手 牌' }}</div>
                 <div class="hand-cards">
+                    <div v-if="isSpectator" class="waiting">
+                        观战模式：隐藏双方手牌和技能池，只显示公开战场信息。
+                    </div>
                     <div v-for="card in myHand" :key="card.instance_id"
                          class="hand-card"
                          :data-instance-id="card.instance_id"
@@ -1054,8 +1059,9 @@
             const playerID = params.get('player_id');
             const playerName = params.get('player_name');
             const deckCode = params.get('deck_code');
+            const isSpectator = params.get('role') === 'spectator';
 
-            if (!roomID || !playerID || !deckCode) {
+            if (!roomID || !playerID || (!isSpectator && !deckCode)) {
                 error.value = '缺少参数，请从大厅进入';
                 connectionStatus.value = '连接失败';
             }
@@ -1098,13 +1104,13 @@
                 const card = equipmentReplaceRequest.value?.card || selectedHandCard.value;
                 return replaceableEquipmentForCard(card);
             });
-            const isMyTurn = computed(() => gameState.value && gameState.value.current_turn === mySlot.value);
+            const isMyTurn = computed(() => !isSpectator && gameState.value && gameState.value.current_turn === mySlot.value);
 
             function getMyTerrain(col, row) { return myState.value.terrain?.[col]?.[row] || null; }
             function getOpponentTerrain(col, row) { return opponent.value.terrain?.[col]?.[row] || null; }
 
             const showDefenseWindow = computed(() =>
-                gameState.value && gameState.value.phase === 'defense_window' &&
+                !isSpectator && gameState.value && gameState.value.phase === 'defense_window' &&
                 gameState.value.pending_spell && gameState.value.pending_spell.attacker !== mySlot.value
             );
 
@@ -1412,9 +1418,12 @@
             }
 
             function openPileView(owner, zone) {
+                if (isSpectator && zone === 'deck') return;
                 if (owner !== 'me' && zone === 'deck') return;
                 const player = owner === 'me' ? myState.value : opponent.value;
-                const ownerName = owner === 'me' ? (myState.value.player_name || '你') : (opponent.value.player_name || '对手');
+                const ownerName = owner === 'me'
+                    ? (myState.value.player_name || (isSpectator ? '玩家1' : '你'))
+                    : (opponent.value.player_name || (isSpectator ? '玩家2' : '对手'));
                 const cards = zone === 'deck'
                     ? groupedCards(player.deck_summary || [])
                     : groupedCards(player.graveyard || []);
@@ -1655,6 +1664,10 @@
             }
 
             function sendAction(action, data = {}) {
+                if (isSpectator) {
+                    addLog('观战模式不能操作对局');
+                    return;
+                }
                 if (ws && ws.readyState === WebSocket.OPEN)
                     ws.send(JSON.stringify({ action, data }));
             }
@@ -2523,6 +2536,7 @@
                 return Number.isFinite(id) ? id : null;
             }
             const isOwnPendingAction = computed(() =>
+                !isSpectator &&
                 pendingAction.value != null &&
                 (pendingPlayerID(pendingAction.value) === null || pendingPlayerID(pendingAction.value) === mySlot.value)
             );
@@ -2598,6 +2612,7 @@
                 if (playerID === undefined || playerID === null) return '';
                 const id = Number(playerID);
                 if (!Number.isFinite(id)) return '';
+                if (isSpectator) return `玩家${id + 1}`;
                 if (id === mySlot.value) return '你';
                 if (id === 1 - mySlot.value) return '对手';
                 return `玩家${id + 1}`;
@@ -2842,6 +2857,7 @@
 
             const guideKicker = computed(() => {
                 if (!gameState.value) return '连接';
+                if (isSpectator) return '观战';
                 if (gameState.value.phase === 'mulligan') return '起手';
                 if (showDefenseWindow.value) return '防御窗口';
                 if (showPendingAction.value) return '选择';
@@ -2851,6 +2867,17 @@
 
             const waitingNotice = computed(() => {
                 if (!gameState.value) return '';
+                if (isSpectator) {
+                    if (gameState.value.phase === 'waiting_action' && pendingAction.value) {
+                        return `等待玩家${pendingPlayerID(pendingAction.value) + 1}完成选择...`;
+                    }
+                    if (gameState.value.phase === 'defense_window' && gameState.value.pending_spell) {
+                        return `玩家${2 - gameState.value.pending_spell.attacker}正在防御...`;
+                    }
+                    if (gameState.value.phase === 'mulligan') return '双方正在确认起手...';
+                    if (gameState.value.phase === 'main') return `玩家${gameState.value.current_turn + 1}回合进行中...`;
+                    return '观战中。';
+                }
                 if (gameState.value.phase === 'mulligan' && mulliganSubmitted.value) return '等待对手确认起手...';
                 if (showPendingAction.value) return pendingAction.value?.prompt || '等待你完成选择...';
                 if (gameState.value.phase === 'waiting_action') return '等待对手完成选择...';
@@ -2862,6 +2889,7 @@
 
             const currentHint = computed(() => {
                 if (!gameState.value) return '等待游戏状态同步。';
+                if (isSpectator) return '观战模式会隐藏双方手牌、技能池和卡组顺序，只显示公开信息。';
                 if (gameState.value.phase === 'mulligan') return '查看起手牌，选择保留或全部重抽。';
                 if (showDefenseWindow.value) return '选择防御技能，或直接不防御。强化技能会叠加防御威力。';
                 if (showPendingAction.value) return pendingAction.value?.prompt || '请选择要处理的卡牌。';
@@ -2940,12 +2968,22 @@
             // WebSocket
             function connect() {
                 const wsProto = location.protocol === 'https:' ? 'wss:' : 'ws:';
-                const wsUrl = `${wsProto}//${location.host}/ws?room=${encodeURIComponent(roomID)}&player_id=${encodeURIComponent(playerID)}&player_name=${encodeURIComponent(playerName)}&deck_code=${encodeURIComponent(deckCode)}`;
+                const wsParams = new URLSearchParams({
+                    room: roomID,
+                    player_id: playerID,
+                    player_name: playerName || '观战者',
+                });
+                if (isSpectator) {
+                    wsParams.set('role', 'spectator');
+                } else {
+                    wsParams.set('deck_code', deckCode);
+                }
+                const wsUrl = `${wsProto}//${location.host}/ws?${wsParams.toString()}`;
                 ws = new WebSocket(wsUrl);
                 ws.onopen = () => {
                     connected.value = true;
                     connectionStatus.value = '已连接';
-                    addLog('已连接');
+                    addLog(isSpectator ? '已进入观战' : '已连接');
                     sendClientLog('info', 'websocket_open');
                 };
                 ws.onmessage = (e) => {
@@ -2967,7 +3005,10 @@
                 if (msg.type === 'joined') {
                     mySlot.value = msg.data.slot;
                     isTestRoom.value = !!msg.data.room?.test_mode;
-                    if (msg.data.reconnected) {
+                    if (isSpectator || msg.data.role === 'spectator') {
+                        mySlot.value = -1;
+                        addLog(`观战房间 #${msg.data.room_id}`);
+                    } else if (msg.data.reconnected) {
                         mulliganSubmitted.value = true;
                         addLog('重新连接成功');
                     } else {
@@ -3354,7 +3395,7 @@
                         sendAction,
                     };
                 }
-                if (roomID && playerID && deckCode) connect();
+                if (roomID && playerID && (isSpectator || deckCode)) connect();
             });
             onUnmounted(() => {
                 if (typeof window !== 'undefined') {
@@ -3366,7 +3407,7 @@
 
             return {
                 connected, connectionStatus, error,
-                gameState, mySlot, roomID, mulliganSubmitted, detailCard, hoverCard, recentDiscardCard, graveyardFlash, activePreviewCard,
+                gameState, mySlot, roomID, isSpectator, mulliganSubmitted, detailCard, hoverCard, recentDiscardCard, graveyardFlash, activePreviewCard,
                 selectedHandCard, selectedAttacker, selectedSkill, selectedItemSpellScroll, selectedBoostSkills, pileView, actionLog,
                 isTestRoom, testCardNumber, testElement, testElementAmount, ELEMENT_ORDER,
                 myState, opponent, myHand, opponentHandCards, mySkills, myEquipment, allMySkills, allMyBoundSkills,

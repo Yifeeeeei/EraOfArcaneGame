@@ -3331,6 +3331,51 @@ func (e *Engine) GetStateForPlayer(playerID int) map[string]any {
 	}
 }
 
+// GetStateForSpectator returns the public game state without either player's
+// hidden hand, skill-pool, or deck contents.
+func (e *Engine) GetStateForSpectator() map[string]any {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	state := e.State
+	return map[string]any{
+		"game_id":      state.GameID,
+		"phase":        state.Phase.String(),
+		"current_turn": state.CurrentTurn,
+		"first_player": state.FirstPlayer,
+		"turn_order":   map[string]string{"you": turnOrderLabel(0, state.FirstPlayer), "opponent": turnOrderLabel(1, state.FirstPlayer)},
+		"turn_number":  state.TurnNumber,
+		"winner":       state.Winner,
+		"is_spectator": true,
+		"you":          e.playerStateToInfo(state.Players[0], false),
+		"opponent":     e.playerStateToInfo(state.Players[1], false),
+		"pending_spell": func() any {
+			if state.PendingSpell != nil {
+				return map[string]any{
+					"attacker":      state.PendingSpell.AttackerID,
+					"skill":         cardToInfo(state.PendingSpell.Skill),
+					"target":        state.PendingSpell.Target,
+					"power":         state.PendingSpell.TotalPower,
+					"power_sources": state.PendingSpell.PowerSources,
+					"boost_skills":  cardsToInfo(state.PendingSpell.BoostSkills),
+					"extra_targets": state.PendingSpell.ExtraTargets,
+				}
+			}
+			return nil
+		}(),
+		"pending_action": func() any {
+			if state.PendingAction != nil {
+				return map[string]any{
+					"type":      state.PendingAction.Type,
+					"player_id": state.PendingAction.PlayerID,
+					"prompt":    state.PendingAction.Prompt,
+				}
+			}
+			return nil
+		}(),
+	}
+}
+
 // Helper functions
 
 func (e *Engine) findCardOnField(ps *PlayerState, instanceID string) *CardInstance {
