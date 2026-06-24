@@ -90,10 +90,11 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 
 		defer func() {
 			conn.Close()
-			room.DisconnectPlayer(playerID)
 			if isSpectator {
+				room.DisconnectSpectator(playerID)
 				log.Printf("Spectator %s disconnected from room %s", playerID, roomID)
 			} else {
+				room.DisconnectPlayer(playerID)
 				log.Printf("Player %s disconnected from room %s", playerID, roomID)
 			}
 		}()

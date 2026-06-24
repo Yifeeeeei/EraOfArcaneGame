@@ -194,13 +194,6 @@ func (r *Room) DisconnectPlayer(playerID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if spectator := r.Spectators[playerID]; spectator != nil {
-		spectator.SendFn = nil
-		spectator.IsConnected = false
-		r.LogPlayerEvent("spectator_disconnected", -1, playerID, nil)
-		return
-	}
-
 	for i := 0; i < 2; i++ {
 		if r.Players[i] != nil && r.Players[i].ID == playerID {
 			if r.IsStarted {
@@ -215,6 +208,19 @@ func (r *Room) DisconnectPlayer(playerID string) {
 			}
 			break
 		}
+	}
+}
+
+// DisconnectSpectator marks a read-only observer as disconnected without
+// touching player slots that may share the same browser-generated ID.
+func (r *Room) DisconnectSpectator(spectatorID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if spectator := r.Spectators[spectatorID]; spectator != nil {
+		spectator.SendFn = nil
+		spectator.IsConnected = false
+		r.LogPlayerEvent("spectator_disconnected", -1, spectatorID, nil)
 	}
 }
 
@@ -353,6 +359,9 @@ func (r *Room) broadcastSpectatorStateLocked() {
 
 // RoomInfo returns a serializable room info
 func (r *Room) RoomInfo() map[string]any {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	info := map[string]any{
 		"id":         r.ID,
 		"is_started": r.IsStarted,
