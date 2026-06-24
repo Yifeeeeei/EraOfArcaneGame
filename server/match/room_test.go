@@ -47,6 +47,8 @@ func TestDisconnectPlayerAndSpectatorWithSameIDAreRoleSpecific(t *testing.T) {
 func TestSendGameEventSnapshotsBeforeSending(t *testing.T) {
 	room := &Room{
 		ID:         "event-send",
+		IsStarted:  true,
+		Engine:     game.NewEngine("event-send", nil),
 		Spectators: make(map[string]*RoomSpectator),
 	}
 	done := make(chan struct{}, 1)
@@ -66,5 +68,27 @@ func TestSendGameEventSnapshotsBeforeSending(t *testing.T) {
 	case <-done:
 	case <-time.After(time.Second):
 		t.Fatal("sendGameEvent should not hold room lock while invoking SendFn")
+	}
+}
+
+func TestSendGameEventSkipsSpectatorsBeforeStartPublished(t *testing.T) {
+	room := &Room{
+		ID:         "setup-events",
+		Spectators: make(map[string]*RoomSpectator),
+	}
+	called := false
+	room.Spectators["watcher"] = &RoomSpectator{
+		ID:          "watcher",
+		Name:        "Watcher",
+		IsConnected: true,
+		SendFn: func(game.GameEvent) {
+			called = true
+		},
+	}
+
+	room.sendGameEvent(game.GameEvent{Type: "phase_change", Player: -1}, -1)
+
+	if called {
+		t.Fatal("setup-time public events should not reach spectators before state_sync baseline is available")
 	}
 }

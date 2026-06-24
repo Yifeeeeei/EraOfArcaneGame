@@ -312,7 +312,7 @@ func (r *Room) sendGameEvent(event game.GameEvent, targetPlayer int) {
 				sendFns = append(sendFns, r.Players[i].SendFn)
 			}
 		}
-		if isPublicSpectatorEvent(event) {
+		if r.IsStarted && r.Engine != nil && isPublicSpectatorEvent(event) {
 			for _, spectator := range r.Spectators {
 				if spectator != nil && spectator.SendFn != nil {
 					sendFns = append(sendFns, spectator.SendFn)
