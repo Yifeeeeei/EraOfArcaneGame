@@ -19,7 +19,7 @@ func (Card1121014Firethorn) OnDeath(ctx *EffectContext) error {
 			}
 			target := ctx.Engine.findCardOnField(ctx.Engine.State.Players[ctx.OpponentID], selected[0])
 			if target != nil {
-				target.Statuses[StatusBurn]++
+				ctx.Engine.addStatus(target, StatusBurn, 1)
 			}
 		})
 	return nil

@@ -21,7 +21,9 @@ func (Card3321015StaticBarrier) OnDefend(ctx *EffectContext) error {
 		if unit == nil {
 			continue
 		}
-		unit.Statuses[StatusStun]++
+		if !ctx.Engine.addStatus(unit, StatusStun, 1) {
+			continue
+		}
 		ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 			"source": cardToInfo(ctx.Source),
 			"target": cardToInfo(unit),

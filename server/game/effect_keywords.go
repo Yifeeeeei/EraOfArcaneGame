@@ -24,6 +24,9 @@ func (e *Engine) ApplyKeywordOnSkillUse(skill *CardInstance) {
 	if cd := skillCooldown(skill); cd > 0 {
 		skill.Statuses[StatusCooldown] = cd
 	}
+	if skill != nil && skill.Card != nil && skill.Card.Duration > 0 {
+		skill.Statuses[StatusAbilityDuration] = skill.Card.Duration
+	}
 }
 
 // IsInSpellRange checks if a target position is in the caster's spell range

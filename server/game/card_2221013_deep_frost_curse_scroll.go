@@ -19,7 +19,9 @@ func (Card2221013DeepFrostCurseScroll) OnUseItem(ctx *EffectContext) error {
 			if target == nil {
 				return
 			}
-			target.Statuses[StatusFreeze] += 99
+			if !ctx.Engine.addStatus(target, StatusFreeze, 99) {
+				return
+			}
 			ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 				"source": cardToInfo(ctx.Source),
 				"target": cardToInfo(target),

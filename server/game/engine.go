@@ -3081,6 +3081,7 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 	e.applyLoadGainAtTurnEnd(ps)
 
 	e.clearExpiredTemporaryModifiers(ps.PlayerID)
+	e.processAbilityDurations(ps)
 
 	// Remove 临时 (temporary) units before the cleanup/reset steps.
 	e.HandleTemporaryUnits(ps)
@@ -3128,6 +3129,18 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 	}
 }
 
+func (e *Engine) processAbilityDurations(ps *PlayerState) {
+	for _, card := range e.getAllFieldCards(ps) {
+		if card == nil || card.Statuses[StatusAbilityDuration] <= 0 {
+			continue
+		}
+		card.Statuses[StatusAbilityDuration]--
+		if card.Statuses[StatusAbilityDuration] <= 0 {
+			delete(card.Statuses, StatusAbilityDuration)
+		}
+	}
+}
+
 // processEndOfTurnStatuses processes status marks at end of turn
 func (e *Engine) processEndOfTurnStatuses(ps *PlayerState) {
 	allCards := e.getAllFieldCards(ps)
@@ -3135,8 +3148,11 @@ func (e *Engine) processEndOfTurnStatuses(ps *PlayerState) {
 	for _, card := range allCards {
 		// 点燃: remove 1 stack, deal 1 fire damage
 		if card.Statuses[StatusBurn] > 0 {
+			effective := e.hasEffectiveStatus(card, StatusBurn)
 			card.Statuses[StatusBurn]--
-			e.dealDamageWithExtra(card, 1, ps.PlayerID, map[string]any{"status_damage": StatusBurn})
+			if effective {
+				e.dealDamageWithExtra(card, 1, ps.PlayerID, map[string]any{"status_damage": StatusBurn})
+			}
 		}
 		// 冻结: remove 1 stack
 		if card.Statuses[StatusFreeze] > 0 {
@@ -3441,6 +3457,7 @@ func cardToInfo(ci *CardInstance) map[string]any {
 	}
 	info := map[string]any{
 		"instance_id":      ci.InstanceID,
+		"owner":            ci.OwnerID,
 		"number":           ci.Card.Number,
 		"name":             ci.Card.Name,
 		"type":             ci.Card.Type,

@@ -9,8 +9,16 @@ func (Card1111002InfernoGeneral) OnUnitEnter(ctx *EffectContext) error {
 	if ctx.Target == nil || ctx.Target.OwnerID == ctx.PlayerID {
 		return nil
 	}
-	ctx.Target.Statuses[StatusBurn]++
-	ctx.Target.Statuses[StatusPetrify] += 2
+	statuses := map[string]int{}
+	if ctx.Engine.addStatus(ctx.Target, StatusBurn, 1) {
+		statuses[StatusBurn] = 1
+	}
+	if ctx.Engine.addStatus(ctx.Target, StatusPetrify, 2) {
+		statuses[StatusPetrify] = 2
+	}
+	if len(statuses) == 0 {
+		return nil
+	}
 	ctx.Engine.emit(GameEvent{
 		Type:   "effect_trigger",
 		Player: ctx.PlayerID,
@@ -18,7 +26,7 @@ func (Card1111002InfernoGeneral) OnUnitEnter(ctx *EffectContext) error {
 			"source":   cardToInfo(ctx.Source),
 			"target":   cardToInfo(ctx.Target),
 			"effect":   "apply_status",
-			"statuses": map[string]int{StatusBurn: 1, StatusPetrify: 2},
+			"statuses": statuses,
 		},
 	})
 	return nil

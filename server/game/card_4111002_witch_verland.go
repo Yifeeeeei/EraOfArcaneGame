@@ -7,7 +7,7 @@ type Card4111002WitchVerland struct{ AlwaysActive }
 func (Card4111002WitchVerland) ID() string   { return "4111002" }
 func (Card4111002WitchVerland) Name() string { return "女巫 维兰德" }
 func (Card4111002WitchVerland) OnPerTurn(ctx *EffectContext) error {
-	ctx.Source.Statuses[StatusBurn]++
+	ctx.Engine.addStatus(ctx.Source, StatusBurn, 1)
 	if effectiveElementsGain(ctx.Source)[model.ElementFire] > 0 {
 		addElementsGainBonus(ctx.Source, model.ElementFire, -1)
 		ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementArcane, 1, ctx.Source)

@@ -14,8 +14,7 @@ func (Card2121005DivineFlamePotion) OnUseItem(ctx *EffectContext) error {
 		ExpiresTurn:      ctx.Engine.State.TurnNumber + 2,
 	})
 	hero := ctx.Engine.State.Players[ctx.PlayerID].Hero
-	if hero != nil {
-		hero.Statuses[StatusBurn]++
+	if hero != nil && ctx.Engine.addStatus(hero, StatusBurn, 1) {
 		ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 			"source": cardToInfo(ctx.Source),
 			"target": cardToInfo(hero),

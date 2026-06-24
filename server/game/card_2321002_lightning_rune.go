@@ -13,7 +13,9 @@ func (Card2321002LightningRune) OnConsume(ctx *EffectContext) error {
 		if unit == nil {
 			return
 		}
-		unit.Statuses[StatusStun]++
+		if !ctx.Engine.addStatus(unit, StatusStun, 1) {
+			return
+		}
 		ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 			"source": cardToInfo(ctx.Source),
 			"target": cardToInfo(unit),

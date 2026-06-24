@@ -77,7 +77,7 @@ func (Card1221016IceSpikeFortress) OnDamaged(ctx *EffectContext) error {
 				ctx.Engine.dealDamageWithExtra(target, 1, target.OwnerID, map[string]any{"damage_source": "effect", "attacker": ctx.PlayerID})
 				return
 			}
-			target.Statuses[StatusFreeze]++
+			ctx.Engine.addStatus(target, StatusFreeze, 1)
 		})
 	return nil
 }
@@ -215,10 +215,10 @@ func newForestStorage() CardBehavior {
 
 func newBlessingStaff() CardBehavior {
 	canUse := func(ctx *EffectContext) bool {
-		return len(ctx.Engine.friendlyUnits(ctx.PlayerID, false, nil)) > 0
+		return len(ctx.Engine.friendlyUnits(ctx.PlayerID, true, nil)) > 0
 	}
 	return markerEquipment{id: "2521014", name: "祝福之杖", counter: blessingStaffCounter, counters: 3, canUse: canUse, effect: func(ctx *EffectContext) error {
-		candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, nil)
+		candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, true, nil)
 		ctx.Engine.SetPendingAction(ctx.PlayerID, "blessing_staff", "祝福之杖:选择1个友方单位+1血", candidates, 1, 1, func(selected []string) {
 			target := selectedUnitFromCandidates(ctx.Engine, selected, candidates)
 			if target != nil {

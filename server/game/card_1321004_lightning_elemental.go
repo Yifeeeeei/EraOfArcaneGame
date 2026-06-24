@@ -18,7 +18,7 @@ func (Card1321004LightningElemental) OnEnter(ctx *EffectContext) error {
 		func(selected []string) {
 			target := selectedUnitFromCandidates(ctx.Engine, selected, candidates)
 			if target != nil {
-				target.Statuses[StatusStun]++
+				ctx.Engine.addStatus(target, StatusStun, 1)
 			}
 		})
 	return nil

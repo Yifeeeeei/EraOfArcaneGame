@@ -19,7 +19,7 @@ func (Card2621008SoulDevourScroll) OnSpellHit(ctx *EffectContext) error {
 			for _, id := range selected {
 				for _, skill := range ctx.Engine.State.Players[ctx.OpponentID].Skills {
 					if skill != nil && skill.InstanceID == id {
-						skill.Statuses[StatusWeaken]++
+						ctx.Engine.addStatus(skill, StatusWeaken, 1)
 					}
 				}
 			}

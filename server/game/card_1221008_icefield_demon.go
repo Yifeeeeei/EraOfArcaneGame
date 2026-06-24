@@ -10,7 +10,7 @@ func (Card1221008IcefieldDemon) OnEnter(ctx *EffectContext) error {
 		if target == nil || target.Position == nil || !ctx.Engine.IsInSpellRange(ctx.PlayerID, target.Position.Col, target.Position.Row, false) {
 			continue
 		}
-		target.Statuses[StatusFreeze]++
+		ctx.Engine.addStatus(target, StatusFreeze, 1)
 	}
 	return nil
 }

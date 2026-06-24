@@ -205,7 +205,7 @@ func (Card1121013Arsonist) OnSpellCast(ctx *EffectContext) error {
 		func(selected []string) {
 			target := selectedUnitFromCandidates(ctx.Engine, selected, candidates)
 			if target != nil {
-				target.Statuses[StatusBurn]++
+				ctx.Engine.addStatus(target, StatusBurn, 1)
 			}
 		})
 	return nil
@@ -277,7 +277,7 @@ func (Card1211003SnowWoman) OnPerTurn(ctx *EffectContext) error {
 		func(selected []string) {
 			target := selectedUnitFromCandidates(ctx.Engine, selected, targets)
 			if target != nil {
-				target.Statuses[StatusFreeze]++
+				ctx.Engine.addStatus(target, StatusFreeze, 1)
 			}
 		})
 	return nil
@@ -731,7 +731,7 @@ func (Card1621013WordSpirit) OnSpellCast(ctx *EffectContext) error {
 	}
 	for _, skill := range ctx.Engine.State.Players[ctx.OpponentID].Skills {
 		if skill != nil && skill.IsHorizontal {
-			skill.Statuses[StatusWeaken]++
+			ctx.Engine.addStatus(skill, StatusWeaken, 1)
 		}
 	}
 	return nil

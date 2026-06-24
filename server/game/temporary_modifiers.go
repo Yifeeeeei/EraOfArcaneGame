@@ -337,7 +337,9 @@ func (e *Engine) applyTemporarySpellHitStatus(playerID int, skill *CardInstance,
 			if unit == nil {
 				continue
 			}
-			unit.Statuses[modifier.Status] += amount
+			if !e.addStatus(unit, modifier.Status, amount) {
+				continue
+			}
 			e.emit(GameEvent{
 				Type:   "effect_trigger",
 				Player: playerID,

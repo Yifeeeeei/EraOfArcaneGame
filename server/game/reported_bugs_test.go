@@ -1603,9 +1603,11 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 	})
 
-	t.Run("2521014 祝福之杖 does not pay consume or marker cost without a friendly companion target", func(t *testing.T) {
+	t.Run("2521014 祝福之杖 can target the friendly hero as a friendly unit", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
+		hero := placeUnit(baseCard(t, "4011001"), 0, 1, 1, engine)
+		p0.Hero = hero
 		staff := NewCardInstance(baseCard(t, "2521014"), 0, 1)
 		staff.IsHorizontal = false
 		staff.Statuses[blessingStaffCounter] = 3
@@ -1615,11 +1617,19 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 			"instance_id":  staff.InstanceID,
 			"ability_type": "per_turn",
 		}})
-		if err == nil {
-			t.Fatalf("blessing staff should reject use without a friendly companion target")
+		if err != nil {
+			t.Fatalf("blessing staff should allow a friendly hero unit target: %v", err)
 		}
-		if staff.IsHorizontal || staff.Statuses[blessingStaffCounter] != 3 || staff.UsedThisTurn != 0 || engine.State.PendingAction != nil {
-			t.Fatalf("blessing staff should not pay costs or leave pending on invalid use, horizontal=%v statuses=%v used=%d pending=%+v", staff.IsHorizontal, staff.Statuses, staff.UsedThisTurn, engine.State.PendingAction)
+		if engine.State.PendingAction == nil {
+			t.Fatalf("blessing staff should ask which friendly unit to bless")
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{hero.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve blessing staff on hero: %v", err)
+		}
+		if hero.CurrentLife != hero.Card.Life+1 || hero.Statuses["max_life_bonus"] != 1 {
+			t.Fatalf("blessing staff should add life to friendly hero unit, life=%d statuses=%v", hero.CurrentLife, hero.Statuses)
 		}
 	})
 
@@ -2794,6 +2804,49 @@ func TestShelterRuneCancelsLowPowerSpellHitBeforeDamage(t *testing.T) {
 	}
 }
 
+func TestIssue48AbilityDurationExpiresAtOwnersTurnEnd(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+	barrier := readySkill(baseCard(t, "3121008"), 0)
+	fireball := readySkill(baseCard(t, "3121001"), 0)
+	p0.Skills[0] = barrier
+	p0.Skills[1] = fireball
+	p0.Elements[model.ElementFire] = 10
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": barrier.InstanceID,
+	}}); err != nil {
+		t.Fatalf("cast fire barrier: %v", err)
+	}
+	if barrier.Statuses[StatusAbilityDuration] != 1 {
+		t.Fatalf("duration skill should be active after use, statuses=%v", barrier.Statuses)
+	}
+	if got := engine.effectiveSpellPower(0, fireball, nil, SpellTarget{Type: "unit", Position: *target.Position}); got != fireball.Card.Power+2 {
+		t.Fatalf("fire barrier should boost fire spells while active, got=%d", got)
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "end_turn", Data: map[string]any{}}); err != nil {
+		t.Fatalf("end turn: %v", err)
+	}
+	if barrier.Statuses[StatusAbilityDuration] != 0 {
+		t.Fatalf("duration 1 should expire at owner's turn end, statuses=%v", barrier.Statuses)
+	}
+	if got := engine.effectiveSpellPower(0, fireball, nil, SpellTarget{Type: "unit", Position: *target.Position}); got != fireball.Card.Power {
+		t.Fatalf("expired fire barrier should no longer boost fire spells, got=%d", got)
+	}
+}
+
+func TestIssue48DivineGuardianRejectsCommonNegativeStatusApplication(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	guardian := placeUnit(baseCard(t, "1521010"), 1, 1, 0, engine)
+	spell := readySkill(baseCard(t, "2221003"), 0)
+
+	engine.applyExplicitSpellHitStatuses(spell, guardian)
+	if guardian.Statuses[StatusFreeze] != 0 {
+		t.Fatalf("divine guardian should not receive negative spell-hit statuses, statuses=%v", guardian.Statuses)
+	}
+}
+
 func TestBoundSkillAttachesToHostInsteadOfSkillPool(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
@@ -3465,6 +3518,7 @@ func TestIssue29PlaytestRegressions(t *testing.T) {
 		p0.Skills[0] = barrier
 		p0.Skills[1] = main
 		p0.Skills[2] = boost
+		barrier.Statuses[StatusAbilityDuration] = 1
 
 		withoutBarrier := main.Card.Power + boost.Card.Power
 		withBarrier := engine.effectiveSpellPower(0, main, []*CardInstance{boost}, SpellTarget{Type: "unit", Position: Position{Col: 1, Row: 0}})
@@ -4330,6 +4384,7 @@ func TestPassionOfFireDrawsWhenFriendlyFireSpellHits(t *testing.T) {
 	p0 := engine.State.Players[0]
 	p0.Skills[0] = readySkill(baseCard(t, "3121007"), 0)
 	p0.Skills[1] = readySkill(baseCard(t, "3121001"), 0)
+	p0.Skills[0].Statuses[StatusAbilityDuration] = 1
 	p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1)}
 	p0.Elements[model.ElementFire] = 1
 	placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
@@ -5464,6 +5519,7 @@ func TestFireBarrierBoostsFireSpellsAndAddsBurn(t *testing.T) {
 	target := placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
 	p0.Skills[0] = readySkill(baseCard(t, "3121008"), 0)
 	p0.Skills[1] = readySkill(baseCard(t, "3121001"), 0)
+	p0.Skills[0].Statuses[StatusAbilityDuration] = 1
 	p0.Elements[model.ElementFire] = 3
 
 	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
@@ -6224,6 +6280,7 @@ func TestSplashBlizzardAndSoulBiteEffects(t *testing.T) {
 		target.CurrentLife = 2
 		p0.Skills[0] = readySkill(baseCard(t, "3221002"), 0)
 		p0.Skills[1] = readySkill(baseCard(t, "3221015"), 0)
+		p0.Skills[1].Statuses[StatusAbilityDuration] = 1
 		p0.Elements[model.ElementWater] = 10
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
@@ -6286,6 +6343,7 @@ func TestStormEarthAndDeadFuryEffects(t *testing.T) {
 		placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
 		p0.Skills[0] = readySkill(baseCard(t, "3321005"), 0)
 		p0.Skills[1] = readySkill(baseCard(t, "3301001"), 0)
+		p0.Skills[1].Statuses[StatusAbilityDuration] = 1
 		p0.Hand = []*CardInstance{
 			NewCardInstance(baseCard(t, "1021001"), 0, 1),
 			NewCardInstance(baseCard(t, "1021002"), 0, 1),
@@ -6440,6 +6498,7 @@ func TestDefenseAndPositionSkillEffects(t *testing.T) {
 		back := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
 		p0.Skills[0] = readySkill(baseCard(t, "3421013"), 0)
 		p0.Skills[1] = readySkill(baseCard(t, "3321012"), 0)
+		p0.Skills[1].Statuses[StatusAbilityDuration] = 1
 		p0.Elements[model.ElementEarth] = 10
 		p0.Elements[model.ElementAir] = 10
 
@@ -6640,6 +6699,7 @@ func TestRemainingPassiveSkillEffects(t *testing.T) {
 		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
 		p0.Skills[0] = readySkill(baseCard(t, "3121001"), 0)
 		p0.Skills[1] = readySkill(baseCard(t, "3421015"), 0)
+		p0.Skills[1].Statuses[StatusAbilityDuration] = 2
 		p0.Elements[model.ElementFire] = 10
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
@@ -7537,15 +7597,49 @@ func TestReviewCardsNegativeStatusImmunity(t *testing.T) {
 		}
 	})
 
+	t.Run("divine guardian rejects rune and pending-action negative statuses", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		guardian := placeUnit(baseCard(t, "1521010"), 1, 1, 0, engine)
+
+		fireRune := NewCardInstance(baseCard(t, "2121002"), 0, 1)
+		engine.triggerEffects(TriggerOnConsume, fireRune, guardian, map[string]any{"consumed_player": 1})
+		if guardian.Statuses[StatusBurn] != 0 {
+			t.Fatalf("divine guardian should reject fire rune burn, statuses=%v", guardian.Statuses)
+		}
+
+		frostRune := NewCardInstance(baseCard(t, "2221002"), 0, 1)
+		engine.triggerEffects(TriggerOnConsume, frostRune, guardian, map[string]any{"consumed_player": 1})
+		if guardian.Statuses[StatusFreeze] != 0 {
+			t.Fatalf("divine guardian should reject frost rune freeze, statuses=%v", guardian.Statuses)
+		}
+
+		frostPuppet := NewCardInstance(baseCard(t, "1221004"), 0, 1)
+		engine.triggerEffects(TriggerOnEnter, frostPuppet, nil, nil)
+		if engine.State.PendingAction == nil {
+			t.Fatalf("frost puppet should ask for a freeze target")
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{guardian.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve frost puppet target: %v", err)
+		}
+		if guardian.Statuses[StatusFreeze] != 0 {
+			t.Fatalf("divine guardian should reject frost puppet freeze, statuses=%v", guardian.Statuses)
+		}
+	})
+
 	t.Run("blessing priest protects itself and adjacent units while marks remain visible", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		priest := placeUnit(baseCard(t, "1421002"), 0, 1, 1, engine)
 		adjacent := placeUnit(baseCard(t, "1021013"), 0, 1, 0, engine)
 		far := placeUnit(baseCard(t, "1021013"), 0, 0, 0, engine)
-		for _, unit := range []*CardInstance{priest, adjacent, far} {
-			unit.Statuses[StatusStun] = 1
-			unit.Statuses[StatusFreeze] = 1
+		for _, unit := range []*CardInstance{priest, adjacent} {
+			if !engine.addStatus(unit, StatusStun, 1) || !engine.addStatus(unit, StatusFreeze, 1) {
+				t.Fatalf("priest protection should allow negative marks to be added, unit=%s statuses=%v", unit.Card.Number, unit.Statuses)
+			}
 		}
+		far.Statuses[StatusStun] = 1
+		far.Statuses[StatusFreeze] = 1
 
 		if !engine.canConsumeCard(priest) || !engine.canConsumeCard(adjacent) {
 			t.Fatalf("priest and adjacent unit should ignore stun")
@@ -7565,6 +7659,39 @@ func TestReviewCardsNegativeStatusImmunity(t *testing.T) {
 		}
 		if priest.Statuses[StatusStun] != 1 || adjacent.Statuses[StatusFreeze] != 1 {
 			t.Fatalf("protection should not erase visible marks, priest=%v adjacent=%v", priest.Statuses, adjacent.Statuses)
+		}
+	})
+
+	t.Run("fire dancer protection keeps negative marks visible but ineffective", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		fireUnit := placeUnit(baseCard(t, "1121001"), 0, 1, 0, engine)
+		fireSkill := readySkill(baseCard(t, "3121001"), 0)
+		p0.Skills[0] = fireSkill
+		dancer := placeUnit(baseCard(t, "1121016"), 0, 1, 1, engine)
+		engine.triggerEffects(TriggerOnEnter, dancer, nil, nil)
+
+		if !engine.addStatus(fireUnit, StatusBurn, 1) || !engine.addStatus(fireUnit, StatusFreeze, 1) || !engine.addStatus(fireSkill, StatusWeaken, 2) {
+			t.Fatalf("fire dancer protection should allow negative marks to be added, unit=%v skill=%v", fireUnit.Statuses, fireSkill.Statuses)
+		}
+		if fireUnit.Statuses[StatusBurn] != 1 || fireUnit.Statuses[StatusFreeze] != 1 || fireSkill.Statuses[StatusWeaken] != 2 {
+			t.Fatalf("fire dancer protection should keep marks visible, unit=%v skill=%v", fireUnit.Statuses, fireSkill.Statuses)
+		}
+		fireUnit.IsHorizontal = true
+		engine.resetCards(p0)
+		if fireUnit.IsHorizontal {
+			t.Fatalf("fire dancer protection should make freeze ineffective for reset")
+		}
+		if got := engine.effectiveSkillPowerForPurposeWithData(0, fireSkill, nil, skillPurposeAttack, map[string]any{"stat": "power"}); got != fireSkill.Card.Power {
+			t.Fatalf("fire dancer protection should make weaken ineffective, got=%d want=%d", got, fireSkill.Card.Power)
+		}
+		life := fireUnit.CurrentLife
+		engine.processEndOfTurnStatuses(p0)
+		if fireUnit.CurrentLife != life {
+			t.Fatalf("fire dancer protection should make burn damage ineffective, life=%d want=%d", fireUnit.CurrentLife, life)
+		}
+		if fireUnit.Statuses[StatusBurn] != 0 || fireUnit.Statuses[StatusFreeze] != 0 || fireSkill.Statuses[StatusWeaken] != 1 {
+			t.Fatalf("negative marks should still decay normally, unit=%v skill=%v", fireUnit.Statuses, fireSkill.Statuses)
 		}
 	})
 }

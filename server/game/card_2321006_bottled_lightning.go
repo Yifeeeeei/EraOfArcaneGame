@@ -30,7 +30,9 @@ func (Card2321006BottledLightning) OnUseItem(ctx *EffectContext) error {
 			if target == nil || zone != "unit" {
 				return
 			}
-			target.Statuses[StatusStun] += 2
+			if !ctx.Engine.addStatus(target, StatusStun, 2) {
+				return
+			}
 			ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 				"source": cardToInfo(ctx.Source),
 				"target": cardToInfo(target),
