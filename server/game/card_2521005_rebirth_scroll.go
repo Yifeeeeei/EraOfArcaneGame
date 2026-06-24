@@ -24,7 +24,23 @@ func (Card2521005RebirthScroll) OnUseItem(ctx *EffectContext) error {
 			if len(selected) == 0 {
 				return
 			}
-			ctx.Engine.reviveCompanionFromGraveyard(ctx.PlayerID, selected[0])
+			reviveID := selected[0]
+			positions := ctx.Engine.friendlyEmptyUnitPositions(ctx.PlayerID)
+			if len(positions) == 0 {
+				return
+			}
+			ctx.Engine.SetPendingAction(ctx.PlayerID, "rebirth_scroll_position",
+				"选择复活位置", positions, 1, 1,
+				func(posSelected []string) {
+					if len(posSelected) == 0 {
+						return
+					}
+					pos, ok := positionFromSelectionID(posSelected[0])
+					if !ok {
+						return
+					}
+					ctx.Engine.reviveCompanionFromGraveyardWithLifeAtPosition(ctx.PlayerID, reviveID, 0, true, pos)
+				})
 		})
 	return nil
 }
