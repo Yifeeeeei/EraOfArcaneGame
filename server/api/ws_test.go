@@ -53,6 +53,19 @@ func connectWS(t *testing.T, server *httptest.Server, roomID, playerID, playerNa
 	return conn
 }
 
+func connectSpectatorWS(t *testing.T, server *httptest.Server, roomID, spectatorID, spectatorName string) *websocket.Conn {
+	t.Helper()
+
+	wsURL := "ws" + strings.TrimPrefix(server.URL, "http") +
+		"/ws?room=" + roomID + "&player_id=" + spectatorID + "&player_name=" + spectatorName + "&role=spectator"
+
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
+	if err != nil {
+		t.Fatalf("Spectator WebSocket dial failed: %v", err)
+	}
+	return conn
+}
+
 func readMessage(t *testing.T, conn *websocket.Conn) map[string]any {
 	t.Helper()
 	conn.SetReadDeadline(time.Now().Add(5 * time.Second))
@@ -134,6 +147,69 @@ func TestWebSocketGameFlow(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	t.Log("Full WebSocket game flow test passed!")
+}
+
+func TestWebSocketSpectatorCanWatchWithoutDeck(t *testing.T) {
+	server, rm := setupTestServer(t)
+	defer server.Close()
+
+	room := rm.CreateRoom()
+	roomID := room.ID
+
+	conn1 := connectWS(t, server, roomID, "p1", "Player1")
+	defer conn1.Close()
+	if msg := readMessage(t, conn1); msg["type"] != "joined" {
+		t.Fatalf("expected p1 joined, got %v", msg["type"])
+	}
+
+	conn2 := connectWS(t, server, roomID, "p2", "Player2")
+	defer conn2.Close()
+	if msg := readMessage(t, conn2); msg["type"] != "joined" {
+		t.Fatalf("expected p2 joined, got %v", msg["type"])
+	}
+
+	spectator := connectSpectatorWS(t, server, roomID, "s1", "Watcher")
+	defer spectator.Close()
+
+	joined := readMessage(t, spectator)
+	if joined["type"] != "joined" {
+		t.Fatalf("expected spectator joined, got %v", joined["type"])
+	}
+	data := joined["data"].(map[string]any)
+	if got := data["slot"]; got != float64(-1) {
+		t.Fatalf("spectator should not occupy a player slot, got %v", got)
+	}
+
+	stateMsg := readMessage(t, spectator)
+	if stateMsg["type"] != "game_event" {
+		t.Fatalf("expected state sync event, got %v", stateMsg["type"])
+	}
+	event := stateMsg["event"].(map[string]any)
+	if event["type"] != "state_sync" {
+		t.Fatalf("expected state_sync, got %v", event["type"])
+	}
+	state := event["data"].(map[string]any)
+	if state["is_spectator"] != true {
+		t.Fatalf("state should be marked as spectator")
+	}
+	for _, key := range []string{"you", "opponent"} {
+		player := state[key].(map[string]any)
+		if _, ok := player["hand"]; ok {
+			t.Fatalf("%s should not expose hand to spectator", key)
+		}
+		if _, ok := player["skill_pool"]; ok {
+			t.Fatalf("%s should not expose skill pool to spectator", key)
+		}
+	}
+
+	sendAction(t, spectator, "mulligan", map[string]any{"keep": true})
+	errorMsg := readMessage(t, spectator)
+	if errorMsg["type"] != "error" {
+		t.Fatalf("expected spectator action error, got %v", errorMsg["type"])
+	}
+	if !strings.Contains(errorMsg["message"].(string), "spectators cannot act") {
+		t.Fatalf("unexpected spectator error: %v", errorMsg["message"])
+	}
 }
 
 func TestDeckValidationRejectsNonBaseCards(t *testing.T) {

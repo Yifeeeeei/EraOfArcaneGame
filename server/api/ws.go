@@ -41,21 +41,27 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 		playerID := r.URL.Query().Get("player_id")
 		playerName := r.URL.Query().Get("player_name")
 		deckCode := r.URL.Query().Get("deck_code")
+		role := r.URL.Query().Get("role")
+		isSpectator := role == "spectator"
 
-		if roomID == "" || playerID == "" || playerName == "" || deckCode == "" {
+		if roomID == "" || playerID == "" || playerName == "" || (!isSpectator && deckCode == "") {
 			http.Error(w, "missing parameters", http.StatusBadRequest)
 			return
 		}
 
-		// Parse and validate deck
-		deck, err := model.ParseDeckCode(deckCode)
-		if err != nil {
-			http.Error(w, "invalid deck: "+err.Error(), http.StatusBadRequest)
-			return
-		}
-		if err := deck.Validate(cards.PlayableCardDB); err != nil {
-			http.Error(w, "invalid deck: "+err.Error(), http.StatusBadRequest)
-			return
+		var deck *model.Deck
+		if !isSpectator {
+			// Parse and validate deck
+			var err error
+			deck, err = model.ParseDeckCode(deckCode)
+			if err != nil {
+				http.Error(w, "invalid deck: "+err.Error(), http.StatusBadRequest)
+				return
+			}
+			if err := deck.Validate(cards.PlayableCardDB); err != nil {
+				http.Error(w, "invalid deck: "+err.Error(), http.StatusBadRequest)
+				return
+			}
 		}
 
 		// Get or verify room
@@ -76,15 +82,21 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 			conn:     conn,
 			playerID: playerID,
 			roomID:   roomID,
+			slot:     -1,
 		}
 
 		// Check if this is a reconnection
-		isReconnect := room.IsReconnection(playerID)
+		isReconnect := !isSpectator && room.IsReconnection(playerID)
 
 		defer func() {
 			conn.Close()
-			room.DisconnectPlayer(playerID)
-			log.Printf("Player %s disconnected from room %s", playerID, roomID)
+			if isSpectator {
+				room.DisconnectSpectator(playerID)
+				log.Printf("Spectator %s disconnected from room %s", playerID, roomID)
+			} else {
+				room.DisconnectPlayer(playerID)
+				log.Printf("Player %s disconnected from room %s", playerID, roomID)
+			}
 		}()
 
 		// Join room (handles both new join and reconnection)
@@ -98,17 +110,27 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 			}
 		}
 
-		slot, err := room.JoinRoom(playerID, playerName, deck, sendFn)
-		if err != nil {
-			wsc.SendJSON(map[string]any{"type": "error", "message": err.Error()})
-			return
-		}
-		wsc.slot = slot
-
-		if isReconnect {
-			log.Printf("Player %s (%s) reconnected to room %s as slot %d", playerName, playerID, roomID, slot)
+		slot := -1
+		if isSpectator {
+			if err := room.JoinSpectator(playerID, playerName, sendFn); err != nil {
+				wsc.SendJSON(map[string]any{"type": "error", "message": err.Error()})
+				return
+			}
+			log.Printf("Spectator %s (%s) joined room %s", playerName, playerID, roomID)
 		} else {
-			log.Printf("Player %s (%s) joined room %s as slot %d", playerName, playerID, roomID, slot)
+			var err error
+			slot, err = room.JoinRoom(playerID, playerName, deck, sendFn)
+			if err != nil {
+				wsc.SendJSON(map[string]any{"type": "error", "message": err.Error()})
+				return
+			}
+			wsc.slot = slot
+
+			if isReconnect {
+				log.Printf("Player %s (%s) reconnected to room %s as slot %d", playerName, playerID, roomID, slot)
+			} else {
+				log.Printf("Player %s (%s) joined room %s as slot %d", playerName, playerID, roomID, slot)
+			}
 		}
 
 		// Notify about joining
@@ -117,12 +139,23 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 			"data": map[string]any{
 				"room_id":     roomID,
 				"slot":        slot,
+				"role":        role,
 				"room":        room.RoomInfo(),
 				"reconnected": isReconnect,
 			},
 		})
 
-		if isReconnect {
+		if isSpectator {
+			if room.Engine != nil {
+				stateEvent := game.GameEvent{
+					Type:   "state_sync",
+					Player: -1,
+					Data:   room.Engine.GetStateForSpectator(),
+				}
+				room.LogStateSync(-1)
+				sendFn(stateEvent)
+			}
+		} else if isReconnect {
 			// Send current game state immediately on reconnection
 			if room.Engine != nil {
 				stateEvent := game.GameEvent{
@@ -140,18 +173,8 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 					log.Printf("Failed to start game: %v", err)
 					wsc.SendJSON(map[string]any{"type": "error", "message": err.Error()})
 				} else {
-					// Send initial state to both players
-					for i := 0; i < 2; i++ {
-						if room.Players[i] != nil && room.Players[i].SendFn != nil {
-							stateEvent := game.GameEvent{
-								Type:   "state_sync",
-								Player: i,
-								Data:   room.Engine.GetStateForPlayer(i),
-							}
-							room.LogStateSync(i)
-							room.Players[i].SendFn(stateEvent)
-						}
-					}
+					// Send initial state to connected players and spectators.
+					room.BroadcastState()
 				}
 			}
 		}
@@ -176,6 +199,11 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 				room.LogClientLog(slot, playerID, action.Data)
 				continue
 			}
+			if isSpectator {
+				room.LogActionError(slot, playerID, action, fmt.Errorf("spectators cannot act"))
+				wsc.SendJSON(map[string]any{"type": "error", "message": "spectators cannot act"})
+				continue
+			}
 			room.LogClientAction(slot, playerID, action)
 
 			if room.Engine == nil {
@@ -191,17 +219,7 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 			}
 
 			// Send updated state after each action
-			for i := 0; i < 2; i++ {
-				if room.Players[i] != nil && room.Players[i].SendFn != nil {
-					stateEvent := game.GameEvent{
-						Type:   "state_sync",
-						Player: i,
-						Data:   room.Engine.GetStateForPlayer(i),
-					}
-					room.LogStateSync(i)
-					room.Players[i].SendFn(stateEvent)
-				}
-			}
+			room.BroadcastState()
 		}
 	}
 }

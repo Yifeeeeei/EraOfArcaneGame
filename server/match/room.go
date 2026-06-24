@@ -11,13 +11,15 @@ import (
 
 // Room represents a game room
 type Room struct {
-	ID        string         `json:"id"`
-	Players   [2]*RoomPlayer `json:"players"`
-	Engine    *game.Engine   `json:"-"`
-	IsStarted bool           `json:"is_started"`
-	TestMode  bool           `json:"test_mode"`
-	Logger    *RoomLogger    `json:"-"`
-	mu        sync.Mutex
+	ID         string                    `json:"id"`
+	Players    [2]*RoomPlayer            `json:"players"`
+	Spectators map[string]*RoomSpectator `json:"-"`
+	Engine     *game.Engine              `json:"-"`
+	IsStarted  bool                      `json:"is_started"`
+	TestMode   bool                      `json:"test_mode"`
+	Logger     *RoomLogger               `json:"-"`
+	isStarting bool
+	mu         sync.Mutex
 }
 
 // RoomPlayer represents a player in a room
@@ -26,6 +28,14 @@ type RoomPlayer struct {
 	Name        string                     `json:"name"`
 	Deck        *model.Deck                `json:"deck"`
 	Ready       bool                       `json:"ready"`
+	SendFn      func(event game.GameEvent) `json:"-"`
+	IsConnected bool                       `json:"is_connected"`
+}
+
+// RoomSpectator represents a read-only observer connection in a room.
+type RoomSpectator struct {
+	ID          string                     `json:"id"`
+	Name        string                     `json:"name"`
 	SendFn      func(event game.GameEvent) `json:"-"`
 	IsConnected bool                       `json:"is_connected"`
 }
@@ -64,8 +74,9 @@ func (rm *RoomManager) createRoom(testMode bool) *Room {
 	}
 
 	room := &Room{
-		ID:       id,
-		TestMode: testMode,
+		ID:         id,
+		TestMode:   testMode,
+		Spectators: make(map[string]*RoomSpectator),
 	}
 	logger, err := newRoomLogger(id, testMode)
 	if err != nil {
@@ -76,6 +87,32 @@ func (rm *RoomManager) createRoom(testMode bool) *Room {
 	}
 	rm.rooms[id] = room
 	return room
+}
+
+// JoinSpectator adds or reconnects a read-only observer without occupying a
+// player slot or requiring a deck.
+func (r *Room) JoinSpectator(spectatorID, name string, sendFn func(game.GameEvent)) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if r.Spectators == nil {
+		r.Spectators = make(map[string]*RoomSpectator)
+	}
+	if existing := r.Spectators[spectatorID]; existing != nil {
+		existing.Name = name
+		existing.SendFn = sendFn
+		existing.IsConnected = true
+		r.LogPlayerEvent("spectator_reconnected", -1, spectatorID, map[string]any{"name": name})
+		return nil
+	}
+	r.Spectators[spectatorID] = &RoomSpectator{
+		ID:          spectatorID,
+		Name:        name,
+		SendFn:      sendFn,
+		IsConnected: true,
+	}
+	r.LogPlayerEvent("spectator_joined", -1, spectatorID, map[string]any{"name": name})
+	return nil
 }
 
 // GetRoom returns a room by ID
@@ -116,7 +153,7 @@ func (r *Room) JoinRoom(playerID, name string, deck *model.Deck, sendFn func(gam
 	defer r.mu.Unlock()
 
 	// Check if this player is reconnecting to a started game
-	if r.IsStarted {
+	if r.IsStarted || r.isStarting {
 		for i := 0; i < 2; i++ {
 			if r.Players[i] != nil && r.Players[i].ID == playerID {
 				// Reconnection: update SendFn and mark connected
@@ -160,7 +197,7 @@ func (r *Room) DisconnectPlayer(playerID string) {
 
 	for i := 0; i < 2; i++ {
 		if r.Players[i] != nil && r.Players[i].ID == playerID {
-			if r.IsStarted {
+			if r.IsStarted || r.isStarting {
 				// Game in progress: keep player data, just disconnect
 				r.Players[i].SendFn = nil
 				r.Players[i].IsConnected = false
@@ -172,6 +209,19 @@ func (r *Room) DisconnectPlayer(playerID string) {
 			}
 			break
 		}
+	}
+}
+
+// DisconnectSpectator marks a read-only observer as disconnected without
+// touching player slots that may share the same browser-generated ID.
+func (r *Room) DisconnectSpectator(spectatorID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	if spectator := r.Spectators[spectatorID]; spectator != nil {
+		spectator.SendFn = nil
+		spectator.IsConnected = false
+		r.LogPlayerEvent("spectator_disconnected", -1, spectatorID, nil)
 	}
 }
 
@@ -214,71 +264,153 @@ func (r *Room) IsReconnection(playerID string) bool {
 // StartGame initializes and starts the game
 func (r *Room) StartGame() error {
 	r.mu.Lock()
-	defer r.mu.Unlock()
 
 	if !r.IsFull() {
+		r.mu.Unlock()
 		return fmt.Errorf("room is not full")
 	}
 	if r.IsStarted {
+		r.mu.Unlock()
 		return fmt.Errorf("game already started")
 	}
+	player0 := r.Players[0]
+	player1 := r.Players[1]
+	r.isStarting = true
 
 	// Create engine with event callback
-	r.Engine = game.NewEngine(r.ID, func(event game.GameEvent, targetPlayer int) {
-		r.LogGameEvent(event, targetPlayer)
-		if targetPlayer == -1 {
-			// Send to both players
-			for i := 0; i < 2; i++ {
-				if r.Players[i] != nil && r.Players[i].SendFn != nil {
-					r.Players[i].SendFn(event)
-				}
-			}
-		} else if targetPlayer >= 0 && targetPlayer < 2 {
-			if r.Players[targetPlayer] != nil && r.Players[targetPlayer].SendFn != nil {
-				r.Players[targetPlayer].SendFn(event)
-			}
-		}
+	engine := game.NewEngine(r.ID, func(event game.GameEvent, targetPlayer int) {
+		r.sendGameEvent(event, targetPlayer)
 	})
+	r.mu.Unlock()
 
 	// Setup game
 	firstPlayer := rand.Intn(2)
-	err := r.Engine.SetupGameWithFirstPlayer(
-		r.Players[0].Name, r.Players[0].Deck,
-		r.Players[1].Name, r.Players[1].Deck,
+	err := engine.SetupGameWithFirstPlayer(
+		player0.Name, player0.Deck,
+		player1.Name, player1.Deck,
 		firstPlayer,
 	)
 	if err != nil {
+		r.mu.Lock()
+		r.isStarting = false
+		r.mu.Unlock()
 		return fmt.Errorf("failed to setup game: %w", err)
 	}
 
+	r.mu.Lock()
+	r.Engine = engine
 	r.IsStarted = true
+	r.isStarting = false
+	r.mu.Unlock()
+
 	r.LogRoomEvent("game_started", r.stateSnapshot())
 	return nil
+}
+
+func (r *Room) sendGameEvent(event game.GameEvent, targetPlayer int) {
+	r.mu.Lock()
+	r.LogGameEvent(event, targetPlayer)
+
+	sendFns := make([]func(game.GameEvent), 0, 3)
+	if targetPlayer == -1 {
+		for i := 0; i < 2; i++ {
+			if r.Players[i] != nil && r.Players[i].SendFn != nil {
+				sendFns = append(sendFns, r.Players[i].SendFn)
+			}
+		}
+		if r.IsStarted && r.Engine != nil && isPublicSpectatorEvent(event) {
+			for _, spectator := range r.Spectators {
+				if spectator != nil && spectator.SendFn != nil {
+					sendFns = append(sendFns, spectator.SendFn)
+				}
+			}
+		}
+	} else if targetPlayer >= 0 && targetPlayer < 2 {
+		if r.Players[targetPlayer] != nil && r.Players[targetPlayer].SendFn != nil {
+			sendFns = append(sendFns, r.Players[targetPlayer].SendFn)
+		}
+	}
+	r.mu.Unlock()
+
+	for _, sendFn := range sendFns {
+		sendFn(event)
+	}
 }
 
 // BroadcastState sends each connected player their own serialized view.
 func (r *Room) BroadcastState() {
 	r.mu.Lock()
-	defer r.mu.Unlock()
-
-	if r.Engine == nil {
+	engine := r.Engine
+	if engine == nil {
+		r.mu.Unlock()
 		return
 	}
+	type playerRecipient struct {
+		player int
+		sendFn func(game.GameEvent)
+	}
+	players := make([]playerRecipient, 0, 2)
 	for i := 0; i < 2; i++ {
 		if r.Players[i] == nil || r.Players[i].SendFn == nil {
 			continue
 		}
-		r.LogStateSync(i)
-		r.Players[i].SendFn(game.GameEvent{
+		players = append(players, playerRecipient{player: i, sendFn: r.Players[i].SendFn})
+	}
+	spectators := r.spectatorSendFnsLocked()
+	r.mu.Unlock()
+
+	for _, recipient := range players {
+		r.LogStateSync(recipient.player)
+		recipient.sendFn(game.GameEvent{
 			Type:   "state_sync",
-			Player: i,
-			Data:   r.Engine.GetStateForPlayer(i),
+			Player: recipient.player,
+			Data:   engine.GetStateForPlayer(recipient.player),
+		})
+	}
+	r.sendSpectatorState(engine, spectators)
+}
+
+// BroadcastSpectatorState sends the public serialized view to connected spectators.
+func (r *Room) BroadcastSpectatorState() {
+	r.mu.Lock()
+	engine := r.Engine
+	if engine == nil {
+		r.mu.Unlock()
+		return
+	}
+	spectators := r.spectatorSendFnsLocked()
+	r.mu.Unlock()
+
+	r.sendSpectatorState(engine, spectators)
+}
+
+func (r *Room) spectatorSendFnsLocked() []func(game.GameEvent) {
+	sendFns := make([]func(game.GameEvent), 0, len(r.Spectators))
+	for _, spectator := range r.Spectators {
+		if spectator == nil || spectator.SendFn == nil {
+			continue
+		}
+		sendFns = append(sendFns, spectator.SendFn)
+	}
+	return sendFns
+}
+
+func (r *Room) sendSpectatorState(engine *game.Engine, sendFns []func(game.GameEvent)) {
+	for _, sendFn := range sendFns {
+		r.LogStateSync(-1)
+		sendFn(game.GameEvent{
+			Type:   "state_sync",
+			Player: -1,
+			Data:   engine.GetStateForSpectator(),
 		})
 	}
 }
 
 // RoomInfo returns a serializable room info
 func (r *Room) RoomInfo() map[string]any {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	info := map[string]any{
 		"id":         r.ID,
 		"is_started": r.IsStarted,
@@ -297,11 +429,36 @@ func (r *Room) RoomInfo() map[string]any {
 		}
 	}
 	info["players"] = players
+	spectators := make([]any, 0)
+	for _, spectator := range r.Spectators {
+		if spectator != nil && spectator.IsConnected {
+			spectators = append(spectators, map[string]any{
+				"id":           spectator.ID,
+				"name":         spectator.Name,
+				"is_connected": spectator.IsConnected,
+			})
+		}
+	}
+	info["spectators"] = spectators
+	info["spectator_count"] = len(spectators)
 	if r.Logger != nil {
 		info["log_path"] = r.Logger.Path()
 	}
 
 	return info
+}
+
+func isPublicSpectatorEvent(event game.GameEvent) bool {
+	switch event.Type {
+	case "game_setup", "game_start", "phase_change", "turn_start", "spell_cast", "spell_reaction",
+		"defense_success", "spell_hit", "unit_attack", "unit_moved", "unit_destroyed",
+		"unit_returned", "game_over", "ability_used", "defense_attempt", "discard",
+		"use_item", "place_terrain", "consume", "counter_revealed", "item_cancelled",
+		"spell_hit_cancelled", "card_removed_from_game", "summon":
+		return true
+	default:
+		return false
+	}
 }
 
 func (r *Room) LogRoomEvent(kind string, data map[string]any) {
