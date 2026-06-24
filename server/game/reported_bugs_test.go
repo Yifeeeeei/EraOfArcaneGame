@@ -5175,6 +5175,32 @@ func TestMoreSkillChoiceEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("self hit skills do not trigger from unrelated spell hits", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		target := placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
+		equipment := NewCardInstance(baseCard(t, "2021004"), 1, 1)
+		p1.Equipment[0] = equipment
+		p0.Skills[0] = readySkill(baseCard(t, "3021006"), 0)
+		p0.Skills[1] = readySkill(baseCard(t, "3221010"), 0)
+		p0.Skills[2] = readySkill(baseCard(t, "3521011"), 0)
+		lightning := readySkill(baseCard(t, "3321002"), 0)
+		p0.Skills[3] = lightning
+
+		engine.resolveSpellHit(0, lightning, SpellTarget{Type: "unit", Position: *target.Position}, nil, nil)
+
+		if p1.Equipment[0] != equipment || len(p1.Graveyard) != 0 {
+			t.Fatalf("insight eye should not destroy equipment from unrelated spell, equipment=%v graveyard=%v", p1.Equipment[0], cardsToInfo(p1.Graveyard))
+		}
+		if len(p0.TempModifiers) != 0 {
+			t.Fatalf("water phantom should not add copy modifier from unrelated spell, modifiers=%v", p0.TempModifiers)
+		}
+		if target.Statuses["防止致命"] != 0 {
+			t.Fatalf("light shelter should not protect unrelated spell target, statuses=%v", target.Statuses)
+		}
+	})
+
 	t.Run("lightforged titan takes one extra damage from driven mystery and charge spells", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		titan := placeUnit(baseCard(t, "1521002"), 1, 1, 0, engine)
@@ -6754,6 +6780,7 @@ func TestRemainingPassiveSkillEffects(t *testing.T) {
 			Target:     guard,
 			PlayerID:   0,
 			OpponentID: 1,
+			ExtraData:  map[string]any{"spell_source": healing},
 		}); err != nil {
 			t.Fatalf("resolve healing on solo city defender: %v", err)
 		}

@@ -8,6 +8,9 @@ func (Card3001002PureArcane) NeedsSpellTarget() bool {
 	return false
 }
 func (Card3001002PureArcane) OnSpellHit(ctx *EffectContext) error {
+	if !isOwnSpellHit(ctx) {
+		return nil
+	}
 	choices := ctx.Engine.pureArcaneChoices(ctx.PlayerID)
 	if len(choices) == 0 {
 		return nil

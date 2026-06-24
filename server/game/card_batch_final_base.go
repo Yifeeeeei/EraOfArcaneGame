@@ -400,6 +400,9 @@ type Card3021006InsightEye struct{ AlwaysActive }
 func (Card3021006InsightEye) ID() string   { return "3021006" }
 func (Card3021006InsightEye) Name() string { return "洞察之眼" }
 func (Card3021006InsightEye) OnSpellHit(ctx *EffectContext) error {
+	if !isOwnSpellHit(ctx) {
+		return nil
+	}
 	for _, equipment := range ctx.Engine.State.Players[ctx.OpponentID].Equipment {
 		if equipment != nil {
 			ctx.Engine.destroyEnemyEquipment(ctx.PlayerID, equipment.InstanceID)
@@ -528,6 +531,9 @@ type Card3221010WaterPhantom struct{ AlwaysActive }
 func (Card3221010WaterPhantom) ID() string   { return "3221010" }
 func (Card3221010WaterPhantom) Name() string { return "水幻影" }
 func (Card3221010WaterPhantom) OnSpellHit(ctx *EffectContext) error {
+	if !isOwnSpellHit(ctx) {
+		return nil
+	}
 	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: "next_water_copy", RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 1})
 	return nil
 }
@@ -568,6 +574,9 @@ func (Card3521011LightShelter) AllowsFriendlySpellTarget() bool {
 	return true
 }
 func (Card3521011LightShelter) OnSpellHit(ctx *EffectContext) error {
+	if !isOwnSpellHit(ctx) {
+		return nil
+	}
 	target := ctx.Target
 	if target != nil && target.Card.IsCompanion() {
 		target.Statuses["防止致命"] = 1
