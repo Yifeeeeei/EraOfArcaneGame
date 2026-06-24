@@ -18,6 +18,7 @@ type Room struct {
 	IsStarted  bool                      `json:"is_started"`
 	TestMode   bool                      `json:"test_mode"`
 	Logger     *RoomLogger               `json:"-"`
+	isStarting bool
 	mu         sync.Mutex
 }
 
@@ -152,7 +153,7 @@ func (r *Room) JoinRoom(playerID, name string, deck *model.Deck, sendFn func(gam
 	defer r.mu.Unlock()
 
 	// Check if this player is reconnecting to a started game
-	if r.IsStarted {
+	if r.IsStarted || r.isStarting {
 		for i := 0; i < 2; i++ {
 			if r.Players[i] != nil && r.Players[i].ID == playerID {
 				// Reconnection: update SendFn and mark connected
@@ -196,7 +197,7 @@ func (r *Room) DisconnectPlayer(playerID string) {
 
 	for i := 0; i < 2; i++ {
 		if r.Players[i] != nil && r.Players[i].ID == playerID {
-			if r.IsStarted {
+			if r.IsStarted || r.isStarting {
 				// Game in progress: keep player data, just disconnect
 				r.Players[i].SendFn = nil
 				r.Players[i].IsConnected = false
@@ -274,6 +275,7 @@ func (r *Room) StartGame() error {
 	}
 	player0 := r.Players[0]
 	player1 := r.Players[1]
+	r.isStarting = true
 
 	// Create engine with event callback
 	engine := game.NewEngine(r.ID, func(event game.GameEvent, targetPlayer int) {
@@ -289,12 +291,16 @@ func (r *Room) StartGame() error {
 		firstPlayer,
 	)
 	if err != nil {
+		r.mu.Lock()
+		r.isStarting = false
+		r.mu.Unlock()
 		return fmt.Errorf("failed to setup game: %w", err)
 	}
 
 	r.mu.Lock()
 	r.Engine = engine
 	r.IsStarted = true
+	r.isStarting = false
 	r.mu.Unlock()
 
 	r.LogRoomEvent("game_started", r.stateSnapshot())

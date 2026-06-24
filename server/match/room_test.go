@@ -44,6 +44,41 @@ func TestDisconnectPlayerAndSpectatorWithSameIDAreRoleSpecific(t *testing.T) {
 	}
 }
 
+func TestDisconnectPlayerDuringStartKeepsSeat(t *testing.T) {
+	room := &Room{
+		ID:         "starting",
+		isStarting: true,
+	}
+	room.Players[0] = &RoomPlayer{
+		ID:          "p1",
+		Name:        "Player",
+		SendFn:      func(game.GameEvent) {},
+		IsConnected: true,
+	}
+
+	room.DisconnectPlayer("p1")
+
+	if room.Players[0] == nil {
+		t.Fatal("player seat should be kept while game start is in progress")
+	}
+	if room.Players[0].IsConnected || room.Players[0].SendFn != nil {
+		t.Fatalf("player should be marked disconnected during start, got %+v", room.Players[0])
+	}
+}
+
+func TestJoinRoomDuringStartDoesNotReplacePlayers(t *testing.T) {
+	room := &Room{
+		ID:         "starting-join",
+		isStarting: true,
+	}
+	room.Players[0] = &RoomPlayer{ID: "p1", Name: "Player1"}
+	room.Players[1] = &RoomPlayer{ID: "p2", Name: "Player2"}
+
+	if _, err := room.JoinRoom("p3", "Player3", nil, nil); err == nil {
+		t.Fatal("new players should not join while game start is in progress")
+	}
+}
+
 func TestSendGameEventSnapshotsBeforeSending(t *testing.T) {
 	room := &Room{
 		ID:         "event-send",
