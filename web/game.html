@@ -849,46 +849,6 @@
                         <div class="inspection-card">
                             <img :src="getCardImage(activePreviewCard)" :alt="activePreviewCard.name">
                         </div>
-                        <div class="inspection-info">
-                            <h3>{{ activePreviewCard.name }}</h3>
-                            <div class="inspection-stats">
-                                <span v-if="activePreviewCard.life >= 0">生命 {{ activePreviewCard.current_life ?? activePreviewCard.life }}</span>
-                                <span v-if="activePreviewCard.attack >= 0">攻击 {{ activePreviewCard.current_attack ?? activePreviewCard.attack }}</span>
-                                <span v-if="activePreviewCard.power >= 0">威力 {{ activePreviewCard.power }}</span>
-                            </div>
-                            <div v-if="hasCost(activePreviewCard)" class="inspection-line">
-                                <span>{{ entryCostLabel(activePreviewCard) }}</span>
-                                <span class="element-list" v-html="costHTML(activePreviewCard.elements_cost)"></span>
-                            </div>
-                            <div v-if="hasUseCost(activePreviewCard)" class="inspection-line">
-                                <span>使用费用</span>
-                                <span class="element-list" v-html="costHTML(activePreviewCard.elements_expense)"></span>
-                            </div>
-                            <div v-if="hasGain(activePreviewCard)" class="inspection-line">
-                                <span>负载</span>
-                                <span class="element-list" v-html="costHTML(activePreviewCard.elements_gain)"></span>
-                            </div>
-                            <div v-if="activePreviewCard.bound_skills && activePreviewCard.bound_skills.length" class="inspection-bound">
-                                <span>绑定技能</span>
-                                <button v-for="skill in activePreviewCard.bound_skills" :key="skill.instance_id"
-                                        @mouseenter="previewCard(skill)"
-                                        @click.stop="showCardDetail(skill)">
-                                    {{ skill.name }}
-                                </button>
-                                <button v-for="skill in activePreviewCard.bound_skills" :key="skill.instance_id + '_use'"
-                                        :disabled="!canCastSkill(skill)"
-                                        @click.stop="canCastSkill(skill) && selectSkillToCast(skill)">
-                                    使用
-                                </button>
-                            </div>
-                            <div v-if="statusEntries(activePreviewCard).length" class="inspection-status">
-                                <span v-for="s in statusEntries(activePreviewCard)" :key="s.label">{{ s.label }}</span>
-                            </div>
-                            <div v-if="effectLabels(activePreviewCard).length" class="inspection-effect-labels">
-                                <span v-for="label in effectLabels(activePreviewCard)" :key="label">{{ label }}</span>
-                            </div>
-                            <div class="inspection-desc">{{ activePreviewCard.description || '无描述' }}</div>
-                        </div>
                     </template>
                     <template v-else>
                         <div class="inspection-placeholder">
