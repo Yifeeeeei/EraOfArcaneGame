@@ -16,7 +16,7 @@
 
 ## 当前状态
 
-- 基础包 378 张卡是唯一 playable card pool。
+- 基础包 393 张卡是唯一 playable card pool。
 - 后端不再运行时读取全量 JSON。
 - 每张基础包卡都有 Go definition，暴露 `ID/Name/Kind/Element/Card`。
 - 基础包卡定义实现了人物、伙伴、技能、道具等类别 interface。
@@ -24,6 +24,14 @@
 - 行为 catalog 只注册 lazy factory，不会启动时实例化全部 behavior。
 - 非基础包效果代码已从运行时 catalog 清理掉。
 - 前端已有双客户端操作回归脚本：`tools/frontend-card-operation-test.js`。
+- `docs/project/` 是本地 agent 协作文档区，不再提交到 GitHub；需要公开给 review 的状态应同步到根目录文档或 `docs/rules/`。
+
+## 最新收尾记录（2026-06-25）
+
+- PR #58 / Issue #59：机器测试清单中的 40 张基础包卡已完成后端检查，重点覆盖 `PendingAction` 目标选择、模式选择、可选诱发和连续选择窗口。
+- `3021006 洞察之眼` 已修复：施放时打开敌方盖放卡选择窗口，不再默认摧毁第一张敌方装备/盖牌。
+- 新增/补强了 `预见`、`万灵药`、`黑市商贩`、`新生卷轴`、`血魔爆`、`元素附魔`、`专精法师`、`伦德萨尔`、`食腐者` 等牌的后端语义测试。
+- 人工手测清单仍以本地 `docs/project/base-set-test-marking-sheet.md` 为准；不要从 GitHub 公开文档反向覆盖本地标注表。
 
 ## 验证
 

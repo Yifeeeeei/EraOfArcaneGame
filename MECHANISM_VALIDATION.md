@@ -4,6 +4,12 @@ This file tracks manual frontend validation performed after the base-set checkpo
 
 ## Results
 
+- Backend machine-marked prompt audit: PASS
+  - Issue #59 / PR #58 checked the current machine-test list for explicit `PendingAction` prompt coverage.
+  - `3021006 洞察之眼` now opens a selection prompt when cast instead of destroying the first enemy equipment/set card by default.
+  - Added backend assertions for target/mode prompts on `预见`, `万灵药`, `黑市商贩`, `新生卷轴`, `血魔爆`, `元素附魔`, `专精法师`, `伦德萨尔`, `食腐者`, and `回魂术`.
+  - `cd server && go test ./...` passes.
+  - Remaining risk: browser manual testing should still watch chained prompts, cancel branches, and visual clarity of target/mode windows.
 - Binding / generated skill cleanup: PASS
   - Frontend summoned `"风暴之女" 艾拉雅`.
   - Card detail showed `风暴之怒` under bound skills.
