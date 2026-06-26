@@ -5,6 +5,7 @@ server/server
 *.db
 tmp/
 server/logs/
+docs/project/
 
 # OS
 .DS_Store
