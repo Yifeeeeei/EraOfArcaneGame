@@ -6,6 +6,8 @@ server/server
 tmp/
 server/logs/
 docs/project/
+.agent-memory/
+local/agent-experience/
 
 # OS
 .DS_Store
