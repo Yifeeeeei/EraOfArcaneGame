@@ -640,7 +640,7 @@
                                 <div class="slot-lane">
                                     <span class="slot-label">技能</span>
                                     <div class="slots">
-                                        <div v-for="i in 5" :key="'os'+i" class="slot" :class="{occupied: opponent.skills[i-1]}"
+                                        <div v-for="i in opponentSkillSlotCount" :key="'os'+i" class="slot" :class="{occupied: opponent.skills[i-1]}"
                                              @mouseenter="opponent.skills[i-1] && previewCard(opponent.skills[i-1])"
                                              @click="opponent.skills[i-1] && showCardDetail(opponent.skills[i-1])">
                                             <template v-if="opponent.skills[i-1]">
@@ -656,7 +656,7 @@
                                 <div class="slot-lane">
                                     <span class="slot-label">装备</span>
                                     <div class="slots">
-                                        <div v-for="i in 5" :key="'oe'+i" class="slot" :class="{occupied: opponent.equipment[i-1]}"
+                                        <div v-for="i in opponentEquipmentSlotCount" :key="'oe'+i" class="slot" :class="{occupied: opponent.equipment[i-1]}"
                                              @mouseenter="opponent.equipment[i-1] && !opponent.equipment[i-1].is_hidden && previewCard(opponent.equipment[i-1])"
                                              @click="opponent.equipment[i-1] && !opponent.equipment[i-1].is_hidden && showCardDetail(opponent.equipment[i-1])">
                                             <template v-if="opponent.equipment[i-1]">
@@ -707,7 +707,7 @@
                                      occupied: getMyUnit(col, row),
                                      'has-terrain': getMyTerrain(col, row),
                                      'front-row': row === myFrontRow,
-                                     'summon-target': selectedHandCard && !getMyUnit(col, row) && canSummonAt(col, row),
+                                     'summon-target': selectedHandCard && canSummonAt(col, row),
                                      'terrain-target': selectedHandCard && selectedHandCard.is_terrain && !getMyTerrain(col, row),
                                      'spell-target': isFriendlySpellTarget(col, row),
                                      'invalid-target': (selectedHandCard && !canUseMyCell(col, row)) || (selectedSkill && selectedSkill.allows_friendly_target && !isFriendlySpellTarget(col, row))
@@ -752,7 +752,7 @@
                                 <div class="slot-lane">
                                     <span class="slot-label">技能</span>
                                     <div class="slots">
-                                        <div v-for="i in 5" :key="'ms'+i" class="slot"
+                                        <div v-for="i in mySkillSlotCount" :key="'ms'+i" class="slot"
                                              :class="{occupied: mySkills[i-1], 'defense-only': mySkills[i-1]?.is_defense_only, 'boost-selected': selectedBoostSkills.includes(mySkills[i-1]?.instance_id), castable: canCastSkill(mySkills[i-1])}"
                                              @mouseenter="mySkills[i-1] && previewCard(mySkills[i-1])"
                                              @click="mySkills[i-1] && showCardDetail(mySkills[i-1])">
@@ -785,7 +785,7 @@
                                 <div class="slot-lane">
                                     <span class="slot-label">装备</span>
                                     <div class="slots">
-                                        <div v-for="i in 5" :key="'me'+i" class="slot" :class="{occupied: myEquipment[i-1]}"
+                                        <div v-for="i in myEquipmentSlotCount" :key="'me'+i" class="slot" :class="{occupied: myEquipment[i-1]}"
                                              @mouseenter="myEquipment[i-1] && previewCard(myEquipment[i-1])"
                                              @click="myEquipment[i-1] && showCardDetail(myEquipment[i-1])">
                                             <template v-if="myEquipment[i-1]">
@@ -1043,17 +1043,24 @@
                     ...revealed.map(card => ({ ...card, key: card.instance_id, hidden: false })),
                 ];
             });
-            const mySkills = computed(() => myState.value.skills || [null,null,null,null,null]);
-            const myEquipment = computed(() => myState.value.equipment || [null,null,null,null,null]);
+            function slotCount(state, field) {
+                return Math.max(Number(state?.[field] || 5), 5);
+            }
+            function paddedSlots(cards, count) {
+                const result = Array.isArray(cards) ? [...cards] : [];
+                while (result.length < count) result.push(null);
+                return result;
+            }
+            const mySkillSlotCount = computed(() => slotCount(myState.value, 'skill_slot_capacity'));
+            const myEquipmentSlotCount = computed(() => slotCount(myState.value, 'equipment_slot_capacity'));
+            const opponentSkillSlotCount = computed(() => slotCount(opponent.value, 'skill_slot_capacity'));
+            const opponentEquipmentSlotCount = computed(() => slotCount(opponent.value, 'equipment_slot_capacity'));
+            const mySkills = computed(() => paddedSlots(myState.value.skills, mySkillSlotCount.value));
+            const myEquipment = computed(() => paddedSlots(myState.value.equipment, myEquipmentSlotCount.value));
             const allMyBoundSkills = computed(() => {
                 const skills = [];
                 for (const unit of allMyFieldCards()) {
                     for (const bound of unit.bound_skills || []) {
-                        skills.push(bound);
-                    }
-                }
-                for (const equipment of myEquipment.value.filter(Boolean)) {
-                    for (const bound of equipment.bound_skills || []) {
                         skills.push(bound);
                     }
                 }
@@ -1761,6 +1768,10 @@
                     selectedHandCard.value = null;
                 } else {
                     selectedHandCard.value = card;
+                    if (summonDevourRequirement(card)) {
+                        beginSummonDevour(card);
+                        return;
+                    }
                     if (card.type === '伙伴') addLog(`选择 ${card.name}，点击空格放置`);
                     else if (card.type === '道具' && card.is_terrain) addLog(`选择地形 ${card.name}，点击空格放置`);
                     else if (card.type === '道具' && isSpellScrollItem(card) && card.needs_target) { selectedItemSpellScroll.value = card; addLog(`选择 ${card.name}，点击敌方目标`); }
@@ -1769,18 +1780,30 @@
                 }
             }
 
+            function isHandCompanionCard(card) {
+                return !!card && !!card.is_companion;
+            }
+
             function canSummonAt(col, row) {
-                return selectedHandCard.value && selectedHandCard.value.type === '伙伴' && !getMyUnit(col, row);
+                if (!selectedHandCard.value || !isHandCompanionCard(selectedHandCard.value)) return false;
+                const unit = getMyUnit(col, row);
+                if (!unit) return true;
+                return pendingSummonDevour.value[selectedHandCard.value.instance_id]?.includes(unit.instance_id);
             }
 
             function canUseMyCell(col, row) {
                 if (!selectedHandCard.value) return false;
+                if (isHandCompanionCard(selectedHandCard.value)) return canSummonAt(col, row);
                 if (selectedHandCard.value.is_terrain) return !getMyTerrain(col, row);
                 if (selectedHandCard.value.type === '伙伴') return !getMyUnit(col, row);
                 return false;
             }
 
             function handleCellClick(ownerSlot, col, row) {
+                if (ownerSlot === mySlot.value && selectedHandCard.value && isHandCompanionCard(selectedHandCard.value) && canSummonAt(col, row)) {
+                    summonCard(selectedHandCard.value, col, row);
+                    return;
+                }
                 if (ownerSlot === mySlot.value && selectedHandCard.value && selectedHandCard.value.is_terrain) {
                     if (!getMyTerrain(col, row)) { placeTerrainCard(selectedHandCard.value, col, row); return; }
                 }
@@ -1804,6 +1827,10 @@
                 }
                 if (ownerSlot !== mySlot.value && selectedItemSpellScroll.value) {
                     handleCellClick(ownerSlot, col, row);
+                    return;
+                }
+                if (ownerSlot === mySlot.value && isHandCompanionCard(selectedHandCard.value) && canSummonAt(col, row)) {
+                    summonCard(selectedHandCard.value, col, row);
                     return;
                 }
                 showCardDetail(unit);
@@ -1880,7 +1907,7 @@
                 return Object.keys(requirement || {}).some(elem => Number(contribution[elem] || 0) > 0);
             }
 
-            function beginSummonDevour(card, col, row) {
+            function beginSummonDevour(card, col = null, row = null) {
                 const candidates = devourCandidates(card);
                 const requirement = summonDevourRequirement(card) || {};
                 if (!candidates.length || !Object.entries(requirement).every(([elem, amount]) => Number(addLoadMaps(candidates, requirement)[elem] || 0) >= Number(amount || 0))) {
@@ -1909,7 +1936,8 @@
                     [card.instance_id]: [...devourSelection.value],
                 };
                 devourRequest.value = null;
-                summonCard(card, col, row);
+                if (col !== null && row !== null) summonCard(card, col, row);
+                else addLog("Devour selected; choose a position to summon " + card.name);
             }
 
             function cancelDevourSelection() {
@@ -1921,7 +1949,7 @@
                 const requirement = summonDevourRequirement(card);
                 const devourIDs = pendingSummonDevour.value[card.instance_id] || [];
                 if (requirement && !devourIDs.length) {
-                    beginSummonDevour(card, col, row);
+                    beginSummonDevour(card);
                     return;
                 }
                 const data = { instance_id: card.instance_id, col, row };
@@ -1982,7 +2010,7 @@
                 const spell = activeTargetSpell();
                 if (!spell) return false;
                 if (pendingExtraTargetCast.value && selectedSkill.value?.number === '3321001') return !!unit;
-                const inRange = activeTargetSpellHasPierce() || row === opponentFrontRow.value;
+                const inRange = activeTargetSpellHasPierce() || hasGlobalSpellRange() || row === opponentFrontRow.value || isTauntUnit(unit);
                 if (unit) return inRange;
                 if ((spell.spell_area || 'single') === 'column' && inRange) {
                     return opponentColumnHasUnit(col);
@@ -2037,6 +2065,12 @@
                     const boost = allMySkills.value.find(skill => skill && skill.instance_id === id);
                     return boost?.number === '3121015';
                 });
+            }
+            function isTauntUnit(unit) {
+                return !!unit && (unit.has_taunt || (unit.statuses?.['引魔'] > 0));
+            }
+            function hasGlobalSpellRange() {
+                return allMyFieldCards().some(card => card && card.has_global_spell_range && !(card.statuses?.['石化'] > 0));
             }
             function opponentColumnHasUnit(col) {
                 for (let row = 0; row < 3; row++) {
@@ -2224,7 +2258,7 @@
 
             const availableDefenseSkills = computed(() => {
                 if (!showDefenseWindow.value) return [];
-                return (myState.value.skills || []).filter(canUseSkillAsDefense);
+                return allMySkills.value.filter(canUseSkillAsDefense);
             });
 
             const availableDefenseScrolls = computed(() => {
@@ -2235,7 +2269,7 @@
             const availableReactionSkills = computed(() => {
                 if (!showDefenseWindow.value) return [];
                 return [
-                    ...(myState.value.skills || []),
+                    ...allMySkills.value,
                     ...(myState.value.equipment || []),
                 ].filter(Boolean).filter(canUseSkillAsReaction);
             });
@@ -2258,11 +2292,11 @@
             const availableBoostSkills = computed(() => {
                 if (!showDefenseWindow.value || defenseSelected.value.length + defenseScrollSelected.value.length === 0) return [];
                 const defendingSkills = [
-                    ...(myState.value.skills || []).filter(s => s && defenseSelected.value.includes(s.instance_id)),
+                    ...allMySkills.value.filter(s => s && defenseSelected.value.includes(s.instance_id)),
                     ...myHand.value.filter(s => s && defenseScrollSelected.value.includes(s.instance_id)),
                 ];
                 if (defendingSkills.some(s => s.can_be_boosted === false)) return [];
-                return (myState.value.skills || []).filter(s =>
+                return allMySkills.value.filter(s =>
                     canUseSkillAsDefenseBoost(s) && !defenseSelected.value.includes(s.instance_id)
                 );
             });
@@ -2368,7 +2402,7 @@
 
             const totalDefensePower = computed(() => {
                 let power = 0;
-                const skills = myState.value.skills || [];
+                const skills = allMySkills.value;
                 for (const id of defenseSelected.value) {
                     const sk = skills.find(s => s && s.instance_id === id);
                     if (sk) power += defensePower(sk);
@@ -3371,7 +3405,7 @@
                 gameState, mySlot, roomID, isSpectator, mulliganSubmitted, detailCard, hoverCard, recentDiscardCard, graveyardFlash, activePreviewCard,
                 selectedHandCard, selectedAttacker, selectedSkill, selectedItemSpellScroll, selectedBoostSkills, pileView, actionLog,
                 isTestRoom, testCardNumber, testElement, testElementAmount, ELEMENT_ORDER,
-                myState, opponent, myHand, opponentHandCards, mySkills, myEquipment, allMySkills, allMyBoundSkills,
+                myState, opponent, myHand, opponentHandCards, mySkills, myEquipment, mySkillSlotCount, myEquipmentSlotCount, opponentSkillSlotCount, opponentEquipmentSlotCount, allMySkills, allMyBoundSkills,
                 isMyTurn, showDefenseWindow, myFrontRow, opponentFrontRow,
                 getCardImage, getElementIcon, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, costHTML, hasCost, hasUseCost, hasGain, playCost, learnCost, entryCostLabel, effectLabels,
                 pendingSpellTargetLabel, pendingSpellExtraTargetLabels, pendingSpellSources,

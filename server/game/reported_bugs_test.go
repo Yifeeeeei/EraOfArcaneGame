@@ -26,6 +26,171 @@ func setupReportedBugEngine(t *testing.T) *Engine {
 	return engine
 }
 
+func TestSlotExpansionItemsAdjustCapacity(t *testing.T) {
+	t.Run("2021002 memory necklace opens a sixth learned skill slot", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		necklace := NewCardInstance(baseCard(t, "2021002"), 0, 1)
+		p0.Equipment[0] = necklace
+		if equip, ok := globalRegistry.GetBehavior("2021002").(OnEquipBehavior); ok {
+			if err := equip.OnEquip(&EffectContext{Engine: engine, Source: necklace, PlayerID: 0, OpponentID: 1}); err != nil {
+				t.Fatalf("equip necklace: %v", err)
+			}
+		}
+		for i := 0; i < BaseSkillSlots; i++ {
+			p0.Skills[i] = readySkill(baseCard(t, "3021005"), 0)
+		}
+		newSkill := NewCardInstance(baseCard(t, "3021003"), 0, 1)
+		p0.SkillPool = []*CardInstance{newSkill}
+		p0.Elements[model.ElementArcane] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "learn_skill", Data: map[string]any{
+			"instance_id": newSkill.InstanceID,
+		}}); err != nil {
+			t.Fatalf("learn sixth skill with memory necklace: %v", err)
+		}
+		if p0.Skills[BaseSkillSlots] != newSkill {
+			t.Fatalf("memory necklace should place skill in sixth slot, skills=%v", cardsToInfo(p0.Skills[:]))
+		}
+		info := engine.playerStateToInfo(p0, true)
+		if info["skill_slot_capacity"] != MaxSkillSlots || len(info["skills"].([]any)) != MaxSkillSlots {
+			t.Fatalf("player info should expose six skill slots, capacity=%v skills=%v", info["skill_slot_capacity"], info["skills"])
+		}
+	})
+
+	t.Run("2021017 travel pack opens equipment slots without bypassing subtype uniqueness", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		pack := NewCardInstance(baseCard(t, "2021017"), 0, 1)
+		p0.Equipment[0] = pack
+		if equip, ok := globalRegistry.GetBehavior("2021017").(OnEquipBehavior); ok {
+			if err := equip.OnEquip(&EffectContext{Engine: engine, Source: pack, PlayerID: 0, OpponentID: 1}); err != nil {
+				t.Fatalf("equip pack: %v", err)
+			}
+		}
+		for i := 1; i < BaseEquipmentSlots; i++ {
+			p0.Equipment[i] = NewCardInstance(baseCard(t, "2021006"), 0, 1)
+			p0.Equipment[i].SlotIndex = i
+		}
+		extra := NewCardInstance(baseCard(t, "2021006"), 0, 1)
+		p0.Hand = []*CardInstance{extra}
+		for _, elem := range model.AllElements {
+			p0.Elements[elem] = 10
+		}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "equip", Data: map[string]any{
+			"instance_id": extra.InstanceID,
+		}}); err != nil {
+			t.Fatalf("equip into sixth equipment slot with travel pack: %v", err)
+		}
+		if p0.Equipment[BaseEquipmentSlots] != extra {
+			t.Fatalf("travel pack should allow sixth equipment slot, equipment=%v", cardsToInfo(p0.Equipment[:]))
+		}
+
+		weaponA := NewCardInstance(baseCard(t, "2121004"), 0, 1)
+		weaponB := NewCardInstance(baseCard(t, "2121010"), 0, 1)
+		p0.Equipment[1] = weaponA
+		p0.Hand = []*CardInstance{weaponB}
+		for _, elem := range model.AllElements {
+			p0.Elements[elem] = 10
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "equip", Data: map[string]any{
+			"instance_id": weaponB.InstanceID,
+		}}); err == nil {
+			t.Fatalf("travel pack should not bypass one-weapon subtype uniqueness")
+		}
+	})
+
+	t.Run("counter traps respect current equipment capacity", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		for i := 0; i < BaseEquipmentSlots; i++ {
+			p0.Equipment[i] = NewCardInstance(baseCard(t, "2021006"), 0, 1)
+			p0.Equipment[i].SlotIndex = i
+		}
+		counter := NewCardInstance(baseCard(t, "2121002"), 0, 1)
+		p0.Hand = []*CardInstance{counter}
+
+		if err := engine.placeCounterTrap(0, counter, 0); err == nil {
+			t.Fatalf("counter trap should not enter hidden extended equipment slot without travel pack")
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != counter {
+			t.Fatalf("failed counter placement should keep card in hand")
+		}
+		for i := BaseEquipmentSlots; i < MaxEquipmentSlots; i++ {
+			if p0.Equipment[i] != nil {
+				t.Fatalf("extended slot %d should stay empty without travel pack", i)
+			}
+		}
+
+		pack := NewCardInstance(baseCard(t, "2021017"), 0, 1)
+		p0.Equipment[0] = pack
+		if err := engine.placeCounterTrap(0, counter, 0); err != nil {
+			t.Fatalf("counter trap should use extended equipment slot with travel pack: %v", err)
+		}
+		if p0.Equipment[BaseEquipmentSlots] != counter {
+			t.Fatalf("counter trap should be placed in sixth equipment slot, equipment=%v", cardsToInfo(p0.Equipment[:]))
+		}
+		info := engine.playerStateToInfo(p0, true)
+		if info["equipment_slot_capacity"] != MaxEquipmentSlots || len(info["equipment"].([]any)) != MaxEquipmentSlots {
+			t.Fatalf("player info should expose extended counter slot, capacity=%v equipment=%v", info["equipment_slot_capacity"], info["equipment"])
+		}
+	})
+
+	t.Run("lost slot expansion cleans up overflow cards", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+
+		necklace := NewCardInstance(baseCard(t, "2021002"), 0, 1)
+		p0.Equipment[0] = necklace
+		for i := 0; i < BaseSkillSlots; i++ {
+			p0.Skills[i] = readySkill(baseCard(t, "3021005"), 0)
+			p0.Skills[i].SlotIndex = i
+		}
+		overflowSkill := readySkill(baseCard(t, "3021003"), 0)
+		overflowSkill.SlotIndex = BaseSkillSlots
+		p0.Skills[BaseSkillSlots] = overflowSkill
+
+		necklace.Statuses[StatusPetrify] = 1
+		engine.enforceSlotCapacities(p0)
+		if p0.Skills[BaseSkillSlots] != nil {
+			t.Fatalf("sixth skill should leave the field when memory necklace is inactive")
+		}
+		if engine.findSkill(p0, overflowSkill.InstanceID) != nil {
+			t.Fatalf("overflow skill should not remain findable as a field skill")
+		}
+		if len(p0.SkillPool) == 0 || p0.SkillPool[len(p0.SkillPool)-1] != overflowSkill {
+			t.Fatalf("overflow skill should return to skill pool")
+		}
+		info := engine.playerStateToInfo(p0, true)
+		if info["skill_slot_capacity"] != BaseSkillSlots || len(info["skills"].([]any)) != BaseSkillSlots {
+			t.Fatalf("player info should shrink skill slots, capacity=%v skills=%v", info["skill_slot_capacity"], info["skills"])
+		}
+
+		pack := NewCardInstance(baseCard(t, "2021017"), 0, 1)
+		p0.Equipment[0] = pack
+		overflowEquipment := NewCardInstance(baseCard(t, "2021006"), 0, 1)
+		overflowEquipment.SlotIndex = BaseEquipmentSlots
+		p0.Equipment[BaseEquipmentSlots] = overflowEquipment
+
+		pack.Statuses[StatusPetrify] = 1
+		engine.enforceSlotCapacities(p0)
+		if p0.Equipment[BaseEquipmentSlots] != nil {
+			t.Fatalf("sixth equipment should leave the field when travel pack is inactive")
+		}
+		if engine.findEquipment(p0, overflowEquipment.InstanceID) != nil {
+			t.Fatalf("overflow equipment should not remain findable as field equipment")
+		}
+		if len(p0.Graveyard) == 0 || p0.Graveyard[len(p0.Graveyard)-1] != overflowEquipment {
+			t.Fatalf("overflow equipment should go to graveyard")
+		}
+		info = engine.playerStateToInfo(p0, true)
+		if info["equipment_slot_capacity"] != BaseEquipmentSlots || len(info["equipment"].([]any)) != BaseEquipmentSlots {
+			t.Fatalf("player info should shrink equipment slots, capacity=%v equipment=%v", info["equipment_slot_capacity"], info["equipment"])
+		}
+	})
+}
+
 func TestArchmageStaffStoresSkillAndRemovesAfterUse(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
@@ -2648,7 +2813,7 @@ func TestCounterTrapCanBeSetHiddenAndTriggeredWithOverexert(t *testing.T) {
 		t.Fatalf("counter should be set in equipment, hand=%d equipment=%v set=%v", len(p0.Hand), p0.Equipment[0], counter.IsSetCounter)
 	}
 	opponentView := engine.playerStateToInfo(p0, false)
-	hidden := opponentView["equipment"].([5]any)[0].(map[string]any)
+	hidden := opponentView["equipment"].([]any)[0].(map[string]any)
 	if hidden["is_hidden"] != true || hidden["number"] != nil {
 		t.Fatalf("opponent should see only hidden counter info: %+v", hidden)
 	}
@@ -2954,6 +3119,51 @@ func TestIssue48DivineGuardianRejectsCommonNegativeStatusApplication(t *testing.
 }
 
 func TestBoundSkillAttachesToHostInsteadOfSkillPool(t *testing.T) {
+	t.Run("all printed bound skills attach to their host automatically", func(t *testing.T) {
+		cases := []struct {
+			name        string
+			hostNumber  string
+			boundNumber string
+			equipment   bool
+		}{
+			{name: "1011001 魔龙 奥瑞 binds 破灭魔光", hostNumber: "1011001", boundNumber: "3001001"},
+			{name: "1011003 盟主 法罗兰克 binds 纯净奥术", hostNumber: "1011003", boundNumber: "3001002"},
+			{name: "1111001 火龙 辉煌 binds 火焰吐息", hostNumber: "1111001", boundNumber: "3101001"},
+			{name: "1311002 风暴之女 艾拉雅 binds 风暴之怒", hostNumber: "1311002", boundNumber: "3301001"},
+			{name: "2211002 嗜魔弓 凛冬 binds 凛冬将至", hostNumber: "2211002", boundNumber: "3201002", equipment: true},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				engine := setupReportedBugEngine(t)
+				p0 := engine.State.Players[0]
+				host := NewCardInstance(baseCard(t, tc.hostNumber), 0, 1)
+				if tc.equipment {
+					p0.Equipment[0] = host
+				} else {
+					p0.Units[0][0] = host
+					host.Position = &Position{Col: 0, Row: 0}
+				}
+
+				engine.triggerEffects(TriggerOnEnter, host, nil, nil)
+
+				if len(p0.SkillPool) != 0 {
+					t.Fatalf("bound skill should not enter skill pool, pool=%v", cardsToInfo(p0.SkillPool))
+				}
+				for i, skill := range p0.Skills {
+					if skill != nil {
+						t.Fatalf("bound skill should not occupy skill slot %d: %v", i, cardToInfo(skill))
+					}
+				}
+				if len(host.BoundSkills) != 1 || host.BoundSkills[0].Card.Number != tc.boundNumber {
+					t.Fatalf("expected bound skill %s on host, bound=%v", tc.boundNumber, cardsToInfo(host.BoundSkills))
+				}
+				if host.BoundSkills[0].SlotIndex != -1 {
+					t.Fatalf("bound skill should not have a skill slot, slot=%d", host.BoundSkills[0].SlotIndex)
+				}
+			})
+		}
+	})
+
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
 	ailaya := placeUnit(baseCard(t, "1311002"), 0, 1, 1, engine)
@@ -3229,16 +3439,16 @@ func TestStormChimeraDevoursFriendlyCompanion(t *testing.T) {
 	if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
 		"instance_id": chimera.InstanceID,
 		"devour_id":   food.InstanceID,
-		"col":         float64(0),
+		"col":         float64(1),
 		"row":         float64(0),
 	}}); err != nil {
 		t.Fatalf("summon chimera with devour: %v", err)
 	}
-	if p0.Units[1][0] != nil || len(p0.Graveyard) != 1 {
-		t.Fatalf("devoured unit should be destroyed")
+	if len(p0.Graveyard) != 1 || p0.Graveyard[0].InstanceID != food.InstanceID {
+		t.Fatalf("devoured unit should be destroyed, grave=%v", cardsToInfo(p0.Graveyard))
 	}
-	if p0.Units[0][0] == nil || p0.Units[0][0].Card.Number != "1321010" {
-		t.Fatalf("chimera should enter after devour")
+	if p0.Units[1][0] != chimera {
+		t.Fatalf("chimera should be able to enter the devoured unit's position")
 	}
 	if p0.Elements[model.ElementAir] != 0 {
 		t.Fatalf("summon should spend 3 air, elements=%v", p0.Elements)
@@ -3344,6 +3554,7 @@ func TestMulingUltimateReturnsOneCompanionFromEachSide(t *testing.T) {
 	own := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
 	enemy := placeUnit(baseCard(t, "1321010"), 1, 1, 0, engine)
 	backEnemy := placeUnit(baseCard(t, "1321010"), 1, 1, 1, engine)
+	ordinaryBackEnemy := placeUnit(baseCard(t, "1021001"), 1, 0, 1, engine)
 	p0.Elements[model.ElementAir] = 2
 
 	if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
@@ -3355,10 +3566,17 @@ func TestMulingUltimateReturnsOneCompanionFromEachSide(t *testing.T) {
 	if engine.State.Phase != PhaseWaitingAction {
 		t.Fatalf("expected muling selection, phase=%v", engine.State.Phase)
 	}
+	sawBackTaunt := false
 	for _, candidate := range engine.State.PendingAction.Candidates {
-		if candidate["instance_id"] == backEnemy.InstanceID {
-			t.Fatalf("muling should not offer enemy companions outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
+		switch candidate["instance_id"] {
+		case backEnemy.InstanceID:
+			sawBackTaunt = true
+		case ordinaryBackEnemy.InstanceID:
+			t.Fatalf("muling should not offer ordinary back-row enemies outside spell range, candidates=%+v", engine.State.PendingAction.Candidates)
 		}
+	}
+	if !sawBackTaunt {
+		t.Fatalf("muling should offer back-row 引魔 enemies because they are in spell range, candidates=%+v", engine.State.PendingAction.Candidates)
 	}
 	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 		"selected": []any{own.InstanceID, enemy.InstanceID},
@@ -5047,7 +5265,7 @@ func TestConsumableTargetedItemEffects(t *testing.T) {
 		}
 	})
 
-	t.Run("purification scroll removes friendly negative statuses", func(t *testing.T) {
+	t.Run("purification scroll chooses between friendly cleanse and enemy marker removal", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		item := NewCardInstance(baseCard(t, "2521003"), 0, 1)
@@ -5056,11 +5274,26 @@ func TestConsumableTargetedItemEffects(t *testing.T) {
 		target := placeUnit(baseCard(t, "1021004"), 0, 1, 0, engine)
 		target.Statuses[StatusBurn] = 1
 		target.Statuses[StatusFreeze] = 2
+		enemy := placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
+		enemy.Statuses["暗影标记"] = 3
+		enemy.Statuses[StatusMastery] = 2
+		enemy.Statuses[StatusBurn] = 1
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
 			"instance_id": item.InstanceID,
 		}}); err != nil {
 			t.Fatalf("use purification scroll: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "purification_scroll_mode" || len(engine.State.PendingAction.Candidates) != 2 {
+			t.Fatalf("purification scroll should ask which branch to use, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{"purify"},
+		}}); err != nil {
+			t.Fatalf("choose purification branch: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "purify_friendly" {
+			t.Fatalf("purification branch should ask for a friendly target, pending=%+v", engine.State.PendingAction)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{target.InstanceID},
@@ -5069,6 +5302,37 @@ func TestConsumableTargetedItemEffects(t *testing.T) {
 		}
 		if target.Statuses[StatusBurn] != 0 || target.Statuses[StatusFreeze] != 0 {
 			t.Fatalf("purification scroll should remove negative statuses, statuses=%v", target.Statuses)
+		}
+
+		item = NewCardInstance(baseCard(t, "2521003"), 0, 1)
+		p0.Hand = []*CardInstance{item}
+		p0.Elements[model.ElementLight] = 10
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": item.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use second purification scroll: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{"remove_markers"},
+		}}); err != nil {
+			t.Fatalf("choose marker removal branch: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "purification_scroll_remove_markers" {
+			t.Fatalf("marker branch should ask for an enemy card target, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{enemy.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve marker removal branch: %v", err)
+		}
+		if enemy.Statuses["暗影标记"] != 0 {
+			t.Fatalf("purification scroll should remove explicit card-effect markers, statuses=%v", enemy.Statuses)
+		}
+		if enemy.Statuses[StatusMastery] != 2 {
+			t.Fatalf("purification scroll must not remove mastery, statuses=%v", enemy.Statuses)
+		}
+		if enemy.Statuses[StatusBurn] != 1 {
+			t.Fatalf("marker branch must not remove enemy negative statuses, statuses=%v", enemy.Statuses)
 		}
 	})
 }
@@ -8923,11 +9187,65 @@ func TestRemainingHighRiskBaseCardSemantics(t *testing.T) {
 }
 
 func TestRemainingMediumRiskGenericBaseCards(t *testing.T) {
+	t.Run("1011002 wizard tower grants elements on enter and global spell range only while active", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		tower := placeUnit(baseCard(t, "1011002"), 0, 0, 0, engine)
+		p0.Skills[0] = readySkill(baseCard(t, "3121001"), 0)
+		p0.Skills[1] = readySkill(baseCard(t, "3221001"), 0)
+		frontEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		backEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 2, engine)
+		attacker := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		attacker.CurrentAttack = 1
+		attacker.IsHorizontal = false
+
+		engine.triggerEffects(TriggerOnEnter, tower, nil, nil)
+
+		if p0.Elements[model.ElementFire] != 1 || p0.Elements[model.ElementWater] != 1 {
+			t.Fatalf("wizard tower should gain one element for each learned skill category, elements=%v", p0.Elements)
+		}
+		if !engine.IsInSpellRange(0, backEnemy.Position.Col, backEnemy.Position.Row, false) {
+			t.Fatalf("wizard tower should make ordinary back-row enemies in spell range")
+		}
+		if !engine.IsInAttackRange(0, attacker, frontEnemy.Position.Col, frontEnemy.Position.Row) {
+			t.Fatalf("front enemy should be a legal direct attack target")
+		}
+		if engine.IsInAttackRange(0, attacker, backEnemy.Position.Col, backEnemy.Position.Row) {
+			t.Fatalf("global spell range should not affect direct attack targets")
+		}
+
+		tower.Statuses[StatusPetrify] = 1
+		if engine.IsInSpellRange(0, backEnemy.Position.Col, backEnemy.Position.Row, false) {
+			t.Fatalf("petrified wizard tower should not provide global spell range")
+		}
+	})
+
 	t.Run("1511003 2121008 2221003 2221009 2421005 2421008 2621001 2621009 generic companion/item traits", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		pegasus := NewCardInstance(baseCard(t, "1511003"), 0, 1)
 		if !cardHasTaunt(pegasus) {
 			t.Fatalf("1511003 should expose taunt from its 引魔 keyword")
+		}
+		backPegasus := placeUnit(baseCard(t, "1511003"), 1, 0, 2, engine)
+		frontEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		attacker := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		attacker.IsHorizontal = false
+		delete(backPegasus.Statuses, "引魔")
+		if !engine.IsInSpellRange(0, backPegasus.Position.Col, backPegasus.Position.Row, false) {
+			t.Fatalf("back-row 引魔 unit should be in the opponent's spell range even without a status marker")
+		}
+		if !engine.IsInAttackRange(0, attacker, frontEnemy.Position.Col, frontEnemy.Position.Row) {
+			t.Fatalf("front enemy should be a legal direct attack target")
+		}
+		if engine.IsInAttackRange(0, attacker, backPegasus.Position.Col, backPegasus.Position.Row) {
+			t.Fatalf("引魔 should not make a back-row unit a legal direct attack target")
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "attack", Data: map[string]any{
+			"attacker_id": attacker.InstanceID,
+			"target_col":  float64(backPegasus.Position.Col),
+			"target_row":  float64(backPegasus.Position.Row),
+		}}); err == nil {
+			t.Fatalf("direct attack should still require an actual front-row target")
 		}
 
 		if spellArea(readySkill(baseCard(t, "2121008"), 0)) != SpellAreaSquare {

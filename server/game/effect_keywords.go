@@ -41,7 +41,7 @@ func (e *Engine) IsInSpellRange(casterID int, targetCol, targetRow int, hasPierc
 
 	for _, card := range e.getAllFieldCards(caster) {
 		if card != nil && card.Card != nil && !e.hasEffectiveStatus(card, StatusPetrify) {
-			if h, ok := behaviorForNumber(card.Card.Number).(GlobalSpellRangeBehavior); ok && h.HasActiveGlobalSpellRange(card) && h.HasGlobalSpellRange() {
+			if cardHasActiveGlobalSpellRange(card) {
 				return true
 			}
 		}
@@ -74,7 +74,7 @@ func (e *Engine) IsInSpellRange(casterID int, targetCol, targetRow int, hasPierc
 	}
 
 	// 引魔 (Taunt) units are always in range
-	if target.Statuses["引魔"] > 0 {
+	if target.Statuses["引魔"] > 0 || cardHasTaunt(target) {
 		return true
 	}
 

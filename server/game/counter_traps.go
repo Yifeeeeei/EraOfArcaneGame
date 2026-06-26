@@ -46,7 +46,7 @@ func hiddenCounterInfo(ci *CardInstance) map[string]any {
 func (e *Engine) placeCounterTrap(playerID int, card *CardInstance, handIdx int) error {
 	ps := e.State.Players[playerID]
 	slotIdx := -1
-	for i := 0; i < len(ps.Equipment); i++ {
+	for i := 0; i < equipmentSlotCapacity(ps); i++ {
 		if ps.Equipment[i] == nil {
 			slotIdx = i
 			break

@@ -9,6 +9,7 @@ func (Card1011003ArchleaderFarolank) OnEnter(ctx *EffectContext) error {
 	if ctx.Source == nil || ctx.Source.Position == nil {
 		return nil
 	}
+	bindSkillToHost(ctx, "3001002")
 	gains := make(map[string]int)
 	for _, unit := range adjacentUnits(ctx.Engine.State.Players[ctx.PlayerID], ctx.Source.Position) {
 		if unit.Card.IsCompanion() {

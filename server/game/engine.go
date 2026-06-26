@@ -156,6 +156,7 @@ func (e *Engine) HandleAction(playerID int, action ActionMessage) error {
 	log.Printf("[Game %s] Player %d action: %s", e.State.GameID, playerID, action.Action)
 
 	e.beginResolution()
+	defer e.enforceAllSlotCapacities()
 	defer e.endResolution()
 
 	switch action.Action {
@@ -191,6 +192,43 @@ func (e *Engine) HandleAction(playerID int, action ActionMessage) error {
 		return e.handleEndTurn(playerID, action)
 	default:
 		return fmt.Errorf("unknown action: %s", action.Action)
+	}
+}
+
+func (e *Engine) enforceAllSlotCapacities() {
+	for _, ps := range e.State.Players {
+		e.enforceSlotCapacities(ps)
+	}
+}
+
+func (e *Engine) enforceSlotCapacities(ps *PlayerState) {
+	if ps == nil {
+		return
+	}
+
+	equipmentCap := equipmentSlotCapacity(ps)
+	for i := equipmentCap; i < len(ps.Equipment); i++ {
+		equipment := ps.Equipment[i]
+		if equipment == nil {
+			continue
+		}
+		ps.Equipment[i] = nil
+		equipment.SlotIndex = -1
+		equipment.BoundSkills = nil
+		ps.Graveyard = append(ps.Graveyard, equipment)
+		e.emit(GameEvent{Type: "discard", Player: ps.PlayerID, Data: map[string]any{"card": cardToInfo(equipment)}})
+	}
+
+	skillCap := skillSlotCapacity(ps)
+	for i := skillCap; i < len(ps.Skills); i++ {
+		skill := ps.Skills[i]
+		if skill == nil {
+			continue
+		}
+		ps.Skills[i] = nil
+		returnSkillToPool(skill)
+		ps.SkillPool = append(ps.SkillPool, skill)
+		e.emit(GameEvent{Type: "skill_returned_to_pool", Player: ps.PlayerID, Data: map[string]any{"card": cardToInfo(skill)}})
 	}
 }
 
@@ -571,14 +609,14 @@ func (e *Engine) resetCards(ps *PlayerState) {
 		}
 	}
 	// Reset skills
-	for i := 0; i < 5; i++ {
+	for i := range ps.Skills {
 		if ps.Skills[i] != nil {
 			e.resetCard(ps.Skills[i])
 			ps.Skills[i].UsedThisTurn = 0
 		}
 	}
 	// Reset equipment
-	for i := 0; i < 5; i++ {
+	for i := range ps.Equipment {
 		if ps.Equipment[i] != nil {
 			e.resetCard(ps.Equipment[i])
 			ps.Equipment[i].UsedThisTurn = 0
@@ -633,18 +671,10 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 	if !pos.Valid() {
 		return fmt.Errorf("invalid position")
 	}
-	if ps.Units[col][row] != nil {
-		return fmt.Errorf("position already occupied")
-	}
 
 	cost := e.effectiveCardPlayCost(ps, card)
 	if !ps.CanPayCost(cost) {
 		return fmt.Errorf("not enough elements")
-	}
-
-	// Check unit limit (max 9 including hero)
-	if ps.CountUnits() >= 9 {
-		return fmt.Errorf("unit area is full")
 	}
 
 	if !canPayCostForAction(ps, cost, action) {
@@ -652,6 +682,14 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 	}
 	if err := e.validateAndApplySummonDevour(playerID, card, action); err != nil {
 		return err
+	}
+	if ps.Units[col][row] != nil {
+		return fmt.Errorf("position already occupied")
+	}
+
+	// Check unit limit (max 9 including hero) after devour costs are paid.
+	if ps.CountUnits() >= 9 {
+		return fmt.Errorf("unit area is full")
 	}
 
 	// Pay cost and place
@@ -2347,7 +2385,7 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 	var replacedEquipment *CardInstance
 	newSubtype := restrictedEquipmentSubtype(card.Card)
 	if replaceID != "" {
-		for i := 0; i < 5; i++ {
+		for i := 0; i < equipmentSlotCapacity(ps); i++ {
 			if ps.Equipment[i] != nil && ps.Equipment[i].InstanceID == replaceID {
 				if ps.Equipment[i].IsHorizontal {
 					return fmt.Errorf("can only replace vertical equipment")
@@ -2375,7 +2413,7 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 			}
 		}
 		// Find empty equipment slot
-		for i := 0; i < 5; i++ {
+		for i := 0; i < equipmentSlotCapacity(ps); i++ {
 			if ps.Equipment[i] == nil {
 				slotIdx = i
 				break
@@ -2461,7 +2499,7 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 	var replacedSkill *CardInstance
 	if replaceID != "" {
 		// Replace existing skill
-		for i := 0; i < 5; i++ {
+		for i := 0; i < skillSlotCapacity(ps); i++ {
 			if ps.Skills[i] != nil && ps.Skills[i].InstanceID == replaceID {
 				if ps.Skills[i].IsHorizontal {
 					return fmt.Errorf("can only replace vertical skills")
@@ -2476,7 +2514,7 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 		}
 	} else {
 		// Find empty slot
-		for i := 0; i < 5; i++ {
+		for i := 0; i < skillSlotCapacity(ps); i++ {
 			if ps.Skills[i] == nil {
 				slotIdx = i
 				break
@@ -3252,7 +3290,7 @@ func (e *Engine) processEndOfTurnStatuses(ps *PlayerState) {
 	}
 
 	// 虚弱 is on skills, handled separately
-	for i := 0; i < 5; i++ {
+	for i := range ps.Skills {
 		if ps.Skills[i] != nil && ps.Skills[i].Statuses[StatusWeaken] > 0 {
 			ps.Skills[i].Statuses[StatusWeaken]--
 		}
@@ -3478,7 +3516,7 @@ func (e *Engine) findCardOnField(ps *PlayerState, instanceID string) *CardInstan
 		}
 	}
 	// Check equipment
-	for i := 0; i < 5; i++ {
+	for i := range ps.Equipment {
 		if ps.Equipment[i] != nil && ps.Equipment[i].InstanceID == instanceID {
 			return ps.Equipment[i]
 		}
@@ -3498,7 +3536,7 @@ func (e *Engine) findUnitOnGrid(ps *PlayerState, instanceID string) *CardInstanc
 }
 
 func (e *Engine) findEquipment(ps *PlayerState, instanceID string) *CardInstance {
-	for i := 0; i < 5; i++ {
+	for i := range ps.Equipment {
 		if ps.Equipment[i] != nil && ps.Equipment[i].InstanceID == instanceID {
 			return ps.Equipment[i]
 		}
@@ -3507,7 +3545,7 @@ func (e *Engine) findEquipment(ps *PlayerState, instanceID string) *CardInstance
 }
 
 func (e *Engine) findSkill(ps *PlayerState, instanceID string) *CardInstance {
-	for i := 0; i < 5; i++ {
+	for i := range ps.Skills {
 		if ps.Skills[i] != nil && ps.Skills[i].InstanceID == instanceID {
 			return ps.Skills[i]
 		}
@@ -3549,7 +3587,7 @@ func (e *Engine) getAllFieldCards(ps *PlayerState) []*CardInstance {
 			}
 		}
 	}
-	for i := 0; i < 5; i++ {
+	for i := range ps.Skills {
 		if ps.Skills[i] != nil {
 			cards = append(cards, ps.Skills[i])
 		}
@@ -3561,7 +3599,7 @@ func (e *Engine) getAllFieldCards(ps *PlayerState) []*CardInstance {
 			}
 		}
 	}
-	for i := 0; i < 5; i++ {
+	for i := range ps.Equipment {
 		if ps.Equipment[i] != nil {
 			cards = append(cards, ps.Equipment[i])
 		}
@@ -3580,36 +3618,39 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		return nil
 	}
 	info := map[string]any{
-		"instance_id":      ci.InstanceID,
-		"owner":            ci.OwnerID,
-		"number":           ci.Card.Number,
-		"name":             ci.Card.Name,
-		"type":             ci.Card.Type,
-		"category":         ci.Card.Category,
-		"tag":              ci.Card.Tag,
-		"description":      ci.Card.Description,
-		"attack":           ci.Card.Attack + ci.AttackBonus,
-		"life":             maxLife(ci),
-		"power":            ci.Card.Power + ci.PowerBonus,
-		"duration":         ci.Card.Duration,
-		"elements_cost":    ci.Card.ElementsCost,
-		"elements_gain":    effectiveElementsGain(ci),
-		"elements_expense": ci.Card.ElementsExpense,
-		"current_life":     ci.CurrentLife,
-		"current_attack":   ci.CurrentAttack,
-		"is_horizontal":    ci.IsHorizontal,
-		"is_terrain":       cards.IsTerrain(ci.Card.Number),
-		"is_consumable":    cards.IsConsumable(ci.Card.Number),
-		"is_equipment":     cards.IsEquipment(ci.Card.Number),
-		"is_weapon":        cards.IsWeapon(ci.Card.Number),
-		"is_counter_trap":  isCounterTrapCard(ci.Card.Number),
-		"is_set_counter":   ci.IsSetCounter,
-		"statuses":         ci.Statuses,
-		"position":         ci.Position,
-		"output_path":      ci.Card.OutputPath,
-		"used_this_turn":   ci.UsedThisTurn,
-		"ultimate_used":    ci.UltimateUsed,
-		"uses_remaining":   ci.UsesRemaining,
+		"instance_id":            ci.InstanceID,
+		"owner":                  ci.OwnerID,
+		"number":                 ci.Card.Number,
+		"name":                   ci.Card.Name,
+		"type":                   ci.Card.Type,
+		"category":               ci.Card.Category,
+		"tag":                    ci.Card.Tag,
+		"description":            ci.Card.Description,
+		"attack":                 ci.Card.Attack + ci.AttackBonus,
+		"life":                   maxLife(ci),
+		"power":                  ci.Card.Power + ci.PowerBonus,
+		"duration":               ci.Card.Duration,
+		"elements_cost":          ci.Card.ElementsCost,
+		"elements_gain":          effectiveElementsGain(ci),
+		"elements_expense":       ci.Card.ElementsExpense,
+		"current_life":           ci.CurrentLife,
+		"current_attack":         ci.CurrentAttack,
+		"is_horizontal":          ci.IsHorizontal,
+		"is_terrain":             cards.IsTerrain(ci.Card.Number),
+		"is_companion":           ci.Card.IsCompanion(),
+		"is_consumable":          cards.IsConsumable(ci.Card.Number),
+		"is_equipment":           cards.IsEquipment(ci.Card.Number),
+		"is_weapon":              cards.IsWeapon(ci.Card.Number),
+		"has_taunt":              cardHasTaunt(ci),
+		"has_global_spell_range": cardHasActiveGlobalSpellRange(ci),
+		"is_counter_trap":        isCounterTrapCard(ci.Card.Number),
+		"is_set_counter":         ci.IsSetCounter,
+		"statuses":               ci.Statuses,
+		"position":               ci.Position,
+		"output_path":            ci.Card.OutputPath,
+		"used_this_turn":         ci.UsedThisTurn,
+		"ultimate_used":          ci.UltimateUsed,
+		"uses_remaining":         ci.UsesRemaining,
 	}
 	addCardEffectMetadata(info, ci.Card)
 	if len(ci.BoundSkills) > 0 {
@@ -3779,15 +3820,16 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 	info["terrain"] = terrain
 
 	// Skills
-	skills := [5]any{}
-	for i := 0; i < 5; i++ {
+	skills := make([]any, skillSlotCapacity(ps))
+	for i := range skills {
 		skills[i] = e.cardToInfoForPlayer(ps, ps.Skills[i])
 	}
 	info["skills"] = skills
+	info["skill_slot_capacity"] = len(skills)
 
 	// Equipment
-	equipment := [5]any{}
-	for i := 0; i < 5; i++ {
+	equipment := make([]any, equipmentSlotCapacity(ps))
+	for i := range equipment {
 		if !isOwner && ps.Equipment[i] != nil && ps.Equipment[i].IsSetCounter {
 			equipment[i] = hiddenCounterInfo(ps.Equipment[i])
 		} else {
@@ -3795,6 +3837,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 		}
 	}
 	info["equipment"] = equipment
+	info["equipment_slot_capacity"] = len(equipment)
 
 	if isOwner {
 		// Show full hand

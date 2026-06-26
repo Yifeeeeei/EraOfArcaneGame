@@ -188,6 +188,40 @@ func stringsFromAnySlice(values []any) []string {
 	return result
 }
 
+func skillSlotCapacity(ps *PlayerState) int {
+	if ps == nil {
+		return BaseSkillSlots
+	}
+	capacity := BaseSkillSlots
+	for _, equipment := range ps.Equipment {
+		if equipment != nil && equipment.Card != nil && equipment.Card.Number == "2021002" && equipment.Statuses[StatusPetrify] <= 0 {
+			capacity++
+			break
+		}
+	}
+	if capacity > MaxSkillSlots {
+		return MaxSkillSlots
+	}
+	return capacity
+}
+
+func equipmentSlotCapacity(ps *PlayerState) int {
+	if ps == nil {
+		return BaseEquipmentSlots
+	}
+	capacity := BaseEquipmentSlots
+	for _, equipment := range ps.Equipment {
+		if equipment != nil && equipment.Card != nil && equipment.Card.Number == "2021017" && equipment.Statuses[StatusPetrify] <= 0 {
+			capacity += 3
+			break
+		}
+	}
+	if capacity > MaxEquipmentSlots {
+		return MaxEquipmentSlots
+	}
+	return capacity
+}
+
 func (e *Engine) collectSkillUses(ps *PlayerState, ids []string, purpose skillPurpose, reserved map[string]bool) ([]*CardInstance, map[string]int, error) {
 	skills := make([]*CardInstance, 0, len(ids))
 	totalCost := make(map[string]int)
