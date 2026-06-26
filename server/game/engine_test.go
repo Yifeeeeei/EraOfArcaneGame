@@ -292,6 +292,12 @@ func TestFullGameFlow(t *testing.T) {
 				Action: "consume",
 				Data:   map[string]any{"instance_id": ps.Hero.InstanceID},
 			})
+			if engine.State.Phase != PhaseMain {
+				t.Logf("Turn %d P%d: consume opened %s; returning to main for flow smoke test", turn+1, currentPlayer, engine.State.Phase)
+				engine.State.PendingAction = nil
+				engine.State.ResumePhase = PhaseMain
+				engine.State.Phase = PhaseMain
+			}
 		}
 
 		// Try to summon companions

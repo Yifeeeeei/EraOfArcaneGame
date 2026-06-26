@@ -100,6 +100,95 @@ func TestSlotExpansionItemsAdjustCapacity(t *testing.T) {
 			t.Fatalf("travel pack should not bypass one-weapon subtype uniqueness")
 		}
 	})
+
+	t.Run("counter traps respect current equipment capacity", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		for i := 0; i < BaseEquipmentSlots; i++ {
+			p0.Equipment[i] = NewCardInstance(baseCard(t, "2021006"), 0, 1)
+			p0.Equipment[i].SlotIndex = i
+		}
+		counter := NewCardInstance(baseCard(t, "2121002"), 0, 1)
+		p0.Hand = []*CardInstance{counter}
+
+		if err := engine.placeCounterTrap(0, counter, 0); err == nil {
+			t.Fatalf("counter trap should not enter hidden extended equipment slot without travel pack")
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != counter {
+			t.Fatalf("failed counter placement should keep card in hand")
+		}
+		for i := BaseEquipmentSlots; i < MaxEquipmentSlots; i++ {
+			if p0.Equipment[i] != nil {
+				t.Fatalf("extended slot %d should stay empty without travel pack", i)
+			}
+		}
+
+		pack := NewCardInstance(baseCard(t, "2021017"), 0, 1)
+		p0.Equipment[0] = pack
+		if err := engine.placeCounterTrap(0, counter, 0); err != nil {
+			t.Fatalf("counter trap should use extended equipment slot with travel pack: %v", err)
+		}
+		if p0.Equipment[BaseEquipmentSlots] != counter {
+			t.Fatalf("counter trap should be placed in sixth equipment slot, equipment=%v", cardsToInfo(p0.Equipment[:]))
+		}
+		info := engine.playerStateToInfo(p0, true)
+		if info["equipment_slot_capacity"] != MaxEquipmentSlots || len(info["equipment"].([]any)) != MaxEquipmentSlots {
+			t.Fatalf("player info should expose extended counter slot, capacity=%v equipment=%v", info["equipment_slot_capacity"], info["equipment"])
+		}
+	})
+
+	t.Run("lost slot expansion cleans up overflow cards", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+
+		necklace := NewCardInstance(baseCard(t, "2021002"), 0, 1)
+		p0.Equipment[0] = necklace
+		for i := 0; i < BaseSkillSlots; i++ {
+			p0.Skills[i] = readySkill(baseCard(t, "3021005"), 0)
+			p0.Skills[i].SlotIndex = i
+		}
+		overflowSkill := readySkill(baseCard(t, "3021003"), 0)
+		overflowSkill.SlotIndex = BaseSkillSlots
+		p0.Skills[BaseSkillSlots] = overflowSkill
+
+		necklace.Statuses[StatusPetrify] = 1
+		engine.enforceSlotCapacities(p0)
+		if p0.Skills[BaseSkillSlots] != nil {
+			t.Fatalf("sixth skill should leave the field when memory necklace is inactive")
+		}
+		if engine.findSkill(p0, overflowSkill.InstanceID) != nil {
+			t.Fatalf("overflow skill should not remain findable as a field skill")
+		}
+		if len(p0.SkillPool) == 0 || p0.SkillPool[len(p0.SkillPool)-1] != overflowSkill {
+			t.Fatalf("overflow skill should return to skill pool")
+		}
+		info := engine.playerStateToInfo(p0, true)
+		if info["skill_slot_capacity"] != BaseSkillSlots || len(info["skills"].([]any)) != BaseSkillSlots {
+			t.Fatalf("player info should shrink skill slots, capacity=%v skills=%v", info["skill_slot_capacity"], info["skills"])
+		}
+
+		pack := NewCardInstance(baseCard(t, "2021017"), 0, 1)
+		p0.Equipment[0] = pack
+		overflowEquipment := NewCardInstance(baseCard(t, "2021006"), 0, 1)
+		overflowEquipment.SlotIndex = BaseEquipmentSlots
+		p0.Equipment[BaseEquipmentSlots] = overflowEquipment
+
+		pack.Statuses[StatusPetrify] = 1
+		engine.enforceSlotCapacities(p0)
+		if p0.Equipment[BaseEquipmentSlots] != nil {
+			t.Fatalf("sixth equipment should leave the field when travel pack is inactive")
+		}
+		if engine.findEquipment(p0, overflowEquipment.InstanceID) != nil {
+			t.Fatalf("overflow equipment should not remain findable as field equipment")
+		}
+		if len(p0.Graveyard) == 0 || p0.Graveyard[len(p0.Graveyard)-1] != overflowEquipment {
+			t.Fatalf("overflow equipment should go to graveyard")
+		}
+		info = engine.playerStateToInfo(p0, true)
+		if info["equipment_slot_capacity"] != BaseEquipmentSlots || len(info["equipment"].([]any)) != BaseEquipmentSlots {
+			t.Fatalf("player info should shrink equipment slots, capacity=%v equipment=%v", info["equipment_slot_capacity"], info["equipment"])
+		}
+	})
 }
 
 func TestArchmageStaffStoresSkillAndRemovesAfterUse(t *testing.T) {

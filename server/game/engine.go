@@ -156,6 +156,7 @@ func (e *Engine) HandleAction(playerID int, action ActionMessage) error {
 	log.Printf("[Game %s] Player %d action: %s", e.State.GameID, playerID, action.Action)
 
 	e.beginResolution()
+	defer e.enforceAllSlotCapacities()
 	defer e.endResolution()
 
 	switch action.Action {
@@ -191,6 +192,43 @@ func (e *Engine) HandleAction(playerID int, action ActionMessage) error {
 		return e.handleEndTurn(playerID, action)
 	default:
 		return fmt.Errorf("unknown action: %s", action.Action)
+	}
+}
+
+func (e *Engine) enforceAllSlotCapacities() {
+	for _, ps := range e.State.Players {
+		e.enforceSlotCapacities(ps)
+	}
+}
+
+func (e *Engine) enforceSlotCapacities(ps *PlayerState) {
+	if ps == nil {
+		return
+	}
+
+	equipmentCap := equipmentSlotCapacity(ps)
+	for i := equipmentCap; i < len(ps.Equipment); i++ {
+		equipment := ps.Equipment[i]
+		if equipment == nil {
+			continue
+		}
+		ps.Equipment[i] = nil
+		equipment.SlotIndex = -1
+		equipment.BoundSkills = nil
+		ps.Graveyard = append(ps.Graveyard, equipment)
+		e.emit(GameEvent{Type: "discard", Player: ps.PlayerID, Data: map[string]any{"card": cardToInfo(equipment)}})
+	}
+
+	skillCap := skillSlotCapacity(ps)
+	for i := skillCap; i < len(ps.Skills); i++ {
+		skill := ps.Skills[i]
+		if skill == nil {
+			continue
+		}
+		ps.Skills[i] = nil
+		returnSkillToPool(skill)
+		ps.SkillPool = append(ps.SkillPool, skill)
+		e.emit(GameEvent{Type: "skill_returned_to_pool", Player: ps.PlayerID, Data: map[string]any{"card": cardToInfo(skill)}})
 	}
 }
 
