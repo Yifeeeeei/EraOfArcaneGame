@@ -1,0 +1,80 @@
+name: Work Item
+description: Track a concrete piece of project work that is not necessarily a bug, card-effect report, or frontend UX issue.
+title: "[Work Item]: "
+labels:
+  - work-item
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Use this for trackable work with a clear done condition: manual card checks, mechanism validation, rule clarification, cleanup, documentation, or other project tasks. If you already know something is broken, prefer Bug Report or Card Effect.
+  - type: input
+    id: version
+    attributes:
+      label: Version or commit
+      description: Use the app version if one exists. Otherwise paste the commit hash or branch this work applies to.
+      placeholder: "e.g. 8d0288c, main@2026-06-25, or v0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: work_type
+    attributes:
+      label: Work type
+      options:
+        - Manual frontend validation
+        - Card/mechanism review
+        - Rule clarification
+        - Test coverage
+        - Documentation
+        - Cleanup/refactor
+        - Other
+    validations:
+      required: true
+  - type: textarea
+    id: objective
+    attributes:
+      label: Objective
+      description: Describe the concrete work to do and why it matters.
+      placeholder: "What should be done?"
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: List cards, mechanisms, files, screens, or other boundaries for this work.
+      placeholder: |
+        Cards/mechanisms/files:
+        Out of scope:
+    validations:
+      required: true
+  - type: textarea
+    id: done
+    attributes:
+      label: Done when
+      description: Define how we know this work can be closed.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+  - type: textarea
+    id: context
+    attributes:
+      label: Context and evidence
+      description: Add links, room ids, logs, screenshots, notes, or related issues/PRs.
+      placeholder: |
+        Related issue/PR:
+        Room/log:
+        Notes:
+    validations:
+      required: false
+  - type: checkboxes
+    id: checks
+    attributes:
+      label: Checks
+      options:
+        - label: This issue has a clear close condition.
+          required: true
+        - label: I included the version, commit, or branch this work applies to.
+          required: true
