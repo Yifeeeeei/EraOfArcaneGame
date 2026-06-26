@@ -303,6 +303,16 @@ func cardHasTaunt(card *CardInstance) bool {
 	return traitsForCardNumber(card.Card.Number).taunt
 }
 
+func cardHasActiveGlobalSpellRange(card *CardInstance) bool {
+	if card == nil || card.Card == nil {
+		return false
+	}
+	if h, ok := behaviorForNumber(card.Card.Number).(GlobalSpellRangeBehavior); ok && h.HasActiveGlobalSpellRange(card) {
+		return h.HasGlobalSpellRange()
+	}
+	return false
+}
+
 func cardStealthLayers(card *CardInstance) int {
 	if card == nil || card.Card == nil {
 		return 0

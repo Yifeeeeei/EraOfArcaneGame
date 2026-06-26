@@ -104,20 +104,27 @@ const (
 	StatusMastery  = "精通"
 )
 
+const (
+	BaseSkillSlots     = 5
+	MaxSkillSlots      = 6
+	BaseEquipmentSlots = 5
+	MaxEquipmentSlots  = 8
+)
+
 // PlayerState holds all state for one player
 type PlayerState struct {
-	PlayerID   int                 `json:"player_id"` // 0 or 1
-	PlayerName string              `json:"player_name"`
-	Hero       *CardInstance       `json:"hero"`
-	Units      [3][3]*CardInstance `json:"units"`   // [col][row], hero is at [1][1]
-	Terrain    [3][3]*CardInstance `json:"terrain"` // Terrain cards placed on grid
-	Skills     [5]*CardInstance    `json:"skills"`
-	Equipment  [5]*CardInstance    `json:"equipment"`
-	Hand       []*CardInstance     `json:"hand"`
-	Deck       []*CardInstance     `json:"deck"` // remaining draw pile
-	SkillPool  []*CardInstance     `json:"skill_pool"`
-	Graveyard  []*CardInstance     `json:"graveyard"`
-	ExtraDeck  []*CardInstance     `json:"extra_deck"`
+	PlayerID   int                              `json:"player_id"` // 0 or 1
+	PlayerName string                           `json:"player_name"`
+	Hero       *CardInstance                    `json:"hero"`
+	Units      [3][3]*CardInstance              `json:"units"`   // [col][row], hero is at [1][1]
+	Terrain    [3][3]*CardInstance              `json:"terrain"` // Terrain cards placed on grid
+	Skills     [MaxSkillSlots]*CardInstance     `json:"skills"`
+	Equipment  [MaxEquipmentSlots]*CardInstance `json:"equipment"`
+	Hand       []*CardInstance                  `json:"hand"`
+	Deck       []*CardInstance                  `json:"deck"` // remaining draw pile
+	SkillPool  []*CardInstance                  `json:"skill_pool"`
+	Graveyard  []*CardInstance                  `json:"graveyard"`
+	ExtraDeck  []*CardInstance                  `json:"extra_deck"`
 
 	// Element pool - available elements this turn
 	Elements           map[string]int            `json:"elements"`

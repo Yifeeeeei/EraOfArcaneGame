@@ -40,3 +40,25 @@ func TestGameHTMLPendingActionCostUsesPaymentRequest(t *testing.T) {
 		}
 	}
 }
+
+func TestGameHTMLDefenseWindowIncludesBoundSkills(t *testing.T) {
+	content, err := os.ReadFile("../../web/game.html")
+	if err != nil {
+		t.Fatalf("read game.html: %v", err)
+	}
+	html := string(content)
+	for _, want := range []string{
+		"return allMySkills.value.filter(canUseSkillAsDefense);",
+		"...allMySkills.value,",
+		"...allMySkills.value.filter(s => s && defenseSelected.value.includes(s.instance_id)),",
+		"return allMySkills.value.filter(s =>",
+		"const skills = allMySkills.value;",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("defense window should include bound skills, missing %q", want)
+		}
+	}
+	if strings.Contains(html, "for (const equipment of myEquipment.value.filter(Boolean))") {
+		t.Fatalf("bound skills should not be collected from equipment twice")
+	}
+}
