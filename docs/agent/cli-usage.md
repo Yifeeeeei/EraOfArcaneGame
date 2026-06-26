@@ -5,6 +5,9 @@ choose moves, evaluate positions, build decks, or store strategy. It only keeps
 one normal player WebSocket connection open and forwards actions to the game
 server.
 
+For the raw HTTP and WebSocket protocol, human-vs-agent flow, agent-vs-agent
+flow, and basic play loop, see `docs/agent/protocol-playbook.md`.
+
 Run the game server first:
 
 ```bash
