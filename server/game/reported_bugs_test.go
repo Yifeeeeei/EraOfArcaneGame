@@ -1911,6 +1911,56 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 	})
 
+	t.Run("2511001 万灵药 asks for heal target and reset target", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		panacea := NewCardInstance(baseCard(t, "2511001"), 0, 1)
+		ally := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		ally.CurrentLife = 1
+		skill := readySkill(baseCard(t, "3121001"), 0)
+		skill.IsHorizontal = true
+		p0.Skills[0] = skill
+
+		engine.triggerEffects(TriggerOnUseItem, panacea, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "panacea_mode" || len(engine.State.PendingAction.Candidates) != 4 {
+			t.Fatalf("panacea should ask for mode before choosing heal target, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{"heal"},
+		}}); err != nil {
+			t.Fatalf("choose panacea heal mode: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "panacea_heal" {
+			t.Fatalf("panacea heal should ask which friendly unit to heal, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{ally.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose panacea heal target: %v", err)
+		}
+		if ally.CurrentLife != ally.Card.Life {
+			t.Fatalf("panacea should fully heal selected target, life=%d", ally.CurrentLife)
+		}
+
+		engine.triggerEffects(TriggerOnUseItem, panacea, nil, nil)
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{"reset"},
+		}}); err != nil {
+			t.Fatalf("choose panacea reset mode: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "panacea_reset" {
+			t.Fatalf("panacea reset should ask which skill to reset, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{skill.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose panacea reset target: %v", err)
+		}
+		if skill.IsHorizontal {
+			t.Fatalf("panacea should reset selected skill")
+		}
+	})
+
 	t.Run("2511002 and 2601002 modify defense or weaken enemy skills", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
@@ -3345,6 +3395,9 @@ func TestBlackMarketVendorDiscardsItemAndDrawsTwo(t *testing.T) {
 	}
 	if engine.State.Phase != PhaseWaitingAction {
 		t.Fatalf("expected discard selection, phase=%v", engine.State.Phase)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "discard_card" || len(engine.State.PendingAction.Candidates) != 1 {
+		t.Fatalf("black market vendor should ask which item to discard, pending=%+v", engine.State.PendingAction)
 	}
 	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 		"selected": []any{item.InstanceID},
@@ -5234,6 +5287,40 @@ func TestMoreSkillChoiceEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("3021006 insight eye asks which enemy equipment to destroy when cast", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		first := NewCardInstance(baseCard(t, "2021004"), 1, 1)
+		second := NewCardInstance(baseCard(t, "2021005"), 1, 1)
+		p1.Equipment[0] = first
+		p1.Equipment[1] = second
+		p0.Skills[0] = readySkill(baseCard(t, "3021006"), 0)
+		p0.Elements[model.ElementArcane] = 2
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "none",
+		}}); err != nil {
+			t.Fatalf("cast insight eye: %v", err)
+		}
+
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "insight_eye_destroy_equipment" {
+			t.Fatalf("insight eye should ask which enemy equipment to destroy, pending=%+v", engine.State.PendingAction)
+		}
+		if len(engine.State.PendingAction.Candidates) != 2 {
+			t.Fatalf("insight eye should offer both enemy equipment cards, candidates=%+v", engine.State.PendingAction.Candidates)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{second.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve insight eye destroy: %v", err)
+		}
+		if p1.Equipment[0] != first || p1.Equipment[1] != nil || len(p1.Graveyard) != 1 || p1.Graveyard[0] != second {
+			t.Fatalf("insight eye should destroy only selected equipment, equipment=%v/%v graveyard=%v", p1.Equipment[0], p1.Equipment[1], cardsToInfo(p1.Graveyard))
+		}
+	})
+
 	t.Run("lightforged titan takes one extra damage from driven mystery and charge spells", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		titan := placeUnit(baseCard(t, "1521002"), 1, 1, 0, engine)
@@ -5287,6 +5374,9 @@ func TestMoreSkillChoiceEffects(t *testing.T) {
 			"target_type": "none",
 		}}); err != nil {
 			t.Fatalf("cast soul recall: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "soul_recall" || len(engine.State.PendingAction.Candidates) != 2 {
+			t.Fatalf("soul recall should ask which companions to return, pending=%+v", engine.State.PendingAction)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{a.InstanceID, b.InstanceID},
@@ -6085,13 +6175,42 @@ func TestUtilityScrollAndForesightEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("cast foresight: %v", err)
 		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "foresight_to_bottom" || len(engine.State.PendingAction.Candidates) != 3 || engine.State.PendingAction.MinSelect != 0 {
+			t.Fatalf("foresight should ask which top deck cards to move to bottom, pending=%+v", engine.State.PendingAction)
+		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
-			"selected": []any{a.InstanceID},
+			"selected": []any{a.InstanceID, c.InstanceID},
 		}}); err != nil {
 			t.Fatalf("resolve foresight: %v", err)
 		}
-		if p0.Deck[0] != b || p0.Deck[2] != a {
+		if p0.Deck[0] != b || p0.Deck[1] != a || p0.Deck[2] != c {
 			t.Fatalf("foresight should move selected card to bottom, deck=%s,%s,%s", p0.Deck[0].Card.Number, p0.Deck[1].Card.Number, p0.Deck[2].Card.Number)
+		}
+	})
+
+	t.Run("foresight can keep all revealed cards on top when none selected", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p0.Skills[0] = readySkill(baseCard(t, "3021002"), 0)
+		a := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		b := NewCardInstance(baseCard(t, "1021004"), 0, 1)
+		c := NewCardInstance(baseCard(t, "1021007"), 0, 1)
+		p0.Deck = []*CardInstance{a, b, c}
+		p0.Elements[model.ElementArcane] = 1
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "none",
+		}}); err != nil {
+			t.Fatalf("cast foresight: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{},
+		}}); err != nil {
+			t.Fatalf("resolve foresight with no cards selected: %v", err)
+		}
+		if p0.Deck[0] != a || p0.Deck[1] != b || p0.Deck[2] != c {
+			t.Fatalf("foresight should keep unselected cards on top in order, deck=%s,%s,%s", p0.Deck[0].Card.Number, p0.Deck[1].Card.Number, p0.Deck[2].Card.Number)
 		}
 	})
 
@@ -6174,6 +6293,9 @@ func TestRebirthScrollRevivesLightCompanion(t *testing.T) {
 		"instance_id": scroll.InstanceID,
 	}}); err != nil {
 		t.Fatalf("use rebirth scroll: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "rebirth_scroll" || len(engine.State.PendingAction.Candidates) != 1 {
+		t.Fatalf("rebirth scroll should ask which light companion to revive, pending=%+v", engine.State.PendingAction)
 	}
 	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 		"selected": []any{dead.InstanceID},
@@ -6781,10 +6903,16 @@ func TestSelectionSorcerySkillEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("cast blood demon blast: %v", err)
 		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "blood_demon_blast" || len(engine.State.PendingAction.Candidates) != 1 {
+			t.Fatalf("blood demon blast should ask which front shadow companion to sacrifice, pending=%+v", engine.State.PendingAction)
+		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{sacrifice.InstanceID},
 		}}); err != nil {
 			t.Fatalf("resolve blood demon blast: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "blood_demon_blast_target" || len(engine.State.PendingAction.Candidates) != 2 {
+			t.Fatalf("blood demon blast should ask which in-range enemy takes damage, pending=%+v", engine.State.PendingAction)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{frontA.InstanceID},
@@ -6900,6 +7028,9 @@ func TestChoiceUtilitySkillEffects(t *testing.T) {
 			"target_type": "none",
 		}}); err != nil {
 			t.Fatalf("cast elemental enchant: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "elemental_enchant_status" || len(engine.State.PendingAction.Candidates) != 5 {
+			t.Fatalf("elemental enchant should ask which status to apply, pending=%+v", engine.State.PendingAction)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{StatusBurn},
@@ -7022,6 +7153,9 @@ func TestCompanionUtilityEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("summon specialist mage: %v", err)
 		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "specialist_mage_element" || len(engine.State.PendingAction.Candidates) != len(model.AllElements) {
+			t.Fatalf("specialist mage should ask which element its load becomes, pending=%+v", engine.State.PendingAction)
+		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{model.ElementFire},
 		}}); err != nil {
@@ -7068,10 +7202,16 @@ func TestCompanionUtilityEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("summon lundesal: %v", err)
 		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "permanent_skill_buff_target" || len(engine.State.PendingAction.Candidates) != 1 {
+			t.Fatalf("lundesal should ask which skill to buff, pending=%+v", engine.State.PendingAction)
+		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{targetSkill.InstanceID},
 		}}); err != nil {
 			t.Fatalf("choose lundesal skill: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "permanent_skill_buff_mode" || len(engine.State.PendingAction.Candidates) != 2 {
+			t.Fatalf("lundesal should ask whether to buff attack or power, pending=%+v", engine.State.PendingAction)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{"attack"},
@@ -9085,6 +9225,28 @@ func TestDamagedAndDeathTriggeredCardEffects(t *testing.T) {
 		engine.dealDamageWithExtra(target, 1, 1, map[string]any{"status_damage": StatusBurn})
 		if target.CurrentLife != 1 {
 			t.Fatalf("burn damage should be increased by bifang to 2 total, life=%d", target.CurrentLife)
+		}
+	})
+
+	t.Run("1421016 scavenger gains earth only when another friendly unit takes enemy damage", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		scavenger := placeUnit(baseCard(t, "1421016"), 0, 0, 0, engine)
+		ally := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+
+		engine.dealDamageWithExtra(ally, 1, 0, map[string]any{"attacker": 1})
+		if p0.Elements[model.ElementEarth] != 2 {
+			t.Fatalf("scavenger should gain 2 earth from enemy damage to another friendly unit, elements=%v", p0.Elements)
+		}
+
+		engine.dealDamageWithExtra(scavenger, 1, 0, map[string]any{"attacker": 1})
+		if p0.Elements[model.ElementEarth] != 2 {
+			t.Fatalf("scavenger should not trigger from damage to itself, elements=%v", p0.Elements)
+		}
+
+		engine.dealDamageWithExtra(ally, 1, 0, map[string]any{"attacker": 0})
+		if p0.Elements[model.ElementEarth] != 2 {
+			t.Fatalf("scavenger should not trigger from friendly-source damage, elements=%v", p0.Elements)
 		}
 	})
 
