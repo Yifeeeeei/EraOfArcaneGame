@@ -5,10 +5,6 @@ type Card2121004FireArrowItem struct{ AlwaysActive }
 func (Card2121004FireArrowItem) ID() string   { return "2121004" }
 func (Card2121004FireArrowItem) Name() string { return "火焰箭" }
 
-func (Card2121004FireArrowItem) OnUseItem(ctx *EffectContext) error {
-	return fireArrowSelectAndDamage(ctx, false)
-}
-
 func (Card2121004FireArrowItem) OnUltimate(ctx *EffectContext) error {
 	return fireArrowSelectAndDamage(ctx, true)
 }

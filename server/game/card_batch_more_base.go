@@ -287,16 +287,6 @@ type Card1221001DolphinPartner struct{ AlwaysActive }
 
 func (Card1221001DolphinPartner) ID() string   { return "1221001" }
 func (Card1221001DolphinPartner) Name() string { return "海豚伙伴" }
-func (Card1221001DolphinPartner) OnDamaged(ctx *EffectContext) error {
-	if ctx.ExtraData == nil || ctx.Source == ctx.Target {
-		return nil
-	}
-	if damagedPlayer, ok := ctx.ExtraData["damaged_player"].(int); ok && damagedPlayer == ctx.PlayerID && ctx.Target != nil && ctx.Target.CurrentLife <= 0 {
-		ctx.Target.CurrentLife = 1
-		ctx.Engine.destroyUnit(ctx.Source, ctx.PlayerID)
-	}
-	return nil
-}
 
 type Card1221010WallKeeper struct{ AlwaysActive }
 

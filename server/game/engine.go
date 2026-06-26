@@ -2151,6 +2151,10 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 		return
 	}
 
+	if e.promptDolphinPartnerPrevention(target, amount, ownerID, damageData) {
+		return
+	}
+
 	target.CurrentLife -= amount
 	target.DamageTakenThisTurn += amount
 
@@ -2195,6 +2199,57 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 			e.resolvePendingDeaths()
 		}
 	}
+}
+
+func (e *Engine) promptDolphinPartnerPrevention(target *CardInstance, amount int, ownerID int, damageData map[string]any) bool {
+	if e == nil || target == nil || amount <= 0 || target.CurrentLife-amount > 0 {
+		return false
+	}
+	if skip, _ := damageData["skip_dolphin_prevention"].(bool); skip {
+		return false
+	}
+	ps := e.State.Players[ownerID]
+	if ps == nil {
+		return false
+	}
+	candidates := make([]map[string]any, 0)
+	for col := 0; col < 3; col++ {
+		for row := 0; row < 3; row++ {
+			unit := ps.Units[col][row]
+			if unit == nil || unit == target || unit.Card.Number != "1221001" {
+				continue
+			}
+			candidates = append(candidates, candidateInfo(unit, "unit", "own"))
+		}
+	}
+	if len(candidates) == 0 {
+		return false
+	}
+	retryData := make(map[string]any, len(damageData)+1)
+	for key, value := range damageData {
+		retryData[key] = value
+	}
+	retryData["skip_dolphin_prevention"] = true
+	prompt := fmt.Sprintf("海豚伙伴:是否牺牲1个海豚伙伴，防止%s受到的%d点伤害", target.Card.Name, amount)
+	e.SetPendingAction(ownerID, "dolphin_prevent_lethal", prompt, candidates, 0, 1, func(selected []string) {
+		dolphin := selectedUnitFromCandidates(e, selected, candidates)
+		if dolphin == nil || dolphin.OwnerID != ownerID || dolphin == target || dolphin.Card.Number != "1221001" {
+			e.dealDamageWithExtra(target, amount, ownerID, retryData)
+			return
+		}
+		e.destroyUnit(dolphin, ownerID)
+		e.emit(GameEvent{
+			Type:   "damage_prevented",
+			Player: -1,
+			Data: map[string]any{
+				"source": cardToInfo(dolphin),
+				"target": cardToInfo(target),
+				"amount": amount,
+				"reason": "dolphin_partner",
+			},
+		})
+	})
+	return true
 }
 
 func (e *Engine) triggerHiddenFriendlyDamaged(playerID int, target *CardInstance, extraData map[string]any) {
@@ -2530,6 +2585,14 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 	}
 	if isSpellScrollCard(card.Card) {
 		return e.handleUseSpellScrollItem(playerID, action, card, handIdx)
+	}
+	if cards.IsEquipment(card.Card.Number) {
+		return fmt.Errorf("equipment cannot be used as a consumable item")
+	}
+	if !cards.IsConsumable(card.Card.Number) {
+		if behavior, ok := globalRegistry.GetBehavior(card.Card.Number).(OnUseItemBehavior); !ok || !behavior.HasActiveUseItem(card) {
+			return fmt.Errorf("item is not consumable")
+		}
 	}
 
 	// Regular consumable item
