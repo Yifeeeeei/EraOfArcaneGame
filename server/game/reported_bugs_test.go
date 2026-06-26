@@ -5001,30 +5001,23 @@ func TestEquipmentLifeAndEnemySummonCounters(t *testing.T) {
 }
 
 func TestConsumableTargetedItemEffects(t *testing.T) {
-	t.Run("fire arrow damages selected enemy", func(t *testing.T) {
+	t.Run("fire arrow cannot be used as a hand consumable", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		item := NewCardInstance(baseCard(t, "2121004"), 0, 1)
 		p0.Hand = []*CardInstance{item}
 		p0.Elements[model.ElementFire] = 10
-		placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
-		backTarget := placeUnit(baseCard(t, "1021004"), 1, 1, 1, engine)
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
 			"instance_id": item.InstanceID,
-		}}); err != nil {
-			t.Fatalf("use fire arrow item: %v", err)
+		}}); err == nil {
+			t.Fatalf("fire arrow is equipment and should not use the consumable item path")
 		}
-		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "fire_arrow_damage" {
-			t.Fatalf("fire arrow item should ask target, pending=%+v", engine.State.PendingAction)
+		if engine.State.PendingAction != nil {
+			t.Fatalf("rejected fire arrow hand use should not open a pending action, pending=%+v", engine.State.PendingAction)
 		}
-		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
-			"selected": []any{backTarget.InstanceID},
-		}}); err != nil {
-			t.Fatalf("resolve fire arrow: %v", err)
-		}
-		if backTarget.CurrentLife != backTarget.Card.Life-1 {
-			t.Fatalf("fire arrow should deal 1 damage to any chosen enemy, life=%d", backTarget.CurrentLife)
+		if len(p0.Hand) != 1 || p0.Hand[0] != item {
+			t.Fatalf("rejected fire arrow should remain in hand, hand=%v", cardsToInfo(p0.Hand))
 		}
 	})
 
@@ -9194,19 +9187,54 @@ func TestRemainingMediumRiskGenericBaseCards(t *testing.T) {
 }
 
 func TestDamagedAndDeathTriggeredCardEffects(t *testing.T) {
-	t.Run("dolphin sacrifices to prevent lethal damage to another friendly unit", func(t *testing.T) {
+	t.Run("dolphin optionally sacrifices before lethal damage and prevents the full damage event", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		dolphin := placeUnit(baseCard(t, "1221001"), 0, 0, 0, engine)
 		ally := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
-		ally.CurrentLife = 1
+		ally.CurrentLife = 2
 
 		engine.dealDamage(ally, 5, 0)
 
-		if ally.CurrentLife != 1 || engine.State.Players[0].Units[1][0] != ally {
-			t.Fatalf("dolphin should leave ally alive at 1, ally=%+v", ally)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "dolphin_prevent_lethal" {
+			t.Fatalf("dolphin should ask whether to prevent lethal damage, pending=%+v", engine.State.PendingAction)
+		}
+		if ally.CurrentLife != 2 || engine.State.Players[0].Units[1][0] != ally {
+			t.Fatalf("damage should wait for the optional dolphin choice, ally=%+v", ally)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{dolphin.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve dolphin prevention: %v", err)
+		}
+		if ally.CurrentLife != 2 || engine.State.Players[0].Units[1][0] != ally {
+			t.Fatalf("dolphin should prevent the full damage event, ally=%+v", ally)
 		}
 		if engine.State.Players[0].Units[0][0] != nil || len(engine.State.Players[0].Graveyard) != 1 || engine.State.Players[0].Graveyard[0] != dolphin {
 			t.Fatalf("dolphin should be sacrificed, units=%v graveyard=%v", engine.State.Players[0].Units[0][0], cardsToInfo(engine.State.Players[0].Graveyard))
+		}
+	})
+
+	t.Run("dolphin can decline lethal damage prevention", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		dolphin := placeUnit(baseCard(t, "1221001"), 0, 0, 0, engine)
+		ally := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		ally.CurrentLife = 2
+
+		engine.dealDamage(ally, 5, 0)
+
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "dolphin_prevent_lethal" {
+			t.Fatalf("dolphin should ask whether to prevent lethal damage, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{},
+		}}); err != nil {
+			t.Fatalf("decline dolphin prevention: %v", err)
+		}
+		if engine.State.Players[0].Units[1][0] != nil {
+			t.Fatalf("declined prevention should allow ally to die, ally=%+v", engine.State.Players[0].Units[1][0])
+		}
+		if engine.State.Players[0].Units[0][0] != dolphin {
+			t.Fatalf("declined prevention should keep dolphin on field")
 		}
 	})
 
