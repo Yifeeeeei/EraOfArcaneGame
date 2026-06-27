@@ -3,10 +3,32 @@ package game
 import "eraofarcane/model"
 
 func (e *Engine) notifyCardSearched(playerID int, card *CardInstance) {
-	if e == nil || card == nil || card.Card == nil || card.Card.Category != model.ElementWater || e.State.PendingAction != nil {
+	e.notifyCardSearchedThen(playerID, card, nil)
+}
+
+func (e *Engine) notifyCardSearchedThen(playerID int, card *CardInstance, after func()) {
+	if e == nil || card == nil || card.Card == nil || card.Card.Category != model.ElementWater {
+		if after != nil {
+			after()
+		}
+		return
+	}
+	if e.State.PendingAction != nil {
+		if after != nil {
+			e.wrapPendingActionContinuation(after)
+		}
 		return
 	}
 	e.promptSnowWomanAfterWaterSearch(playerID)
+	if e.State.PendingAction != nil {
+		if after != nil {
+			e.wrapPendingActionContinuation(after)
+		}
+		return
+	}
+	if after != nil {
+		after()
+	}
 }
 
 func (e *Engine) promptSnowWomanAfterWaterSearch(playerID int) {

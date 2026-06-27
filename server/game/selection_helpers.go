@@ -250,6 +250,10 @@ func (e *Engine) searchDeckToHand(playerID int, instanceID string) bool {
 }
 
 func (e *Engine) searchDeckCardToHand(playerID int, instanceID string) *CardInstance {
+	return e.searchDeckCardToHandThen(playerID, instanceID, nil)
+}
+
+func (e *Engine) searchDeckCardToHandThen(playerID int, instanceID string, afterSearch func(*CardInstance)) *CardInstance {
 	ps := e.State.Players[playerID]
 	for i, card := range ps.Deck {
 		if card != nil && card.InstanceID == instanceID {
@@ -257,7 +261,11 @@ func (e *Engine) searchDeckCardToHand(playerID int, instanceID string) *CardInst
 			ps.Deck = append(ps.Deck[:i], ps.Deck[i+1:]...)
 			e.shuffleDeck(playerID)
 			e.emit(GameEvent{Type: "search_card", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
-			e.notifyCardSearched(playerID, card)
+			e.notifyCardSearchedThen(playerID, card, func() {
+				if afterSearch != nil {
+					afterSearch(card)
+				}
+			})
 			return card
 		}
 	}

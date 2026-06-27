@@ -833,6 +833,50 @@ func TestHighRiskWaterAndAirCompanionSemantics(t *testing.T) {
 		}
 	})
 
+	t.Run("1221015 merchant ship resumes shuffle after snow woman search trigger", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		placeUnit(baseCard(t, "1221015"), 0, 1, 1, engine)
+		snow := placeUnit(baseCard(t, "1211003"), 0, 0, 1, engine)
+		enemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		waterCard := NewCardInstance(baseCard(t, "1221001"), 0, 1)
+		handCard := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Deck = []*CardInstance{waterCard}
+		p0.Hand = []*CardInstance{handCard}
+
+		engine.triggerPrayerAbilities(0)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "merchant_ship_search" {
+			t.Fatalf("merchant ship should first search water card, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{waterCard.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve merchant ship search: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "snow_woman_freeze_after_search" {
+			t.Fatalf("snow woman should resolve before merchant ship follow-up, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{enemy.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve snow woman search trigger: %v", err)
+		}
+		if enemy.Statuses[StatusFreeze] != 1 || snow.UsedThisTurn != 1 {
+			t.Fatalf("snow woman should freeze before merchant ship follow-up, enemy=%v used=%d", enemy.Statuses, snow.UsedThisTurn)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "merchant_ship_shuffle_hand" {
+			t.Fatalf("merchant ship should resume hand shuffle after snow woman trigger, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{handCard.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve merchant ship shuffle: %v", err)
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != waterCard || len(p0.Deck) != 1 || p0.Deck[0] != handCard {
+			t.Fatalf("merchant ship should finish after search trigger, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
+		}
+	})
+
 	t.Run("1321002 随风旅行者 gains air on enter and draws on death", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
@@ -1319,6 +1363,45 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 		}
 		if enemy.Statuses[StatusFreeze] != 1 || snow.UsedThisTurn != 1 {
 			t.Fatalf("snow woman should freeze an enemy and count the trigger, statuses=%v used=%d", enemy.Statuses, snow.UsedThisTurn)
+		}
+	})
+	t.Run("1021008 multiple foresight prophets resolve before drawing", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		placeUnit(baseCard(t, "1021008"), 0, 0, 0, engine)
+		placeUnit(baseCard(t, "1021008"), 0, 1, 0, engine)
+		a := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		b := NewCardInstance(baseCard(t, "1021004"), 0, 1)
+		c := NewCardInstance(baseCard(t, "1021007"), 0, 1)
+		p0.Deck = []*CardInstance{a, b, c}
+		engine.State.CurrentTurn = 0
+		engine.State.Phase = PhaseMain
+
+		engine.startTurn()
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "foresight_prophet_top_card" {
+			t.Fatalf("first foresight prophet should ask before draw, pending=%+v", engine.State.PendingAction)
+		}
+		if len(p0.Hand) != 0 {
+			t.Fatalf("draw should wait until all pre-draw foresight triggers finish, hand=%v", cardsToInfo(p0.Hand))
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{a.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve first foresight prophet: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "foresight_prophet_top_card" {
+			t.Fatalf("second foresight prophet should ask before draw, pending=%+v", engine.State.PendingAction)
+		}
+		if len(p0.Hand) != 0 || p0.Deck[0] != b || p0.Deck[2] != a {
+			t.Fatalf("second foresight should see deck after first choice and before draw, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{},
+		}}); err != nil {
+			t.Fatalf("resolve second foresight prophet: %v", err)
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != b || len(p0.Deck) != 2 || p0.Deck[0] != c || p0.Deck[1] != a {
+			t.Fatalf("draw should happen after both foresight triggers, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
 		}
 	})
 	t.Run("1311003 风刃 grants pierce and taxes only targeted non-piercing air skills", func(t *testing.T) {

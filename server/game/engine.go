@@ -371,13 +371,7 @@ func (e *Engine) startTurn() {
 	// not be the rule point that removes remaining elements.
 	e.applyTurnStartTemporaryModifiers(ps)
 
-	if e.triggerPreDrawTurnStartEffects(ps) {
-		e.wrapPendingActionContinuation(func() {
-			e.continueStartTurnAfterPreDraw(ps)
-		})
-		return
-	}
-	e.continueStartTurnAfterPreDraw(ps)
+	e.continuePreDrawTurnStartEffects(ps, append([]*CardInstance(nil), e.getAllFieldCards(ps)...), 0)
 }
 
 func (e *Engine) continueStartTurnAfterPreDraw(ps *PlayerState) {
@@ -429,12 +423,16 @@ func (e *Engine) continueStartTurnAfterPreDraw(ps *PlayerState) {
 	}
 }
 
-func (e *Engine) triggerPreDrawTurnStartEffects(ps *PlayerState) bool {
+func (e *Engine) continuePreDrawTurnStartEffects(ps *PlayerState, cards []*CardInstance, start int) {
 	if ps == nil {
-		return false
+		return
 	}
-	for _, card := range e.getAllFieldCards(ps) {
+	for i := start; i < len(cards); i++ {
+		card := cards[i]
 		if card == nil || card.Card == nil || card.Card.Number != "1021008" || e.hasEffectiveStatus(card, StatusPetrify) {
+			continue
+		}
+		if !e.cardStillOnField(card) {
 			continue
 		}
 		behavior, ok := globalRegistry.GetBehavior(card.Card.Number).(OnTurnStartBehavior)
@@ -450,10 +448,14 @@ func (e *Engine) triggerPreDrawTurnStartEffects(ps *PlayerState) bool {
 		}
 		_ = behavior.OnTurnStart(ctx)
 		if e.State.PendingAction != nil {
-			return true
+			next := i + 1
+			e.wrapPendingActionContinuation(func() {
+				e.continuePreDrawTurnStartEffects(ps, cards, next)
+			})
+			return
 		}
 	}
-	return false
+	e.continueStartTurnAfterPreDraw(ps)
 }
 
 func (e *Engine) triggerPrayerAbilities(playerID int) {
