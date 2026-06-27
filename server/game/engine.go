@@ -371,22 +371,35 @@ func (e *Engine) startTurn() {
 	// not be the rule point that removes remaining elements.
 	e.applyTurnStartTemporaryModifiers(ps)
 
+	if e.triggerPreDrawTurnStartEffects(ps) {
+		e.wrapPendingActionContinuation(func() {
+			e.continueStartTurnAfterPreDraw(ps)
+		})
+		return
+	}
+	e.continueStartTurnAfterPreDraw(ps)
+}
+
+func (e *Engine) continueStartTurnAfterPreDraw(ps *PlayerState) {
+	if ps == nil {
+		return
+	}
 	if ps.SkipNextDraw {
 		ps.SkipNextDraw = false
 		e.emit(GameEvent{
 			Type:   "effect_trigger",
-			Player: e.State.CurrentTurn,
+			Player: ps.PlayerID,
 			Data: map[string]any{
 				"effect": "skip_draw",
 			},
 		})
 	} else {
-		drawn := e.drawCards(e.State.CurrentTurn, 1)
+		drawn := e.drawCards(ps.PlayerID, 1)
 		if len(drawn) > 0 {
 			// Notify opponent about the draw (without card info)
 			e.emit(GameEvent{
 				Type:   "opponent_draw",
-				Player: 1 - e.State.CurrentTurn,
+				Player: 1 - ps.PlayerID,
 				Data: map[string]any{
 					"count": 1,
 				},
@@ -400,7 +413,7 @@ func (e *Engine) startTurn() {
 		Type:   "turn_start",
 		Player: -1,
 		Data: map[string]any{
-			"current_player": e.State.CurrentTurn,
+			"current_player": ps.PlayerID,
 			"turn_number":    e.State.TurnNumber,
 			"elements":       ps.Elements,
 		},
@@ -412,8 +425,35 @@ func (e *Engine) startTurn() {
 		e.triggerEffects(TriggerOnTurnStart, card, nil, nil)
 	}
 	if e.State.PendingAction == nil {
-		e.triggerPrayerAbilities(e.State.CurrentTurn)
+		e.triggerPrayerAbilities(ps.PlayerID)
 	}
+}
+
+func (e *Engine) triggerPreDrawTurnStartEffects(ps *PlayerState) bool {
+	if ps == nil {
+		return false
+	}
+	for _, card := range e.getAllFieldCards(ps) {
+		if card == nil || card.Card == nil || card.Card.Number != "1021008" || e.hasEffectiveStatus(card, StatusPetrify) {
+			continue
+		}
+		behavior, ok := globalRegistry.GetBehavior(card.Card.Number).(OnTurnStartBehavior)
+		if !ok {
+			continue
+		}
+		ctx := &EffectContext{
+			Engine:     e,
+			Source:     card,
+			PlayerID:   ps.PlayerID,
+			OpponentID: 1 - ps.PlayerID,
+			ExtraData:  map[string]any{"timing": "pre_draw"},
+		}
+		_ = behavior.OnTurnStart(ctx)
+		if e.State.PendingAction != nil {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Engine) triggerPrayerAbilities(playerID int) {

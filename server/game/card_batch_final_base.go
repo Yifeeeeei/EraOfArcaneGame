@@ -679,11 +679,8 @@ type Card4411002Andrew struct{ AlwaysActive }
 
 func (Card4411002Andrew) ID() string   { return "4411002" }
 func (Card4411002Andrew) Name() string { return "大法师 安德鲁" }
-func (Card4411002Andrew) OnTurnStart(ctx *EffectContext) error {
-	if ctx.Source.Statuses["开局入组"] == 0 {
-		addCardToDeck(ctx, "1401002", 1)
-		ctx.Source.Statuses["开局入组"] = 1
-	}
+func (Card4411002Andrew) OnEnter(ctx *EffectContext) error {
+	addCardToDeck(ctx, "1401002", 1)
 	return nil
 }
 

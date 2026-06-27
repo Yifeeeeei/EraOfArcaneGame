@@ -257,6 +257,7 @@ func (e *Engine) searchDeckCardToHand(playerID int, instanceID string) *CardInst
 			ps.Deck = append(ps.Deck[:i], ps.Deck[i+1:]...)
 			e.shuffleDeck(playerID)
 			e.emit(GameEvent{Type: "search_card", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
+			e.notifyCardSearched(playerID, card)
 			return card
 		}
 	}
@@ -272,6 +273,7 @@ func (e *Engine) drawFirstDeckMatch(playerID int, predicate func(*CardInstance) 
 		ps.Hand = append(ps.Hand, card)
 		ps.Deck = append(ps.Deck[:i], ps.Deck[i+1:]...)
 		e.emit(GameEvent{Type: "search_card", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
+		e.notifyCardSearched(playerID, card)
 		return card
 	}
 	return nil

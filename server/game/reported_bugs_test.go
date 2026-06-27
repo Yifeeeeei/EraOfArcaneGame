@@ -215,7 +215,11 @@ func TestArchmageStaffStoresSkillAndRemovesAfterUse(t *testing.T) {
 	if len(p0.SkillPool) != 0 || len(staff.BoundSkills) != 1 || staff.BoundSkills[0] != stored {
 		t.Fatalf("archmage staff should move selected skill out of pool onto staff, pool=%v bound=%v", cardsToInfo(p0.SkillPool), cardsToInfo(staff.BoundSkills))
 	}
+	if !stored.IsHorizontal {
+		t.Fatalf("stored staff skill should enter horizontal")
+	}
 
+	stored.IsHorizontal = false
 	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
 		"instance_id": stored.InstanceID,
 		"target_type": "unit",
@@ -1287,49 +1291,61 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 		}
 	})
 
-	t.Run("1211003 Snow Woman asks for a front enemy target", func(t *testing.T) {
+	t.Run("1211003 Snow Woman triggers after searching a water card in spell range", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
 		snow := placeUnit(baseCard(t, "1211003"), 0, 1, 1, engine)
 		enemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		water := NewCardInstance(baseCard(t, "3201001"), 0, 1)
+		p0.Deck = []*CardInstance{water}
 
 		engine.triggerEffects(TriggerOnEnter, snow, nil, nil)
-		if snow.Statuses["引魔"] != 1 || !traitsForCardNumber("1211003").taunt || traitsForCardNumber("1211003").perTurnLimit != 3 {
-			t.Fatalf("snow woman should expose taunt/global-range/per-turn-3 markers, traits=%+v statuses=%v", traitsForCardNumber("1211003"), snow.Statuses)
+		if !traitsForCardNumber("1211003").taunt || traitsForCardNumber("1211003").perTurnLimit != 3 {
+			t.Fatalf("snow woman should expose taunt/per-turn-3 traits, traits=%+v", traitsForCardNumber("1211003"))
 		}
-		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
-			"instance_id":  snow.InstanceID,
-			"ability_type": "per_turn",
-		}}); err != nil {
-			t.Fatalf("use snow woman: %v", err)
+		if cardHasActivePerTurn(snow) {
+			t.Fatalf("snow woman search trigger should not be exposed as an active per-turn button")
 		}
-		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "snow_woman_freeze" {
-			t.Fatalf("snow woman should ask for a front enemy target, pending=%+v", engine.State.PendingAction)
+		if got := engine.searchDeckCardToHand(0, water.InstanceID); got != water {
+			t.Fatalf("expected to search water card")
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "snow_woman_freeze_after_search" {
+			t.Fatalf("snow woman should ask for a spell-range enemy after water search, pending=%+v", engine.State.PendingAction)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{enemy.InstanceID},
 		}}); err != nil {
 			t.Fatalf("resolve snow woman target: %v", err)
 		}
-		if enemy.Statuses[StatusFreeze] != 1 {
-			t.Fatalf("snow woman should freeze an enemy, statuses=%v", enemy.Statuses)
+		if enemy.Statuses[StatusFreeze] != 1 || snow.UsedThisTurn != 1 {
+			t.Fatalf("snow woman should freeze an enemy and count the trigger, statuses=%v used=%d", enemy.Statuses, snow.UsedThisTurn)
 		}
 	})
-
-	t.Run("1311003 风刃 makes non-piercing air skill cost one extra air", func(t *testing.T) {
+	t.Run("1311003 风刃 grants pierce and taxes only targeted non-piercing air skills", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		placeUnit(baseCard(t, "1311003"), 0, 0, 0, engine)
 		nonPierceAir := readySkill(baseCard(t, "3321005"), 0)
 		pierceAir := readySkill(baseCard(t, "3321009"), 0)
+		targetlessAir := readySkill(baseCard(t, "3321007"), 0)
+		placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		backEnemy := placeUnit(baseCard(t, "1021002"), 1, 0, 2, engine)
 
 		nonPierceCost := engine.effectiveSkillUseCost(p0, nonPierceAir)
 		pierceCost := engine.effectiveSkillUseCost(p0, pierceAir)
+		targetlessCost := engine.effectiveSkillUseCost(p0, targetlessAir)
 
 		if nonPierceCost[model.ElementAir] != skillUseCost(nonPierceAir.Card)[model.ElementAir]+1 {
 			t.Fatalf("karina should add one air to non-piercing air skill, cost=%v", nonPierceCost)
 		}
 		if pierceCost[model.ElementAir] != skillUseCost(pierceAir.Card)[model.ElementAir] {
 			t.Fatalf("karina should not tax already-piercing air skill, cost=%v base=%v", pierceCost, skillUseCost(pierceAir.Card))
+		}
+		if targetlessCost[model.ElementAir] != skillUseCost(targetlessAir.Card)[model.ElementAir] {
+			t.Fatalf("karina should not tax targetless air skills, cost=%v base=%v", targetlessCost, skillUseCost(targetlessAir.Card))
+		}
+		if err := engine.validateSpellTarget(0, nonPierceAir, SpellTarget{Type: "unit", Position: *backEnemy.Position}); err != nil {
+			t.Fatalf("karina should grant pierce to targeted non-piercing air skill: %v", err)
 		}
 	})
 
@@ -1922,13 +1938,11 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 	})
 
-	t.Run("2311002 spends counters for power and 2321001 asks on draw", func(t *testing.T) {
+	t.Run("2311002 spends counters for an air-spell choice", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		drum := NewCardInstance(baseCard(t, "2311002"), 0, 1)
-		compass := NewCardInstance(baseCard(t, "2321001"), 0, 1)
 		p0.Equipment[0] = drum
-		p0.Equipment[1] = compass
 		drum.Statuses["雷鼓标记"] = 3
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
@@ -1937,9 +1951,24 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("use thunder drum: %v", err)
 		}
-		if drum.Statuses["雷鼓标记"] != 0 || len(p0.TempModifiers) == 0 || p0.TempModifiers[0].Amount != 3 {
-			t.Fatalf("thunder drum should spend 3 marks for +3 power, statuses=%v modifiers=%v", drum.Statuses, p0.TempModifiers)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "thunder_drum_bonus" {
+			t.Fatalf("thunder drum should ask which air-spell bonus to apply, pending=%+v", engine.State.PendingAction)
 		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{"attack"},
+		}}); err != nil {
+			t.Fatalf("resolve thunder drum: %v", err)
+		}
+		if thunderDrumMarks(drum) != 0 || len(p0.TempModifiers) == 0 || p0.TempModifiers[0].Type != TempModCurrentTurnElementDamage || p0.TempModifiers[0].Element != model.ElementAir || p0.TempModifiers[0].Amount != 1 {
+			t.Fatalf("thunder drum should spend 3 marks for current-turn air +1 attack, statuses=%v modifiers=%v", drum.Statuses, p0.TempModifiers)
+		}
+	})
+
+	t.Run("2321001 asks on draw", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		compass := NewCardInstance(baseCard(t, "2321001"), 0, 1)
+		p0.Equipment[0] = compass
 		p0.Deck = []*CardInstance{
 			NewCardInstance(baseCard(t, "1021001"), 0, 1),
 			NewCardInstance(baseCard(t, "1021001"), 0, 1),
@@ -2075,7 +2104,6 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 			t.Fatalf("panacea gain mode should grant 5 arcane, elements=%v", p0.Elements)
 		}
 	})
-
 	t.Run("2511001 万灵药 asks for heal target and reset target", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
@@ -3160,6 +3188,9 @@ func TestBoundSkillAttachesToHostInsteadOfSkillPool(t *testing.T) {
 				if host.BoundSkills[0].SlotIndex != -1 {
 					t.Fatalf("bound skill should not have a skill slot, slot=%d", host.BoundSkills[0].SlotIndex)
 				}
+				if !host.BoundSkills[0].IsHorizontal {
+					t.Fatalf("bound skill should enter horizontal, bound=%v", cardToInfo(host.BoundSkills[0]))
+				}
 			})
 		}
 	})
@@ -3176,11 +3207,15 @@ func TestBoundSkillAttachesToHostInsteadOfSkillPool(t *testing.T) {
 	if len(ailaya.BoundSkills) != 1 || ailaya.BoundSkills[0].Card.Number != "3301001" {
 		t.Fatalf("expected Storm Fury bound to Ailaya, got %+v", ailaya.BoundSkills)
 	}
+	if !ailaya.BoundSkills[0].IsHorizontal {
+		t.Fatalf("bound skill should enter horizontal")
+	}
 	if err := engine.HandleAction(0, ActionMessage{Action: "learn_skill", Data: map[string]any{
 		"instance_id": ailaya.BoundSkills[0].InstanceID,
 	}}); err == nil {
 		t.Fatalf("bound skill should not be learnable through the skill pool")
 	}
+	ailaya.BoundSkills[0].IsHorizontal = false
 	p0.Elements[model.ElementAir] = 2
 	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
 		"instance_id": ailaya.BoundSkills[0].InstanceID,
@@ -4871,7 +4906,7 @@ func TestUnitEnterListenersCanReactToEnemySummons(t *testing.T) {
 	}}); err != nil {
 		t.Fatalf("summon enemy unit: %v", err)
 	}
-	if summoned.Statuses[StatusBurn] != 1 || summoned.Statuses[StatusPetrify] != 2 {
+	if summoned.Statuses[StatusBurn] != 2 || summoned.Statuses[StatusPetrify] != 2 {
 		t.Fatalf("inferno general should burn and petrify enemy summons, statuses=%v", summoned.Statuses)
 	}
 	if p0.Hero != nil && p0.Hero.CurrentLife <= 0 {
@@ -8654,8 +8689,12 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 				engine := setupReportedBugEngine(t)
 				hero := NewCardInstance(baseCard(t, tc.id), 0, 1)
 				engine.State.Players[0].Hero = hero
-				engine.triggerEffects(TriggerOnTurnStart, hero, nil, nil)
-				engine.triggerEffects(TriggerOnTurnStart, hero, nil, nil)
+				if tc.id == "4411002" {
+					engine.triggerEffects(TriggerOnEnter, hero, nil, nil)
+				} else {
+					engine.triggerEffects(TriggerOnTurnStart, hero, nil, nil)
+					engine.triggerEffects(TriggerOnTurnStart, hero, nil, nil)
+				}
 
 				switch tc.location {
 				case "pool":
@@ -9596,7 +9635,7 @@ func TestDamagedAndDeathTriggeredCardEffects(t *testing.T) {
 		}
 	})
 
-	t.Run("xinke can be summoned free from hand or deck after friendly damage", func(t *testing.T) {
+	t.Run("xinke can be summoned free from hand or deck after enemy damage", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		ally := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
@@ -9605,7 +9644,7 @@ func TestDamagedAndDeathTriggeredCardEffects(t *testing.T) {
 		p0.Hand = []*CardInstance{handXinke}
 		p0.Deck = []*CardInstance{deckXinke}
 
-		engine.dealDamage(ally, 1, 0)
+		engine.dealDamageWithExtra(ally, 1, 0, map[string]any{"attacker": 1})
 
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "xinke_summon" || len(engine.State.PendingAction.Candidates) != 2 {
 			t.Fatalf("xinke should offer hand and deck summon candidates, pending=%+v", engine.State.PendingAction)
@@ -9646,6 +9685,15 @@ func TestDamagedAndDeathTriggeredCardEffects(t *testing.T) {
 			t.Fatalf("use druid ultimate: %v", err)
 		}
 		engine.destroyUnit(ally2, 0)
+
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "great_druid_life_seed" {
+			t.Fatalf("druid ultimate should ask whether to summon a life seed, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{druid.InstanceID},
+		}}); err != nil {
+			t.Fatalf("confirm druid life seed summon: %v", err)
+		}
 
 		var seed *CardInstance
 		for _, unit := range engine.getAllFieldCards(p0) {

@@ -86,6 +86,7 @@ func resolveWaterDivination(e *Engine, playerID int, looked []*CardInstance, sel
 	if searched != nil {
 		ps.Hand = append(ps.Hand, searched)
 		e.emit(GameEvent{Type: "search_card", Player: playerID, Data: map[string]any{"card": cardToInfo(searched)}})
+		e.notifyCardSearched(playerID, searched)
 	}
 	e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
 		"effect":       "water_divination_reorder",
