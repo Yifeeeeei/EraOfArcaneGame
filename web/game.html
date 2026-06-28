@@ -3016,6 +3016,11 @@
 
             function handleGameEvent(evt) {
                 const d = evt.data;
+                if (evt.type === 'mulligan_redraw') {
+                    if (d.player === mySlot.value && Number(d.redraws_remaining || 0) > 0) mulliganSubmitted.value = false;
+                    addLog(`redraw ${d.count || 0} cards`);
+                    return;
+                }
                 switch (evt.type) {
                     case 'state_sync':
                         gameState.value = mergePendingActionState(d);

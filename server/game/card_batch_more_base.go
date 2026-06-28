@@ -201,7 +201,7 @@ type Card1121013Arsonist struct{ AlwaysActive }
 func (Card1121013Arsonist) ID() string   { return "1121013" }
 func (Card1121013Arsonist) Name() string { return "纵火者" }
 func (Card1121013Arsonist) OnSpellCast(ctx *EffectContext) error {
-	if !isFriendlySpellCast(ctx) || spellCastSourceElement(ctx) != model.ElementFire {
+	if ctx.Source.UsedThisTurn > 0 || !isFriendlySpellCast(ctx) || spellCastSourceElement(ctx) != model.ElementFire || ctx.Target == nil || isSorcerySkill(ctx.Target.Card) {
 		return nil
 	}
 	candidates := append(ctx.Engine.friendlyUnits(ctx.PlayerID, true, nil), ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
@@ -216,6 +216,7 @@ func (Card1121013Arsonist) OnSpellCast(ctx *EffectContext) error {
 			target := selectedUnitFromCandidates(ctx.Engine, selected, candidates)
 			if target != nil {
 				ctx.Engine.addStatus(target, StatusBurn, 1)
+				ctx.Source.UsedThisTurn++
 			}
 		})
 	return nil
@@ -696,7 +697,8 @@ type Card1611002BlackRobeExecutor struct{ AlwaysActive }
 func (Card1611002BlackRobeExecutor) ID() string   { return "1611002" }
 func (Card1611002BlackRobeExecutor) Name() string { return "黑袍执行官 无心" }
 func (Card1611002BlackRobeExecutor) OnFriendlyDeath(ctx *EffectContext) error {
-	if ctx.Target != nil && ctx.Target.Card.IsCompanion() {
+	cause, _ := ctx.ExtraData["death_cause"].(string)
+	if ctx.Target != nil && ctx.Target.Card.IsCompanion() && (cause == DeathCauseSacrifice || cause == DeathCauseDevour) {
 		ctx.Source.Statuses["暗影标记"] += max(ctx.Target.Card.Life, 1)
 	}
 	return nil

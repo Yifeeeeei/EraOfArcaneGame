@@ -1,5 +1,7 @@
 package game
 
+import "fmt"
+
 type Card2121004FireArrowItem struct{ AlwaysActive }
 
 func (Card2121004FireArrowItem) ID() string   { return "2121004" }
@@ -10,6 +12,9 @@ func (Card2121004FireArrowItem) OnUltimate(ctx *EffectContext) error {
 }
 
 func fireArrowSelectAndDamage(ctx *EffectContext, sacrificeSelf bool) error {
+	if sacrificeSelf && ctx.Source.IsHorizontal {
+		return fmt.Errorf("fire arrow must be vertical to sacrifice")
+	}
 	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, true, nil)
 	if len(candidates) == 0 {
 		return nil

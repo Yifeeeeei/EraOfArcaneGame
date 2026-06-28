@@ -590,6 +590,15 @@ func TestIssue25PlaytestRegressions(t *testing.T) {
 		placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
 		backTarget := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
 
+		arrow.IsHorizontal = true
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  arrow.InstanceID,
+			"ability_type": "ultimate",
+		}}); err == nil {
+			t.Fatalf("horizontal fire arrow should not pay sacrifice cost")
+		}
+		arrow.IsHorizontal = false
+
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
 			"instance_id":  arrow.InstanceID,
 			"ability_type": "ultimate",
@@ -1523,7 +1532,12 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 		ally := placeUnit(baseCard(t, "1021002"), 0, 1, 0, engine)
 		enemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
 
-		engine.destroyUnit(ally, 0)
+		ordinary := placeUnit(baseCard(t, "1021004"), 0, 2, 0, engine)
+		engine.destroyUnit(ordinary, 0)
+		if executor.Statuses["暗影标记"] != 0 {
+			t.Fatalf("executor should ignore ordinary friendly deaths, statuses=%v", executor.Statuses)
+		}
+		engine.destroyUnitWithCause(ally, 0, DeathCauseSacrifice)
 		if executor.Statuses["暗影标记"] != ally.Card.Life {
 			t.Fatalf("executor should gain marks equal to dead companion life, statuses=%v", executor.Statuses)
 		}
@@ -6254,13 +6268,13 @@ func TestDefenseSpellScrollCanDefendFromHand(t *testing.T) {
 	p1 := engine.State.Players[1]
 	for _, elem := range model.AllElements {
 		p0.Elements[elem] = 10
+		p1.Elements[elem] = 10
 	}
-	p1.Elements[model.ElementFire] = 1
 
 	attacker := readySkill(baseCard(t, "3121001"), 0)
 	p0.Skills[0] = attacker
 	target := placeUnit(baseCard(t, "1221001"), 1, 1, 1, engine)
-	scroll := NewCardInstance(baseCard(t, "2121009"), 1, 1)
+	scroll := NewCardInstance(baseCard(t, "2121011"), 1, 1)
 	p1.Hand = []*CardInstance{scroll}
 
 	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
@@ -6288,7 +6302,7 @@ func TestDefenseSpellScrollCanDefendFromHand(t *testing.T) {
 	if len(p1.Hand) != 0 || len(p1.Graveyard) != 1 || p1.Graveyard[0] != scroll {
 		t.Fatalf("defense scroll should move from hand to graveyard, hand=%d grave=%d", len(p1.Hand), len(p1.Graveyard))
 	}
-	if p1.Elements[model.ElementFire] != 0 {
+	if p1.Elements[model.ElementFire] != 8 {
 		t.Fatalf("defense scroll should pay fire cost, elements=%v", p1.Elements)
 	}
 }
@@ -8594,16 +8608,29 @@ func TestHighRiskSkillReactionAndBoostSemantics(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		punishment := readySkill(baseCard(t, "3621007"), 0)
 		engine.State.Players[0].Skills[0] = punishment
+		setAllElements(engine.State.Players[0], 10)
 		friend := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
 		enemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		enemyDamageProbe := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
 
 		engine.dealDamage(friend, 2, 0)
-		if punishment.PowerBonus != 2 {
-			t.Fatalf("friendly damage should increase andis punishment by 2, bonus=%d", punishment.PowerBonus)
+		if engine.effectiveSpellPower(0, punishment, nil, SpellTarget{Type: "unit", Position: *enemy.Position}) != punishment.Card.Power+2 {
+			t.Fatalf("friendly damage should increase next andis punishment by 2")
 		}
-		engine.dealDamage(enemy, 2, 1)
-		if punishment.PowerBonus != 2 {
-			t.Fatalf("enemy damage should not increase andis punishment, bonus=%d", punishment.PowerBonus)
+		engine.dealDamage(enemyDamageProbe, 2, 1)
+		if engine.effectiveSpellPower(0, punishment, nil, SpellTarget{Type: "unit", Position: *enemy.Position}) != punishment.Card.Power+2 {
+			t.Fatalf("enemy damage should not increase andis punishment")
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": punishment.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(enemy.Position.Col),
+			"target_row":  float64(enemy.Position.Row),
+		}}); err != nil {
+			t.Fatalf("cast andis punishment: %v", err)
+		}
+		if engine.effectiveSpellPower(0, punishment, nil, SpellTarget{Type: "unit", Position: *enemy.Position}) != punishment.Card.Power {
+			t.Fatalf("andis punishment bonus should be consumed after the next cast")
 		}
 	})
 }
@@ -9224,6 +9251,18 @@ func TestRemainingHighRiskBaseCardSemantics(t *testing.T) {
 		}
 		if len(engine.State.Players[0].Hand) != 5 || len(engine.State.Players[1].Hand) != 4 {
 			t.Fatalf("Raven should start with 5 cards while other hero starts with 4, p0=%d p1=%d", len(engine.State.Players[0].Hand), len(engine.State.Players[1].Hand))
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "mulligan", Data: map[string]any{"keep": false}}); err != nil {
+			t.Fatalf("Raven first mulligan redraw: %v", err)
+		}
+		if len(engine.State.Players[0].Hand) != 5 || engine.State.MulliganDone[0] || engine.State.MulliganRedrawCount[0] != 1 {
+			t.Fatalf("Raven first redraw should keep 5 cards and allow another mulligan decision, hand=%d done=%v redraws=%d", len(engine.State.Players[0].Hand), engine.State.MulliganDone[0], engine.State.MulliganRedrawCount[0])
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "mulligan", Data: map[string]any{"keep": true}}); err != nil {
+			t.Fatalf("Raven keep after redraw: %v", err)
+		}
+		if !engine.State.MulliganDone[0] {
+			t.Fatalf("Raven should finish mulligan after keeping")
 		}
 		before := len(engine.State.Players[0].Hand)
 		engine.triggerEffects(TriggerOnTurnStart, engine.State.Players[0].Hero, nil, nil)

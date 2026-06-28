@@ -30,7 +30,7 @@ func (Card3621010BloodDemonBlast) OnSpellCast(ctx *EffectContext) error {
 				return
 			}
 			damage := max(unit.CurrentLife, 0)
-			ctx.Engine.destroyUnit(unit, ctx.PlayerID)
+			ctx.Engine.destroyUnitWithCause(unit, ctx.PlayerID, DeathCauseSacrifice)
 			if damage <= 0 {
 				return
 			}

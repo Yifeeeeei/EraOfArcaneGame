@@ -393,7 +393,8 @@ type GameState struct {
 	PendingAction *PendingAction `json:"pending_action,omitempty"`
 
 	// Mulligan state
-	MulliganDone [2]bool `json:"mulligan_done"`
+	MulliganDone        [2]bool `json:"mulligan_done"`
+	MulliganRedrawCount [2]int  `json:"mulligan_redraw_count"`
 
 	// Phase to resume after pending action resolves
 	ResumePhase        GamePhase        `json:"-"`
