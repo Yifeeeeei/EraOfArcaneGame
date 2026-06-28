@@ -23,7 +23,7 @@ func (Card1621004WitchPriest) OnUltimate(ctx *EffectContext) error {
 				return
 			}
 			life := max(sacrifice.CurrentLife, 0)
-			ctx.Engine.destroyUnit(sacrifice, ctx.PlayerID)
+			ctx.Engine.destroyUnitWithCause(sacrifice, ctx.PlayerID, DeathCauseSacrifice)
 			targets := ctx.Engine.friendlyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
 				return card != sacrifice
 			})

@@ -21,7 +21,7 @@ func (Card1621012SoulPriest) OnUltimate(ctx *EffectContext) error {
 			}
 			target := ctx.Engine.findUnitOnGrid(ctx.Engine.State.Players[ctx.PlayerID], selected[0])
 			if target != nil && !target.Card.IsHero() {
-				ctx.Engine.destroyUnit(target, ctx.PlayerID)
+				ctx.Engine.destroyUnitWithCause(target, ctx.PlayerID, DeathCauseSacrifice)
 				_ = DrawCards(2)(ctx)
 			}
 		})

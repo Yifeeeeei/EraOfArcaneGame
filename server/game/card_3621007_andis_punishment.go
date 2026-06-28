@@ -9,7 +9,15 @@ func (Card3621007AndisPunishment) OnDamaged(ctx *EffectContext) error {
 	damagedPlayer, _ := ctx.ExtraData["damaged_player"].(int)
 	if damagedPlayer == ctx.PlayerID {
 		amount, _ := ctx.ExtraData["damage"].(int)
-		ctx.Source.PowerBonus += max(amount, 0)
+		ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
+			Type:             TempModSkillPowerBonus,
+			SourceCardNumber: ctx.Source.Card.Number,
+			SourceName:       ctx.Source.Card.Name,
+			TargetInstanceID: ctx.Source.InstanceID,
+			Amount:           max(amount, 0),
+			RemainingUses:    1,
+			ExpiresTurn:      ctx.Engine.State.TurnNumber + 2,
+		})
 	}
 	return nil
 }

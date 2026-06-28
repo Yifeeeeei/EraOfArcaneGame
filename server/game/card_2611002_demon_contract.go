@@ -40,7 +40,7 @@ func (Card2611002DemonContract) OnUseItem(ctx *EffectContext) error {
 					if !ps.PayCost(demonContractExtraCost(sacrifice, target)) {
 						return
 					}
-					ctx.Engine.destroyUnit(sacrifice, ctx.PlayerID)
+					ctx.Engine.destroyUnitWithCause(sacrifice, ctx.PlayerID, DeathCauseSacrifice)
 					ctx.Engine.destroyUnit(target, ctx.OpponentID)
 					shuffleDemonContractIntoDeck(ctx)
 				})

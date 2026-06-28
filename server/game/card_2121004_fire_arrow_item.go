@@ -1,11 +1,16 @@
 package game
 
+import "fmt"
+
 type Card2121004FireArrowItem struct{ AlwaysActive }
 
 func (Card2121004FireArrowItem) ID() string   { return "2121004" }
 func (Card2121004FireArrowItem) Name() string { return "火焰箭" }
 
 func (Card2121004FireArrowItem) OnUltimate(ctx *EffectContext) error {
+	if ctx.Source.IsHorizontal {
+		return fmt.Errorf("火焰箭需要竖置才能献祭")
+	}
 	return fireArrowSelectAndDamage(ctx, true)
 }
 
@@ -19,6 +24,12 @@ func fireArrowSelectAndDamage(ctx *EffectContext, sacrificeSelf bool) error {
 		func(selected []string) {
 			if len(selected) == 0 {
 				return
+			}
+			if sacrificeSelf {
+				if ctx.Source.IsHorizontal {
+					return
+				}
+				ctx.Source.IsHorizontal = true
 			}
 			if sacrificeSelf && !ctx.Engine.sacrificeEquipment(ctx.PlayerID, ctx.Source.InstanceID) {
 				return
