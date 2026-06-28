@@ -278,29 +278,31 @@ func (e *Engine) counterTrapConditionMet(counter *CardInstance, trigger EffectTr
 	if eventSource != nil {
 		sourceOwner = eventSource.OwnerID
 	}
-	if castPlayer, ok := extraData["cast_player"].(int); ok {
-		sourceOwner = castPlayer
-	}
-	if attacker, ok := extraData["attacker"].(int); ok {
-		sourceOwner = attacker
-	}
-	if drawnPlayer, ok := extraData["drawn_player"].(int); ok {
-		sourceOwner = drawnPlayer
-	}
-	if damagedPlayer, ok := extraData["damaged_player"].(int); ok {
-		sourceOwner = damagedPlayer
-	}
-	if enteredPlayer, ok := extraData["entered_player"].(int); ok {
-		sourceOwner = enteredPlayer
-	}
-	if consumedPlayer, ok := extraData["consumed_player"].(int); ok {
-		sourceOwner = consumedPlayer
-	}
-	if usedPlayer, ok := extraData["used_player"].(int); ok {
-		sourceOwner = usedPlayer
-	}
-	if endedPlayer, ok := extraData["ended_player"].(int); ok {
-		sourceOwner = endedPlayer
+	if trigger != TriggerOnFriendlyDeath && trigger != TriggerOnEnemyDeath {
+		if castPlayer, ok := extraData["cast_player"].(int); ok {
+			sourceOwner = castPlayer
+		}
+		if attacker, ok := extraData["attacker"].(int); ok {
+			sourceOwner = attacker
+		}
+		if drawnPlayer, ok := extraData["drawn_player"].(int); ok {
+			sourceOwner = drawnPlayer
+		}
+		if damagedPlayer, ok := extraData["damaged_player"].(int); ok {
+			sourceOwner = damagedPlayer
+		}
+		if enteredPlayer, ok := extraData["entered_player"].(int); ok {
+			sourceOwner = enteredPlayer
+		}
+		if consumedPlayer, ok := extraData["consumed_player"].(int); ok {
+			sourceOwner = consumedPlayer
+		}
+		if usedPlayer, ok := extraData["used_player"].(int); ok {
+			sourceOwner = usedPlayer
+		}
+		if endedPlayer, ok := extraData["ended_player"].(int); ok {
+			sourceOwner = endedPlayer
+		}
 	}
 
 	switch counter.Card.Number {

@@ -28,14 +28,21 @@ type EventCallback func(event GameEvent, targetPlayer int) // targetPlayer: 0, 1
 
 // pendingDeath records a unit that should die after the current resolution scope.
 type pendingDeath struct {
-	unit    *CardInstance
-	ownerID int
+	unit      *CardInstance
+	ownerID   int
+	deathData map[string]any
 }
 
 type pendingDeathTrigger struct {
-	unit    *CardInstance
-	ownerID int
+	unit      *CardInstance
+	ownerID   int
+	deathData map[string]any
 }
+
+const (
+	DeathCauseSacrifice = "sacrifice"
+	DeathCauseDevour    = "devour"
+)
 
 // Engine manages a single game instance
 type Engine struct {
@@ -101,11 +108,7 @@ func (e *Engine) SetupGameWithFirstPlayer(p1Name string, p1Deck *model.Deck, p2N
 
 	// Draw initial hands (4 cards each; Raven starts with one extra card)
 	for i := 0; i < 2; i++ {
-		initialHandSize := 4
-		if e.State.Players[i].Hero != nil && e.State.Players[i].Hero.Card.Number == "4311002" {
-			initialHandSize++
-		}
-		drawn := e.drawCards(i, initialHandSize)
+		drawn := e.drawCards(i, e.initialHandSizeForPlayer(e.State.Players[i]))
 		e.emit(GameEvent{
 			Type:   "initial_draw",
 			Player: i,
@@ -310,12 +313,13 @@ func (e *Engine) handleMulligan(playerID int, action ActionMessage) error {
 	keepStr, _ := action.Data["keep"].(bool)
 
 	if !keepStr {
-		// Redraw: put hand back in deck, shuffle, draw 4
+		// Redraw to the same starting hand size. Raven starts with one extra card,
+		// so its mulligan should also redraw that extra card.
 		ps := e.State.Players[playerID]
 		ps.Deck = append(ps.Deck, ps.Hand...)
 		ps.Hand = make([]*CardInstance, 0)
 		shuffleDeck(ps.Deck)
-		drawn := e.drawCards(playerID, 4)
+		drawn := e.drawCards(playerID, e.initialHandSizeForPlayer(ps))
 		e.emit(GameEvent{
 			Type:   "mulligan_redraw",
 			Player: playerID,
@@ -821,7 +825,7 @@ func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, 
 	}
 	for _, target := range targets {
 		if target.Card.IsCompanion() {
-			e.destroyUnit(target, playerID)
+			e.destroyUnitWithCause(target, playerID, DeathCauseDevour)
 			continue
 		}
 		e.discardFriendlyCandidate(playerID, target.InstanceID)
@@ -1069,7 +1073,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 
 	totalPower := e.effectiveSpellPower(playerID, skill, boostSkills, target)
 	powerSources := e.spellPowerSources(playerID, skill, boostSkills, totalPower, target)
-	e.consumeNextElementSpellPowerBonus(ps, skill)
+	e.consumeNextSpellPowerBonuses(ps, skill)
 
 	// Check if it's a 咒术 (sorcery - unblockable)
 	isSorcery := isSorcerySkill(skill.Card)
@@ -1169,7 +1173,13 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		return err
 	}
 	usedIDs = mergeSkillIDSet(usedIDs, skillIDSet(defenseScrolls))
-	boostSkills, boostCost, err := e.collectSkillUses(ps, boostIDs, skillPurposeDefenseBoost, usedIDs)
+	boostSkillIDs, boostScrollIDs := e.splitDefenseBoostIDs(ps, boostIDs)
+	boostSkills, boostCost, err := e.collectSkillUses(ps, boostSkillIDs, skillPurposeDefenseBoost, usedIDs)
+	if err != nil {
+		return err
+	}
+	usedIDs = mergeSkillIDSet(usedIDs, skillIDSet(boostSkills))
+	boostScrolls, boostScrollCost, err := e.collectDefenseBoostScrollUses(ps, boostScrollIDs, usedIDs)
 	if err != nil {
 		return err
 	}
@@ -1177,7 +1187,7 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 	if err != nil {
 		return err
 	}
-	totalCost := mergeElementCosts(defenseCost, scrollCost, boostCost)
+	totalCost := mergeElementCosts(defenseCost, scrollCost, boostCost, boostScrollCost)
 	if !canPayCostWithOverexert(ps, totalCost, overexertUnits) {
 		return fmt.Errorf("not enough elements for defense")
 	}
@@ -1187,16 +1197,18 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		}
 		tapSkills(defenseSkills)
 		tapSkills(boostSkills)
-		e.moveHandConsumablesToGraveyard(ps, defenseScrolls)
+		e.moveHandConsumablesToGraveyard(ps, append(defenseScrolls, boostScrolls...))
 	}
 
 	defenseSources := append([]*CardInstance{}, defenseSkills...)
 	defenseSources = append(defenseSources, defenseScrolls...)
-	if e.promptDispelDefenseSpellIfEligible(e.State.PendingSpell.AttackerID, playerID, defenseSources, boostSkills, len(overexertUnits)) {
+	boostSources := append([]*CardInstance{}, boostSkills...)
+	boostSources = append(boostSources, boostScrolls...)
+	if e.promptDispelDefenseSpellIfEligible(e.State.PendingSpell.AttackerID, playerID, defenseSources, boostSources, len(overexertUnits)) {
 		return nil
 	}
 
-	e.finishDefenseResolution(playerID, defenseSources, boostSkills, len(overexertUnits))
+	e.finishDefenseResolution(playerID, defenseSources, boostSources, len(overexertUnits))
 	return nil
 }
 
@@ -1230,7 +1242,7 @@ func (e *Engine) collectDefenseScrollUses(ps *PlayerState, ids []string, reserve
 		if !isSpellScrollCard(card.Card) || !isDefenseOnlySkill(card.Card) {
 			return nil, nil, fmt.Errorf("card %s is not a defense spell scroll", id)
 		}
-		if err := e.validateSkillUsePermissionModifiers(card, skillPurposeDefend); err != nil {
+		if err := e.validateHandSpellScrollForPurpose(card, skillPurposeDefend); err != nil {
 			return nil, nil, fmt.Errorf("defense scroll %s cannot be used for %s: %w", id, skillPurposeDefend, err)
 		}
 		scrolls = append(scrolls, card)
@@ -1239,6 +1251,62 @@ func (e *Engine) collectDefenseScrollUses(ps *PlayerState, ids []string, reserve
 		}
 	}
 	return scrolls, totalCost, nil
+}
+
+func (e *Engine) splitDefenseBoostIDs(ps *PlayerState, ids []string) ([]string, []string) {
+	skillIDs := make([]string, 0, len(ids))
+	scrollIDs := make([]string, 0)
+	for _, id := range ids {
+		if card, _ := ps.FindHandCard(id); card != nil && isSpellScrollCard(card.Card) {
+			scrollIDs = append(scrollIDs, id)
+			continue
+		}
+		skillIDs = append(skillIDs, id)
+	}
+	return skillIDs, scrollIDs
+}
+
+func (e *Engine) collectDefenseBoostScrollUses(ps *PlayerState, ids []string, reserved map[string]bool) ([]*CardInstance, map[string]int, error) {
+	scrolls := make([]*CardInstance, 0, len(ids))
+	totalCost := make(map[string]int)
+	seen := make(map[string]bool)
+	for id := range reserved {
+		seen[id] = true
+	}
+	for _, id := range ids {
+		if seen[id] {
+			return nil, nil, fmt.Errorf("defense source %s selected more than once", id)
+		}
+		seen[id] = true
+		card, _ := ps.FindHandCard(id)
+		if card == nil {
+			return nil, nil, fmt.Errorf("defense boost scroll not found: %s", id)
+		}
+		if !isSpellScrollCard(card.Card) {
+			return nil, nil, fmt.Errorf("card %s is not a spell scroll", id)
+		}
+		if err := e.validateHandSpellScrollForPurpose(card, skillPurposeDefenseBoost); err != nil {
+			return nil, nil, fmt.Errorf("defense boost scroll %s cannot be used for %s: %w", id, skillPurposeDefenseBoost, err)
+		}
+		scrolls = append(scrolls, card)
+		for elem, amount := range e.effectiveCardPlayCost(ps, card) {
+			totalCost[elem] += amount
+		}
+	}
+	return scrolls, totalCost, nil
+}
+
+func (e *Engine) validateHandSpellScrollForPurpose(card *CardInstance, purpose skillPurpose) error {
+	if card == nil || card.Card == nil || !isSpellScrollCard(card.Card) {
+		return fmt.Errorf("card is not a spell scroll")
+	}
+	if e.hasEffectiveStatus(card, StatusPetrify) {
+		return fmt.Errorf("card is petrified")
+	}
+	if !canUseSkillForPurpose(card.Card, purpose) {
+		return fmt.Errorf("spell scroll cannot be used for %s", purpose)
+	}
+	return e.validateSkillUsePermissionModifiers(card, purpose)
 }
 
 func (e *Engine) moveHandConsumablesToGraveyard(ps *PlayerState, cards []*CardInstance) {
@@ -1715,15 +1783,22 @@ func (e *Engine) endResolution() {
 }
 
 func (e *Engine) queueDeath(unit *CardInstance, ownerID int) {
+	e.queueDeathWithData(unit, ownerID, nil)
+}
+
+func (e *Engine) queueDeathWithData(unit *CardInstance, ownerID int, deathData map[string]any) {
 	if unit == nil {
 		return
 	}
-	for _, pending := range e.deathQueue {
-		if pending.unit == unit {
+	for i := range e.deathQueue {
+		if e.deathQueue[i].unit == unit {
+			if len(deathData) > 0 && len(e.deathQueue[i].deathData) == 0 {
+				e.deathQueue[i].deathData = cloneExtraData(deathData)
+			}
 			return
 		}
 	}
-	e.deathQueue = append(e.deathQueue, pendingDeath{unit: unit, ownerID: ownerID})
+	e.deathQueue = append(e.deathQueue, pendingDeath{unit: unit, ownerID: ownerID, deathData: cloneExtraData(deathData)})
 }
 
 func (e *Engine) removeQueuedDeath(unit *CardInstance) {
@@ -1751,7 +1826,7 @@ func (e *Engine) resolvePendingDeaths() {
 		if pending.unit == nil || pending.unit.CurrentLife > 0 || !e.unitInOwnerGrid(pending.unit, pending.ownerID) {
 			continue
 		}
-		e.destroyUnit(pending.unit, pending.ownerID)
+		e.destroyUnitWithData(pending.unit, pending.ownerID, pending.deathData)
 	}
 
 	e.resolvingDeaths = false
@@ -1760,10 +1835,14 @@ func (e *Engine) resolvePendingDeaths() {
 }
 
 func (e *Engine) queueDeathTriggers(unit *CardInstance, ownerID int) {
+	e.queueDeathTriggersWithData(unit, ownerID, nil)
+}
+
+func (e *Engine) queueDeathTriggersWithData(unit *CardInstance, ownerID int, deathData map[string]any) {
 	if unit == nil {
 		return
 	}
-	e.deathTriggers = append(e.deathTriggers, pendingDeathTrigger{unit: unit, ownerID: ownerID})
+	e.deathTriggers = append(e.deathTriggers, pendingDeathTrigger{unit: unit, ownerID: ownerID, deathData: cloneExtraData(deathData)})
 }
 
 func (e *Engine) resolveQueuedDeathTriggers() {
@@ -1781,23 +1860,27 @@ func (e *Engine) resolveQueuedDeathTriggers() {
 	for len(e.deathTriggers) > 0 {
 		pending := e.deathTriggers[0]
 		e.deathTriggers = e.deathTriggers[1:]
-		e.resolveDeathTriggers(pending.unit, pending.ownerID)
+		e.resolveDeathTriggersWithData(pending.unit, pending.ownerID, pending.deathData)
 	}
 }
 
 func (e *Engine) resolveDeathTriggers(unit *CardInstance, ownerID int) {
+	e.resolveDeathTriggersWithData(unit, ownerID, nil)
+}
+
+func (e *Engine) resolveDeathTriggersWithData(unit *CardInstance, ownerID int, deathData map[string]any) {
 	if unit == nil || unit.Card == nil {
 		return
 	}
 
 	// Trigger 遗言 (on death) effects
-	e.triggerEffects(TriggerOnDeath, unit, nil, nil)
+	e.triggerEffects(TriggerOnDeath, unit, nil, deathData)
 
 	// Notify friendly cards about the death
-	e.triggerFieldEffects(TriggerOnFriendlyDeath, ownerID, unit)
+	e.triggerFieldEffectsWithData(TriggerOnFriendlyDeath, ownerID, unit, deathData)
 
 	// Notify enemy cards about the death
-	e.triggerFieldEffects(TriggerOnEnemyDeath, 1-ownerID, unit)
+	e.triggerFieldEffectsWithData(TriggerOnEnemyDeath, 1-ownerID, unit, deathData)
 }
 
 func (e *Engine) unitInOwnerGrid(unit *CardInstance, ownerID int) bool {
@@ -2274,7 +2357,7 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 		} else {
 			delete(target.Statuses, "lethal_source_player")
 		}
-		e.queueDeath(target, ownerID)
+		e.queueDeathWithData(target, ownerID, extraData)
 		if e.resolutionDepth == 0 && !e.resolvingDeaths {
 			e.resolvePendingDeaths()
 		}
@@ -2317,7 +2400,7 @@ func (e *Engine) promptDolphinPartnerPrevention(target *CardInstance, amount int
 			e.dealDamageWithExtra(target, amount, ownerID, retryData)
 			return
 		}
-		e.destroyUnit(dolphin, ownerID)
+		e.destroyUnitWithCause(dolphin, ownerID, DeathCauseSacrifice)
 		e.emit(GameEvent{
 			Type:   "damage_prevented",
 			Player: -1,
@@ -2358,6 +2441,18 @@ func (e *Engine) triggerHiddenFriendlyDamaged(playerID int, target *CardInstance
 
 // destroyUnit removes a unit from the field and sends it to graveyard
 func (e *Engine) destroyUnit(unit *CardInstance, ownerID int) {
+	e.destroyUnitWithData(unit, ownerID, nil)
+}
+
+func (e *Engine) destroyUnitWithCause(unit *CardInstance, ownerID int, cause string) {
+	data := map[string]any{}
+	if cause != "" {
+		data["death_cause"] = cause
+	}
+	e.destroyUnitWithData(unit, ownerID, data)
+}
+
+func (e *Engine) destroyUnitWithData(unit *CardInstance, ownerID int, deathData map[string]any) {
 	e.removeQueuedDeath(unit)
 	ps := e.State.Players[ownerID]
 
@@ -2383,9 +2478,9 @@ func (e *Engine) destroyUnit(unit *CardInstance, ownerID int) {
 	})
 
 	if e.resolvingDeaths || e.resolutionDepth > 0 {
-		e.queueDeathTriggers(unit, ownerID)
+		e.queueDeathTriggersWithData(unit, ownerID, deathData)
 	} else {
-		e.resolveDeathTriggers(unit, ownerID)
+		e.resolveDeathTriggersWithData(unit, ownerID, deathData)
 	}
 
 	// Check if hero died. During queued death resolution, wait until all pending
@@ -2393,6 +2488,17 @@ func (e *Engine) destroyUnit(unit *CardInstance, ownerID int) {
 	if unit.Card.IsHero() && !e.resolvingDeaths && e.resolutionDepth == 0 {
 		e.checkWinCondition()
 	}
+}
+
+func (e *Engine) initialHandSizeForPlayer(ps *PlayerState) int {
+	if ps == nil {
+		return 4
+	}
+	size := 4
+	if ps.Hero != nil && ps.Hero.Card != nil && ps.Hero.Card.Number == "4311002" {
+		size++
+	}
+	return size
 }
 
 // handleEquip handles equipping an item
@@ -2785,7 +2891,7 @@ func (e *Engine) startSpellScrollCast(playerID int, scroll *CardInstance, target
 	boostSkills := []*CardInstance{}
 	totalPower := e.effectiveSpellPower(playerID, scroll, boostSkills, target)
 	powerSources := e.spellPowerSources(playerID, scroll, boostSkills, totalPower, target)
-	e.consumeNextElementSpellPowerBonus(ps, scroll)
+	e.consumeNextSpellPowerBonuses(ps, scroll)
 
 	if ps.SpellsCastThisTurn == nil {
 		ps.SpellsCastThisTurn = make(map[string]int)

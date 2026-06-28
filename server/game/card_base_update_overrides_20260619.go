@@ -123,7 +123,7 @@ func (Card2111001FireDragonHeartV20260619) OnPerTurn(ctx *EffectContext) error {
 			}
 			for _, card := range selectedCards {
 				if card.Card.IsCompanion() {
-					ctx.Engine.destroyUnit(card, ctx.PlayerID)
+					ctx.Engine.destroyUnitWithCause(card, ctx.PlayerID, DeathCauseSacrifice)
 				} else {
 					ctx.Engine.discardFriendlyCandidate(ctx.PlayerID, card.InstanceID)
 				}

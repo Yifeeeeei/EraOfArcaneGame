@@ -82,7 +82,7 @@ func devourFriendlyCompanion(ctx *EffectContext, cost map[string]int, prompt str
 			}
 			target := ctx.Engine.findFieldCardByInstance(ps, selected[0])
 			if target != nil && target != ctx.Source && target.Card.IsCompanion() {
-				ctx.Engine.destroyUnit(target, ctx.PlayerID)
+				ctx.Engine.destroyUnitWithCause(target, ctx.PlayerID, DeathCauseDevour)
 			}
 		})
 	return nil

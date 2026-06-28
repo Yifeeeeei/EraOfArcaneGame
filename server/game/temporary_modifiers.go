@@ -167,12 +167,21 @@ func (e *Engine) temporarySpellPowerBonus(playerID int, skill *CardInstance) int
 	return total
 }
 
-func (e *Engine) consumeNextElementSpellPowerBonus(ps *PlayerState, skill *CardInstance) {
+func (e *Engine) consumeNextSpellPowerBonuses(ps *PlayerState, skill *CardInstance) {
 	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
-		if modifier.Type != TempModNextElementSpellPowerBonus {
-			continue
-		}
-		if modifier.RemainingUses == 0 || modifier.Status != skill.Card.Category {
+		switch modifier.Type {
+		case TempModSkillPowerBonus:
+			if modifier.RemainingUses == 0 {
+				continue
+			}
+			if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != skill.InstanceID {
+				continue
+			}
+		case TempModNextElementSpellPowerBonus:
+			if modifier.RemainingUses == 0 || modifier.Status != skill.Card.Category {
+				continue
+			}
+		default:
 			continue
 		}
 		modifier.RemainingUses--

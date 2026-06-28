@@ -590,6 +590,15 @@ func TestIssue25PlaytestRegressions(t *testing.T) {
 		placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
 		backTarget := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
 
+		arrow.IsHorizontal = true
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  arrow.InstanceID,
+			"ability_type": "ultimate",
+		}}); err == nil {
+			t.Fatalf("horizontal fire arrow should not be able to pay a sacrifice cost")
+		}
+		arrow.IsHorizontal = false
+
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
 			"instance_id":  arrow.InstanceID,
 			"ability_type": "ultimate",
@@ -999,6 +1008,16 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 		}
 		if enemy.Statuses[StatusBurn] != 1 {
 			t.Fatalf("arsonist should burn an enemy after fire spell, enemy=%v", enemy.Statuses)
+		}
+		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, fireSkill, map[string]any{"cast_player": 0})
+		if engine.State.PendingAction != nil {
+			t.Fatalf("arsonist should trigger at most once per turn, pending=%+v", engine.State.PendingAction)
+		}
+		arsonist.UsedThisTurn = 0
+		sorcery := readySkill(baseCard(t, "3121007"), 0)
+		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, sorcery, map[string]any{"cast_player": 0})
+		if engine.State.PendingAction != nil {
+			t.Fatalf("arsonist should ignore fire sorceries, pending=%+v", engine.State.PendingAction)
 		}
 	})
 
@@ -1524,8 +1543,13 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 		enemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
 
 		engine.destroyUnit(ally, 0)
-		if executor.Statuses["暗影标记"] != ally.Card.Life {
-			t.Fatalf("executor should gain marks equal to dead companion life, statuses=%v", executor.Statuses)
+		if executor.Statuses["暗影标记"] != 0 {
+			t.Fatalf("executor should ignore ordinary friendly deaths, statuses=%v", executor.Statuses)
+		}
+		sacrifice := placeUnit(baseCard(t, "1021002"), 0, 1, 0, engine)
+		engine.destroyUnitWithCause(sacrifice, 0, DeathCauseSacrifice)
+		if executor.Statuses["暗影标记"] != sacrifice.Card.Life {
+			t.Fatalf("executor should gain marks only from sacrifice/devour deaths, statuses=%v", executor.Statuses)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
 			"instance_id":  executor.InstanceID,
@@ -2084,6 +2108,24 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 		if effectiveElementsGain(compass)[model.ElementAir] != compass.Card.ElementsGain[model.ElementAir] {
 			t.Fatalf("windbreath compass temporary air load should expire at turn end, load=%v", effectiveElementsGain(compass))
+		}
+	})
+
+	t.Run("2121011 火流星卷轴 can be used as a defense boost scroll", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		scroll := NewCardInstance(baseCard(t, "2121011"), 0, 1)
+		p0.Hand = []*CardInstance{scroll}
+
+		boosts, cost, err := engine.collectDefenseBoostScrollUses(p0, []string{scroll.InstanceID}, nil)
+		if err != nil {
+			t.Fatalf("collect meteor scroll as defense boost: %v", err)
+		}
+		if len(boosts) != 1 || boosts[0] != scroll {
+			t.Fatalf("meteor scroll should be accepted as a defense boost scroll, boosts=%v", cardsToInfo(boosts))
+		}
+		if len(cost) == 0 {
+			t.Fatalf("meteor scroll defense boost should require its play cost")
 		}
 	})
 
@@ -8590,20 +8632,28 @@ func TestHighRiskSkillReactionAndBoostSemantics(t *testing.T) {
 		}
 	})
 
-	t.Run("3621007 安迪斯的惩罚 gains power from friendly damage only", func(t *testing.T) {
+	t.Run("3621007 安迪斯的惩罚 gains next-use power from friendly damage only", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
 		punishment := readySkill(baseCard(t, "3621007"), 0)
-		engine.State.Players[0].Skills[0] = punishment
+		p0.Skills[0] = punishment
 		friend := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
 		enemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
 
 		engine.dealDamage(friend, 2, 0)
-		if punishment.PowerBonus != 2 {
-			t.Fatalf("friendly damage should increase andis punishment by 2, bonus=%d", punishment.PowerBonus)
+		if punishment.PowerBonus != 0 || len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != TempModSkillPowerBonus || p0.TempModifiers[0].Amount != 2 || p0.TempModifiers[0].TargetInstanceID != punishment.InstanceID {
+			t.Fatalf("friendly damage should arm a next-use +2 power modifier, bonus=%d modifiers=%v", punishment.PowerBonus, p0.TempModifiers)
+		}
+		if got := engine.effectiveSpellPower(0, punishment, nil); got != punishment.Card.Power+2 {
+			t.Fatalf("next-use modifier should affect current effective power, got=%d", got)
+		}
+		engine.consumeNextSpellPowerBonuses(p0, punishment)
+		if len(p0.TempModifiers) != 0 || engine.effectiveSpellPower(0, punishment, nil) != punishment.Card.Power {
+			t.Fatalf("andis punishment bonus should be consumed after the next use, modifiers=%v", p0.TempModifiers)
 		}
 		engine.dealDamage(enemy, 2, 1)
-		if punishment.PowerBonus != 2 {
-			t.Fatalf("enemy damage should not increase andis punishment, bonus=%d", punishment.PowerBonus)
+		if len(p0.TempModifiers) != 0 {
+			t.Fatalf("enemy damage should not arm andis punishment, modifiers=%v", p0.TempModifiers)
 		}
 	})
 }
@@ -9224,6 +9274,12 @@ func TestRemainingHighRiskBaseCardSemantics(t *testing.T) {
 		}
 		if len(engine.State.Players[0].Hand) != 5 || len(engine.State.Players[1].Hand) != 4 {
 			t.Fatalf("Raven should start with 5 cards while other hero starts with 4, p0=%d p1=%d", len(engine.State.Players[0].Hand), len(engine.State.Players[1].Hand))
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "mulligan", Data: map[string]any{"keep": false}}); err != nil {
+			t.Fatalf("raven mulligan redraw: %v", err)
+		}
+		if len(engine.State.Players[0].Hand) != 5 {
+			t.Fatalf("Raven should redraw to 5 cards during mulligan, got %d", len(engine.State.Players[0].Hand))
 		}
 		before := len(engine.State.Players[0].Hand)
 		engine.triggerEffects(TriggerOnTurnStart, engine.State.Players[0].Hero, nil, nil)

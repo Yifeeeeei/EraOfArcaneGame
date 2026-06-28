@@ -51,7 +51,10 @@ func TestGameHTMLDefenseWindowIncludesBoundSkills(t *testing.T) {
 		"return allMySkills.value.filter(canUseSkillAsDefense);",
 		"...allMySkills.value,",
 		"...allMySkills.value.filter(s => s && defenseSelected.value.includes(s.instance_id)),",
-		"return allMySkills.value.filter(s =>",
+		"const learnedBoosts = allMySkills.value.filter(s =>",
+		"const scrollBoosts = myHand.value.filter(s =>",
+		"canUseScrollAsDefenseBoost(s)",
+		"function canUseScrollAsDefenseBoost(scroll)",
 		"const skills = allMySkills.value;",
 	} {
 		if !strings.Contains(html, want) {

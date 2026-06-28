@@ -161,7 +161,7 @@
                             <img :src="getCardImage(skill)" class="defense-skill-img">
                             <div class="defense-skill-info">
                                 <div class="defense-skill-name">{{ skill.name }}</div>
-                                <div class="defense-skill-power">+威力 {{ skill.power >= 0 ? skill.power : 0 }}</div>
+                                <div class="defense-skill-power">+威力 {{ defenseBoostPower(skill) }} · {{ costLabel(defensePaymentCost(skill)) }}</div>
                             </div>
                         </div>
                     </div>
@@ -2296,9 +2296,15 @@
                     ...myHand.value.filter(s => s && defenseScrollSelected.value.includes(s.instance_id)),
                 ];
                 if (defendingSkills.some(s => s.can_be_boosted === false)) return [];
-                return allMySkills.value.filter(s =>
+                const learnedBoosts = allMySkills.value.filter(s =>
                     canUseSkillAsDefenseBoost(s) && !defenseSelected.value.includes(s.instance_id)
                 );
+                const scrollBoosts = myHand.value.filter(s =>
+                    canUseScrollAsDefenseBoost(s) &&
+                    !defenseScrollSelected.value.includes(s.instance_id) &&
+                    !hasSeveringBlade()
+                );
+                return [...learnedBoosts, ...scrollBoosts];
             });
 
             function canOverexertForDefense(unit) {
@@ -2396,6 +2402,13 @@
                 return !!skill.can_defense_boost;
             }
 
+            function canUseScrollAsDefenseBoost(scroll) {
+                if (!isSpellScrollItem(scroll)) return false;
+                if (hasSeveringBlade()) return false;
+                if (scroll.statuses?.['石化'] > 0) return false;
+                return !!scroll.can_defense_boost;
+            }
+
             function hasSeveringBlade() {
                 return (myState.value?.equipment || []).some(card => card && String(card.number) === '2021013');
             }
@@ -2412,7 +2425,7 @@
                     if (scroll) power += defensePower(scroll);
                 }
                 for (const id of defenseBoostSelected.value) {
-                    const sk = skills.find(s => s && s.instance_id === id);
+                    const sk = skills.find(s => s && s.instance_id === id) || myHand.value.find(s => s && s.instance_id === id);
                     if (sk) power += defenseBoostPower(sk);
                 }
                 return power;
