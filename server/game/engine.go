@@ -3098,6 +3098,8 @@ func (e *Engine) handleResolveAction(playerID int, action ActionMessage) error {
 		callback(selected)
 	}
 
+	e.emitPendingActionCleared(pa)
+	e.advancePendingActionQueue()
 	if e.State.PendingAction == nil && e.State.Phase == PhaseDefenseWindow && e.State.PendingSpell == nil {
 		e.State.Phase = PhaseMain
 	}
@@ -3131,9 +3133,11 @@ func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, pr
 	if minSelect > 0 && len(candidates) == 0 {
 		return
 	}
-	e.State.ResumePhase = e.State.Phase
-	e.State.Phase = PhaseWaitingAction
-	e.State.PendingAction = &PendingAction{
+	resumePhase := e.State.Phase
+	if e.State.PendingAction != nil {
+		resumePhase = e.State.ResumePhase
+	}
+	action := &PendingAction{
 		Type:         actionType,
 		PlayerID:     playerID,
 		Prompt:       prompt,
@@ -3147,25 +3151,58 @@ func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, pr
 		CallbackData: callbackData,
 		CallbackErr:  callbackErr,
 	}
+	if e.State.PendingAction != nil {
+		e.State.PendingActionQueue = append(e.State.PendingActionQueue, action)
+		return
+	}
+	e.activatePendingAction(action, resumePhase)
+}
 
+func (e *Engine) activatePendingAction(action *PendingAction, resumePhase GamePhase) {
+	if action == nil {
+		return
+	}
+	e.State.ResumePhase = resumePhase
+	e.State.Phase = PhaseWaitingAction
+	e.State.PendingAction = action
 	data := map[string]any{
-		"type":       actionType,
-		"player_id":  playerID,
-		"prompt":     prompt,
-		"candidates": candidates,
-		"min_select": minSelect,
-		"max_select": maxSelect,
+		"type":       action.Type,
+		"player_id":  action.PlayerID,
+		"prompt":     action.Prompt,
+		"candidates": action.Candidates,
+		"min_select": action.MinSelect,
+		"max_select": action.MaxSelect,
 	}
-	if context != nil {
-		data["context"] = context
+	if action.Context != nil {
+		data["context"] = action.Context
 	}
-	if cost != nil {
-		data["cost"] = cost
+	if action.Cost != nil {
+		data["cost"] = action.Cost
 	}
-	if canOverexert {
+	if action.CanOverexert {
 		data["can_overexert"] = true
 	}
-	e.emit(GameEvent{Type: "pending_action", Player: playerID, Data: data})
+	e.emit(GameEvent{Type: "pending_action", Player: action.PlayerID, Data: data})
+}
+
+func (e *Engine) advancePendingActionQueue() bool {
+	if e.State.PendingAction != nil || len(e.State.PendingActionQueue) == 0 {
+		return false
+	}
+	next := e.State.PendingActionQueue[0]
+	e.State.PendingActionQueue = e.State.PendingActionQueue[1:]
+	e.activatePendingAction(next, e.State.Phase)
+	return true
+}
+
+func (e *Engine) emitPendingActionCleared(action *PendingAction) {
+	if action == nil {
+		return
+	}
+	e.emit(GameEvent{Type: "pending_action_cleared", Player: action.PlayerID, Data: map[string]any{
+		"type":      action.Type,
+		"player_id": action.PlayerID,
+	}})
 }
 
 // handleEndTurn handles ending the current turn

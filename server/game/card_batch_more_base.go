@@ -1100,7 +1100,7 @@ type Card2311002ThunderDrum struct{ AlwaysActive }
 func (Card2311002ThunderDrum) ID() string   { return "2311002" }
 func (Card2311002ThunderDrum) Name() string { return "唤雷震鼓" }
 func (Card2311002ThunderDrum) OnDraw(ctx *EffectContext) error {
-	if ctx.ExtraData == nil || ctx.Engine.State.PendingAction != nil {
+	if ctx.ExtraData == nil {
 		return nil
 	}
 	drawnPlayer, _ := ctx.ExtraData["drawn_player"].(int)

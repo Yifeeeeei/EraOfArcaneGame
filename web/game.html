@@ -3050,6 +3050,9 @@
                         applyPendingActionEvent(d);
                         addLog(`等待选择: ${d.prompt}`);
                         break;
+                    case 'pending_action_cleared':
+                        applyPendingActionCleared(d);
+                        break;
                     case 'discard':
                         addLog(`弃置 ${d.card.name}`);
                         flashGraveyardCard(d.player, d.card);
@@ -3342,6 +3345,28 @@
                 nextTick(() => renderEmergencyPendingAction('event_next_tick'));
                 window.setTimeout(() => renderEmergencyPendingAction('event_timeout_120'), 120);
                 logPendingActionDOM('event');
+            }
+
+            function applyPendingActionCleared(action) {
+                const current = pendingAction.value;
+                if (!current) return;
+                const same = current.type === action?.type
+                    && pendingPlayerID(current) === pendingPlayerID(action);
+                if (!same) return;
+                resetPendingSelectionState();
+                pendingActionCache.value = null;
+                clearEmergencyPendingAction();
+                if (gameState.value?.pending_action && samePendingAction(gameState.value.pending_action, current)) {
+                    gameState.value = {
+                        ...gameState.value,
+                        pending_action: null,
+                    };
+                }
+                sendClientLog('info', 'pending_action_cleared', {
+                    type: action?.type || '',
+                    player_id: pendingPlayerID(action),
+                    my_slot: mySlot.value,
+                });
             }
 
             function onWindowError(evt) {

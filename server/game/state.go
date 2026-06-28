@@ -396,7 +396,8 @@ type GameState struct {
 	MulliganDone [2]bool `json:"mulligan_done"`
 
 	// Phase to resume after pending action resolves
-	ResumePhase GamePhase `json:"-"`
+	ResumePhase        GamePhase        `json:"-"`
+	PendingActionQueue []*PendingAction `json:"-"`
 }
 
 // SpellCast represents an ongoing spell combat
