@@ -177,7 +177,7 @@ A conservative agent loop can be:
    action or send `end_turn`.
 7. Otherwise wait for another event.
 
-Main-phase action names include:
+Common action names include:
 
 - `summon`
 - `consume`
