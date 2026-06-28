@@ -371,22 +371,29 @@ func (e *Engine) startTurn() {
 	// not be the rule point that removes remaining elements.
 	e.applyTurnStartTemporaryModifiers(ps)
 
+	e.continuePreDrawTurnStartEffects(ps, append([]*CardInstance(nil), e.getAllFieldCards(ps)...), 0)
+}
+
+func (e *Engine) continueStartTurnAfterPreDraw(ps *PlayerState) {
+	if ps == nil {
+		return
+	}
 	if ps.SkipNextDraw {
 		ps.SkipNextDraw = false
 		e.emit(GameEvent{
 			Type:   "effect_trigger",
-			Player: e.State.CurrentTurn,
+			Player: ps.PlayerID,
 			Data: map[string]any{
 				"effect": "skip_draw",
 			},
 		})
 	} else {
-		drawn := e.drawCards(e.State.CurrentTurn, 1)
+		drawn := e.drawCards(ps.PlayerID, 1)
 		if len(drawn) > 0 {
 			// Notify opponent about the draw (without card info)
 			e.emit(GameEvent{
 				Type:   "opponent_draw",
-				Player: 1 - e.State.CurrentTurn,
+				Player: 1 - ps.PlayerID,
 				Data: map[string]any{
 					"count": 1,
 				},
@@ -400,7 +407,7 @@ func (e *Engine) startTurn() {
 		Type:   "turn_start",
 		Player: -1,
 		Data: map[string]any{
-			"current_player": e.State.CurrentTurn,
+			"current_player": ps.PlayerID,
 			"turn_number":    e.State.TurnNumber,
 			"elements":       ps.Elements,
 		},
@@ -412,8 +419,43 @@ func (e *Engine) startTurn() {
 		e.triggerEffects(TriggerOnTurnStart, card, nil, nil)
 	}
 	if e.State.PendingAction == nil {
-		e.triggerPrayerAbilities(e.State.CurrentTurn)
+		e.triggerPrayerAbilities(ps.PlayerID)
 	}
+}
+
+func (e *Engine) continuePreDrawTurnStartEffects(ps *PlayerState, cards []*CardInstance, start int) {
+	if ps == nil {
+		return
+	}
+	for i := start; i < len(cards); i++ {
+		card := cards[i]
+		if card == nil || card.Card == nil || card.Card.Number != "1021008" || e.hasEffectiveStatus(card, StatusPetrify) {
+			continue
+		}
+		if !e.cardStillOnField(card) {
+			continue
+		}
+		behavior, ok := globalRegistry.GetBehavior(card.Card.Number).(OnTurnStartBehavior)
+		if !ok {
+			continue
+		}
+		ctx := &EffectContext{
+			Engine:     e,
+			Source:     card,
+			PlayerID:   ps.PlayerID,
+			OpponentID: 1 - ps.PlayerID,
+			ExtraData:  map[string]any{"timing": "pre_draw"},
+		}
+		_ = behavior.OnTurnStart(ctx)
+		if e.State.PendingAction != nil {
+			next := i + 1
+			e.wrapPendingActionContinuation(func() {
+				e.continuePreDrawTurnStartEffects(ps, cards, next)
+			})
+			return
+		}
+	}
+	e.continueStartTurnAfterPreDraw(ps)
 }
 
 func (e *Engine) triggerPrayerAbilities(playerID int) {
@@ -3056,6 +3098,8 @@ func (e *Engine) handleResolveAction(playerID int, action ActionMessage) error {
 		callback(selected)
 	}
 
+	e.emitPendingActionCleared(pa)
+	e.advancePendingActionQueue()
 	if e.State.PendingAction == nil && e.State.Phase == PhaseDefenseWindow && e.State.PendingSpell == nil {
 		e.State.Phase = PhaseMain
 	}
@@ -3089,9 +3133,11 @@ func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, pr
 	if minSelect > 0 && len(candidates) == 0 {
 		return
 	}
-	e.State.ResumePhase = e.State.Phase
-	e.State.Phase = PhaseWaitingAction
-	e.State.PendingAction = &PendingAction{
+	resumePhase := e.State.Phase
+	if e.State.PendingAction != nil {
+		resumePhase = e.State.ResumePhase
+	}
+	action := &PendingAction{
 		Type:         actionType,
 		PlayerID:     playerID,
 		Prompt:       prompt,
@@ -3105,25 +3151,58 @@ func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, pr
 		CallbackData: callbackData,
 		CallbackErr:  callbackErr,
 	}
+	if e.State.PendingAction != nil {
+		e.State.PendingActionQueue = append(e.State.PendingActionQueue, action)
+		return
+	}
+	e.activatePendingAction(action, resumePhase)
+}
 
+func (e *Engine) activatePendingAction(action *PendingAction, resumePhase GamePhase) {
+	if action == nil {
+		return
+	}
+	e.State.ResumePhase = resumePhase
+	e.State.Phase = PhaseWaitingAction
+	e.State.PendingAction = action
 	data := map[string]any{
-		"type":       actionType,
-		"player_id":  playerID,
-		"prompt":     prompt,
-		"candidates": candidates,
-		"min_select": minSelect,
-		"max_select": maxSelect,
+		"type":       action.Type,
+		"player_id":  action.PlayerID,
+		"prompt":     action.Prompt,
+		"candidates": action.Candidates,
+		"min_select": action.MinSelect,
+		"max_select": action.MaxSelect,
 	}
-	if context != nil {
-		data["context"] = context
+	if action.Context != nil {
+		data["context"] = action.Context
 	}
-	if cost != nil {
-		data["cost"] = cost
+	if action.Cost != nil {
+		data["cost"] = action.Cost
 	}
-	if canOverexert {
+	if action.CanOverexert {
 		data["can_overexert"] = true
 	}
-	e.emit(GameEvent{Type: "pending_action", Player: playerID, Data: data})
+	e.emit(GameEvent{Type: "pending_action", Player: action.PlayerID, Data: data})
+}
+
+func (e *Engine) advancePendingActionQueue() bool {
+	if e.State.PendingAction != nil || len(e.State.PendingActionQueue) == 0 {
+		return false
+	}
+	next := e.State.PendingActionQueue[0]
+	e.State.PendingActionQueue = e.State.PendingActionQueue[1:]
+	e.activatePendingAction(next, e.State.Phase)
+	return true
+}
+
+func (e *Engine) emitPendingActionCleared(action *PendingAction) {
+	if action == nil {
+		return
+	}
+	e.emit(GameEvent{Type: "pending_action_cleared", Player: action.PlayerID, Data: map[string]any{
+		"type":      action.Type,
+		"player_id": action.PlayerID,
+	}})
 }
 
 // handleEndTurn handles ending the current turn

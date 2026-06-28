@@ -560,7 +560,7 @@ func skillIDSet(skills []*CardInstance) map[string]bool {
 }
 
 func (e *Engine) validateSpellTarget(playerID int, skill *CardInstance, target SpellTarget) error {
-	return e.validateSpellTargetWithPierce(playerID, skill, target, cardHasPierce(skill))
+	return e.validateSpellTargetWithPierce(playerID, skill, target, cardHasPierce(skill) || e.windBladeGrantsPierce(playerID, skill))
 }
 
 func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance, target SpellTarget, hasPierce bool) error {
@@ -628,8 +628,27 @@ func (e *Engine) spellHasPierceWithBoosts(playerID int, skill *CardInstance, boo
 	if cardHasPierce(skill) {
 		return true
 	}
+	if e.windBladeGrantsPierce(playerID, skill) {
+		return true
+	}
 	for _, boostSkill := range boostSkills {
 		if e.skillContributionStats(playerID, boostSkill, skill, skillPurposeAttackBoost).Pierce {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Engine) windBladeGrantsPierce(playerID int, skill *CardInstance) bool {
+	if skill == nil || skill.Card == nil || skill.Card.Category != model.ElementAir || !skillNeedsTargetInstance(skill) {
+		return false
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return false
+	}
+	for _, fieldCard := range e.getAllFieldCards(ps) {
+		if fieldCard != nil && fieldCard.Card != nil && fieldCard.Card.Number == "1311003" && !e.hasEffectiveStatus(fieldCard, StatusPetrify) {
 			return true
 		}
 	}

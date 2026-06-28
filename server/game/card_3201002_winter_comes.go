@@ -17,9 +17,6 @@ func (Card3201002WinterComes) ValidateSkillUse(ctx *EffectContext, skill *CardIn
 }
 
 func (Card3201002WinterComes) OnSpellCast(ctx *EffectContext) error {
-	if ctx.Target != nil {
-		return nil
-	}
 	for _, equipment := range ctx.Engine.State.Players[ctx.PlayerID].Equipment {
 		if equipment != nil && equipment.Card.Number == "2211002" && equipment.Statuses[winterBowWaterMark] >= 5 {
 			equipment.Statuses[winterBowWaterMark] -= 5

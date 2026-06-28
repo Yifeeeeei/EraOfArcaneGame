@@ -54,7 +54,7 @@ func bindSkillToHost(ctx *EffectContext, cardNumber string) {
 	}
 	skill := NewCardInstance(card, ctx.PlayerID, ctx.Engine.State.TurnNumber)
 	skill.SlotIndex = -1
-	skill.IsHorizontal = false
+	skill.IsHorizontal = true
 	ctx.Source.BoundSkills = append(ctx.Source.BoundSkills, skill)
 	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 		"source": cardToInfo(ctx.Source),

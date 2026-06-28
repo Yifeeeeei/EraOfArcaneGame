@@ -19,11 +19,18 @@ func (Card1311001Roc) OnEnter(ctx *EffectContext) error {
 	ps.Deck = remaining
 	for _, card := range drawn {
 		ps.Hand = append(ps.Hand, card)
+		ps.DrawCountThisTurn++
 		if ps.DiscardAtTurnEnd == nil {
 			ps.DiscardAtTurnEnd = make(map[string]bool)
 		}
 		ps.DiscardAtTurnEnd[card.InstanceID] = true
 		ctx.Engine.emit(GameEvent{Type: "draw_card", Player: ctx.PlayerID, Data: map[string]any{"card": cardToInfo(card)}})
+		ctx.Engine.triggerFieldEffectsWithData(TriggerOnDraw, ctx.PlayerID, card, map[string]any{
+			"drawn_card":           card,
+			"drawn_player":         ctx.PlayerID,
+			"draw_count_this_turn": ps.DrawCountThisTurn,
+		})
 	}
+	ctx.Engine.shuffleDeck(ctx.PlayerID)
 	return nil
 }

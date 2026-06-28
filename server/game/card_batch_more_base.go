@@ -139,15 +139,25 @@ func (Card1011002WizardTower) OnEnter(ctx *EffectContext) error {
 
 type Card1021008ForesightProphet struct{ AlwaysActive }
 
-func (Card1021008ForesightProphet) ID() string   { return "1021008" }
-func (Card1021008ForesightProphet) Name() string { return "预见先知" }
+func (Card1021008ForesightProphet) ID() string                            { return "1021008" }
+func (Card1021008ForesightProphet) Name() string                          { return "预见先知" }
+func (Card1021008ForesightProphet) HasActiveTurnStart(*CardInstance) bool { return false }
 func (Card1021008ForesightProphet) OnTurnStart(ctx *EffectContext) error {
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
-	if len(ps.Deck) > 1 {
-		card := ps.Deck[0]
-		ps.Deck = append(ps.Deck[1:], card)
-		emitBatchEffect(ctx, "peek_top_to_bottom")
+	if len(ps.Deck) == 0 || ctx.Engine.State.PendingAction != nil {
+		return nil
 	}
+	card := ps.Deck[0]
+	candidates := []map[string]any{candidateInfo(card, "deck", "own")}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "foresight_prophet_top_card",
+		"预见先知:查看牌堆顶1张牌,选择它则置于牌堆底,不选择则放回牌堆顶",
+		candidates, 0, 1, func(selected []string) {
+			if len(selected) == 0 || selected[0] != card.InstanceID || len(ps.Deck) == 0 || ps.Deck[0] != card {
+				return
+			}
+			ps.Deck = append(ps.Deck[1:], card)
+			emitBatchEffect(ctx, "peek_top_to_bottom")
+		})
 	return nil
 }
 
@@ -261,6 +271,7 @@ func (Card1211003SnowWoman) OnEnter(ctx *EffectContext) error {
 	ctx.Source.Statuses["引魔"] = 1
 	return nil
 }
+func (Card1211003SnowWoman) HasActivePerTurn(*CardInstance) bool { return false }
 func (Card1211003SnowWoman) OnPerTurn(ctx *EffectContext) error {
 	frontRow := ctx.Engine.State.Players[ctx.OpponentID].GetFrontRow()
 	if frontRow < 0 {
@@ -317,7 +328,7 @@ type Card1311003WindBladeKarina struct{ AlwaysActive }
 func (Card1311003WindBladeKarina) ID() string   { return "1311003" }
 func (Card1311003WindBladeKarina) Name() string { return "\"风刃\" 卡琳娜" }
 func (Card1311003WindBladeKarina) ModifySkillUseCost(ctx *EffectContext, cost map[string]int) {
-	if ctx.Source != nil && ctx.Source.Card.Category == model.ElementAir && !cardHasPierce(ctx.Source) {
+	if ctx.Source != nil && ctx.Source.Card.Category == model.ElementAir && skillNeedsTargetInstance(ctx.Source) && !cardHasPierce(ctx.Source) {
 		cost[model.ElementAir]++
 	}
 }
@@ -422,7 +433,8 @@ func (Card1401002SpiritBeastXinke) OnFriendlyDamagedFromHidden(ctx *EffectContex
 	if ctx.ExtraData == nil {
 		return nil
 	}
-	if damagedPlayer, ok := ctx.ExtraData["damaged_player"].(int); ok && damagedPlayer == ctx.PlayerID {
+	attacker, hasAttacker := ctx.ExtraData["attacker"].(int)
+	if damagedPlayer, ok := ctx.ExtraData["damaged_player"].(int); ok && damagedPlayer == ctx.PlayerID && hasAttacker && attacker != ctx.PlayerID {
 		if ctx.Engine.State.PendingAction != nil {
 			return nil
 		}
@@ -456,11 +468,25 @@ func (Card1411001GreatDruidCycle) OnFriendlyDeath(ctx *EffectContext) error {
 	if ctx.Source.Statuses["轮回不息"] == 0 || ctx.Target == nil || !ctx.Target.Card.IsCompanion() {
 		return nil
 	}
+	if ctx.Engine.State.Players[ctx.PlayerID].FindEmptyPosition() == nil || getCardDB()["1401001"] == nil {
+		return nil
+	}
+	candidates := []map[string]any{candidateInfo(ctx.Source, "companion", "own")}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "great_druid_life_seed", "\"轮回不息\" 大德鲁伊 烟尘:是否召唤1个生命种子", candidates, 0, 1, func(selected []string) {
+		if len(selected) == 0 {
+			return
+		}
+		summonGreatDruidLifeSeed(ctx)
+	})
+	return nil
+}
+
+func summonGreatDruidLifeSeed(ctx *EffectContext) {
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	pos := ps.FindEmptyPosition()
 	seedCard := getCardDB()["1401001"]
-	if pos == nil || seedCard == nil {
-		return nil
+	if pos == nil || seedCard == nil || ctx.Target == nil {
+		return
 	}
 	seed := NewCardInstance(seedCard, ctx.PlayerID, ctx.Engine.State.TurnNumber)
 	seed.Position = pos
@@ -479,7 +505,6 @@ func (Card1411001GreatDruidCycle) OnFriendlyDeath(ctx *EffectContext) error {
 	ctx.Engine.triggerEffects(TriggerOnEnter, seed, nil, nil)
 	ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.PlayerID, seed, map[string]any{"entered_player": ctx.PlayerID})
 	ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.OpponentID, seed, map[string]any{"entered_player": ctx.PlayerID})
-	return nil
 }
 
 type Card1411002KnowledgeTreeDeepRoot struct{ AlwaysActive }
@@ -738,7 +763,7 @@ func (Card2011001ArchmageStaff) OnEnter(ctx *EffectContext) error {
 	staffPlayer := ctx.Engine.State.Players[ctx.PlayerID]
 	candidates := make([]map[string]any, 0, len(staffPlayer.SkillPool))
 	for _, skill := range staffPlayer.SkillPool {
-		if skill == nil || !canUseSkillForPurpose(skill.Card, skillPurposeAttack) {
+		if skill == nil || !isSpellLikeCard(skill.Card) {
 			continue
 		}
 		candidates = append(candidates, candidateInfo(skill, "skill_pool", "own"))
@@ -747,15 +772,15 @@ func (Card2011001ArchmageStaff) OnEnter(ctx *EffectContext) error {
 		return nil
 	}
 	ctx.Source.Statuses["存储技能"] = 1
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "archmage_staff_store_skill", "大法师之杖:选择技能池中的1个攻击法术置于此卡上", candidates, 1, 1, func(selected []string) {
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "archmage_staff_store_skill", "大法师之杖:选择技能池中的1个法术置于此卡上", candidates, 1, 1, func(selected []string) {
 		selectedID := firstSelected(selected)
 		for i, skill := range staffPlayer.SkillPool {
-			if skill == nil || skill.InstanceID != selectedID || !canUseSkillForPurpose(skill.Card, skillPurposeAttack) {
+			if skill == nil || skill.InstanceID != selectedID || !isSpellLikeCard(skill.Card) {
 				continue
 			}
 			staffPlayer.SkillPool = append(staffPlayer.SkillPool[:i], staffPlayer.SkillPool[i+1:]...)
 			skill.SlotIndex = -1
-			skill.IsHorizontal = false
+			skill.IsHorizontal = true
 			skill.Statuses[archmageStaffStoredSkillStatus] = 1
 			ctx.Source.BoundSkills = append(ctx.Source.BoundSkills, skill)
 			ctx.Source.Statuses["存储技能"] = 1
@@ -1074,16 +1099,75 @@ type Card2311002ThunderDrum struct{ AlwaysActive }
 
 func (Card2311002ThunderDrum) ID() string   { return "2311002" }
 func (Card2311002ThunderDrum) Name() string { return "唤雷震鼓" }
-func (Card2311002ThunderDrum) OnTurnStart(ctx *EffectContext) error {
-	ctx.Source.Statuses["雷鼓标记"]++
+func (Card2311002ThunderDrum) OnDraw(ctx *EffectContext) error {
+	if ctx.ExtraData == nil {
+		return nil
+	}
+	drawnPlayer, _ := ctx.ExtraData["drawn_player"].(int)
+	if drawnPlayer != ctx.PlayerID {
+		return nil
+	}
+	candidates := []map[string]any{candidateInfo(ctx.Source, "equipment", "own")}
+	if drawn, ok := ctx.ExtraData["drawn_card"].(*CardInstance); ok && drawn != nil {
+		info := cardToInfo(drawn)
+		info["zone"] = "hand"
+		info["side"] = "own"
+		candidates = append(candidates, info)
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "thunder_drum_mark",
+		"唤雷震鼓:是否展示抽到的牌并放置1个标记?", candidates, 0, 1,
+		func(selected []string) {
+			if len(selected) == 0 {
+				return
+			}
+			ctx.Source.Statuses["雷鼓标记"]++
+			ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
+				"source": cardToInfo(ctx.Source),
+				"effect": "thunder_drum_mark",
+				"amount": 1,
+			}})
+		})
 	return nil
 }
+
 func (Card2311002ThunderDrum) OnPerTurn(ctx *EffectContext) error {
-	if ctx.Source.Statuses["雷鼓标记"] >= 3 {
-		ctx.Source.Statuses["雷鼓标记"] -= 3
-		ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModSkillPowerBonus, Amount: 3, RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 1})
+	if thunderDrumMarks(ctx.Source) < 3 || ctx.Engine.State.PendingAction != nil {
+		return nil
 	}
+	choices := []map[string]any{
+		{"instance_id": "attack", "name": "本回合你的大气法术+1攻", "zone": "choice"},
+		{"instance_id": "stun", "name": "本回合你的大气法术获得晕眩1", "zone": "choice"},
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "thunder_drum_bonus",
+		"唤雷震鼓:移除3个标记,选择本回合大气法术获得的效果", choices, 1, 1,
+		func(selected []string) {
+			if len(selected) == 0 || thunderDrumMarks(ctx.Source) < 3 {
+				return
+			}
+			spendThunderDrumMarks(ctx.Source, 3)
+			switch selected[0] {
+			case "attack":
+				ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModCurrentTurnElementDamage, Element: model.ElementAir, Amount: 1, ExpiresTurn: ctx.Engine.State.TurnNumber})
+			case "stun":
+				ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModCurrentTurnElementHitStatus, Element: model.ElementAir, Status: StatusStun, Amount: 1, ExpiresTurn: ctx.Engine.State.TurnNumber})
+			}
+		})
 	return nil
+}
+
+func thunderDrumMarks(source *CardInstance) int {
+	if source == nil {
+		return 0
+	}
+	return source.Statuses["雷鼓标记"]
+}
+
+func spendThunderDrumMarks(source *CardInstance, amount int) {
+	if source == nil || amount <= 0 {
+		return
+	}
+	spend := min(source.Statuses["雷鼓标记"], amount)
+	source.Statuses["雷鼓标记"] -= spend
 }
 
 type Card2321001WindbreathCompass struct{ AlwaysActive }

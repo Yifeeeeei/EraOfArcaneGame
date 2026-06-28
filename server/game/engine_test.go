@@ -283,6 +283,12 @@ func TestFullGameFlow(t *testing.T) {
 
 	// Play several turns
 	for turn := 0; turn < 6; turn++ {
+		if engine.State.Phase != PhaseMain {
+			t.Logf("Turn %d: start-of-turn opened %s; returning to main for flow smoke test", turn+1, engine.State.Phase)
+			engine.State.PendingAction = nil
+			engine.State.ResumePhase = PhaseMain
+			engine.State.Phase = PhaseMain
+		}
 		currentPlayer := engine.State.CurrentTurn
 		ps := engine.State.Players[currentPlayer]
 

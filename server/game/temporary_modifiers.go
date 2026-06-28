@@ -17,6 +17,8 @@ const (
 	TempModNextSpellHitStatus           = "next_spell_hit_status"
 	TempModNextElementSpellPowerBonus   = "next_element_spell_power_bonus"
 	TempModNextElementSpellDamageBonus  = "next_element_spell_damage_bonus"
+	TempModCurrentTurnElementDamage     = "current_turn_element_damage"
+	TempModCurrentTurnElementHitStatus  = "current_turn_element_hit_status"
 	TempModDelayedElementGain           = "delayed_element_gain"
 	TempModResetSkillsOnOpponentTurnEnd = "reset_skills_on_opponent_turn_end"
 	TempModNextEarthSkillLearnCostMinus = "next_earth_skill_learn_cost_minus"
@@ -31,6 +33,7 @@ type TemporaryModifier struct {
 	SourceCardNumber string `json:"source_card_number,omitempty"`
 	SourceName       string `json:"source_name,omitempty"`
 	TargetInstanceID string `json:"target_instance_id,omitempty"`
+	Element          string `json:"element,omitempty"`
 	Status           string `json:"status,omitempty"`
 	Amount           int    `json:"amount,omitempty"`
 	RemainingUses    int    `json:"remaining_uses,omitempty"`
@@ -183,9 +186,17 @@ func (e *Engine) temporarySpellDamageBonus(playerID int, skill *CardInstance) in
 	total := 0
 	for _, modifier := range e.State.Players[playerID].TempModifiers {
 		if modifier.Type != TempModNextElementSpellDamageBonus {
+			if modifier.Type != TempModCurrentTurnElementDamage {
+				continue
+			}
+		}
+		if modifier.Type == TempModNextElementSpellDamageBonus && modifier.Status != skill.Card.Category {
 			continue
 		}
-		if modifier.RemainingUses == 0 || modifier.Status != skill.Card.Category {
+		if modifier.Type == TempModCurrentTurnElementDamage && modifier.Element != skill.Card.Category {
+			continue
+		}
+		if modifier.Type == TempModNextElementSpellDamageBonus && modifier.RemainingUses == 0 {
 			continue
 		}
 		total += modifier.Amount
@@ -320,10 +331,13 @@ func (e *Engine) applyTemporarySpellHitStatus(playerID int, skill *CardInstance,
 	}
 	ps := e.State.Players[playerID]
 	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
-		if modifier.Type != TempModNextSpellHitStatus {
+		if modifier.Type != TempModNextSpellHitStatus && modifier.Type != TempModCurrentTurnElementHitStatus {
 			continue
 		}
-		if modifier.RemainingUses == 0 {
+		if modifier.Type == TempModNextSpellHitStatus && modifier.RemainingUses == 0 {
+			continue
+		}
+		if modifier.Type == TempModCurrentTurnElementHitStatus && modifier.Element != skill.Card.Category {
 			continue
 		}
 		if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != skill.InstanceID {
@@ -352,9 +366,11 @@ func (e *Engine) applyTemporarySpellHitStatus(playerID int, skill *CardInstance,
 				},
 			})
 		}
-		modifier.RemainingUses--
-		if modifier.RemainingUses <= 0 {
-			e.removeTemporaryModifier(playerID, modifier.ID)
+		if modifier.Type == TempModNextSpellHitStatus {
+			modifier.RemainingUses--
+			if modifier.RemainingUses <= 0 {
+				e.removeTemporaryModifier(playerID, modifier.ID)
+			}
 		}
 	}
 }
