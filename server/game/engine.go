@@ -1239,7 +1239,7 @@ func (e *Engine) collectDefenseScrollUses(ps *PlayerState, ids []string, reserve
 		if card == nil {
 			return nil, nil, fmt.Errorf("defense scroll not found: %s", id)
 		}
-		if !isSpellScrollCard(card.Card) || !isDefenseOnlySkill(card.Card) {
+		if !isSpellScrollCard(card.Card) || !canUseSkillForPurpose(card.Card, skillPurposeDefend) {
 			return nil, nil, fmt.Errorf("card %s is not a defense spell scroll", id)
 		}
 		if err := e.validateHandSpellScrollForPurpose(card, skillPurposeDefend); err != nil {
