@@ -1320,8 +1320,9 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 }
 
 func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
-	t.Run("1211002 Leviathan asks for target and cooldown expires at next own turn end", func(t *testing.T) {
+	t.Run("1211002 Leviathan separates load consume from active destroy cooldown", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
 		leviathan := placeUnit(baseCard(t, "1211002"), 0, 1, 1, engine)
 		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
 
@@ -1330,8 +1331,35 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("consume leviathan: %v", err)
 		}
+		if engine.State.PendingAction != nil {
+			t.Fatalf("normal consume should only gain load and not ask for a destroy target, pending=%+v", engine.State.PendingAction)
+		}
+		if engine.State.Players[1].Units[1][0] != target {
+			t.Fatalf("normal consume should not destroy enemy companion")
+		}
+		for element, amount := range leviathan.Card.ElementsGain {
+			if p0.Elements[element] != amount {
+				t.Fatalf("normal consume should grant printed load %s=%d, elements=%v", element, amount, p0.Elements)
+			}
+		}
+
+		leviathan.IsHorizontal = false
+		leviathan.UsedThisTurn = 0
+		p0.Elements = map[string]int{}
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  leviathan.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use leviathan active destroy: %v", err)
+		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "leviathan_destroy" {
-			t.Fatalf("leviathan should ask for an enemy companion target, pending=%+v", engine.State.PendingAction)
+			t.Fatalf("leviathan active should ask for an enemy companion target, pending=%+v", engine.State.PendingAction)
+		}
+		if !leviathan.IsHorizontal {
+			t.Fatalf("leviathan active should pay its consume cost by turning horizontal")
+		}
+		if len(p0.Elements) != 0 {
+			t.Fatalf("leviathan active consume cost should not grant load, elements=%v", p0.Elements)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{target.InstanceID},
@@ -1344,13 +1372,25 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 		if leviathan.Statuses[leviathanCooldownStatus] != 2 {
 			t.Fatalf("leviathan should set cooldown marker, statuses=%v", leviathan.Statuses)
 		}
+		engine.triggerEffects(TriggerOnTurnEnd, leviathan, nil, map[string]any{"ended_player": 1})
+		if leviathan.Statuses[leviathanCooldownStatus] != 2 {
+			t.Fatalf("opponent turn end should not reduce leviathan cooldown, statuses=%v", leviathan.Statuses)
+		}
 		engine.triggerEffects(TriggerOnTurnEnd, leviathan, nil, nil)
 		if leviathan.Statuses[leviathanCooldownStatus] != 1 {
-			t.Fatalf("leviathan cooldown should last through the next own turn, statuses=%v", leviathan.Statuses)
+			t.Fatalf("current own turn end should reduce leviathan cooldown once, statuses=%v", leviathan.Statuses)
+		}
+		leviathan.IsHorizontal = false
+		leviathan.UsedThisTurn = 0
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  leviathan.InstanceID,
+			"ability_type": "per_turn",
+		}}); err == nil {
+			t.Fatalf("leviathan should not be usable during the next own turn")
 		}
 		engine.triggerEffects(TriggerOnTurnEnd, leviathan, nil, nil)
 		if leviathan.Statuses[leviathanCooldownStatus] != 0 {
-			t.Fatalf("leviathan cooldown should clear at next own turn end, statuses=%v", leviathan.Statuses)
+			t.Fatalf("leviathan cooldown should clear after the next own turn ends, statuses=%v", leviathan.Statuses)
 		}
 	})
 

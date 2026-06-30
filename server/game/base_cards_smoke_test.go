@@ -323,6 +323,11 @@ func TestEveryRegisteredBaseCardEffectHandlerRuns(t *testing.T) {
 					engine := baseSmokeEngine(t)
 					source := NewCardInstance(card, 0, engine.State.TurnNumber)
 					attachSourceForEffect(engine, source)
+					if card.Number == "1211002" && effect.Trigger == TriggerPerTurn {
+						enemy := NewCardInstance(cards.PlayableCardDB["1021001"], 1, engine.State.TurnNumber)
+						enemy.Position = &Position{Col: 1, Row: 0}
+						engine.State.Players[1].Units[1][0] = enemy
+					}
 					target := engine.State.Players[1].Hero
 					ctx := &EffectContext{
 						Engine:       engine,
