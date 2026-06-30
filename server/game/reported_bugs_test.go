@@ -1101,8 +1101,17 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("choose white robe sage control target: %v", err)
 		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "white_robe_sage_position" {
+			t.Fatalf("sage should ask where to place controlled target, pending=%+v", engine.State.PendingAction)
+		}
+		chosenPos := Position{Col: 2, Row: 2}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{positionSelectionID(chosenPos)},
+		}}); err != nil {
+			t.Fatalf("choose white robe sage control position: %v", err)
+		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "white_robe_sage_payment" {
-			t.Fatalf("sage should ask for target entry cost payment, pending=%+v", engine.State.PendingAction)
+			t.Fatalf("sage should ask for target entry cost payment after position, pending=%+v", engine.State.PendingAction)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{target.InstanceID},
@@ -1110,10 +1119,10 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 			t.Fatalf("resolve white robe sage control payment: %v", err)
 		}
 
-		if target.OwnerID != 0 || target.Position == nil || engine.State.Players[1].Units[1][0] != nil {
+		if target.OwnerID != 0 || target.Position == nil || *target.Position != chosenPos || engine.State.Players[1].Units[1][0] != nil {
 			t.Fatalf("sage should take control of target, owner=%d pos=%v enemy_slot=%v", target.OwnerID, target.Position, engine.State.Players[1].Units[1][0])
 		}
-		if engine.State.Players[0].Units[target.Position.Col][target.Position.Row] != target {
+		if engine.State.Players[0].Units[chosenPos.Col][chosenPos.Row] != target {
 			t.Fatalf("stolen target should be on friendly board")
 		}
 	})
@@ -1150,6 +1159,14 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 			"selected": []any{target.InstanceID},
 		}}); err != nil {
 			t.Fatalf("choose arcane-cost control target: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "white_robe_sage_position" {
+			t.Fatalf("sage should ask for a position before payment, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{positionSelectionID(Position{Col: 2, Row: 2})},
+		}}); err != nil {
+			t.Fatalf("choose arcane-cost control position: %v", err)
 		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "white_robe_sage_payment" || engine.State.PendingAction.Cost[model.ElementArcane] != 1 {
 			t.Fatalf("sage should expose arcane cost payment pending, pending=%+v", engine.State.PendingAction)
@@ -1509,6 +1526,40 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 
 		if ally.Position == nil || (ally.Position.Col == old.Col && ally.Position.Row == old.Row) || engine.State.Players[0].Units[old.Col][old.Row] != nil {
 			t.Fatalf("teleport mage should move ally from old slot, old=%+v new=%+v", old, ally.Position)
+		}
+	})
+
+	t.Run("1401001 life seed asks position before summoning inherited earth companion", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		seed := placeUnit(baseCard(t, "1401001"), 0, 0, 0, engine)
+		seed.CurrentLife = seed.Card.Life + 2
+		earth := NewCardInstance(baseCard(t, "1421003"), 0, 1)
+		p0.Hand = []*CardInstance{earth}
+
+		engine.advanceMastery(seed, 0, 2)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "life_seed_summon" {
+			t.Fatalf("life seed should ask which earth companion to summon, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{earth.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose life seed summon: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "life_seed_summon_position" {
+			t.Fatalf("life seed should ask where to summon inherited companion, pending=%+v", engine.State.PendingAction)
+		}
+		pos := Position{Col: 2, Row: 2}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{positionSelectionID(pos)},
+		}}); err != nil {
+			t.Fatalf("choose life seed summon position: %v", err)
+		}
+		if p0.Units[pos.Col][pos.Row] != earth || earth.Position == nil || *earth.Position != pos || earth.CurrentLife != earth.Card.Life+2 {
+			t.Fatalf("life seed should summon inherited companion to chosen position, unit=%v pos=%v life=%d", p0.Units[pos.Col][pos.Row], earth.Position, earth.CurrentLife)
+		}
+		if p0.Units[0][0] != nil {
+			t.Fatalf("life seed should be destroyed after inheritance")
 		}
 	})
 
@@ -9993,6 +10044,14 @@ func TestDamagedAndDeathTriggeredCardEffects(t *testing.T) {
 			"selected": []any{druid.InstanceID},
 		}}); err != nil {
 			t.Fatalf("confirm druid life seed summon: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "great_druid_life_seed_position" {
+			t.Fatalf("druid ultimate should ask where to summon the life seed, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{positionSelectionID(Position{Col: 2, Row: 2})},
+		}}); err != nil {
+			t.Fatalf("choose druid life seed position: %v", err)
 		}
 
 		var seed *CardInstance

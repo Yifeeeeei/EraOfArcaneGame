@@ -202,6 +202,14 @@ func TestFriendlyDeathPendingActionsQueueWhenMultiplePromptsTrigger(t *testing.T
 	}}); err != nil {
 		t.Fatalf("resolve great druid prompt: %v", err)
 	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "great_druid_life_seed_position" {
+		t.Fatalf("great druid should ask where to summon life seed, pending=%+v", engine.State.PendingAction)
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+		"selected": []any{positionSelectionID(Position{Col: 2, Row: 2})},
+	}}); err != nil {
+		t.Fatalf("resolve great druid life seed position: %v", err)
+	}
 	if !hasEvent(engine.log, "pending_action_cleared", "great_druid_life_seed") {
 		t.Fatalf("great druid prompt should emit pending_action_cleared, events=%v", eventTypes(engine.log))
 	}

@@ -395,12 +395,26 @@ func (Card1401001LifeSeed) OnMastery(ctx *EffectContext, level int) error {
 		if len(selected) == 0 {
 			return
 		}
-		summoned := summonCardFreeFromHandOrDeck(ctx, selected[0])
-		if summoned == nil {
+		cardID := selected[0]
+		positions := ctx.Engine.friendlyEmptyUnitPositions(ctx.PlayerID)
+		if len(positions) == 0 {
 			return
 		}
-		inheritLifeSeedBonuses(ctx.Engine, ctx.Source, summoned, ctx.PlayerID)
-		ctx.Engine.destroyUnit(ctx.Source, ctx.PlayerID)
+		ctx.Engine.SetPendingAction(ctx.PlayerID, "life_seed_summon_position", "生命种子:选择召唤位置", positions, 1, 1, func(posSelected []string) {
+			if len(posSelected) == 0 {
+				return
+			}
+			pos, ok := positionFromSelectionID(posSelected[0])
+			if !ok {
+				return
+			}
+			summoned := summonCardFreeFromHandOrDeckAtPosition(ctx, cardID, pos)
+			if summoned == nil {
+				return
+			}
+			inheritLifeSeedBonuses(ctx.Engine, ctx.Source, summoned, ctx.PlayerID)
+			ctx.Engine.destroyUnit(ctx.Source, ctx.PlayerID)
+		})
 	})
 	return nil
 }
@@ -497,20 +511,32 @@ func (Card1411001GreatDruidCycle) OnFriendlyDeath(ctx *EffectContext) error {
 		if len(selected) == 0 {
 			return
 		}
-		summonGreatDruidLifeSeed(ctx)
+		positions := ctx.Engine.friendlyEmptyUnitPositions(ctx.PlayerID)
+		if len(positions) == 0 {
+			return
+		}
+		ctx.Engine.SetPendingAction(ctx.PlayerID, "great_druid_life_seed_position", "\"轮回不息\" 大德鲁伊 烟尘:选择生命种子位置", positions, 1, 1, func(posSelected []string) {
+			if len(posSelected) == 0 {
+				return
+			}
+			pos, ok := positionFromSelectionID(posSelected[0])
+			if !ok {
+				return
+			}
+			summonGreatDruidLifeSeedAtPosition(ctx, pos)
+		})
 	})
 	return nil
 }
 
-func summonGreatDruidLifeSeed(ctx *EffectContext) {
+func summonGreatDruidLifeSeedAtPosition(ctx *EffectContext, pos Position) {
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
-	pos := ps.FindEmptyPosition()
 	seedCard := getCardDB()["1401001"]
-	if pos == nil || seedCard == nil || ctx.Target == nil {
+	if !pos.Valid() || ps.Units[pos.Col][pos.Row] != nil || seedCard == nil || ctx.Target == nil {
 		return
 	}
 	seed := NewCardInstance(seedCard, ctx.PlayerID, ctx.Engine.State.TurnNumber)
-	seed.Position = pos
+	seed.Position = &Position{Col: pos.Col, Row: pos.Row}
 	seed.EnterTurn = ctx.Engine.State.TurnNumber
 	seed.IsHorizontal = true
 	if bonusLife := ctx.Target.CurrentLife - ctx.Target.Card.Life; bonusLife > 0 {
@@ -663,20 +689,34 @@ func (Card1511001WhiteRobeSage) OnUltimate(ctx *EffectContext) error {
 				return
 			}
 			cost := ctx.Engine.effectiveCardPlayCost(ps, target)
-			candidate := candidateInfo(target, "unit", "enemy")
-			ctx.Engine.SetPendingActionWithError(ctx.PlayerID, "white_robe_sage_payment",
-				"白袍大贤者:支付目标入场费用以获得控制权", []map[string]any{candidate}, 1, 1, cost, false,
-				func(selected []string, data map[string]any) error {
-					if len(selected) == 0 || selected[0] != target.InstanceID {
-						return fmt.Errorf("invalid control target")
+			positions := ctx.Engine.friendlyEmptyUnitPositions(ctx.PlayerID)
+			if len(positions) == 0 {
+				return
+			}
+			ctx.Engine.SetPendingAction(ctx.PlayerID, "white_robe_sage_position", "白袍大贤者:选择获得控制权后的入场位置", positions, 1, 1,
+				func(posSelected []string) {
+					if len(posSelected) == 0 {
+						return
 					}
-					return resolveWhiteRobeSageControl(ctx, target, cost, data)
+					pos, ok := positionFromSelectionID(posSelected[0])
+					if !ok {
+						return
+					}
+					candidate := candidateInfo(target, "unit", "enemy")
+					ctx.Engine.SetPendingActionWithError(ctx.PlayerID, "white_robe_sage_payment",
+						"白袍大贤者:支付目标入场费用以获得控制权", []map[string]any{candidate}, 1, 1, cost, false,
+						func(selected []string, data map[string]any) error {
+							if len(selected) == 0 || selected[0] != target.InstanceID {
+								return fmt.Errorf("invalid control target")
+							}
+							return resolveWhiteRobeSageControl(ctx, target, pos, cost, data)
+						})
 				})
 		})
 	return nil
 }
 
-func resolveWhiteRobeSageControl(ctx *EffectContext, target *CardInstance, cost map[string]int, data map[string]any) error {
+func resolveWhiteRobeSageControl(ctx *EffectContext, target *CardInstance, pos Position, cost map[string]int, data map[string]any) error {
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	if target == nil || target.Position == nil || !target.Card.IsCompanion() || target.OwnerID != ctx.OpponentID {
 		return fmt.Errorf("invalid control target")
@@ -684,8 +724,7 @@ func resolveWhiteRobeSageControl(ctx *EffectContext, target *CardInstance, cost 
 	if !ctx.Engine.IsInSpellRange(ctx.PlayerID, target.Position.Col, target.Position.Row, cardHasPierce(ctx.Source)) {
 		return fmt.Errorf("target out of range")
 	}
-	pos := ps.FindEmptyPosition()
-	if pos == nil {
+	if !pos.Valid() || ps.Units[pos.Col][pos.Row] != nil {
 		return fmt.Errorf("no empty position")
 	}
 	if !payCostForAction(ps, cost, ActionMessage{Data: data}) {
@@ -694,7 +733,7 @@ func resolveWhiteRobeSageControl(ctx *EffectContext, target *CardInstance, cost 
 	op := ctx.Engine.State.Players[ctx.OpponentID]
 	op.Units[target.Position.Col][target.Position.Row] = nil
 	target.OwnerID = ctx.PlayerID
-	target.Position = pos
+	target.Position = &Position{Col: pos.Col, Row: pos.Row}
 	ps.Units[pos.Col][pos.Row] = target
 	return nil
 }
