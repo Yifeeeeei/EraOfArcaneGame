@@ -7,8 +7,8 @@ func (Card3001002PureArcane) Name() string { return "纯净奥术" }
 func (Card3001002PureArcane) NeedsSpellTarget() bool {
 	return false
 }
-func (Card3001002PureArcane) OnSpellHit(ctx *EffectContext) error {
-	if !isOwnSpellHit(ctx) {
+func (Card3001002PureArcane) OnSpellCast(ctx *EffectContext) error {
+	if !isFriendlySpellCast(ctx) {
 		return nil
 	}
 	choices := ctx.Engine.pureArcaneChoices(ctx.PlayerID)

@@ -1099,7 +1099,9 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 
 	if isSorcery {
 		resolveSorcery := func() {
-			e.resolveSpellHit(playerID, skill, target, boostSkills, extraTargets)
+			if e.shouldResolveSorceryHit(skill) {
+				e.resolveSpellHit(playerID, skill, target, boostSkills, extraTargets)
+			}
 			e.removeStoredArchmageStaffSkillAfterUse(playerID, skill)
 		}
 		if e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, spellCastData, resolveSorcery) {
@@ -1138,6 +1140,18 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	}
 
 	return nil
+}
+
+func (e *Engine) shouldResolveSorceryHit(skill *CardInstance) bool {
+	if skill == nil || skill.Card == nil {
+		return false
+	}
+	switch skill.Card.Number {
+	case "3001002":
+		return false
+	default:
+		return true
+	}
 }
 
 // handleDefend handles the defender's response to a spell
