@@ -8447,6 +8447,7 @@ func TestPureArcaneLetsPlayerChooseElementAndAmountForNextMatchingSpell(t *testi
 	p0.Elements[model.ElementFire] = 4
 	p0.Elements[model.ElementWater] = 2
 
+	spellHitsBefore := pureArcaneSpellHitEvents(engine.log)
 	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
 		"instance_id": pure.InstanceID,
 		"target_type": "none",
@@ -8455,6 +8456,9 @@ func TestPureArcaneLetsPlayerChooseElementAndAmountForNextMatchingSpell(t *testi
 	}
 	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "pure_arcane_spend" {
 		t.Fatalf("pure arcane should ask for element/amount choice, pending=%+v", engine.State.PendingAction)
+	}
+	if pureArcaneSpellHitEvents(engine.log) != spellHitsBefore {
+		t.Fatalf("pure arcane is a sorcery choice effect and should not emit spell_hit")
 	}
 	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 		"selected": []any{model.ElementFire + ":3"},
@@ -8505,6 +8509,43 @@ func TestPureArcaneLetsPlayerChooseElementAndAmountForNextMatchingSpell(t *testi
 	if len(p0.TempModifiers) != 0 {
 		t.Fatalf("pure arcane modifier should be consumed by matching spell, modifiers=%v", p0.TempModifiers)
 	}
+}
+
+func TestPureArcaneWithNoElementsDoesNotEmitSpellHit(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	pure := readySkill(baseCard(t, "3001002"), 0)
+	p0.Skills[0] = pure
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": pure.InstanceID,
+		"target_type": "none",
+	}}); err != nil {
+		t.Fatalf("cast pure arcane without elements: %v", err)
+	}
+	if engine.State.PendingAction != nil {
+		t.Fatalf("pure arcane should not ask for a spend choice when no elements are available, pending=%+v", engine.State.PendingAction)
+	}
+	if pureArcaneSpellHitEvents(engine.log) != 0 {
+		t.Fatalf("pure arcane should not emit spell_hit even when no choices are available")
+	}
+	if len(p0.TempModifiers) != 0 {
+		t.Fatalf("pure arcane should not create modifiers without a spend choice, modifiers=%v", p0.TempModifiers)
+	}
+}
+
+func pureArcaneSpellHitEvents(events []GameEvent) int {
+	count := 0
+	for _, event := range events {
+		if event.Type != "spell_hit" {
+			continue
+		}
+		skill, _ := event.Data["skill"].(map[string]any)
+		if skill["number"] == "3001002" {
+			count++
+		}
+	}
+	return count
 }
 
 func TestHighRiskSkillReactionAndBoostSemantics(t *testing.T) {
