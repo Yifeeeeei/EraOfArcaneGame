@@ -979,6 +979,11 @@ body::before {
     left: 3px;
     right: 3px;
 }
+.detail-status-badges {
+    position: static;
+    margin: 6px 0 8px;
+    pointer-events: auto;
+}
 .status-badge {
     max-width: 100%;
     padding: 1px 4px;

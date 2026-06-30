@@ -1489,6 +1489,9 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 		if err := engine.validateSpellTarget(0, nonPierceAir, SpellTarget{Type: "unit", Position: *backEnemy.Position}); err != nil {
 			t.Fatalf("karina should grant pierce to targeted non-piercing air skill: %v", err)
 		}
+		if info := engine.cardToInfoForPlayer(p0, nonPierceAir); info["has_pierce"] != true {
+			t.Fatalf("karina-granted pierce should be serialized for frontend targeting, info=%v", info)
+		}
 	})
 
 	t.Run("1321013 传送法师 moves a friendly companion to an empty position", func(t *testing.T) {
@@ -2702,6 +2705,7 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		sacrifice.CurrentLife = 1
 		enemy := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
 		enemy.CurrentLife = 3
+		outOfRangeEnemy := placeUnit(baseCard(t, "1021002"), 1, 1, 2, engine)
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
 			"instance_id": contract.InstanceID,
@@ -2728,6 +2732,9 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		}
 		if p0.Units[1][0] != sacrifice || engine.State.PendingAction == nil || engine.State.PendingAction.Type != "demon_contract_destroy" {
 			t.Fatalf("demon contract should wait to sacrifice until target and cost are confirmed, unit=%v pending=%+v", p0.Units[1][0], engine.State.PendingAction)
+		}
+		if !candidateContains(engine.State.PendingAction.Candidates, enemy.InstanceID) || candidateContains(engine.State.PendingAction.Candidates, outOfRangeEnemy.InstanceID) {
+			t.Fatalf("demon contract should offer only in-range enemy companions, candidates=%v in=%s out=%s", engine.State.PendingAction.Candidates, enemy.InstanceID, outOfRangeEnemy.InstanceID)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{enemy.InstanceID},

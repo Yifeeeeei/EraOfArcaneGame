@@ -362,6 +362,9 @@
                         <span v-if="detailCard.attack >= 0" style="color:var(--crimson)">攻击 {{ detailCard.current_attack ?? detailCard.attack }}</span>
                         <span v-if="detailCard.power >= 0" style="color:var(--elem-arcane)">威力 {{ detailCard.power }}</span>
                     </div>
+                    <div class="status-badges detail-status-badges" v-if="statusEntries(detailCard, 0).length">
+                        <span v-for="s in statusEntries(detailCard, 0)" :key="s.label" class="status-badge">{{ s.label }}</span>
+                    </div>
                     <div v-if="hasCost(detailCard)" class="card-cost">
                         {{ entryCostLabel(detailCard) }}：<span class="element-list" v-html="costHTML(playCost(detailCard))"></span>
                     </div>
@@ -1352,7 +1355,7 @@
                 hoveredOpponentCell.value = null;
             }
 
-            function statusEntries(card) {
+            function statusEntries(card, limit = 3) {
                 if (!card) return [];
                 const entries = [];
                 if (card.is_horizontal) entries.push({ label: '横置' });
@@ -1365,7 +1368,7 @@
                         entries.push({ label: `${label}${Number(count) > 1 ? count : ''}` });
                     }
                 }
-                return entries.slice(0, 3);
+                return limit > 0 ? entries.slice(0, limit) : entries;
             }
 
             function effectLabels(card) {

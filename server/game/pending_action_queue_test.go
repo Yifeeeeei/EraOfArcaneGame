@@ -7,6 +7,35 @@ import (
 )
 
 func TestDrawPendingActionsQueueByEquipmentOrder(t *testing.T) {
+	t.Run("turn-start thunder drum draw prompt resumes main phase", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		drum := NewCardInstance(baseCard(t, "2311002"), 0, 1)
+		p0.Equipment[0] = drum
+		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1)}
+		engine.State.CurrentTurn = 0
+
+		engine.startTurn()
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "thunder_drum_mark" || engine.State.Phase != PhaseWaitingAction {
+			t.Fatalf("turn-start draw should wait for thunder drum prompt, phase=%s pending=%+v", engine.State.Phase, engine.State.PendingAction)
+		}
+		if hasEvent(engine.log, "turn_start", "") {
+			t.Fatalf("turn_start should wait until draw prompt resolves, events=%v", eventTypes(engine.log))
+		}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{drum.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve thunder drum trigger: %v", err)
+		}
+		if engine.State.PendingAction != nil || len(engine.State.PendingActionQueue) != 0 || engine.State.Phase != PhaseMain {
+			t.Fatalf("resolving turn-start draw prompt should resume main phase, phase=%s pending=%+v queue=%d", engine.State.Phase, engine.State.PendingAction, len(engine.State.PendingActionQueue))
+		}
+		if thunderDrumMarks(drum) != 1 || !hasEvent(engine.log, "turn_start", "") {
+			t.Fatalf("thunder drum should mark and then turn_start should emit, marks=%v events=%v", drum.Statuses, eventTypes(engine.log))
+		}
+	})
+
 	t.Run("thunder drum before windbreath compass", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
