@@ -1356,8 +1356,14 @@
                 if (!card) return [];
                 const entries = [];
                 if (card.is_horizontal) entries.push({ label: '横置' });
+                const statusLabels = {
+                    winter_bow_water_mark: '水纹',
+                };
                 for (const [name, count] of Object.entries(card.statuses || {})) {
-                    if (Number(count) > 0) entries.push({ label: `${name}${Number(count) > 1 ? count : ''}` });
+                    if (Number(count) > 0) {
+                        const label = statusLabels[name] || name;
+                        entries.push({ label: `${label}${Number(count) > 1 ? count : ''}` });
+                    }
                 }
                 return entries.slice(0, 3);
             }

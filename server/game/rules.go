@@ -308,8 +308,17 @@ func (e *Engine) validateSkillUsePermissionModifiers(skill *CardInstance, purpos
 		PlayerID:   skill.OwnerID,
 		OpponentID: 1 - skill.OwnerID,
 	}
+	if skillBehavior, ok := behaviorForNumber(skill.Card.Number).(SkillUsePermissionModifier); ok && skillBehavior.HasActiveSkillUsePermissionModifier(skill) {
+		ctx.Source = skill
+		if err := skillBehavior.ValidateSkillUse(ctx, skill, purpose); err != nil {
+			return err
+		}
+	}
 	for _, fieldCard := range e.getAllFieldCards(ps) {
 		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
+			continue
+		}
+		if fieldCard == skill {
 			continue
 		}
 		behavior := globalRegistry.GetBehavior(fieldCard.Card.Number)

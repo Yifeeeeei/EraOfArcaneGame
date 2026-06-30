@@ -450,7 +450,22 @@ func (Card1401002SpiritBeastXinke) OnFriendlyDamagedFromHidden(ctx *EffectContex
 		ctx.Engine.SetPendingAction(ctx.PlayerID, "xinke_summon", "免费召唤灵兽 辛柯", candidates, 0, 1,
 			func(selected []string) {
 				if len(selected) > 0 {
-					summonCardFreeFromHandOrDeck(ctx, selected[0])
+					cardID := selected[0]
+					positions := ctx.Engine.friendlyEmptyUnitPositions(ctx.PlayerID)
+					if len(positions) == 0 {
+						return
+					}
+					ctx.Engine.SetPendingAction(ctx.PlayerID, "xinke_summon_position", "选择灵兽 辛柯的入场位置", positions, 1, 1,
+						func(posSelected []string) {
+							if len(posSelected) == 0 {
+								return
+							}
+							pos, ok := positionFromSelectionID(posSelected[0])
+							if !ok {
+								return
+							}
+							summonCardFreeFromHandOrDeckAtPosition(ctx, cardID, pos)
+						})
 				}
 			})
 	}

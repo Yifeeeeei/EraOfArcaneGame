@@ -252,6 +252,11 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 					if card.Number == "3521010" {
 						ps.Skills[0].PowerBonus = 8
 					}
+					if card.Number == "3201002" {
+						bow := NewCardInstance(cards.PlayableCardDB["2211002"], 0, engine.State.TurnNumber)
+						bow.Statuses[winterBowWaterMark] = 5
+						ps.Equipment[0] = bow
+					}
 					setAllElements(ps, 99)
 					err := engine.HandleAction(0, ActionMessage{
 						Action: "cast_spell",

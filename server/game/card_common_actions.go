@@ -139,6 +139,17 @@ func summonCardFreeFromHandOrDeck(ctx *EffectContext, instanceID string) *CardIn
 	if pos == nil || instanceID == "" {
 		return nil
 	}
+	return summonCardFreeFromHandOrDeckAtPosition(ctx, instanceID, *pos)
+}
+
+func summonCardFreeFromHandOrDeckAtPosition(ctx *EffectContext, instanceID string, pos Position) *CardInstance {
+	if !pos.Valid() || instanceID == "" {
+		return nil
+	}
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	if ps.Units[pos.Col][pos.Row] != nil {
+		return nil
+	}
 	var card *CardInstance
 	for i, candidate := range ps.Hand {
 		if candidate != nil && candidate.InstanceID == instanceID {
@@ -161,7 +172,7 @@ func summonCardFreeFromHandOrDeck(ctx *EffectContext, instanceID string) *CardIn
 		return nil
 	}
 	card.OwnerID = ctx.PlayerID
-	card.Position = pos
+	card.Position = &Position{Col: pos.Col, Row: pos.Row}
 	card.IsHorizontal = true
 	card.EnterTurn = ctx.Engine.State.TurnNumber
 	ps.Units[pos.Col][pos.Row] = card

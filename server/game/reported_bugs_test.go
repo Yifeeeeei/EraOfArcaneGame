@@ -1988,6 +1988,52 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 	})
 
+	t.Run("2211002 bound winter comes requires and spends five water marks", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		setAllElements(p0, 10)
+		bow := NewCardInstance(baseCard(t, "2211002"), 0, 1)
+		p0.Equipment[0] = bow
+		target := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
+
+		engine.triggerEffects(TriggerOnEnter, bow, nil, nil)
+		if len(bow.BoundSkills) != 1 {
+			t.Fatalf("winter bow should bind winter comes, bound=%+v", cardsToInfo(bow.BoundSkills))
+		}
+		winterComes := bow.BoundSkills[0]
+		winterComes.IsHorizontal = false
+
+		bow.Statuses[winterBowWaterMark] = 4
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": winterComes.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(target.Position.Col),
+			"target_row":  float64(target.Position.Row),
+		}}); err == nil {
+			t.Fatalf("winter comes should reject use with fewer than five water marks")
+		}
+
+		bow.Statuses[winterBowWaterMark] = 5
+		winterComes.IsHorizontal = false
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": winterComes.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(target.Position.Col),
+			"target_row":  float64(target.Position.Row),
+		}}); err != nil {
+			t.Fatalf("cast winter comes with five water marks: %v", err)
+		}
+		if bow.Statuses[winterBowWaterMark] != 1 {
+			t.Fatalf("winter comes should spend five water marks, then winter bow should mark the spell just cast, statuses=%v", bow.Statuses)
+		}
+		if engine.State.Phase == PhaseDefenseWindow {
+			if err := engine.HandleAction(p1.PlayerID, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+				t.Fatalf("resolve winter comes defense window: %v", err)
+			}
+		}
+	})
+
 	t.Run("2221010 and 2221011 water runes buff water companion or heal allies", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		water := placeUnit(baseCard(t, "1221003"), 0, 0, 0, engine)
@@ -9410,6 +9456,15 @@ func TestRemainingHighRiskBaseCardSemantics(t *testing.T) {
 			t.Fatalf("ordinary defense spell should not open dispel prompt and should defend normally, pending=%+v life=%d horizontal=%v", engine.State.PendingAction, target.CurrentLife, normalDefense.IsHorizontal)
 		}
 	})
+
+	t.Run("reaction-only sorceries do not expose normal attack casting", func(t *testing.T) {
+		for _, number := range []string{"3021010", "3221008", "3321008", "3621015"} {
+			card := baseCard(t, number)
+			if canUseSkillForPurpose(card, skillPurposeAttack) {
+				t.Fatalf("%s should not be usable as a normal main-phase attack spell", card.Name)
+			}
+		}
+	})
 }
 
 func TestRemainingMediumRiskGenericBaseCards(t *testing.T) {
@@ -9822,7 +9877,7 @@ func TestDamagedAndDeathTriggeredCardEffects(t *testing.T) {
 		}
 	})
 
-	t.Run("xinke can be summoned free from hand or deck after enemy damage", func(t *testing.T) {
+	t.Run("xinke can be summoned free from hand or deck after enemy damage and asks position", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		ally := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
@@ -9839,10 +9894,21 @@ func TestDamagedAndDeathTriggeredCardEffects(t *testing.T) {
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{handXinke.InstanceID},
 		}}); err != nil {
-			t.Fatalf("summon xinke from hand: %v", err)
+			t.Fatalf("choose xinke from hand: %v", err)
 		}
-		if len(p0.Hand) != 0 || handXinke.Position == nil || p0.Units[handXinke.Position.Col][handXinke.Position.Row] != handXinke {
-			t.Fatalf("hand xinke should be summoned free, hand=%v position=%v", cardsToInfo(p0.Hand), handXinke.Position)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "xinke_summon_position" {
+			t.Fatalf("xinke should ask for a summon position, pending=%+v", engine.State.PendingAction)
+		}
+		if len(p0.Hand) != 1 || handXinke.Position != nil {
+			t.Fatalf("xinke should not leave hand before position is chosen, hand=%v position=%v", cardsToInfo(p0.Hand), handXinke.Position)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{positionSelectionID(Position{Col: 2, Row: 2})},
+		}}); err != nil {
+			t.Fatalf("choose xinke summon position: %v", err)
+		}
+		if len(p0.Hand) != 0 || handXinke.Position == nil || *handXinke.Position != (Position{Col: 2, Row: 2}) || p0.Units[2][2] != handXinke {
+			t.Fatalf("hand xinke should be summoned free to chosen position, hand=%v position=%v", cardsToInfo(p0.Hand), handXinke.Position)
 		}
 		if len(p0.Deck) != 1 || p0.Deck[0] != deckXinke {
 			t.Fatalf("deck xinke should remain when hand copy chosen, deck=%v", cardsToInfo(p0.Deck))

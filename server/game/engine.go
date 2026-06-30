@@ -1009,12 +1009,8 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		return fmt.Errorf("skill not found in skill area or bound skills")
 	}
 
-	// Check if skill can be used
-	if err := e.validateReadySkill(skill); err != nil {
+	if err := e.validateSkillForPurpose(skill, skillPurposeAttack); err != nil {
 		return err
-	}
-	if !canUseSkillForPurpose(skill.Card, skillPurposeAttack) {
-		return fmt.Errorf("skill cannot be used to attack")
 	}
 
 	// Check cost
