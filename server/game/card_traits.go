@@ -128,7 +128,7 @@ func traitsForCardNumber(number string) cardTraits {
 		t.noBoosted = true
 	}
 	switch number {
-	case "3221008":
+	case "3021010", "3221008", "3321008", "3621015":
 		t.noAttack = true
 	}
 
