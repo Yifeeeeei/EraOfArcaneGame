@@ -191,6 +191,11 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 						continue
 					}
 					hero.IsHorizontal = false
+					if card.Number == "4211001" && trigger.typ == TriggerUltimate {
+						ps.Hand = append(ps.Hand,
+							NewCardInstance(cards.PlayableCardDB["1021002"], 0, engine.State.TurnNumber),
+						)
+					}
 					if card.Number == "4311001" && trigger.typ == TriggerUltimate {
 						ps.Hand = append(ps.Hand,
 							NewCardInstance(cards.PlayableCardDB["3321005"], 0, engine.State.TurnNumber),

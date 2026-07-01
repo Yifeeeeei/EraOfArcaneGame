@@ -9253,6 +9253,75 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 		}
 	})
 
+	t.Run("4211001 Bartel converts one revealed hand card to water", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		bartel := NewCardInstance(baseCard(t, "4211001"), 0, 1)
+		p0.Hero = bartel
+		target := NewCardInstance(baseCard(t, "1021002"), 0, 1)
+		untouched := NewCardInstance(baseCard(t, "1021002"), 0, 1)
+		p0.Hand = []*CardInstance{target, untouched}
+
+		originalCostTotal := totalElementCost(target.Card.ElementsCost)
+		originalLoadTotal := totalLoad(target)
+		if originalCostTotal == 0 || originalLoadTotal == 0 || target.Card.Category == model.ElementWater {
+			t.Fatalf("test card should start as non-water with cost and load, category=%s cost=%v load=%v", target.Card.Category, target.Card.ElementsCost, effectiveElementsGain(target))
+		}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  bartel.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("use Bartel ultimate: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "bartel_convert_hand_to_water" {
+			t.Fatalf("Bartel should ask which hand card to reveal and convert, pending=%+v", engine.State.PendingAction)
+		}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve Bartel conversion: %v", err)
+		}
+		if target.Card.Category != model.ElementWater {
+			t.Fatalf("target should become water, category=%s", target.Card.Category)
+		}
+		if len(target.Card.ElementsCost) != 1 || target.Card.ElementsCost[model.ElementWater] != originalCostTotal {
+			t.Fatalf("target entry cost should become equivalent water, cost=%v total=%d", target.Card.ElementsCost, originalCostTotal)
+		}
+		if load := effectiveElementsGain(target); len(load) != 1 || load[model.ElementWater] != originalLoadTotal {
+			t.Fatalf("target load should become equivalent water, load=%v total=%d", load, originalLoadTotal)
+		}
+		if !p0.RevealedHand[target.InstanceID] {
+			t.Fatalf("converted card should be revealed, revealed=%v", p0.RevealedHand)
+		}
+		if untouched.Card.Category == model.ElementWater || untouched.Card.ElementsCost[model.ElementWater] == totalElementCost(untouched.Card.ElementsCost) {
+			t.Fatalf("conversion should not mutate the shared base definition or other instances, untouched category=%s cost=%v", untouched.Card.Category, untouched.Card.ElementsCost)
+		}
+	})
+
+	t.Run("4211001 Bartel cannot spend ultimate without a hand card", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		bartel := NewCardInstance(baseCard(t, "4211001"), 0, 1)
+		p0.Hero = bartel
+		p0.Hand = nil
+
+		err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  bartel.InstanceID,
+			"ability_type": "ultimate",
+		}})
+		if err == nil {
+			t.Fatalf("Bartel ultimate should fail without a hand card")
+		}
+		if bartel.UltimateUsed {
+			t.Fatalf("failed Bartel ultimate should not be marked used")
+		}
+		if engine.State.PendingAction != nil {
+			t.Fatalf("failed Bartel ultimate should not create a pending action, pending=%+v", engine.State.PendingAction)
+		}
+	})
+
 	t.Run("4311001 肃 discards two air cards to damage an enemy", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
