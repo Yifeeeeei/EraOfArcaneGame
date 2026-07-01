@@ -403,8 +403,21 @@ func (e *Engine) continueStartTurnAfterPreDraw(ps *PlayerState) {
 				},
 			})
 		}
+		if e.State.PendingAction != nil {
+			e.wrapPendingActionContinuation(func() {
+				e.continueStartTurnAfterDraw(ps)
+			})
+			return
+		}
 	}
 
+	e.continueStartTurnAfterDraw(ps)
+}
+
+func (e *Engine) continueStartTurnAfterDraw(ps *PlayerState) {
+	if ps == nil {
+		return
+	}
 	e.State.Phase = PhaseMain
 
 	e.emit(GameEvent{
@@ -4077,6 +4090,7 @@ func (e *Engine) cardToInfoForPlayer(ps *PlayerState, card *CardInstance) map[st
 		return info
 	}
 	if isSpellLikeCard(card.Card) {
+		info["has_pierce"] = cardHasPierce(card) || e.windBladeGrantsPierce(ps.PlayerID, card)
 		info["effective_defense_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeDefend)
 		info["effective_defense_boost_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeDefenseBoost)
 		info["effective_attack_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeAttack)

@@ -23,7 +23,10 @@ func (Card2611002DemonContract) OnUseItem(ctx *EffectContext) error {
 				return
 			}
 			targets := ctx.Engine.enemyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
-				return card.Card.IsCompanion() && ps.CanPayCost(demonContractExtraCost(sacrifice, card))
+				return card.Card.IsCompanion() &&
+					card.Position != nil &&
+					ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false) &&
+					ps.CanPayCost(demonContractExtraCost(sacrifice, card))
 			})
 			if len(targets) == 0 {
 				return
@@ -35,6 +38,9 @@ func (Card2611002DemonContract) OnUseItem(ctx *EffectContext) error {
 					}
 					target := ctx.Engine.findFieldCardByInstance(ctx.Engine.State.Players[ctx.OpponentID], selected[0])
 					if target == nil {
+						return
+					}
+					if target.Position == nil || !ctx.Engine.IsInSpellRange(ctx.PlayerID, target.Position.Col, target.Position.Row, false) {
 						return
 					}
 					if !ps.PayCost(demonContractExtraCost(sacrifice, target)) {
