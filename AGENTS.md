@@ -111,6 +111,7 @@ The game should be understandable from Go code alone. JSON snapshots are referen
 
 These are rules that previous agents have misunderstood. Treat them as hard constraints unless the user explicitly changes the game rules.
 
+- Before fixing a bug or implementing a card-data update, compare the current card/rule text with the implementation and any test notes. If a test note conflicts with current effect text, prefer the effect text unless the user explicitly says that text is obsolete.
 - Do not infer mechanics from `Description` text. Code such as `strings.Contains(card.Description, "精通")`, `includes("穿透")`, or similar text parsing is tech debt and should be removed, not expanded. Keywords and categories must be represented through Go interfaces or explicit card behavior methods.
 - A keyword belongs to a specific card instance, not to a player globally. For example, `精通` is not a player-wide value; cards that care about mastered cards must inspect cards that implement the relevant interface/state.
 - Spell stat modifiers have different owners and timing. Friendly spell bonuses are collected from the caster's field, but cards that say `敌方法术...` must implement the explicit enemy-spell modifier surface and be evaluated from the non-caster's field. Also keep power calculation and hit-damage calculation separate: damage prevention cards such as `冰霜之心` / `暗影披风` must not consume themselves while the engine is only calculating spell `威`.

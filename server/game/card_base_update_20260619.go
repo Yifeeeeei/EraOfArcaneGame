@@ -57,6 +57,9 @@ type Card1221016IceSpikeFortress struct{ AlwaysActive }
 func (Card1221016IceSpikeFortress) ID() string   { return "1221016" }
 func (Card1221016IceSpikeFortress) Name() string { return "冰刺堡垒" }
 func (Card1221016IceSpikeFortress) OnDamaged(ctx *EffectContext) error {
+	if ctx.Target != nil && ctx.Target.InstanceID != ctx.Source.InstanceID {
+		return nil
+	}
 	if ctx.ExtraData == nil {
 		return nil
 	}

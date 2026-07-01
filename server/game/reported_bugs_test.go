@@ -1624,6 +1624,23 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 		}
 	})
 
+	t.Run("1221016 ice spike fortress triggers only when itself takes enemy damage", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		fortress := placeUnit(baseCard(t, "1221016"), 0, 0, 0, engine)
+		ally := placeUnit(baseCard(t, "1021002"), 0, 1, 0, engine)
+		placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		engine.dealDamageWithExtra(ally, 1, 0, map[string]any{"damage_source": "spell", "attacker": 1})
+		if engine.State.PendingAction != nil {
+			t.Fatalf("enemy damage to another friendly unit should not trigger ice spike fortress, pending=%+v", engine.State.PendingAction)
+		}
+
+		engine.dealDamageWithExtra(fortress, 1, 0, map[string]any{"damage_source": "spell", "attacker": 1})
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "ice_spike_fortress" {
+			t.Fatalf("enemy damage to ice spike fortress should prompt its trigger, pending=%+v", engine.State.PendingAction)
+		}
+	})
+
 	t.Run("1421012 林地飞鼠 changes its load to one air", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		squirrel := placeUnit(baseCard(t, "1421012"), 0, 1, 1, engine)
