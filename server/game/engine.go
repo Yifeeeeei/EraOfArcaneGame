@@ -1227,12 +1227,67 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 	defenseSources = append(defenseSources, defenseScrolls...)
 	boostSources := append([]*CardInstance{}, boostSkills...)
 	boostSources = append(boostSources, boostScrolls...)
-	if e.promptDispelDefenseSpellIfEligible(e.State.PendingSpell.AttackerID, playerID, defenseSources, boostSources, len(overexertUnits)) {
+
+	continueAfterDefenseSpellCounters := func() {
+		if e.State.PendingSpell == nil {
+			return
+		}
+		if e.promptDispelDefenseSpellIfEligible(e.State.PendingSpell.AttackerID, playerID, defenseSources, boostSources, len(overexertUnits)) {
+			return
+		}
+		e.finishDefenseResolution(playerID, defenseSources, boostSources, len(overexertUnits))
+	}
+	if e.promptDefenseSpellCastCounters(e.State.PendingSpell.AttackerID, playerID, defenseSources, boostSources, continueAfterDefenseSpellCounters) {
 		return nil
 	}
 
-	e.finishDefenseResolution(playerID, defenseSources, boostSources, len(overexertUnits))
+	continueAfterDefenseSpellCounters()
 	return nil
+}
+
+func (e *Engine) promptDefenseSpellCastCounters(attackerID int, defenderID int, defenseSources []*CardInstance, boostSources []*CardInstance, afterDone func()) bool {
+	type defenseSpellSource struct {
+		card    *CardInstance
+		purpose skillPurpose
+	}
+	sources := make([]defenseSpellSource, 0, len(defenseSources)+len(boostSources))
+	for _, source := range defenseSources {
+		if source != nil && source.Card != nil && isSpellLikeCard(source.Card) {
+			sources = append(sources, defenseSpellSource{card: source, purpose: skillPurposeDefend})
+		}
+	}
+	for _, source := range boostSources {
+		if source != nil && source.Card != nil && isSpellLikeCard(source.Card) {
+			sources = append(sources, defenseSpellSource{card: source, purpose: skillPurposeDefenseBoost})
+		}
+	}
+	var promptNext func(int, bool)
+	promptNext = func(index int, continuing bool) {
+		for index < len(sources) {
+			source := sources[index]
+			index++
+			power := e.effectiveSkillPowerForPurpose(defenderID, source.card, source.purpose)
+			data := map[string]any{
+				"cast_player": defenderID,
+				"attacker":    defenderID,
+				"skill":       cardToInfo(source.card),
+				"power":       power,
+				"is_sorcery":  isSorcerySkill(source.card.Card),
+				"defense_use": true,
+			}
+			counters := e.eligibleCounterTraps(attackerID, TriggerOnSpellCast, source.card, data)
+			if e.promptCounterTrapQueue(counters, TriggerOnSpellCast, source.card, data, func() {
+				promptNext(index, true)
+			}) {
+				return
+			}
+		}
+		if continuing && afterDone != nil {
+			afterDone()
+		}
+	}
+	promptNext(0, false)
+	return e.State.PendingAction != nil && e.State.PendingAction.Type == "counter_trigger"
 }
 
 func mergeSkillIDSet(a map[string]bool, b map[string]bool) map[string]bool {
@@ -1933,7 +1988,7 @@ func (e *Engine) spellAffectedUnits(defenderID int, skill *CardInstance, target 
 			for col := 0; col < 3; col++ {
 				for row := 0; row < 3; row++ {
 					unit := defender.Units[col][row]
-					if unit != nil && unit.Card != nil && unit.Card.IsCompanion() && unit.Card.Category == targetUnit.Card.Category {
+					if unit != nil && unit.Card != nil && unit.Card.Category == targetUnit.Card.Category {
 						units = append(units, unit)
 					}
 				}
@@ -4091,6 +4146,7 @@ func (e *Engine) cardToInfoForPlayer(ps *PlayerState, card *CardInstance) map[st
 	}
 	if isSpellLikeCard(card.Card) {
 		info["has_pierce"] = cardHasPierce(card) || e.windBladeGrantsPierce(ps.PlayerID, card)
+		info["spell_area"] = e.effectiveSpellArea(card)
 		info["effective_defense_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeDefend)
 		info["effective_defense_boost_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeDefenseBoost)
 		info["effective_attack_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeAttack)
@@ -4104,4 +4160,28 @@ func (e *Engine) effectiveSkillPowerForPurpose(playerID int, skill *CardInstance
 		return 0
 	}
 	return e.effectiveSkillPowerForPurposeWithData(playerID, skill, nil, purpose, map[string]any{"stat": "power"})
+}
+
+func (e *Engine) refreshPendingSpellPowerForModifiedSkill(playerID int, skill *CardInstance) {
+	if e == nil || e.State.PendingSpell == nil || skill == nil {
+		return
+	}
+	spell := e.State.PendingSpell
+	if spell.AttackerID != playerID {
+		return
+	}
+	if spell.Skill != skill {
+		foundBoost := false
+		for _, boost := range spell.BoostSkills {
+			if boost == skill {
+				foundBoost = true
+				break
+			}
+		}
+		if !foundBoost {
+			return
+		}
+	}
+	spell.TotalPower = e.effectiveSpellPower(playerID, spell.Skill, spell.BoostSkills, spell.Target)
+	spell.PowerSources = e.spellPowerSources(playerID, spell.Skill, spell.BoostSkills, spell.TotalPower, spell.Target)
 }

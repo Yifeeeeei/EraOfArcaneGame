@@ -568,7 +568,7 @@ type Card1411003SandWitchSommer struct{ AlwaysActive }
 func (Card1411003SandWitchSommer) ID() string   { return "1411003" }
 func (Card1411003SandWitchSommer) Name() string { return "沙之魔巫 梭默" }
 func (Card1411003SandWitchSommer) ModifySpellArea(ctx *EffectContext, area *SpellArea) {
-	if ctx.Source != nil && ctx.Source.Card.Category == model.ElementEarth && *area == SpellAreaSingle {
+	if ctx.Source != nil && ctx.Source.Card.Category == model.ElementEarth && !isSorcerySkill(ctx.Source.Card) && *area == SpellAreaSingle {
 		*area = SpellAreaSquare
 	}
 }
@@ -742,7 +742,14 @@ type Card1521007RainbowAngel struct{ AlwaysActive }
 
 func (Card1521007RainbowAngel) ID() string   { return "1521007" }
 func (Card1521007RainbowAngel) Name() string { return "虹之天使" }
+func (Card1521007RainbowAngel) ModifyCardPlayCost(ctx *EffectContext, card *CardInstance, cost map[string]int) {
+	rainbowAngelConvertCostToLight(cost)
+}
 func (Card1521007RainbowAngel) ModifySkillUseCost(ctx *EffectContext, cost map[string]int) {
+	rainbowAngelConvertCostToLight(cost)
+}
+
+func rainbowAngelConvertCostToLight(cost map[string]int) {
 	for elem, amount := range cost {
 		if elem != model.ElementLight && elem != model.ElementArcane && amount > 0 {
 			cost[model.ElementLight] += amount
@@ -919,7 +926,7 @@ func (Card2021012SketchScroll) ID() string   { return "2021012" }
 func (Card2021012SketchScroll) Name() string { return "速写卷轴" }
 func (Card2021012SketchScroll) OnUseItem(ctx *EffectContext) error {
 	candidates := ctx.Engine.friendlySkills(ctx.PlayerID, func(skill *CardInstance) bool {
-		return canUseSkillForPurpose(skill.Card, skillPurposeAttack)
+		return canUseSkillForPurpose(skill.Card, skillPurposeAttack) && !isSorcerySkill(skill.Card)
 	})
 	if len(candidates) == 0 {
 		return nil
@@ -979,6 +986,7 @@ func (Card2021018ArcaneRune) OnUseItem(ctx *EffectContext) error {
 		skill := ctx.Engine.findSkill(ctx.Engine.State.Players[ctx.PlayerID], firstSelected(selected))
 		if skill != nil {
 			skill.PowerBonus += 3
+			ctx.Engine.refreshPendingSpellPowerForModifiedSkill(ctx.PlayerID, skill)
 		}
 	})
 	return nil

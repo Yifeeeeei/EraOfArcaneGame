@@ -536,12 +536,72 @@ type Card3221010WaterPhantom struct{ AlwaysActive }
 
 func (Card3221010WaterPhantom) ID() string   { return "3221010" }
 func (Card3221010WaterPhantom) Name() string { return "水幻影" }
-func (Card3221010WaterPhantom) OnSpellHit(ctx *EffectContext) error {
-	if !isOwnSpellHit(ctx) {
+func (Card3221010WaterPhantom) OnSpellCast(ctx *EffectContext) error {
+	if !isFriendlySpellCast(ctx) || ctx.Target != nil {
 		return nil
 	}
-	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: "next_water_copy", RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 1})
+	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
+		return card.Card.IsCompanion() && card.Card.Category == model.ElementWater && card.EnterTurn == ctx.Engine.State.TurnNumber
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "water_phantom_copy_target", "水幻影:选择本回合你召唤的1个水纹伙伴", candidates, 1, 1, func(selected []string) {
+		target := selectedUnitFromCandidates(ctx.Engine, selected, candidates)
+		if target == nil {
+			return
+		}
+		positions := ctx.Engine.friendlyEmptyUnitPositions(ctx.PlayerID)
+		if len(positions) == 0 {
+			return
+		}
+		targetID := target.InstanceID
+		ctx.Engine.SetPendingAction(ctx.PlayerID, "water_phantom_copy_position", "水幻影:选择复制体的入场位置", positions, 1, 1, func(posSelected []string) {
+			pos, ok := positionFromSelectionID(firstSelected(posSelected))
+			if !ok {
+				return
+			}
+			ctx.Engine.summonWaterPhantomCopy(ctx.PlayerID, targetID, pos)
+		})
+	})
 	return nil
+}
+
+func (e *Engine) summonWaterPhantomCopy(playerID int, targetID string, pos Position) *CardInstance {
+	if e == nil || !pos.Valid() || playerID < 0 || playerID >= len(e.State.Players) {
+		return nil
+	}
+	ps := e.State.Players[playerID]
+	if ps.Units[pos.Col][pos.Row] != nil {
+		return nil
+	}
+	source := e.findUnitByInstanceID(targetID)
+	if source == nil || source.OwnerID != playerID || source.Card == nil || !source.Card.IsCompanion() || source.Card.Category != model.ElementWater || source.EnterTurn != e.State.TurnNumber {
+		return nil
+	}
+	cardCopy := *source.Card
+	cardCopy.Life = 1
+	copyUnit := NewCardInstance(&cardCopy, playerID, e.State.TurnNumber)
+	copyUnit.Position = &Position{Col: pos.Col, Row: pos.Row}
+	copyUnit.IsHorizontal = true
+	copyUnit.CurrentLife = 1
+	copyUnit.Statuses["水幻影复制"] = 1
+	ps.Units[pos.Col][pos.Row] = copyUnit
+	e.emit(GameEvent{
+		Type:   "summon",
+		Player: -1,
+		Data: map[string]any{
+			"player":   playerID,
+			"card":     cardToInfo(copyUnit),
+			"position": pos,
+			"via":      "water_phantom",
+		},
+	})
+	e.triggerEffects(TriggerOnEnter, copyUnit, nil, nil)
+	enterData := map[string]any{"entered_player": playerID}
+	e.triggerFieldEffectsWithData(TriggerOnUnitEnter, playerID, copyUnit, enterData)
+	e.triggerFieldEffectsWithData(TriggerOnUnitEnter, 1-playerID, copyUnit, enterData)
+	return copyUnit
 }
 
 type Card3321001LightningChain struct{ AlwaysActive }
