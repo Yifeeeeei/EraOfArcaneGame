@@ -1190,11 +1190,16 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 		p0 := engine.State.Players[0]
 		placeUnit(baseCard(t, "1521007"), 0, 0, 0, engine)
 		waterSkill := readySkill(baseCard(t, "3221001"), 0)
+		waterCompanion := NewCardInstance(baseCard(t, "1221003"), 0, 1)
 
 		cost := engine.effectiveSkillUseCost(p0, waterSkill)
 
 		if cost[model.ElementWater] != 0 || cost[model.ElementLight] == 0 {
 			t.Fatalf("rainbow angel should convert non-light skill cost to light, cost=%v", cost)
+		}
+		playCost := engine.effectiveCardPlayCost(p0, waterCompanion)
+		if playCost[model.ElementWater] != 0 || playCost[model.ElementLight] == 0 {
+			t.Fatalf("rainbow angel should convert non-light card play cost to light, cost=%v", playCost)
 		}
 	})
 
@@ -1579,11 +1584,13 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 		}
 	})
 
-	t.Run("1411003 沙之魔巫 gives single-target earth spells square area", func(t *testing.T) {
+	t.Run("1411003 沙之魔巫 gives only single-target earth spells square area", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
 		placeUnit(baseCard(t, "1411003"), 0, 0, 0, engine)
 		earthSkill := readySkill(baseCard(t, "3421001"), 0)
 		earthSkill.OwnerID = 0
+		p0.Skills[0] = earthSkill
 		targetA := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
 		targetB := placeUnit(baseCard(t, "1021002"), 1, 2, 1, engine)
 
@@ -1591,6 +1598,29 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 
 		if len(affected) != 2 || affected[0] != targetA || affected[1] != targetB {
 			t.Fatalf("sommer should make single earth spell affect square battlefield, affected=%+v", cardsToInfo(affected))
+		}
+		if info := engine.cardToInfoForPlayer(p0, earthSkill); info["spell_area"] != SpellAreaSquare {
+			t.Fatalf("frontend serialization should expose effective square area, info=%v", info["spell_area"])
+		}
+		areaSpell := readySkill(baseCard(t, "3421007"), 0)
+		if engine.effectiveSpellArea(areaSpell) != SpellAreaSquare {
+			t.Fatalf("sommer should not change spells that already have an area")
+		}
+		sorcery := readySkill(baseCard(t, "3421015"), 0)
+		if engine.effectiveSpellArea(sorcery) != SpellAreaSingle {
+			t.Fatalf("sommer should not change sorceries, area=%s", engine.effectiveSpellArea(sorcery))
+		}
+	})
+
+	t.Run("1221016 冰刺堡垒 ignores burn status damage without an attacker", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		fortress := placeUnit(baseCard(t, "1221016"), 0, 0, 0, engine)
+		placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		engine.dealDamageWithExtra(fortress, 1, 0, map[string]any{"status_damage": StatusBurn})
+
+		if engine.State.PendingAction != nil {
+			t.Fatalf("burn status damage should not trigger ice spike fortress, pending=%+v", engine.State.PendingAction)
 		}
 	})
 
@@ -1813,7 +1843,9 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		p0 := engine.State.Players[0]
 		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
 		skill := readySkill(baseCard(t, "3121002"), 0)
+		sorcery := readySkill(baseCard(t, "3501001"), 0)
 		p0.Skills[0] = skill
+		p0.Skills[1] = sorcery
 		p0.Elements[model.ElementFire] = 10
 		scroll := NewCardInstance(baseCard(t, "2021012"), 0, 1)
 
@@ -1821,6 +1853,11 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "sketch_scroll_skill" {
 			t.Fatalf("sketch scroll should ask for a learned skill, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == sorcery.InstanceID {
+				t.Fatalf("sketch scroll should not offer sorceries, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{skill.InstanceID},
@@ -3044,7 +3081,7 @@ func TestDawnRules(t *testing.T) {
 		}
 	})
 
-	t.Run("3521010 hits all enemy companions sharing the target element", func(t *testing.T) {
+	t.Run("3521010 hits all enemy units sharing the target companion element", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		dawn := readySkill(baseCard(t, "3521010"), 0)
 		waterA := placeUnit(baseCard(t, "1221001"), 1, 0, 0, engine)
@@ -3057,8 +3094,8 @@ func TestDawnRules(t *testing.T) {
 		for _, unit := range affected {
 			ids[unit.InstanceID] = true
 		}
-		if !ids[waterA.InstanceID] || !ids[waterB.InstanceID] || ids[fireUnit.InstanceID] || ids[hero.InstanceID] {
-			t.Fatalf("Dawn should affect only matching-element enemy companions, affected=%v", ids)
+		if !ids[waterA.InstanceID] || !ids[waterB.InstanceID] || ids[fireUnit.InstanceID] || !ids[hero.InstanceID] {
+			t.Fatalf("Dawn should affect all matching-element enemy units, affected=%v", ids)
 		}
 	})
 }
@@ -3236,6 +3273,64 @@ func TestSpellCastCounterPromptResumesDefenseWindow(t *testing.T) {
 	}
 	if engine.State.Phase != PhaseDefenseWindow || engine.State.PendingSpell == nil {
 		t.Fatalf("declining spell-cast counter should continue defense window, phase=%s spell=%+v", engine.State.Phase, engine.State.PendingSpell)
+	}
+}
+
+func TestArcaneRuneCanTriggerOnEnemyDefenseSpell(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+	for _, elem := range model.AllElements {
+		p0.Elements[elem] = 10
+		p1.Elements[elem] = 10
+	}
+	attack := readySkill(baseCard(t, "3121002"), 0)
+	defense := readySkill(baseCard(t, "3221003"), 1)
+	p0.Skills[0] = attack
+	p1.Skills[0] = defense
+	target := placeUnit(baseCard(t, "1221001"), 1, 0, 0, engine)
+	target.CurrentLife = 5
+	counter := NewCardInstance(baseCard(t, "2021018"), 0, 1)
+	counter.IsSetCounter = true
+	p0.Equipment[0] = counter
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": attack.InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(0),
+		"target_row":  float64(0),
+	}}); err != nil {
+		t.Fatalf("cast attack spell: %v", err)
+	}
+	if engine.State.Phase != PhaseDefenseWindow {
+		t.Fatalf("expected defense window before defender acts, phase=%s pending=%+v", engine.State.Phase, engine.State.PendingAction)
+	}
+	if err := engine.HandleAction(1, ActionMessage{Action: "defend", Data: map[string]any{
+		"skill_ids": []any{defense.InstanceID},
+	}}); err != nil {
+		t.Fatalf("defend into arcane rune: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "counter_trigger" || engine.State.PendingAction.PlayerID != 0 {
+		t.Fatalf("enemy defense spell should trigger attacker's arcane rune, pending=%+v", engine.State.PendingAction)
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+		"selected": []any{counter.InstanceID},
+	}}); err != nil {
+		t.Fatalf("reveal arcane rune: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "arcane_rune_skill" {
+		t.Fatalf("arcane rune should ask which friendly spell gains power, pending=%+v", engine.State.PendingAction)
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+		"selected": []any{attack.InstanceID},
+	}}); err != nil {
+		t.Fatalf("choose arcane rune spell: %v", err)
+	}
+	if attack.PowerBonus != 3 {
+		t.Fatalf("arcane rune should add 3 power to chosen spell, bonus=%d", attack.PowerBonus)
+	}
+	if target.CurrentLife >= 5 {
+		t.Fatalf("arcane rune should update pending spell power and beat the original defense, life=%d", target.CurrentLife)
 	}
 }
 
@@ -8804,11 +8899,12 @@ func TestHighRiskSkillReactionAndBoostSemantics(t *testing.T) {
 		}
 	})
 
-	t.Run("3221010 水幻影 creates exactly one next-water-copy modifier on hit", func(t *testing.T) {
+	t.Run("3221010 水幻影 copies a water companion summoned this turn", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		phantom := readySkill(baseCard(t, "3221010"), 0)
 		p0.Skills[0] = phantom
+		companion := placeUnit(baseCard(t, "1221003"), 0, 0, 0, engine)
 		for _, element := range model.AllElements {
 			p0.Elements[element] = 10
 		}
@@ -8819,8 +8915,29 @@ func TestHighRiskSkillReactionAndBoostSemantics(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("cast water phantom: %v", err)
 		}
-		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != "next_water_copy" || p0.TempModifiers[0].RemainingUses != 1 {
-			t.Fatalf("water phantom should arm one next water copy modifier, modifiers=%v", p0.TempModifiers)
+		if len(p0.TempModifiers) != 0 {
+			t.Fatalf("water phantom should not use the old delayed copy modifier, modifiers=%v", p0.TempModifiers)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "water_phantom_copy_target" {
+			t.Fatalf("water phantom should ask which summoned water companion to copy, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{companion.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose water phantom target: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "water_phantom_copy_position" {
+			t.Fatalf("water phantom should ask where to place the copy, pending=%+v", engine.State.PendingAction)
+		}
+		pos := Position{Col: 2, Row: 2}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{positionSelectionID(pos)},
+		}}); err != nil {
+			t.Fatalf("choose water phantom copy position: %v", err)
+		}
+		copyUnit := p0.Units[pos.Col][pos.Row]
+		if copyUnit == nil || copyUnit.Card.Number != companion.Card.Number || copyUnit.Card.Life != 1 || copyUnit.CurrentLife != 1 {
+			t.Fatalf("water phantom should summon a one-life copy, copy=%+v", cardToInfo(copyUnit))
 		}
 	})
 
