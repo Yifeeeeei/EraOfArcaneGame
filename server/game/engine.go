@@ -3200,6 +3200,10 @@ func (e *Engine) validateUltimatePreconditions(card *CardInstance) error {
 		return nil
 	}
 	switch card.Card.Number {
+	case "4211001":
+		if len(e.State.Players[card.OwnerID].Hand) == 0 {
+			return fmt.Errorf("Bartel ultimate requires a hand card")
+		}
 	case "4311001":
 		if len(e.friendlyHandCards(card.OwnerID, func(candidate *CardInstance) bool {
 			return candidate.Card.Category == model.ElementAir

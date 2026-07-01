@@ -9300,6 +9300,28 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 		}
 	})
 
+	t.Run("4211001 Bartel cannot spend ultimate without a hand card", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		bartel := NewCardInstance(baseCard(t, "4211001"), 0, 1)
+		p0.Hero = bartel
+		p0.Hand = nil
+
+		err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  bartel.InstanceID,
+			"ability_type": "ultimate",
+		}})
+		if err == nil {
+			t.Fatalf("Bartel ultimate should fail without a hand card")
+		}
+		if bartel.UltimateUsed {
+			t.Fatalf("failed Bartel ultimate should not be marked used")
+		}
+		if engine.State.PendingAction != nil {
+			t.Fatalf("failed Bartel ultimate should not create a pending action, pending=%+v", engine.State.PendingAction)
+		}
+	})
+
 	t.Run("4311001 肃 discards two air cards to damage an enemy", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
