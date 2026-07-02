@@ -55,6 +55,8 @@ func TestGameHTMLDefenseWindowIncludesBoundSkills(t *testing.T) {
 		"const scrollBoosts = myHand.value.filter(s =>",
 		"canUseScrollAsDefenseBoost(s)",
 		"function canUseScrollAsDefenseBoost(scroll)",
+		"const availableDefenseBoostCandidates = computed(() =>",
+		"function isDefenseBoostDisabled(skill)",
 		"const skills = allMySkills.value;",
 	} {
 		if !strings.Contains(html, want) {
@@ -66,6 +68,65 @@ func TestGameHTMLDefenseWindowIncludesBoundSkills(t *testing.T) {
 	}
 }
 
+func TestGameHTMLDefenseWindowClickHandlersAreReturned(t *testing.T) {
+	content, err := os.ReadFile("../../web/game.html")
+	if err != nil {
+		t.Fatalf("read game.html: %v", err)
+	}
+	html := string(content)
+	for _, want := range []string{
+		`@click.capture="handleDefensePanelClick"`,
+		`data-defense-action="scroll"`,
+		`data-defense-action="skill"`,
+		`data-defense-action="boost"`,
+		`data-defense-action="overexert"`,
+		`data-defense-action="submit"`,
+		`data-defense-action="no_defend"`,
+		`data-defense-action="detail"`,
+		`:class="{ disabled: !canSubmitDefense }"`,
+		"function defenseCardById(id)",
+		"function handleDefensePanelClick(event)",
+		"function syncDefensePanelVisualState()",
+		"el.classList.toggle('selected', selected)",
+		"submit.classList.toggle('disabled', !canSubmitDefense.value)",
+		"const CLIENT_BUILD = 'defense-ui-20260702-3'",
+		"const pendingSpellView = computed(() => normalizePendingSpell(gameState.value?.pending_spell))",
+		"function normalizePendingSpell(spell)",
+		"spell.power ?? spell.total_power",
+		"spell.defender_id === currentPlayerSlot()",
+		"data-defense-summary=\"power\"",
+		"function syncDefenseSummary(panel)",
+		"function logDefenseWindowStateSync(state)",
+		"function logDefenseSelection(message, card = null)",
+		"defense_submit_blocked",
+		"if (!defenseSelected.value.includes(skill.instance_id))",
+		"if (!defenseScrollSelected.value.includes(scroll.instance_id))",
+		"handleDefensePanelClick, toggleDefenseSkill, toggleDefenseScroll, toggleDefenseBoost, toggleDefenseOverexert, reactSpell, submitDefend",
+		"canSubmitDefense,",
+		"noDefend,",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("defense window click handlers should be exposed to the template, missing %q", want)
+		}
+	}
+	if strings.Contains(html, `:disabled="!canSubmitDefense"`) {
+		t.Fatalf("defense submit should not be silently disabled; submitDefend should log why it cannot submit")
+	}
+	for _, bad := range []string{
+		`@pointerdown.capture="handleDefensePanelPointerDown"`,
+		`@pointerdown.stop.prevent="toggleDefenseScroll(scroll)"`,
+		`@pointerdown.stop.prevent="toggleDefenseSkill(skill)"`,
+		`@pointerdown.stop.prevent="toggleDefenseBoost(skill)"`,
+		`@pointerdown.stop.prevent="toggleDefenseOverexert(unit)"`,
+		`@pointerdown.stop.prevent="submitDefend()"`,
+		`@pointerdown.stop.prevent="noDefend()"`,
+	} {
+		if strings.Contains(html, bad) {
+			t.Fatalf("defense card actions should be handled by panel-level delegation, found %q", bad)
+		}
+	}
+}
+
 func TestGameHTMLInteractionWindowsUseUnifiedReadableCards(t *testing.T) {
 	content, err := os.ReadFile("../../web/game.html")
 	if err != nil {
@@ -73,7 +134,7 @@ func TestGameHTMLInteractionWindowsUseUnifiedReadableCards(t *testing.T) {
 	}
 	html := string(content)
 	for _, want := range []string{
-		"css/game.css?v=20260701-interaction-ui",
+		"css/game.css?v=20260702-defense-viewmodel",
 		"class=\"overlay interaction-overlay defense-overlay\"",
 		"class=\"overlay-content interaction-panel defense-panel\"",
 		"class=\"overlay interaction-overlay pending-action-overlay\"",
@@ -87,5 +148,19 @@ func TestGameHTMLInteractionWindowsUseUnifiedReadableCards(t *testing.T) {
 		if !strings.Contains(html, want) {
 			t.Fatalf("interaction windows should share readable interaction UI, missing %q", want)
 		}
+	}
+}
+
+func TestGameHTMLDefenseWindowDoesNotReadRawPendingSpellPower(t *testing.T) {
+	content, err := os.ReadFile("../../web/game.html")
+	if err != nil {
+		t.Fatalf("read game.html: %v", err)
+	}
+	html := string(content)
+	if strings.Contains(html, "gameState.pending_spell.power") {
+		t.Fatalf("defense UI should use normalized pendingSpellView power, not raw pending_spell.power")
+	}
+	if strings.Contains(html, "gameState.value?.pending_spell?.power") {
+		t.Fatalf("defense logging should use pendingAttackPower, not raw pending_spell.power")
 	}
 }

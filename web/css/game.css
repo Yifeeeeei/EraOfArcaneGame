@@ -2060,7 +2060,7 @@ body::before {
 
 /* Card detail modal */
 .card-detail-overlay {
-    z-index: 12000;
+    z-index: 30000;
 }
 
 .card-detail-modal {
@@ -2290,6 +2290,17 @@ body::before {
     border-color: var(--gold-bright);
 }
 .btn:active { transform: scale(0.97); }
+.btn.disabled,
+.btn:disabled {
+    cursor: not-allowed;
+    opacity: 0.52;
+    filter: grayscale(0.35);
+}
+.btn.disabled:hover,
+.btn:disabled:hover {
+    border-color: rgba(198,174,116,0.42);
+    filter: grayscale(0.35);
+}
 .btn-primary { background: rgba(45,34,22,0.96); color: var(--gold-bright); }
 .btn-success { background: rgba(42,72,40,0.92); color: #d8f3d0; border-color: rgba(39,174,96,0.38); }
 .btn-danger { background: rgba(86,30,25,0.92); color: #ffc3b9; border-color: rgba(192,57,43,0.42); }
@@ -2430,9 +2441,31 @@ body::before {
 }
 .defense-skill-card.selected {
     border-color: var(--gold);
-    background: rgba(211,180,106,0.15);
-    box-shadow: 0 0 0 1px rgba(211,180,106,0.42), 0 0 12px var(--gold-glow);
+    background: rgba(211,180,106,0.24);
+    box-shadow: 0 0 0 2px rgba(211,180,106,0.82), 0 0 18px var(--gold-glow);
     transform: translateY(-1px);
+}
+.defense-skill-card.disabled {
+    opacity: 0.48;
+    cursor: not-allowed;
+    filter: grayscale(0.28);
+}
+.defense-skill-card.disabled:hover {
+    border-color: rgba(198,174,116,0.18);
+    background: var(--bg-card);
+}
+.defense-skill-card.selected::after {
+    content: '已选择';
+    position: absolute;
+    left: 8px;
+    top: 8px;
+    z-index: 4;
+    padding: 2px 6px;
+    border: 1px solid rgba(211,180,106,0.82);
+    background: rgba(5,4,3,0.88);
+    color: var(--gold-bright);
+    font-size: 11px;
+    font-weight: 700;
 }
 .defense-skill-card.boost.selected {
     border-color: var(--azure);
@@ -2474,12 +2507,16 @@ body::before {
 .power-comparison {
     display: flex;
     justify-content: center;
+    flex-wrap: wrap;
     gap: 16px;
     padding: 6px 12px;
     background: rgba(8,6,5,0.62);
     border-radius: var(--radius-sm);
     font-size: 13px;
     margin: 8px 0;
+}
+.defense-live-summary {
+    border: 1px solid rgba(198,174,116,0.2);
 }
 .power-win { color: var(--emerald); font-weight: 700; }
 .power-lose { color: var(--crimson); font-weight: 700; }
