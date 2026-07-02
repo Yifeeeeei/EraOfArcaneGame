@@ -365,7 +365,7 @@
         <div v-if="contextMenu.show" class="context-menu-backdrop" @click="hideContextMenu"></div>
 
         <!-- ═══ CARD DETAIL MODAL ═══ -->
-        <div v-if="detailCard" class="overlay" @click.self="detailCard = null">
+        <div v-if="detailCard" class="overlay card-detail-overlay" @click.self="detailCard = null">
             <div class="card-detail-modal">
                 <img :src="getCardImage(detailCard)" :alt="detailCard.name" class="card-img-large">
                 <div class="card-detail-info">

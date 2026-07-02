@@ -81,6 +81,7 @@ func TestGameHTMLInteractionWindowsUseUnifiedReadableCards(t *testing.T) {
 		"class=\"defense-skill-card interaction-card",
 		"class=\"pending-card interaction-card",
 		"class=\"interaction-detail-link\"",
+		"class=\"overlay card-detail-overlay\"",
 		"@mouseenter=\"candidate.number && previewCard(candidate)\"",
 	} {
 		if !strings.Contains(html, want) {

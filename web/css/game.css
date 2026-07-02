@@ -1964,6 +1964,7 @@ body::before {
 
 .interaction-panel {
     width: min(820px, calc(100vw - 36px));
+    max-width: none;
     max-height: calc(100vh - 36px);
     overflow-y: auto;
     text-align: left;
@@ -2058,6 +2059,10 @@ body::before {
 }
 
 /* Card detail modal */
+.card-detail-overlay {
+    z-index: 12000;
+}
+
 .card-detail-modal {
     background: rgba(24, 18, 13, 0.97);
     border: 1px solid rgba(198,174,116,0.32);
