@@ -6,7 +6,7 @@
     <title>奥术纪元 — 对战</title>
     <link rel="icon" href="/favicon.ico">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <link rel="stylesheet" href="css/game.css?v=20260515-readable-cards">
+    <link rel="stylesheet" href="css/game.css?v=20260701-interaction-ui">
 </head>
 <body>
     <div id="app">
@@ -41,8 +41,8 @@
         </div>
 
         <!-- ═══ MULLIGAN OVERLAY ═══ -->
-        <div v-if="!isSpectator && gameState && gameState.phase === 'mulligan' && !mulliganSubmitted" class="overlay">
-            <div class="overlay-content mulligan-panel">
+        <div v-if="!isSpectator && gameState && gameState.phase === 'mulligan' && !mulliganSubmitted" class="overlay interaction-overlay">
+            <div class="overlay-content interaction-panel mulligan-panel">
                 <h2>选择初始手牌</h2>
                 <div class="mulligan-order" :class="mySlot === gameState.first_player ? 'is-first' : 'is-second'">
                     你是{{ gameState.turn_order?.you || (mySlot === 0 ? '先手' : '后手') }}
@@ -61,8 +61,8 @@
         </div>
 
         <!-- ═══ DEFENSE WINDOW OVERLAY ═══ -->
-        <div v-if="!isSpectator && showDefenseWindow" class="overlay defense-overlay">
-            <div class="overlay-content defense-panel">
+        <div v-if="!isSpectator && showDefenseWindow" class="overlay interaction-overlay defense-overlay">
+            <div class="overlay-content interaction-panel defense-panel">
                 <h2>对手施放法术！</h2>
                 <div v-if="gameState.pending_spell" class="spell-info">
                     <div class="spell-info-main">
@@ -90,13 +90,15 @@
                     <h3>可响应咒术</h3>
                     <div class="defense-skill-list">
                         <button v-for="skill in availableReactionSkills" :key="skill.instance_id"
-                                class="defense-skill-card reaction-card"
+                                class="defense-skill-card interaction-card reaction-card"
+                                @mouseenter="previewCard(skill)"
                                 @click="reactSpell(skill)">
                             <img :src="getCardImage(skill)" class="defense-skill-img">
                             <div class="defense-skill-info">
                                 <div class="defense-skill-name">{{ skill.name }}</div>
                                 <div class="defense-skill-power">费用 {{ costLabel(skillUseCost(skill)) }}</div>
                             </div>
+                            <span class="interaction-detail-link" @click.stop="showCardDetail(skill)">查看</span>
                         </button>
                     </div>
                 </div>
@@ -106,14 +108,16 @@
                     <div class="defense-skill-list">
                         <button v-for="unit in defenseOverexertUnits" :key="unit.instance_id"
                                 type="button"
-                                class="defense-skill-card overexert-card"
+                                class="defense-skill-card interaction-card overexert-card"
                                 :class="{ selected: defenseOverexertSelected.includes(unit.instance_id) }"
+                                @mouseenter="previewCard(unit)"
                                 @click.stop.prevent="toggleDefenseOverexert(unit)">
                             <img :src="getCardImage(unit)" class="defense-skill-img">
                             <div class="defense-skill-info">
                                 <div class="defense-skill-name">{{ unit.name }}</div>
                                 <div class="defense-skill-power">{{ costLabel(unit.elements_gain) }}</div>
                             </div>
+                            <span class="interaction-detail-link" @click.stop="showCardDetail(unit)">查看</span>
                         </button>
                     </div>
                     <div class="defense-note">透支只支付本次防御费用，不保存多余负载，也不会触发“消耗”效果。</div>
@@ -124,14 +128,16 @@
                     <div class="defense-skill-list">
                         <button v-for="scroll in availableDefenseScrolls" :key="scroll.instance_id"
                              type="button"
-                             class="defense-skill-card"
+                             class="defense-skill-card interaction-card"
                              :class="{ selected: defenseScrollSelected.includes(scroll.instance_id) }"
+                             @mouseenter="previewCard(scroll)"
                              @click.stop.prevent="toggleDefenseScroll(scroll)">
                             <img :src="getCardImage(scroll)" class="defense-skill-img">
                             <div class="defense-skill-info">
                                 <div class="defense-skill-name">{{ scroll.name }}</div>
                                 <div class="defense-skill-power">威力 {{ scroll.power >= 0 ? scroll.power : 0 }} · {{ costLabel(playCost(scroll)) }}</div>
                             </div>
+                            <span class="interaction-detail-link" @click.stop="showCardDetail(scroll)">查看</span>
                         </button>
                     </div>
                 </div>
@@ -141,14 +147,16 @@
                     <div class="defense-skill-list">
                         <button v-for="skill in availableDefenseSkills" :key="skill.instance_id"
                              type="button"
-                             class="defense-skill-card"
+                             class="defense-skill-card interaction-card"
                              :class="{ selected: defenseSelected.includes(skill.instance_id) }"
+                             @mouseenter="previewCard(skill)"
                              @click.stop.prevent="toggleDefenseSkill(skill)">
                             <img :src="getCardImage(skill)" class="defense-skill-img">
                             <div class="defense-skill-info">
                                 <div class="defense-skill-name">{{ skill.name }}</div>
                                 <div class="defense-skill-power">威力 {{ skill.power >= 0 ? skill.power : 0 }}</div>
                             </div>
+                            <span class="interaction-detail-link" @click.stop="showCardDetail(skill)">查看</span>
                         </button>
                     </div>
                 </div>
@@ -159,14 +167,16 @@
                     <div class="defense-skill-list">
                         <button v-for="skill in availableBoostSkills" :key="skill.instance_id"
                              type="button"
-                             class="defense-skill-card boost"
+                             class="defense-skill-card interaction-card boost"
                              :class="{ selected: defenseBoostSelected.includes(skill.instance_id) }"
+                             @mouseenter="previewCard(skill)"
                              @click.stop.prevent="toggleDefenseBoost(skill)">
                             <img :src="getCardImage(skill)" class="defense-skill-img">
                             <div class="defense-skill-info">
                                 <div class="defense-skill-name">{{ skill.name }}</div>
                                 <div class="defense-skill-power">+威力 {{ defenseBoostPower(skill) }} · {{ costLabel(defensePaymentCost(skill)) }}</div>
                             </div>
+                            <span class="interaction-detail-link" @click.stop="showCardDetail(skill)">查看</span>
                         </button>
                     </div>
                 </div>
@@ -189,17 +199,19 @@
         </div>
 
         <!-- ═══ PENDING ACTION MODAL ═══ -->
-        <div v-if="showPendingAction" class="overlay pending-action-overlay">
-            <div class="overlay-content pending-action-panel">
+        <div v-if="showPendingAction" class="overlay interaction-overlay pending-action-overlay">
+            <div class="overlay-content interaction-panel pending-action-panel">
                 <h2>{{ pendingAction.prompt }}</h2>
                 <div v-if="pendingContextText()" class="pending-context">{{ pendingContextText() }}</div>
                 <div class="pending-candidates">
                     <div v-for="candidate in pendingOrderedCandidates()" :key="candidate.instance_id"
-                         class="pending-card"
+                         class="pending-card interaction-card"
                          :class="{ selected: pendingSelected.includes(candidate.instance_id), disabled: candidate.can_select === false, bottom: isPendingBottom(candidate.instance_id) }"
+                         @mouseenter="candidate.number && previewCard(candidate)"
                          @click="togglePendingSelect(candidate)">
                         <img v-if="candidate.number" :src="getCardImage(candidate)" class="pending-card-img">
                         <div v-else class="pending-position-tile">{{ candidate.name }}</div>
+                        <span v-if="candidate.number" class="interaction-detail-link" @click.stop="showCardDetail(candidate)">查看</span>
                         <div class="pending-card-name">{{ candidate.name }}</div>
                         <div class="pending-card-side">
                             <span v-if="candidate.side">{{ candidate.side === 'own' ? '己方' : '敌方' }}</span>
@@ -248,17 +260,19 @@
         </div>
 
         <!-- ═══ SUMMON DEVOUR MODAL ═══ -->
-        <div v-if="devourRequest" class="overlay pending-action-overlay">
-            <div class="overlay-content pending-action-panel">
+        <div v-if="devourRequest" class="overlay interaction-overlay pending-action-overlay">
+            <div class="overlay-content interaction-panel pending-action-panel">
                 <h2>选择吞噬对象</h2>
                 <div class="payment-title">{{ devourRequest.card.name }}</div>
                 <div class="payment-cost">需求：{{ costLabel(devourRequest.requirement) }} 负载</div>
                 <div class="pending-candidates">
                     <div v-for="candidate in devourCandidates(devourRequest.card)" :key="candidate.instance_id"
-                         class="pending-card"
+                         class="pending-card interaction-card"
                          :class="{ selected: devourSelection.includes(candidate.instance_id) }"
+                         @mouseenter="previewCard(candidate)"
                          @click="toggleDevourSelection(candidate)">
                         <img :src="getCardImage(candidate)" class="pending-card-img">
+                        <span class="interaction-detail-link" @click.stop="showCardDetail(candidate)">查看</span>
                         <div class="pending-card-name">{{ candidate.name }}</div>
                         <div class="pending-card-side">负载 {{ costLabel(candidate.elements_gain) }}</div>
                     </div>
@@ -274,8 +288,8 @@
         </div>
 
         <!-- ═══ PAYMENT CHOICE MODAL ═══ -->
-        <div v-if="paymentRequest" class="overlay payment-overlay">
-            <div class="overlay-content payment-panel">
+        <div v-if="paymentRequest" class="overlay interaction-overlay payment-overlay">
+            <div class="overlay-content interaction-panel payment-panel">
                 <h2>选择支付元素</h2>
                 <div class="payment-title">{{ paymentRequest.title }}</div>
                 <div class="payment-cost">费用：{{ costLabel(paymentRequest.cost) }}</div>
@@ -304,8 +318,8 @@
         </div>
 
         <!-- ═══ CONSUME GAIN CHOICE MODAL ═══ -->
-        <div v-if="consumeGainRequest" class="overlay payment-overlay">
-            <div class="overlay-content payment-panel">
+        <div v-if="consumeGainRequest" class="overlay interaction-overlay payment-overlay">
+            <div class="overlay-content interaction-panel payment-panel">
                 <h2>选择获得元素</h2>
                 <div class="payment-title">{{ consumeGainRequest.card.name }}</div>
                 <div class="payment-cost">本次可获得：{{ consumeGainRequest.limit }} / {{ costLabel(consumeGainRequest.available) }}</div>
@@ -400,16 +414,18 @@
         </div>
 
         <!-- ═══ SKILL REPLACEMENT MODAL ═══ -->
-        <div v-if="skillReplaceRequest" class="overlay pending-action-overlay">
-            <div class="overlay-content pending-action-panel">
+        <div v-if="skillReplaceRequest" class="overlay interaction-overlay pending-action-overlay">
+            <div class="overlay-content interaction-panel pending-action-panel">
                 <h2>选择要替代的技能</h2>
                 <div class="payment-title">{{ skillReplaceRequest.card.name }}</div>
                 <div class="pending-candidates">
                     <div v-for="skill in replaceableSkills" :key="skill.instance_id"
-                         class="pending-card"
+                         class="pending-card interaction-card"
                          :class="{ selected: skillReplaceRequest.replaceId === skill.instance_id }"
+                         @mouseenter="previewCard(skill)"
                          @click="skillReplaceRequest.replaceId = skill.instance_id">
                         <img :src="getCardImage(skill)" class="pending-card-img">
+                        <span class="interaction-detail-link" @click.stop="showCardDetail(skill)">查看</span>
                         <div class="pending-card-name">{{ skill.name }}</div>
                         <div class="pending-card-side">竖置技能</div>
                     </div>
@@ -422,16 +438,18 @@
         </div>
 
         <!-- ═══ EQUIPMENT REPLACEMENT MODAL ═══ -->
-        <div v-if="equipmentReplaceRequest" class="overlay pending-action-overlay">
-            <div class="overlay-content pending-action-panel">
+        <div v-if="equipmentReplaceRequest" class="overlay interaction-overlay pending-action-overlay">
+            <div class="overlay-content interaction-panel pending-action-panel">
                 <h2>选择要替换的装备</h2>
                 <div class="payment-title">{{ equipmentReplaceRequest.card.name }}</div>
                 <div class="pending-candidates">
                     <div v-for="equipment in replaceableEquipment" :key="equipment.instance_id"
-                         class="pending-card"
+                         class="pending-card interaction-card"
                          :class="{ selected: equipmentReplaceRequest.replaceId === equipment.instance_id }"
+                         @mouseenter="previewCard(equipment)"
                          @click="equipmentReplaceRequest.replaceId = equipment.instance_id">
                         <img :src="getCardImage(equipment)" class="pending-card-img">
+                        <span class="interaction-detail-link" @click.stop="showCardDetail(equipment)">查看</span>
                         <div class="pending-card-name">{{ equipment.name }}</div>
                         <div class="pending-card-side">竖置装备</div>
                     </div>

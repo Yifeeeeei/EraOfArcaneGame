@@ -1951,20 +1951,33 @@ body::before {
     margin-top: 8px;
 }
 
-/* Defense window */
-.defense-overlay {
-    align-items: stretch;
-    justify-content: flex-end;
-    padding: 12px 18px 12px 0;
+/* Unified interaction windows */
+.interaction-overlay {
+    align-items: center;
+    justify-content: center;
+    padding: 18px;
     background:
-        linear-gradient(90deg, rgba(5,4,3,0.04) 0%, rgba(5,4,3,0.18) 54%, rgba(5,4,3,0.76) 100%);
-    backdrop-filter: none;
-    pointer-events: none;
+        radial-gradient(ellipse at 50% 18%, rgba(211,180,106,0.12), transparent 42%),
+        rgba(5,4,3,0.82);
+    backdrop-filter: blur(2px);
 }
+
+.interaction-panel {
+    width: min(820px, calc(100vw - 36px));
+    max-height: calc(100vh - 36px);
+    overflow-y: auto;
+    text-align: left;
+    border-color: rgba(198,174,116,0.42);
+    box-shadow: 0 24px 72px rgba(0,0,0,0.72), 0 0 0 1px rgba(211,180,106,0.1);
+}
+
+.interaction-panel h2 {
+    text-align: center;
+    letter-spacing: 1px;
+}
+
 .defense-overlay .overlay-content {
-    border-color: rgba(192,57,43,0.4);
-    pointer-events: auto;
-    margin: 0;
+    border-color: rgba(192,57,43,0.42);
 }
 .spell-info {
     background: rgba(8,6,5,0.62);
@@ -1978,14 +1991,14 @@ body::before {
 .spell-info div { margin: 3px 0; }
 .spell-info-main {
     display: grid;
-    grid-template-columns: 48px 1fr;
-    gap: 10px;
+    grid-template-columns: 82px 1fr;
+    gap: 14px;
     align-items: start;
     text-align: left;
 }
 .spell-info-img {
-    width: 48px;
-    height: 68px;
+    width: 82px;
+    height: 116px;
     object-fit: contain;
     border: 1px solid rgba(198,174,116,0.32);
     background: rgba(8,6,5,0.8);
@@ -2371,11 +2384,7 @@ body::before {
 
 /* ── Defense Panel Styles ── */
 .defense-panel {
-    width: min(430px, calc(100vw - 24px));
-    max-width: 430px;
-    max-height: calc(100vh - 24px);
-    overflow-y: auto;
-    text-align: left;
+    width: min(820px, calc(100vw - 36px));
 }
 .defense-panel h3 {
     color: var(--gold);
@@ -2388,25 +2397,27 @@ body::before {
 }
 .defense-skill-list {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
     justify-content: center;
 }
 .defense-skill-card {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: 10px;
     background: rgba(33,24,16,0.9);
     border: 1px solid rgba(198,174,116,0.14);
     border-radius: var(--radius-sm);
-    padding: 6px 8px;
+    padding: 7px 30px 7px 8px;
     cursor: pointer;
     transition: all 0.15s ease;
-    min-width: 120px;
+    min-width: 184px;
+    min-height: 104px;
     color: var(--text-primary);
     font: inherit;
     text-align: left;
     user-select: none;
+    position: relative;
 }
 .defense-skill-card:hover {
     border-color: var(--gold-dim);
@@ -2430,23 +2441,28 @@ body::before {
     background: rgba(85, 160, 210, 0.12);
 }
 .defense-skill-img {
-    width: 40px;
-    height: 56px;
+    width: 66px;
+    height: 92px;
     object-fit: contain;
-    border-radius: 3px;
+    border-radius: 0;
+    border: 1px solid rgba(198,174,116,0.24);
     background: rgba(8,6,5,0.8);
+    flex-shrink: 0;
 }
 .defense-skill-info {
-    font-size: 11px;
+    min-width: 0;
+    font-size: 12px;
 }
 .defense-skill-name {
     color: var(--text-primary);
     font-weight: 600;
+    line-height: 1.25;
 }
 .defense-skill-power {
     color: var(--elem-arcane, #a855f7);
-    font-size: 10px;
-    margin-top: 2px;
+    font-size: 11px;
+    margin-top: 4px;
+    line-height: 1.25;
 }
 
 /* Power comparison */
@@ -2546,9 +2562,7 @@ body::before {
 
 /* ── Pending Action Modal ── */
 .pending-action-panel {
-    max-width: 560px;
-    max-height: 80vh;
-    overflow-y: auto;
+    width: min(820px, calc(100vw - 36px));
 }
 .pending-context {
     margin: -2px auto 10px;
@@ -2562,20 +2576,21 @@ body::before {
 }
 .pending-candidates {
     display: flex;
-    gap: 8px;
+    gap: 10px;
     flex-wrap: wrap;
     justify-content: center;
     margin: 12px 0;
 }
 .pending-card {
-    width: 72px;
+    width: 112px;
     text-align: center;
     cursor: pointer;
-    padding: 4px;
+    padding: 7px 6px 8px;
     border: 2px solid rgba(198,174,116,0.16);
     border-radius: var(--radius-sm);
     background: rgba(33,24,16,0.95);
     transition: all 0.15s ease;
+    position: relative;
 }
 .pending-card:hover {
     border-color: var(--gold-dim);
@@ -2593,15 +2608,16 @@ body::before {
     border-style: dashed;
 }
 .pending-card-img {
-    width: 64px;
-    height: 90px;
+    width: 100px;
+    height: 140px;
     object-fit: contain;
-    border-radius: 3px;
+    border-radius: 0;
+    border: 1px solid rgba(198,174,116,0.24);
     background: rgba(8,6,5,0.8);
 }
 .pending-position-tile {
-    width: 64px;
-    height: 90px;
+    width: 100px;
+    height: 140px;
     display: grid;
     place-items: center;
     border: 1px solid rgba(198,174,116,0.3);
@@ -2611,9 +2627,9 @@ body::before {
     line-height: 1.35;
 }
 .pending-card-name {
-    font-size: 10px;
+    font-size: 11px;
     color: var(--text-secondary);
-    margin-top: 3px;
+    margin-top: 5px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -2660,16 +2676,9 @@ body::before {
     justify-content: center;
     margin-top: 10px;
 }
-.pending-action-overlay .overlay-content {
-    border-color: var(--gold-dim);
-}
+.pending-action-overlay .overlay-content { border-color: var(--gold-dim); }
 
-.pending-action-overlay {
-    inset: 0;
-    justify-content: center;
-    padding: 0 24px;
-    background: rgba(5,4,3,0.82);
-}
+.pending-action-overlay { inset: 0; }
 
 .pending-action-overlay {
     z-index: 11000;
@@ -2679,31 +2688,55 @@ body::before {
     z-index: 10500;
 }
 
-.pending-action-overlay .overlay-content {
-    margin: 0 auto;
+.pending-action-overlay .overlay-content { margin: 0 auto; }
+
+.interaction-card:hover .interaction-detail-link,
+.interaction-detail-link:focus {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.interaction-detail-link {
+    position: absolute;
+    right: 6px;
+    top: 6px;
+    z-index: 3;
+    border: 1px solid rgba(198,174,116,0.42);
+    background: rgba(5,4,3,0.84);
+    color: var(--gold-bright);
+    font-size: 10px;
+    line-height: 1;
+    padding: 4px 5px;
+    opacity: 0.82;
+    transform: translateY(0);
+    transition: opacity 0.15s ease, transform 0.15s ease, border-color 0.15s ease;
+}
+
+.interaction-detail-link:hover {
+    border-color: var(--gold);
+    background: rgba(33,24,16,0.98);
 }
 
 @media (max-width: 1180px) {
-    .pending-action-overlay {
-        padding: 0 12px;
-    }
-    .defense-overlay {
-        padding: 10px;
-    }
+    .interaction-overlay { padding: 12px; }
 }
 
 @media (max-width: 760px) {
-    .defense-overlay {
-        align-items: center;
-        justify-content: center;
-        padding: 10px;
-        background: rgba(5,4,3,0.82);
-        pointer-events: auto;
-    }
-    .defense-panel {
-        max-width: calc(100vw - 20px);
+    .interaction-overlay { padding: 10px; }
+    .interaction-panel {
+        width: calc(100vw - 20px);
         max-height: calc(100vh - 20px);
     }
+    .spell-info-main { grid-template-columns: 64px 1fr; }
+    .spell-info-img { width: 64px; height: 90px; }
+    .defense-skill-card {
+        min-width: min(100%, 260px);
+        min-height: 92px;
+    }
+    .defense-skill-img { width: 56px; height: 78px; }
+    .pending-card { width: 94px; }
+    .pending-card-img,
+    .pending-position-tile { width: 82px; height: 115px; }
 }
 
 /* ── Payment Choice Modal ── */
