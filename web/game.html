@@ -105,9 +105,10 @@
                     <h3>选择透支单位支付防御费用</h3>
                     <div class="defense-skill-list">
                         <button v-for="unit in defenseOverexertUnits" :key="unit.instance_id"
+                                type="button"
                                 class="defense-skill-card overexert-card"
                                 :class="{ selected: defenseOverexertSelected.includes(unit.instance_id) }"
-                                @click="toggleDefenseOverexert(unit)">
+                                @click.stop.prevent="toggleDefenseOverexert(unit)">
                             <img :src="getCardImage(unit)" class="defense-skill-img">
                             <div class="defense-skill-info">
                                 <div class="defense-skill-name">{{ unit.name }}</div>
@@ -121,32 +122,34 @@
                 <div class="defense-skills-section" v-if="availableDefenseScrolls.length > 0">
                     <h3>选择防御卷轴</h3>
                     <div class="defense-skill-list">
-                        <div v-for="scroll in availableDefenseScrolls" :key="scroll.instance_id"
+                        <button v-for="scroll in availableDefenseScrolls" :key="scroll.instance_id"
+                             type="button"
                              class="defense-skill-card"
                              :class="{ selected: defenseScrollSelected.includes(scroll.instance_id) }"
-                             @click="toggleDefenseScroll(scroll)">
+                             @click.stop.prevent="toggleDefenseScroll(scroll)">
                             <img :src="getCardImage(scroll)" class="defense-skill-img">
                             <div class="defense-skill-info">
                                 <div class="defense-skill-name">{{ scroll.name }}</div>
                                 <div class="defense-skill-power">威力 {{ scroll.power >= 0 ? scroll.power : 0 }} · {{ costLabel(playCost(scroll)) }}</div>
                             </div>
-                        </div>
+                        </button>
                     </div>
                 </div>
                 <!-- Available defense skills -->
                 <div class="defense-skills-section" v-if="availableDefenseSkills.length > 0">
                     <h3>选择防御技能</h3>
                     <div class="defense-skill-list">
-                        <div v-for="skill in availableDefenseSkills" :key="skill.instance_id"
+                        <button v-for="skill in availableDefenseSkills" :key="skill.instance_id"
+                             type="button"
                              class="defense-skill-card"
                              :class="{ selected: defenseSelected.includes(skill.instance_id) }"
-                             @click="toggleDefenseSkill(skill)">
+                             @click.stop.prevent="toggleDefenseSkill(skill)">
                             <img :src="getCardImage(skill)" class="defense-skill-img">
                             <div class="defense-skill-info">
                                 <div class="defense-skill-name">{{ skill.name }}</div>
                                 <div class="defense-skill-power">威力 {{ skill.power >= 0 ? skill.power : 0 }}</div>
                             </div>
-                        </div>
+                        </button>
                     </div>
                 </div>
 
@@ -154,16 +157,17 @@
                 <div class="defense-skills-section" v-if="availableBoostSkills.length > 0">
                     <h3>强化技能（可选）</h3>
                     <div class="defense-skill-list">
-                        <div v-for="skill in availableBoostSkills" :key="skill.instance_id"
+                        <button v-for="skill in availableBoostSkills" :key="skill.instance_id"
+                             type="button"
                              class="defense-skill-card boost"
                              :class="{ selected: defenseBoostSelected.includes(skill.instance_id) }"
-                             @click="toggleDefenseBoost(skill)">
+                             @click.stop.prevent="toggleDefenseBoost(skill)">
                             <img :src="getCardImage(skill)" class="defense-skill-img">
                             <div class="defense-skill-info">
                                 <div class="defense-skill-name">{{ skill.name }}</div>
                                 <div class="defense-skill-power">+威力 {{ defenseBoostPower(skill) }} · {{ costLabel(defensePaymentCost(skill)) }}</div>
                             </div>
-                        </div>
+                        </button>
                     </div>
                 </div>
 
@@ -1082,8 +1086,14 @@
 
             const showDefenseWindow = computed(() =>
                 !isSpectator && gameState.value && gameState.value.phase === 'defense_window' &&
-                gameState.value.pending_spell && gameState.value.pending_spell.attacker !== mySlot.value
+                gameState.value.pending_spell && pendingSpellAttackerID() !== mySlot.value
             );
+
+            function pendingSpellAttackerID() {
+                const spell = gameState.value?.pending_spell;
+                if (!spell) return -1;
+                return Number(spell.attacker_id ?? spell.attacker ?? -1);
+            }
 
             const activePreviewCard = computed(() =>
                 recentDiscardCard.value ||
@@ -2463,21 +2473,26 @@
             function toggleDefenseSkill(skill) {
                 const idx = defenseSelected.value.indexOf(skill.instance_id);
                 if (idx >= 0) {
-                    defenseSelected.value.splice(idx, 1);
-                    // Also remove from boost if present
-                    const bi = defenseBoostSelected.value.indexOf(skill.instance_id);
-                    if (bi >= 0) defenseBoostSelected.value.splice(bi, 1);
+                    defenseSelected.value = [];
                 } else {
-                    defenseSelected.value.push(skill.instance_id);
+                    defenseSelected.value = [skill.instance_id];
+                    defenseScrollSelected.value = [];
                 }
+                defenseBoostSelected.value = [];
             }
             function toggleDefenseScroll(scroll) {
                 const idx = defenseScrollSelected.value.indexOf(scroll.instance_id);
-                if (idx >= 0) defenseScrollSelected.value.splice(idx, 1);
-                else defenseScrollSelected.value.push(scroll.instance_id);
+                if (idx >= 0) {
+                    defenseScrollSelected.value = [];
+                } else {
+                    defenseScrollSelected.value = [scroll.instance_id];
+                    defenseSelected.value = [];
+                }
+                defenseBoostSelected.value = [];
             }
 
             function toggleDefenseBoost(skill) {
+                if (defenseSelected.value.length + defenseScrollSelected.value.length === 0) return;
                 const idx = defenseBoostSelected.value.indexOf(skill.instance_id);
                 if (idx >= 0) {
                     defenseBoostSelected.value.splice(idx, 1);
@@ -2889,7 +2904,7 @@
                         return `等待玩家${pendingPlayerID(pendingAction.value) + 1}完成选择...`;
                     }
                     if (gameState.value.phase === 'defense_window' && gameState.value.pending_spell) {
-                        return `玩家${2 - gameState.value.pending_spell.attacker}正在防御...`;
+                        return `玩家${pendingSpellAttackerID() === 0 ? 2 : 1}正在防御...`;
                     }
                     if (gameState.value.phase === 'mulligan') return '双方正在确认起手...';
                     if (gameState.value.phase === 'main') return `玩家${gameState.value.current_turn + 1}回合进行中...`;
@@ -2899,7 +2914,7 @@
                 if (showPendingAction.value) return pendingAction.value?.prompt || '等待你完成选择...';
                 if (gameState.value.phase === 'waiting_action') return '等待对手完成选择...';
                 if (showDefenseWindow.value) return '对手施放法术，等待你选择防御方式。';
-                if (gameState.value.phase === 'defense_window' && gameState.value.pending_spell?.attacker === mySlot.value) return '等待对手选择防御或不防御...';
+                if (gameState.value.phase === 'defense_window' && pendingSpellAttackerID() === mySlot.value) return '等待对手选择防御或不防御...';
                 if (gameState.value.phase === 'main' && !isMyTurn.value) return '等待对手行动...';
                 return '';
             });
