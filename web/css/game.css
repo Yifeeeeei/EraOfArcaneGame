@@ -2406,6 +2406,7 @@ body::before {
     color: var(--text-primary);
     font: inherit;
     text-align: left;
+    user-select: none;
 }
 .defense-skill-card:hover {
     border-color: var(--gold-dim);
@@ -2414,7 +2415,8 @@ body::before {
 .defense-skill-card.selected {
     border-color: var(--gold);
     background: rgba(211,180,106,0.15);
-    box-shadow: 0 0 8px var(--gold-glow);
+    box-shadow: 0 0 0 1px rgba(211,180,106,0.42), 0 0 12px var(--gold-glow);
+    transform: translateY(-1px);
 }
 .defense-skill-card.boost.selected {
     border-color: var(--azure);
