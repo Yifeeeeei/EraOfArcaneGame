@@ -65,3 +65,27 @@ func TestGameHTMLDefenseWindowIncludesBoundSkills(t *testing.T) {
 		t.Fatalf("bound skills should not be collected from equipment twice")
 	}
 }
+
+func TestGameHTMLInteractionWindowsUseUnifiedReadableCards(t *testing.T) {
+	content, err := os.ReadFile("../../web/game.html")
+	if err != nil {
+		t.Fatalf("read game.html: %v", err)
+	}
+	html := string(content)
+	for _, want := range []string{
+		"css/game.css?v=20260701-interaction-ui",
+		"class=\"overlay interaction-overlay defense-overlay\"",
+		"class=\"overlay-content interaction-panel defense-panel\"",
+		"class=\"overlay interaction-overlay pending-action-overlay\"",
+		"class=\"overlay-content interaction-panel pending-action-panel\"",
+		"class=\"defense-skill-card interaction-card",
+		"class=\"pending-card interaction-card",
+		"class=\"interaction-detail-link\"",
+		"class=\"overlay card-detail-overlay\"",
+		"@mouseenter=\"candidate.number && previewCard(candidate)\"",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("interaction windows should share readable interaction UI, missing %q", want)
+		}
+	}
+}
