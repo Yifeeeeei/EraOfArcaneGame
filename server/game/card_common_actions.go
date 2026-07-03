@@ -65,7 +65,7 @@ func bindSkillToHost(ctx *EffectContext, cardNumber string) {
 
 func devourFriendlyCompanion(ctx *EffectContext, cost map[string]int, prompt string) error {
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
-	if !ps.CanPayCost(cost) {
+	if !ctx.Engine.canPayCost(ps, cost) {
 		return nil
 	}
 	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
@@ -74,7 +74,7 @@ func devourFriendlyCompanion(ctx *EffectContext, cost map[string]int, prompt str
 	if len(candidates) == 0 {
 		return nil
 	}
-	ps.PayCost(cost)
+	ctx.Engine.payCostForAction(ps, cost, ActionMessage{})
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "devour_companion", prompt, candidates, 1, 1,
 		func(selected []string) {
 			if len(selected) == 0 {

@@ -54,7 +54,7 @@ func (e *Engine) spellTargetCandidates(playerID int, skill *CardInstance) []map[
 func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, target SpellTarget) {
 	ps := e.State.Players[playerID]
 	cost := e.effectiveSkillUseCost(ps, skill)
-	if !ps.PayCost(cost) {
+	if !e.payCostForAction(ps, cost, ActionMessage{}) {
 		return
 	}
 	e.applySkillUseCooldownModifiers(ps, skill)

@@ -1185,7 +1185,7 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 		}
 	})
 
-	t.Run("1521007 虹之天使 lets light pay non-light skill costs", func(t *testing.T) {
+	t.Run("1521007 虹之天使 lets light pay non-light costs without rewriting the printed cost", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		placeUnit(baseCard(t, "1521007"), 0, 0, 0, engine)
@@ -1194,12 +1194,20 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 
 		cost := engine.effectiveSkillUseCost(p0, waterSkill)
 
-		if cost[model.ElementWater] != 0 || cost[model.ElementLight] == 0 {
-			t.Fatalf("rainbow angel should convert non-light skill cost to light, cost=%v", cost)
+		if cost[model.ElementWater] == 0 || cost[model.ElementLight] != 0 {
+			t.Fatalf("rainbow angel should preserve printed skill cost, cost=%v", cost)
+		}
+		p0.Elements[model.ElementLight] = cost[model.ElementWater]
+		if !engine.canPayCost(p0, cost) {
+			t.Fatalf("rainbow angel should let light pay preserved water skill cost, elements=%v cost=%v", p0.Elements, cost)
 		}
 		playCost := engine.effectiveCardPlayCost(p0, waterCompanion)
-		if playCost[model.ElementWater] != 0 || playCost[model.ElementLight] == 0 {
-			t.Fatalf("rainbow angel should convert non-light card play cost to light, cost=%v", playCost)
+		if playCost[model.ElementWater] == 0 || playCost[model.ElementLight] != 0 {
+			t.Fatalf("rainbow angel should preserve printed card play cost, cost=%v", playCost)
+		}
+		p0.Elements = cloneElements(map[string]int{model.ElementLight: playCost[model.ElementWater]})
+		if !engine.canPayCost(p0, playCost) {
+			t.Fatalf("rainbow angel should let light pay preserved water entry cost, elements=%v cost=%v", p0.Elements, playCost)
 		}
 	})
 
@@ -7446,6 +7454,68 @@ func TestDefenseAndPositionSkillEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("sky sense adds power when lightning chain extra target is back row", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		front := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		back := placeUnit(baseCard(t, "1021001"), 1, 1, 2, engine)
+		p0.Skills[0] = readySkill(baseCard(t, "3321001"), 0)
+		p0.Skills[1] = readySkill(baseCard(t, "3321012"), 0)
+		p0.Skills[1].Statuses[StatusAbilityDuration] = 1
+		p0.Elements[model.ElementAir] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id":      p0.Skills[0].InstanceID,
+			"target_type":      "unit",
+			"target_col":       float64(front.Position.Col),
+			"target_row":       float64(front.Position.Row),
+			"extra_target_col": float64(back.Position.Col),
+			"extra_target_row": float64(back.Position.Row),
+		}}); err != nil {
+			t.Fatalf("cast lightning chain with sky sense: %v", err)
+		}
+		want := baseCard(t, "3321001").Power + 2
+		if engine.State.PendingSpell.TotalPower != want {
+			t.Fatalf("sky sense should add +2 power for lightning chain extra back-row target, got %d want %d", engine.State.PendingSpell.TotalPower, want)
+		}
+	})
+
+	t.Run("petrifying vine remains defendable with phantom pain and heart piercer in play", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		p0.Skills[0] = readySkill(baseCard(t, "3421002"), 0)
+		p1.Skills[0] = readySkill(baseCard(t, "3121001"), 1)
+		p0.Elements[model.ElementEarth] = 10
+		p1.Elements[model.ElementFire] = 10
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		placeUnit(baseCard(t, "1611003"), 0, 0, 0, engine)
+		p0.Equipment[0] = NewCardInstance(baseCard(t, "2601001"), 0, engine.State.TurnNumber)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(target.Position.Col),
+			"target_row":  float64(target.Position.Row),
+		}}); err != nil {
+			t.Fatalf("cast petrifying vine: %v", err)
+		}
+		if engine.State.Phase != PhaseDefenseWindow {
+			t.Fatalf("petrifying vine should open a normal defense window, phase=%s", engine.State.Phase)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "defend", Data: map[string]any{
+			"skill_ids": []any{p1.Skills[0].InstanceID},
+		}}); err != nil {
+			t.Fatalf("defend petrifying vine with phantom pain in play: %v", err)
+		}
+		if engine.State.PendingSpell != nil || engine.State.Phase != PhaseMain {
+			t.Fatalf("successful defense should close the defense window, phase=%s pending=%+v", engine.State.Phase, engine.State.PendingSpell)
+		}
+		if p1.Skills[0].Statuses[StatusWeaken] != 2 {
+			t.Fatalf("phantom pain should weaken the successful defense spell after resolution, statuses=%v", p1.Skills[0].Statuses)
+		}
+	})
+
 	t.Run("earthshaker gains power from friendly earth load", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
@@ -10216,7 +10286,7 @@ func TestDamagedAndDeathTriggeredCardEffects(t *testing.T) {
 		}
 	})
 
-	t.Run("great druid ultimate arms the next friendly companion death into a life seed summon", func(t *testing.T) {
+	t.Run("great druid triggered ultimate asks once on friendly companion death", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		druid := placeUnit(baseCard(t, "1411001"), 0, 0, 0, engine)
@@ -10224,24 +10294,19 @@ func TestDamagedAndDeathTriggeredCardEffects(t *testing.T) {
 		addElementsGainBonus(ally, model.ElementEarth, 2)
 		ally.CurrentLife = ally.Card.Life + 2
 
-		engine.destroyUnit(ally, 0)
-		if len(p0.Graveyard) != 1 || len(p0.Hand) != 0 {
-			t.Fatalf("druid should not trigger before ultimate, graveyard=%v hand=%v", cardsToInfo(p0.Graveyard), cardsToInfo(p0.Hand))
-		}
-
-		ally2 := placeUnit(baseCard(t, "1421003"), 0, 1, 0, engine)
-		addElementsGainBonus(ally2, model.ElementEarth, 2)
-		ally2.CurrentLife = ally2.Card.Life + 2
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
 			"instance_id":  druid.InstanceID,
 			"ability_type": "ultimate",
-		}}); err != nil {
-			t.Fatalf("use druid ultimate: %v", err)
+		}}); err == nil {
+			t.Fatalf("druid triggered ultimate should not be manually usable")
 		}
-		engine.destroyUnit(ally2, 0)
+		engine.destroyUnit(ally, 0)
 
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "great_druid_life_seed" {
-			t.Fatalf("druid ultimate should ask whether to summon a life seed, pending=%+v", engine.State.PendingAction)
+			t.Fatalf("druid triggered ultimate should ask whether to summon a life seed, pending=%+v", engine.State.PendingAction)
+		}
+		if !druid.UltimateUsed {
+			t.Fatalf("druid triggered ultimate should be spent when the optional trigger opens")
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{druid.InstanceID},
@@ -10269,6 +10334,12 @@ func TestDamagedAndDeathTriggeredCardEffects(t *testing.T) {
 		}
 		if seed.CurrentLife != seed.Card.Life+2 || effectiveElementsGain(seed)[model.ElementEarth] != seed.Card.ElementsGain[model.ElementEarth]+2 {
 			t.Fatalf("life seed should inherit life/load bonuses, life=%d load=%v", seed.CurrentLife, effectiveElementsGain(seed))
+		}
+
+		ally2 := placeUnit(baseCard(t, "1421003"), 0, 1, 0, engine)
+		engine.destroyUnit(ally2, 0)
+		if engine.State.PendingAction != nil {
+			t.Fatalf("druid triggered ultimate should not trigger a second time, pending=%+v", engine.State.PendingAction)
 		}
 	})
 }

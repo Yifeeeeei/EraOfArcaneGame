@@ -493,19 +493,25 @@ func (Card1401002SpiritBeastXinke) OnFriendlyDamagedFromHidden(ctx *EffectContex
 
 type Card1411001GreatDruidCycle struct{ AlwaysActive }
 
-func (Card1411001GreatDruidCycle) ID() string   { return "1411001" }
-func (Card1411001GreatDruidCycle) Name() string { return "\"轮回不息\" 大德鲁伊 烟尘" }
+func (Card1411001GreatDruidCycle) ID() string                           { return "1411001" }
+func (Card1411001GreatDruidCycle) Name() string                         { return "\"轮回不息\" 大德鲁伊 烟尘" }
+func (Card1411001GreatDruidCycle) HasActiveUltimate(*CardInstance) bool { return false }
 func (Card1411001GreatDruidCycle) OnUltimate(ctx *EffectContext) error {
 	ctx.Source.Statuses["轮回不息"] = 1
 	return nil
 }
 func (Card1411001GreatDruidCycle) OnFriendlyDeath(ctx *EffectContext) error {
+	if ctx.Source.UltimateUsed {
+		return nil
+	}
+	ctx.Source.Statuses["轮回不息"] = 1
 	if ctx.Source.Statuses["轮回不息"] == 0 || ctx.Target == nil || !ctx.Target.Card.IsCompanion() {
 		return nil
 	}
 	if ctx.Engine.State.Players[ctx.PlayerID].FindEmptyPosition() == nil || getCardDB()["1401001"] == nil {
 		return nil
 	}
+	ctx.Source.UltimateUsed = true
 	candidates := []map[string]any{candidateInfo(ctx.Source, "companion", "own")}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "great_druid_life_seed", "\"轮回不息\" 大德鲁伊 烟尘:是否召唤1个生命种子", candidates, 0, 1, func(selected []string) {
 		if len(selected) == 0 {
@@ -673,7 +679,7 @@ func (Card1511001WhiteRobeSage) OnUltimate(ctx *EffectContext) error {
 		if !ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, cardHasPierce(ctx.Source)) {
 			return false
 		}
-		return ps.CanPayCost(ctx.Engine.effectiveCardPlayCost(ps, card))
+		return ctx.Engine.canPayCost(ps, ctx.Engine.effectiveCardPlayCost(ps, card))
 	})
 	if len(targets) == 0 {
 		return nil
@@ -727,7 +733,7 @@ func resolveWhiteRobeSageControl(ctx *EffectContext, target *CardInstance, pos P
 	if !pos.Valid() || ps.Units[pos.Col][pos.Row] != nil {
 		return fmt.Errorf("no empty position")
 	}
-	if !payCostForAction(ps, cost, ActionMessage{Data: data}) {
+	if !ctx.Engine.payCostForAction(ps, cost, ActionMessage{Data: data}) {
 		return fmt.Errorf("invalid payment")
 	}
 	op := ctx.Engine.State.Players[ctx.OpponentID]
@@ -742,21 +748,6 @@ type Card1521007RainbowAngel struct{ AlwaysActive }
 
 func (Card1521007RainbowAngel) ID() string   { return "1521007" }
 func (Card1521007RainbowAngel) Name() string { return "虹之天使" }
-func (Card1521007RainbowAngel) ModifyCardPlayCost(ctx *EffectContext, card *CardInstance, cost map[string]int) {
-	rainbowAngelConvertCostToLight(cost)
-}
-func (Card1521007RainbowAngel) ModifySkillUseCost(ctx *EffectContext, cost map[string]int) {
-	rainbowAngelConvertCostToLight(cost)
-}
-
-func rainbowAngelConvertCostToLight(cost map[string]int) {
-	for elem, amount := range cost {
-		if elem != model.ElementLight && elem != model.ElementArcane && amount > 0 {
-			cost[model.ElementLight] += amount
-			cost[elem] = 0
-		}
-	}
-}
 
 type Card1611002BlackRobeExecutor struct{ AlwaysActive }
 
@@ -1086,14 +1077,14 @@ func (Card2211002WinterBow) OnSpellCast(ctx *EffectContext) error {
 	if _, ok := ctx.ExtraData["cast_player"].(int); !ok {
 		return nil
 	}
-	if !winterBowPlayer.CanPayCost(map[string]int{model.ElementWater: 1}) {
+	if !ctx.Engine.canPayCost(winterBowPlayer, map[string]int{model.ElementWater: 1}) {
 		return nil
 	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "winter_bow_water_mark", "嗜魔弓 凛冬:是否支付1水放置1个水纹标记物", []map[string]any{candidateInfo(ctx.Source, "equipment", "own")}, 0, 1, func(selected []string) {
 		if len(selected) == 0 {
 			return
 		}
-		if winterBowPlayer.PayCost(map[string]int{model.ElementWater: 1}) {
+		if ctx.Engine.payCostForAction(winterBowPlayer, map[string]int{model.ElementWater: 1}, ActionMessage{}) {
 			ctx.Source.Statuses[winterBowWaterMark]++
 		}
 	})

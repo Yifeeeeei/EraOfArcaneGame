@@ -13,7 +13,7 @@ func (Card3321007SourceWind) OnSpellCast(ctx *EffectContext) error {
 	}
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	for len(ps.Hand) < ctx.Engine.handLimitForPlayer(ps) && len(ps.Deck) > 0 {
-		if !ps.PayCost(map[string]int{model.ElementAir: 1}) {
+		if !ctx.Engine.payCostForAction(ps, map[string]int{model.ElementAir: 1}, ActionMessage{}) {
 			return nil
 		}
 		ctx.Engine.drawCards(ctx.PlayerID, 1)

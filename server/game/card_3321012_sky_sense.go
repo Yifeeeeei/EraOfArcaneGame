@@ -22,7 +22,11 @@ func (Card3321012SkySense) ModifySpellStats(ctx *EffectContext, stats *SpellStat
 	if frontRow < 0 {
 		return
 	}
-	for _, unit := range ctx.Engine.spellAffectedUnits(defenderID, ctx.Target, target) {
+	extraTargets := []SpellTarget{}
+	if targets, ok := ctx.ExtraData["spell_targets"].([]SpellTarget); ok && len(targets) > 1 {
+		extraTargets = targets[1:]
+	}
+	for _, unit := range ctx.Engine.spellAffectedUnitsWithExtraTargets(defenderID, ctx.Target, target, extraTargets) {
 		if unit.Position != nil && unit.Position.Row > frontRow {
 			stats.PowerBonus += 2
 			return

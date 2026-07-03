@@ -27,7 +27,7 @@ func (Card4311003Muling) OnUltimate(ctx *EffectContext) error {
 			diff := absInt(own.Card.TotalCost() - enemy.Card.TotalCost())
 			cost := map[string]int{model.ElementAir: diff}
 			ps := ctx.Engine.State.Players[ctx.PlayerID]
-			if !ps.PayCost(cost) {
+			if !ctx.Engine.payCostForAction(ps, cost, ActionMessage{}) {
 				ctx.Engine.emit(GameEvent{
 					Type:   "error",
 					Player: ctx.PlayerID,

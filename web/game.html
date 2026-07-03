@@ -1239,6 +1239,9 @@
                 }
                 return cards;
             }
+            function hasLightWildcardPayment() {
+                return allMyFieldCards().some(card => card?.number === '1521007' && !(Number(card.statuses?.['石化'] || 0) > 0));
+            }
             function showCardDetail(card) { detailCard.value = card; }
             function previewCard(card) {
                 if (card) {
@@ -1257,7 +1260,7 @@
                 return calculatePaymentWithAvailable(myState.value.elements || {}, cost);
             }
 
-            function calculatePaymentWithAvailable(availableSource, cost) {
+            function calculatePaymentWithAvailable(availableSource, cost, lightWildcard = hasLightWildcardPayment()) {
                 const remaining = {};
                 for (const [elem, raw] of Object.entries(cost || {})) {
                     const value = Number(raw) || 0;
@@ -1287,6 +1290,11 @@
                     const amount = Math.min(available['无'] || 0, need);
                     pay('无', amount);
                     remaining[elem] = need - amount;
+                    if (remaining[elem] > 0 && lightWildcard && elem !== '光') {
+                        const lightAmount = Math.min(available['光'] || 0, remaining[elem]);
+                        pay('光', lightAmount);
+                        remaining[elem] -= lightAmount;
+                    }
                     if (remaining[elem] > 0) return null;
                 }
 
