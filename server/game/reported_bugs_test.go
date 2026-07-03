@@ -1,6 +1,7 @@
 package game
 
 import (
+	"strings"
 	"testing"
 
 	"eraofarcane/cards"
@@ -187,6 +188,86 @@ func TestSlotExpansionItemsAdjustCapacity(t *testing.T) {
 		info = engine.playerStateToInfo(p0, true)
 		if info["equipment_slot_capacity"] != BaseEquipmentSlots || len(info["equipment"].([]any)) != BaseEquipmentSlots {
 			t.Fatalf("player info should shrink equipment slots, capacity=%v equipment=%v", info["equipment_slot_capacity"], info["equipment"])
+		}
+	})
+}
+
+func TestRoom6775CardTextRegressions(t *testing.T) {
+	t.Run("Whitebeard search replaces the first-turn draw only when chosen", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		whitebeard := NewCardInstance(baseCard(t, "4411001"), 0, 1)
+		drawCard := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		searchCard := NewCardInstance(baseCard(t, "1421003"), 0, 1)
+		p0.Hero = whitebeard
+		p0.Deck = []*CardInstance{drawCard, searchCard}
+		engine.State.CurrentTurn = 0
+		engine.State.TurnNumber = 1
+
+		engine.startTurn()
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "whitebeard_first_turn_search" {
+			t.Fatalf("Whitebeard should ask before the draw step, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, searchCard.InstanceID)
+		if len(p0.Hand) != 1 || p0.Hand[0] != searchCard || len(p0.Deck) != 1 || p0.Deck[0] != drawCard {
+			t.Fatalf("choosing Whitebeard search should replace draw, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
+		}
+
+		engine = setupReportedBugEngine(t)
+		p0 = engine.State.Players[0]
+		whitebeard = NewCardInstance(baseCard(t, "4411001"), 0, 1)
+		drawCard = NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		searchCard = NewCardInstance(baseCard(t, "1421003"), 0, 1)
+		p0.Hero = whitebeard
+		p0.Deck = []*CardInstance{drawCard, searchCard}
+		engine.State.CurrentTurn = 0
+		engine.State.TurnNumber = 1
+
+		engine.startTurn()
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "whitebeard_first_turn_search" {
+			t.Fatalf("Whitebeard should ask before skipped search branch, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0)
+		if len(p0.Hand) != 1 || p0.Hand[0] != drawCard || len(p0.Deck) != 1 || p0.Deck[0] != searchCard {
+			t.Fatalf("skipping Whitebeard search should keep normal draw, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
+		}
+	})
+
+	t.Run("Heart Piercer adds a separate optional weak target after Phantom Pain", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		p0.Skills[0] = readySkill(baseCard(t, "3421002"), 0)
+		p1.Skills[0] = readySkill(baseCard(t, "3121001"), 1)
+		p1.Skills[1] = readySkill(baseCard(t, "3121002"), 1)
+		p0.Elements[model.ElementEarth] = 10
+		p1.Elements[model.ElementFire] = 10
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		placeUnit(baseCard(t, "1611003"), 0, 0, 0, engine)
+		p0.Equipment[0] = NewCardInstance(baseCard(t, "2601001"), 0, engine.State.TurnNumber)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[0].InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(target.Position.Col),
+			"target_row":  float64(target.Position.Row),
+		}}); err != nil {
+			t.Fatalf("cast attack spell: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "defend", Data: map[string]any{
+			"skill_ids": []any{p1.Skills[0].InstanceID},
+		}}); err != nil {
+			t.Fatalf("defend attack spell: %v", err)
+		}
+		if p1.Skills[0].Statuses[StatusWeaken] != 2 {
+			t.Fatalf("Phantom Pain should weaken the used defense skill, statuses=%v", p1.Skills[0].Statuses)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "heart_piercer_phantom_pain_extra" {
+			t.Fatalf("Heart Piercer should open an extra optional weak prompt, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, p1.Skills[1].InstanceID)
+		if p1.Skills[1].Statuses[StatusWeaken] != 2 {
+			t.Fatalf("Heart Piercer extra should weaken the selected enemy spell, statuses=%v", p1.Skills[1].Statuses)
 		}
 	})
 }
@@ -3140,6 +3221,34 @@ func placeUnit(card *model.Card, ownerID int, col int, row int, engine *Engine) 
 	unit.Position = &Position{Col: col, Row: row}
 	engine.State.Players[ownerID].Units[col][row] = unit
 	return unit
+}
+
+func pendingCandidateIDContaining(t *testing.T, engine *Engine, fragment string) string {
+	t.Helper()
+	if engine.State.PendingAction == nil {
+		t.Fatalf("expected pending action containing %q, got nil", fragment)
+	}
+	for _, candidate := range engine.State.PendingAction.Candidates {
+		id, _ := candidate["instance_id"].(string)
+		if strings.Contains(id, fragment) {
+			return id
+		}
+	}
+	t.Fatalf("pending action %s has no candidate containing %q: %+v", engine.State.PendingAction.Type, fragment, engine.State.PendingAction.Candidates)
+	return ""
+}
+
+func resolvePendingSelection(t *testing.T, engine *Engine, playerID int, selected ...string) {
+	t.Helper()
+	values := make([]any, 0, len(selected))
+	for _, id := range selected {
+		values = append(values, id)
+	}
+	if err := engine.HandleAction(playerID, ActionMessage{Action: "resolve_action", Data: map[string]any{
+		"selected": values,
+	}}); err != nil {
+		t.Fatalf("resolve pending action: %v", err)
+	}
 }
 
 func countCardNumber(cards []*CardInstance, number string) int {
@@ -7508,11 +7617,15 @@ func TestDefenseAndPositionSkillEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("defend petrifying vine with phantom pain in play: %v", err)
 		}
-		if engine.State.PendingSpell != nil || engine.State.Phase != PhaseMain {
-			t.Fatalf("successful defense should close the defense window, phase=%s pending=%+v", engine.State.Phase, engine.State.PendingSpell)
+		if engine.State.PendingSpell != nil || engine.State.PendingAction == nil || engine.State.PendingAction.Type != "heart_piercer_phantom_pain_extra" {
+			t.Fatalf("successful defense should queue Heart Piercer extra after closing the spell, phase=%s spell=%+v pending=%+v", engine.State.Phase, engine.State.PendingSpell, engine.State.PendingAction)
 		}
 		if p1.Skills[0].Statuses[StatusWeaken] != 2 {
 			t.Fatalf("phantom pain should weaken the successful defense spell after resolution, statuses=%v", p1.Skills[0].Statuses)
+		}
+		resolvePendingSelection(t, engine, 0)
+		if engine.State.PendingAction != nil || engine.State.Phase != PhaseMain {
+			t.Fatalf("skipping Heart Piercer extra should return to main, phase=%s pending=%+v", engine.State.Phase, engine.State.PendingAction)
 		}
 	})
 
@@ -7990,8 +8103,16 @@ func TestMasteryIsPerCardAndSettlesAsMark(t *testing.T) {
 		if tree.Statuses[StatusMastery] != 4 || guard.Statuses[StatusMastery] != 5 {
 			t.Fatalf("knowledge tree should max per-card mastery, tree=%v guard=%v", tree.Statuses, guard.Statuses)
 		}
-		if effectiveElementsGain(tree)[model.ElementEarth] != tree.Card.ElementsGain[model.ElementEarth]+2 {
-			t.Fatalf("growing treant should receive both mastery load bonuses, load=%v", effectiveElementsGain(tree))
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "growing_treant_mastery_choice" {
+			t.Fatalf("growing treant mastery should ask for its level 2 reward, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, pendingCandidateIDContaining(t, engine, ":load:2"))
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "growing_treant_mastery_choice" {
+			t.Fatalf("growing treant mastery should ask for its level 4 reward, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, pendingCandidateIDContaining(t, engine, ":life:4"))
+		if effectiveElementsGain(tree)[model.ElementEarth] != tree.Card.ElementsGain[model.ElementEarth]+1 || tree.CurrentLife != tree.Card.Life+1 {
+			t.Fatalf("growing treant should apply selected mastery rewards, life=%d load=%v", tree.CurrentLife, effectiveElementsGain(tree))
 		}
 		if guard.CurrentLife != guard.Card.Life+1 || effectiveElementsGain(guard)[model.ElementEarth] != guard.Card.ElementsGain[model.ElementEarth]+1 || guard.AttackBonus != 2 {
 			t.Fatalf("forest guard mastery bonuses wrong, life=%d load=%v attack_bonus=%d", guard.CurrentLife, effectiveElementsGain(guard), guard.AttackBonus)
@@ -8023,6 +8144,10 @@ func TestMasteryIsPerCardAndSettlesAsMark(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("consume treant twice: %v", err)
 		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "growing_treant_mastery_choice" {
+			t.Fatalf("mastery 2 should ask for a treant reward, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, pendingCandidateIDContaining(t, engine, ":load:2"))
 		if tree.Statuses[StatusMastery] != 2 || effectiveElementsGain(tree)[model.ElementEarth] != tree.Card.ElementsGain[model.ElementEarth]+1 {
 			t.Fatalf("mastery 2 should trigger exactly one treant load bonus on consume, statuses=%v load=%v", tree.Statuses, effectiveElementsGain(tree))
 		}
@@ -8082,6 +8207,40 @@ func TestMasteryIsPerCardAndSettlesAsMark(t *testing.T) {
 		stats = engine.skillContributionStats(0, forestShelter, nil, skillPurposeDefend)
 		if stats.PowerBonus != 6 {
 			t.Fatalf("forest shelter mastery 3 should become 6 power, stats=%+v", stats)
+		}
+	})
+
+	t.Run("defense skill use advances skill mastery but overexert does not", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		attacker := readySkill(baseCard(t, "3121001"), 0)
+		defender := readySkill(baseCard(t, "3421003"), 1)
+		p0.Skills[0] = attacker
+		p1.Skills[0] = defender
+		p0.Elements[model.ElementFire] = 10
+		p1.Elements[model.ElementEarth] = 10
+		overexertUnit := placeUnit(baseCard(t, "1421003"), 1, 1, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": attacker.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(overexertUnit.Position.Col),
+			"target_row":  float64(overexertUnit.Position.Row),
+		}}); err != nil {
+			t.Fatalf("cast attack spell: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "defend", Data: map[string]any{
+			"skill_ids":     []any{defender.InstanceID},
+			"overexert_ids": []any{overexertUnit.InstanceID},
+		}}); err != nil {
+			t.Fatalf("defend with earth crack: %v", err)
+		}
+		if defender.Statuses[StatusMastery] != 1 {
+			t.Fatalf("defense skill use should advance its own mastery, statuses=%v", defender.Statuses)
+		}
+		if overexertUnit.Statuses[StatusMastery] != 0 {
+			t.Fatalf("overexerting a unit should not advance mastery, statuses=%v", overexertUnit.Statuses)
 		}
 	})
 

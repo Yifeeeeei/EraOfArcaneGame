@@ -282,6 +282,7 @@ func (e *Engine) handleReactSpell(playerID int, action ActionMessage) error {
 	if skill.Card.IsSkill() {
 		e.consumeNextSkillUseModifiers(ps, skill)
 	}
+	e.advanceMasteryForUsedSkills(playerID, skill)
 
 	behavior := behaviorForNumber(skill.Card.Number).(SpellReactionBehavior)
 	if !behavior.HasActiveSpellReaction(skill) {
@@ -446,7 +447,7 @@ func (e *Engine) continuePreDrawTurnStartEffects(ps *PlayerState, cards []*CardI
 	}
 	for i := start; i < len(cards); i++ {
 		card := cards[i]
-		if card == nil || card.Card == nil || card.Card.Number != "1021008" || e.hasEffectiveStatus(card, StatusPetrify) {
+		if card == nil || card.Card == nil || !isPreDrawTurnStartCard(card.Card.Number) || e.hasEffectiveStatus(card, StatusPetrify) {
 			continue
 		}
 		if !e.cardStillOnField(card) {
@@ -473,6 +474,15 @@ func (e *Engine) continuePreDrawTurnStartEffects(ps *PlayerState, cards []*CardI
 		}
 	}
 	e.continueStartTurnAfterPreDraw(ps)
+}
+
+func isPreDrawTurnStartCard(number string) bool {
+	switch number {
+	case "1021008", "4411001":
+		return true
+	default:
+		return false
+	}
 }
 
 func (e *Engine) triggerPrayerAbilities(playerID int) {
@@ -1079,6 +1089,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	}
 	e.applySkillUseCooldownModifiers(ps, append([]*CardInstance{skill}, boostSkills...)...)
 	e.consumeNextSkillUseModifiers(ps, skill)
+	e.advanceMasteryForUsedSkills(playerID, append([]*CardInstance{skill}, boostSkills...)...)
 
 	powerTargets := append([]SpellTarget{target}, extraTargets...)
 	totalPower := e.effectiveSpellPower(playerID, skill, boostSkills, powerTargets...)
@@ -1222,6 +1233,9 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		tapSkills(defenseSkills)
 		tapSkills(boostSkills)
 		e.moveHandConsumablesToGraveyard(ps, append(defenseScrolls, boostScrolls...))
+		usedSkills := append([]*CardInstance{}, defenseSkills...)
+		usedSkills = append(usedSkills, boostSkills...)
+		e.advanceMasteryForUsedSkills(playerID, usedSkills...)
 	}
 
 	defenseSources := append([]*CardInstance{}, defenseSkills...)
@@ -1569,6 +1583,7 @@ func (e *Engine) payAndUseDispel(playerID int, dispel *CardInstance, cost map[st
 	}
 	e.applySkillUseCooldownModifiers(e.State.Players[playerID], dispel)
 	e.consumeNextSkillUseModifiers(e.State.Players[playerID], dispel)
+	e.advanceMasteryForUsedSkills(playerID, dispel)
 	return nil
 }
 

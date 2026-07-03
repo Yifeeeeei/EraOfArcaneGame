@@ -58,6 +58,7 @@ func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, ta
 		return
 	}
 	e.applySkillUseCooldownModifiers(ps, skill)
+	e.advanceMasteryForUsedSkills(playerID, skill)
 	totalPower := e.effectiveSpellPower(playerID, skill, nil, target)
 	isSorcery := isSorcerySkill(skill.Card)
 	spellCastData := map[string]any{

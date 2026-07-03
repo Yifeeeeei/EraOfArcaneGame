@@ -214,7 +214,53 @@ func (Card2601001PhantomPain) OnDefend(ctx *EffectContext) error {
 	}
 	weakenDefenseCards("defense_skills")
 	weakenDefenseCards("defense_boosts")
+	ctx.Engine.promptHeartPiercerAfterPhantomPain(ctx)
 	return nil
+}
+
+func (e *Engine) promptHeartPiercerAfterPhantomPain(ctx *EffectContext) {
+	if ctx == nil || ctx.Engine == nil {
+		return
+	}
+	owner := ctx.PlayerID
+	if firstActiveCardByNumber(e, e.State.Players[owner], "1611003") == nil {
+		return
+	}
+	candidates := e.enemySpellCardCandidates(owner)
+	if len(candidates) == 0 {
+		return
+	}
+	opponent := e.State.Players[1-owner]
+	e.SetPendingAction(owner, "heart_piercer_phantom_pain_extra", "\"穿心人\":幻痛触发,可以额外选择1个敌方法术虚弱2", candidates, 0, 1, func(selected []string) {
+		if len(selected) == 0 {
+			return
+		}
+		target := e.findSkill(opponent, selected[0])
+		if target != nil && target.Card != nil && isSpellLikeCard(target.Card) {
+			e.addStatus(target, StatusWeaken, 2)
+		}
+	})
+}
+
+func (e *Engine) enemySpellCardCandidates(playerID int) []map[string]any {
+	ps := e.State.Players[1-playerID]
+	candidates := make([]map[string]any, 0)
+	for _, skill := range ps.Skills {
+		if skill != nil && skill.Card != nil && isSpellLikeCard(skill.Card) {
+			candidates = append(candidates, candidateInfo(skill, "skill", "enemy"))
+		}
+	}
+	for _, card := range e.getAllFieldCards(ps) {
+		if card == nil {
+			continue
+		}
+		for _, skill := range card.BoundSkills {
+			if skill != nil && skill.Card != nil && isSpellLikeCard(skill.Card) {
+				candidates = append(candidates, candidateInfo(skill, "bound_skill", "enemy"))
+			}
+		}
+	}
+	return candidates
 }
 
 type Card2621002VoodooDoll struct{ AlwaysActive }
