@@ -1492,9 +1492,27 @@
             const devourSelection = ref([]);
             const pendingSummonDevour = ref({});
 
-            function needsPaymentChoice(cost) {
+            function hasArcanePaymentChoice(cost) {
                 if (!cost || Number(cost['无'] || 0) <= 0) return false;
                 return ELEMENT_ORDER.filter(elem => Number(myState.value.elements?.[elem] || 0) > 0).length > 1;
+            }
+
+            function hasLightWildcardPaymentChoice(cost) {
+                if (!cost || !hasLightWildcardPayment() || Number(myState.value.elements?.['光'] || 0) <= 0) return false;
+                if (calculatePaymentWithAvailable(myState.value.elements || {}, cost, false) === null) return false;
+                for (const elem of ELEMENT_ORDER) {
+                    if (elem === '光' || elem === '无' || Number(cost[elem] || 0) <= 0) continue;
+                    const remainingCost = { ...(cost || {}) };
+                    remainingCost[elem] = Number(remainingCost[elem] || 0) - 1;
+                    const remainingAvailable = cloneElements(myState.value.elements || {});
+                    remainingAvailable['光'] = Number(remainingAvailable['光'] || 0) - 1;
+                    if (calculatePaymentWithAvailable(remainingAvailable, remainingCost, true) !== null) return true;
+                }
+                return false;
+            }
+
+            function needsPaymentChoice(cost) {
+                return hasArcanePaymentChoice(cost) || hasLightWildcardPaymentChoice(cost);
             }
 
             function sendPaidAction(action, data, cost, title, afterSend) {
