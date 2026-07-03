@@ -11,7 +11,7 @@ func (Card2521005RebirthScroll) OnUseItem(ctx *EffectContext) error {
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	candidates := make([]map[string]any, 0)
 	for _, card := range ps.Graveyard {
-		if card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementLight && ps.CanPayCost(card.Card.ElementsCost) {
+		if card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementLight && ctx.Engine.canPayCost(ps, card.Card.ElementsCost) {
 			candidates = append(candidates, candidateInfo(card, "graveyard", "own"))
 		}
 	}

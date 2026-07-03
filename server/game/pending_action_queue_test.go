@@ -168,14 +168,6 @@ func TestFriendlyDeathPendingActionsQueueWhenMultiplePromptsTrigger(t *testing.T
 	dead := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
 	targetSkill := readySkill(baseCard(t, "3121001"), 0)
 	p0.Skills[0] = targetSkill
-	if err := (Card1411001GreatDruidCycle{}).OnUltimate(&EffectContext{
-		Engine:     engine,
-		Source:     greatDruid,
-		PlayerID:   0,
-		OpponentID: 1,
-	}); err != nil {
-		t.Fatalf("arm great druid ultimate: %v", err)
-	}
 
 	engine.destroyUnit(dead, 0)
 	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "alice_boost_spell" {

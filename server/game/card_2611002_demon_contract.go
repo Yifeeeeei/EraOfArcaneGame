@@ -26,7 +26,7 @@ func (Card2611002DemonContract) OnUseItem(ctx *EffectContext) error {
 				return card.Card.IsCompanion() &&
 					card.Position != nil &&
 					ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false) &&
-					ps.CanPayCost(demonContractExtraCost(sacrifice, card))
+					ctx.Engine.canPayCost(ps, demonContractExtraCost(sacrifice, card))
 			})
 			if len(targets) == 0 {
 				return
@@ -43,7 +43,7 @@ func (Card2611002DemonContract) OnUseItem(ctx *EffectContext) error {
 					if target.Position == nil || !ctx.Engine.IsInSpellRange(ctx.PlayerID, target.Position.Col, target.Position.Row, false) {
 						return
 					}
-					if !ps.PayCost(demonContractExtraCost(sacrifice, target)) {
+					if !ctx.Engine.payCostForAction(ps, demonContractExtraCost(sacrifice, target), ActionMessage{}) {
 						return
 					}
 					ctx.Engine.destroyUnitWithCause(sacrifice, ctx.PlayerID, DeathCauseSacrifice)

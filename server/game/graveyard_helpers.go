@@ -27,10 +27,10 @@ func (e *Engine) reviveCompanionFromGraveyardWithLifeAtPosition(playerID int, in
 			continue
 		}
 		if payCost {
-			if !ps.CanPayCost(card.Card.ElementsCost) {
+			if !e.canPayCost(ps, card.Card.ElementsCost) {
 				return false
 			}
-			ps.PayCost(card.Card.ElementsCost)
+			e.payCostForAction(ps, card.Card.ElementsCost, ActionMessage{})
 		}
 		ps.Graveyard = append(ps.Graveyard[:i], ps.Graveyard[i+1:]...)
 		if life > 0 {

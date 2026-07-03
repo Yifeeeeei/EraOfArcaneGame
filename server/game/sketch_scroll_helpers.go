@@ -54,10 +54,11 @@ func (e *Engine) spellTargetCandidates(playerID int, skill *CardInstance) []map[
 func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, target SpellTarget) {
 	ps := e.State.Players[playerID]
 	cost := e.effectiveSkillUseCost(ps, skill)
-	if !ps.PayCost(cost) {
+	if !e.payCostForAction(ps, cost, ActionMessage{}) {
 		return
 	}
 	e.applySkillUseCooldownModifiers(ps, skill)
+	e.advanceMasteryForUsedSkills(playerID, skill)
 	totalPower := e.effectiveSpellPower(playerID, skill, nil, target)
 	isSorcery := isSorcerySkill(skill.Card)
 	spellCastData := map[string]any{

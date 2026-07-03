@@ -265,10 +265,10 @@ func (e *Engine) handleReactSpell(playerID int, action ActionMessage) error {
 	if err != nil {
 		return err
 	}
-	if !canPayCostWithOverexert(ps, cost, overexertUnits) {
+	if !canPayCostWithOverexertOptions(ps, cost, overexertUnits, e.playerHasLightWildcard(ps)) {
 		return fmt.Errorf("not enough elements")
 	}
-	if !payDefenseCost(ps, cost, action, overexertUnits) {
+	if !payDefenseCostWithOptions(ps, cost, action, overexertUnits, e.playerHasLightWildcard(ps)) {
 		return fmt.Errorf("invalid payment")
 	}
 
@@ -282,6 +282,7 @@ func (e *Engine) handleReactSpell(playerID int, action ActionMessage) error {
 	if skill.Card.IsSkill() {
 		e.consumeNextSkillUseModifiers(ps, skill)
 	}
+	e.advanceMasteryForUsedSkills(playerID, skill)
 
 	behavior := behaviorForNumber(skill.Card.Number).(SpellReactionBehavior)
 	if !behavior.HasActiveSpellReaction(skill) {
@@ -446,7 +447,7 @@ func (e *Engine) continuePreDrawTurnStartEffects(ps *PlayerState, cards []*CardI
 	}
 	for i := start; i < len(cards); i++ {
 		card := cards[i]
-		if card == nil || card.Card == nil || card.Card.Number != "1021008" || e.hasEffectiveStatus(card, StatusPetrify) {
+		if card == nil || card.Card == nil || !isPreDrawTurnStartCard(card.Card.Number) || e.hasEffectiveStatus(card, StatusPetrify) {
 			continue
 		}
 		if !e.cardStillOnField(card) {
@@ -473,6 +474,15 @@ func (e *Engine) continuePreDrawTurnStartEffects(ps *PlayerState, cards []*CardI
 		}
 	}
 	e.continueStartTurnAfterPreDraw(ps)
+}
+
+func isPreDrawTurnStartCard(number string) bool {
+	switch number {
+	case "1021008", "4411001":
+		return true
+	default:
+		return false
+	}
 }
 
 func (e *Engine) triggerPrayerAbilities(playerID int) {
@@ -732,11 +742,11 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 	}
 
 	cost := e.effectiveCardPlayCost(ps, card)
-	if !ps.CanPayCost(cost) {
+	if !e.canPayCost(ps, cost) {
 		return fmt.Errorf("not enough elements")
 	}
 
-	if !canPayCostForAction(ps, cost, action) {
+	if !e.canPayCostForAction(ps, cost, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	if err := e.validateAndApplySummonDevour(playerID, card, action); err != nil {
@@ -752,7 +762,7 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 	}
 
 	// Pay cost and place
-	if !payCostForAction(ps, cost, action) {
+	if !e.payCostForAction(ps, cost, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.notifyCardPlayCostPaid(ps, card)
@@ -1028,7 +1038,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 
 	// Check cost
 	cost := e.effectiveSkillUseCost(ps, skill)
-	if !ps.CanPayCost(cost) {
+	if !e.canPayCost(ps, cost) {
 		return fmt.Errorf("not enough elements")
 	}
 	if skill.Card.Number == "3021011" && !validateSingleElementPayment(ps.Elements, cost, action) {
@@ -1062,12 +1072,12 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		}
 	}
 	totalCost := mergeElementCosts(cost, boostCost)
-	if !ps.CanPayCost(totalCost) {
+	if !e.canPayCost(ps, totalCost) {
 		return fmt.Errorf("not enough elements for boost skills")
 	}
 
 	// Pay costs and set cards horizontal only after all validation succeeds.
-	if !payCostForAction(ps, totalCost, action) {
+	if !e.payCostForAction(ps, totalCost, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	skill.IsHorizontal = true
@@ -1079,9 +1089,11 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	}
 	e.applySkillUseCooldownModifiers(ps, append([]*CardInstance{skill}, boostSkills...)...)
 	e.consumeNextSkillUseModifiers(ps, skill)
+	e.advanceMasteryForUsedSkills(playerID, append([]*CardInstance{skill}, boostSkills...)...)
 
-	totalPower := e.effectiveSpellPower(playerID, skill, boostSkills, target)
-	powerSources := e.spellPowerSources(playerID, skill, boostSkills, totalPower, target)
+	powerTargets := append([]SpellTarget{target}, extraTargets...)
+	totalPower := e.effectiveSpellPower(playerID, skill, boostSkills, powerTargets...)
+	powerSources := e.spellPowerSources(playerID, skill, boostSkills, totalPower, powerTargets...)
 	e.consumeNextSpellPowerBonuses(ps, skill)
 
 	// Check if it's a 咒术 (sorcery - unblockable)
@@ -1211,16 +1223,19 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		return err
 	}
 	totalCost := mergeElementCosts(defenseCost, scrollCost, boostCost, boostScrollCost)
-	if !canPayCostWithOverexert(ps, totalCost, overexertUnits) {
+	if !canPayCostWithOverexertOptions(ps, totalCost, overexertUnits, e.playerHasLightWildcard(ps)) {
 		return fmt.Errorf("not enough elements for defense")
 	}
 	if len(defenseSkills)+len(defenseScrolls)+len(boostSkills) > 0 {
-		if !payDefenseCost(ps, totalCost, action, overexertUnits) {
+		if !payDefenseCostWithOptions(ps, totalCost, action, overexertUnits, e.playerHasLightWildcard(ps)) {
 			return fmt.Errorf("invalid payment")
 		}
 		tapSkills(defenseSkills)
 		tapSkills(boostSkills)
 		e.moveHandConsumablesToGraveyard(ps, append(defenseScrolls, boostScrolls...))
+		usedSkills := append([]*CardInstance{}, defenseSkills...)
+		usedSkills = append(usedSkills, boostSkills...)
+		e.advanceMasteryForUsedSkills(playerID, usedSkills...)
 	}
 
 	defenseSources := append([]*CardInstance{}, defenseSkills...)
@@ -1556,10 +1571,10 @@ func (e *Engine) payAndUseDispel(playerID int, dispel *CardInstance, cost map[st
 	if err != nil {
 		return err
 	}
-	if !canPayCostWithOverexert(e.State.Players[playerID], cost, overexertUnits) {
+	if !canPayCostWithOverexertOptions(e.State.Players[playerID], cost, overexertUnits, e.playerHasLightWildcard(e.State.Players[playerID])) {
 		return fmt.Errorf("not enough elements")
 	}
-	if !payDefenseCost(e.State.Players[playerID], cost, ActionMessage{Data: data}, overexertUnits) {
+	if !payDefenseCostWithOptions(e.State.Players[playerID], cost, ActionMessage{Data: data}, overexertUnits, e.playerHasLightWildcard(e.State.Players[playerID])) {
 		return fmt.Errorf("invalid payment")
 	}
 	dispel.IsHorizontal = true
@@ -1568,6 +1583,7 @@ func (e *Engine) payAndUseDispel(playerID int, dispel *CardInstance, cost map[st
 	}
 	e.applySkillUseCooldownModifiers(e.State.Players[playerID], dispel)
 	e.consumeNextSkillUseModifiers(e.State.Players[playerID], dispel)
+	e.advanceMasteryForUsedSkills(playerID, dispel)
 	return nil
 }
 
@@ -2603,7 +2619,7 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 		return fmt.Errorf("card is not equipment")
 	}
 	cost := e.effectiveCardPlayCost(ps, card)
-	if !ps.CanPayCost(cost) {
+	if !e.canPayCost(ps, cost) {
 		return fmt.Errorf("not enough elements")
 	}
 
@@ -2650,7 +2666,7 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 		}
 	}
 
-	if !payCostForAction(ps, cost, action) {
+	if !e.payCostForAction(ps, cost, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.notifyCardPlayCostPaid(ps, card)
@@ -2713,7 +2729,7 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 
 	// Check cost
 	cost := e.effectiveSkillLearnCost(ps, skill)
-	if !ps.CanPayCost(cost) {
+	if !e.canPayCost(ps, cost) {
 		return fmt.Errorf("not enough elements")
 	}
 	if skill.Card.Number == "3021011" && !validateSingleElementPayment(ps.Elements, cost, action) {
@@ -2752,7 +2768,7 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 	}
 
 	// Pay cost and place
-	if !payCostForAction(ps, cost, action) {
+	if !e.payCostForAction(ps, cost, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.notifyCardPlayCostPaid(ps, skill)
@@ -2861,12 +2877,12 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 
 	// Regular consumable item
 	cost := e.effectiveCardPlayCost(ps, card)
-	if !ps.CanPayCost(cost) {
+	if !e.canPayCost(ps, cost) {
 		return fmt.Errorf("not enough elements")
 	}
 
 	// Pay and use
-	if !payCostForAction(ps, cost, action) {
+	if !e.payCostForAction(ps, cost, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.notifyCardPlayCostPaid(ps, card)
@@ -2929,10 +2945,10 @@ func (e *Engine) handleUseSpellScrollItem(playerID int, action ActionMessage, ca
 	}
 
 	cost := e.effectiveCardPlayCost(ps, card)
-	if !ps.CanPayCost(cost) {
+	if !e.canPayCost(ps, cost) {
 		return fmt.Errorf("not enough elements")
 	}
-	if !payCostForAction(ps, cost, action) {
+	if !e.payCostForAction(ps, cost, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.notifyCardPlayCostPaid(ps, card)
@@ -3053,12 +3069,12 @@ func (e *Engine) handlePlaceTerrain(playerID int, action ActionMessage) error {
 
 	// Check cost
 	cost := e.effectiveCardPlayCost(ps, card)
-	if !ps.CanPayCost(cost) {
+	if !e.canPayCost(ps, cost) {
 		return fmt.Errorf("not enough elements")
 	}
 
 	// Pay cost and place
-	if !payCostForAction(ps, cost, action) {
+	if !e.payCostForAction(ps, cost, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.notifyCardPlayCostPaid(ps, card)
@@ -3624,18 +3640,48 @@ func (e *Engine) clearPendingForGameOver() {
 	e.State.ResumePhase = PhaseGameOver
 }
 
-func payCostForAction(ps *PlayerState, cost map[string]int, action ActionMessage) bool {
+func (e *Engine) payCostForAction(ps *PlayerState, cost map[string]int, action ActionMessage) bool {
 	if payment := paymentFromAction(action); payment != nil {
-		return ps.PayCostWithPayment(cost, payment)
+		if !validateElementPaymentWithOptions(ps.Elements, cost, payment, e.playerHasLightWildcard(ps)) {
+			return false
+		}
+		for elem, amount := range payment {
+			ps.Elements[elem] -= amount
+		}
+		return true
 	}
-	return ps.PayCost(cost)
+	payment, ok := calculateElementPaymentWithOptions(ps.Elements, cost, e.playerHasLightWildcard(ps))
+	if !ok {
+		return false
+	}
+	for elem, amount := range payment {
+		ps.Elements[elem] -= amount
+	}
+	return true
 }
 
-func canPayCostForAction(ps *PlayerState, cost map[string]int, action ActionMessage) bool {
+func (e *Engine) canPayCostForAction(ps *PlayerState, cost map[string]int, action ActionMessage) bool {
 	if payment := paymentFromAction(action); payment != nil {
-		return validateElementPayment(ps.Elements, cost, payment)
+		return validateElementPaymentWithOptions(ps.Elements, cost, payment, e.playerHasLightWildcard(ps))
 	}
-	return ps.CanPayCost(cost)
+	return e.canPayCost(ps, cost)
+}
+
+func (e *Engine) canPayCost(ps *PlayerState, cost map[string]int) bool {
+	_, ok := calculateElementPaymentWithOptions(ps.Elements, cost, e.playerHasLightWildcard(ps))
+	return ok
+}
+
+func (e *Engine) playerHasLightWildcard(ps *PlayerState) bool {
+	if e == nil || ps == nil {
+		return false
+	}
+	for _, card := range e.getAllFieldCards(ps) {
+		if card != nil && card.Card != nil && card.Card.Number == "1521007" && !e.hasEffectiveStatus(card, StatusPetrify) {
+			return true
+		}
+	}
+	return false
 }
 
 func paymentFromAction(action ActionMessage) map[string]int {
@@ -4186,6 +4232,7 @@ func (e *Engine) refreshPendingSpellPowerForModifiedSkill(playerID int, skill *C
 			return
 		}
 	}
-	spell.TotalPower = e.effectiveSpellPower(playerID, spell.Skill, spell.BoostSkills, spell.Target)
-	spell.PowerSources = e.spellPowerSources(playerID, spell.Skill, spell.BoostSkills, spell.TotalPower, spell.Target)
+	powerTargets := append([]SpellTarget{spell.Target}, spell.ExtraTargets...)
+	spell.TotalPower = e.effectiveSpellPower(playerID, spell.Skill, spell.BoostSkills, powerTargets...)
+	spell.PowerSources = e.spellPowerSources(playerID, spell.Skill, spell.BoostSkills, spell.TotalPower, powerTargets...)
 }

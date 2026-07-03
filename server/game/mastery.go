@@ -54,6 +54,15 @@ func (e *Engine) advanceMastery(card *CardInstance, playerID int, amount int) {
 	}
 }
 
+func (e *Engine) advanceMasteryForUsedSkills(playerID int, skills ...*CardInstance) {
+	for _, skill := range skills {
+		if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
+			continue
+		}
+		e.advanceMastery(skill, playerID, 1)
+	}
+}
+
 func (e *Engine) advanceAllMasteryToMax(ps *PlayerState) {
 	if ps == nil {
 		return

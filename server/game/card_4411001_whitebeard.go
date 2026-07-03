@@ -24,6 +24,7 @@ func (Card4411001Whitebeard) OnTurnStart(ctx *EffectContext) error {
 		if len(selected) == 0 {
 			return
 		}
+		ctx.Engine.State.Players[ctx.PlayerID].SkipNextDraw = true
 		ctx.Engine.searchDeckCardToHand(ctx.PlayerID, selected[0])
 	})
 	return nil

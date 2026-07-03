@@ -369,6 +369,7 @@ func (e *Engine) effectiveSpellPower(playerID int, skill *CardInstance, boostSki
 	extra := map[string]any{"stat": "power"}
 	if len(targets) > 0 {
 		extra["spell_target"] = targets[0]
+		extra["spell_targets"] = targets
 		if unit := e.spellTargetUnit(1-playerID, targets[0]); unit != nil {
 			extra["spell_target_unit"] = unit
 		}
@@ -401,6 +402,7 @@ func (e *Engine) spellPowerSources(playerID int, skill *CardInstance, boostSkill
 	extra := map[string]any{"stat": "power"}
 	if len(targets) > 0 {
 		extra["spell_target"] = targets[0]
+		extra["spell_targets"] = targets
 		if unit := e.spellTargetUnit(1-playerID, targets[0]); unit != nil {
 			extra["spell_target_unit"] = unit
 		}

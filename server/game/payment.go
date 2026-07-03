@@ -11,6 +11,10 @@ func cloneElements(elements map[string]int) map[string]int {
 }
 
 func calculateElementPayment(available map[string]int, cost map[string]int) (map[string]int, bool) {
+	return calculateElementPaymentWithOptions(available, cost, false)
+}
+
+func calculateElementPaymentWithOptions(available map[string]int, cost map[string]int, lightWildcard bool) (map[string]int, bool) {
 	payment := make(map[string]int)
 	remainingAvailable := cloneElements(available)
 	remainingCost := make(map[string]int)
@@ -54,6 +58,14 @@ func calculateElementPayment(available map[string]int, cost map[string]int) (map
 			remainingAvailable[model.ElementArcane] -= pay
 			remainingCost[elem] -= pay
 		}
+		if remainingCost[elem] > 0 && lightWildcard && elem != model.ElementLight {
+			pay := min(remainingAvailable[model.ElementLight], remainingCost[elem])
+			if pay > 0 {
+				payment[model.ElementLight] += pay
+				remainingAvailable[model.ElementLight] -= pay
+				remainingCost[elem] -= pay
+			}
+		}
 		if remainingCost[elem] > 0 {
 			return nil, false
 		}
@@ -91,13 +103,17 @@ func calculateElementPayment(available map[string]int, cost map[string]int) (map
 }
 
 func validateElementPayment(available map[string]int, cost map[string]int, payment map[string]int) bool {
+	return validateElementPaymentWithOptions(available, cost, payment, false)
+}
+
+func validateElementPaymentWithOptions(available map[string]int, cost map[string]int, payment map[string]int, lightWildcard bool) bool {
 	for elem, amount := range payment {
 		if amount < 0 || amount > available[elem] {
 			return false
 		}
 	}
 
-	spent, ok := calculateElementPayment(payment, cost)
+	spent, ok := calculateElementPaymentWithOptions(payment, cost, lightWildcard)
 	if !ok {
 		return false
 	}
@@ -143,21 +159,29 @@ func availableElementsWithOverexert(ps *PlayerState, units []*CardInstance) map[
 }
 
 func canPayCostWithOverexert(ps *PlayerState, cost map[string]int, units []*CardInstance) bool {
-	_, ok := calculateElementPayment(availableElementsWithOverexert(ps, units), cost)
+	return canPayCostWithOverexertOptions(ps, cost, units, false)
+}
+
+func canPayCostWithOverexertOptions(ps *PlayerState, cost map[string]int, units []*CardInstance, lightWildcard bool) bool {
+	_, ok := calculateElementPaymentWithOptions(availableElementsWithOverexert(ps, units), cost, lightWildcard)
 	return ok
 }
 
 func payDefenseCost(ps *PlayerState, cost map[string]int, action ActionMessage, units []*CardInstance) bool {
+	return payDefenseCostWithOptions(ps, cost, action, units, false)
+}
+
+func payDefenseCostWithOptions(ps *PlayerState, cost map[string]int, action ActionMessage, units []*CardInstance, lightWildcard bool) bool {
 	available := availableElementsWithOverexert(ps, units)
 	var payment map[string]int
 	if explicit := paymentFromAction(action); explicit != nil {
 		payment = explicit
-		if !validateElementPayment(available, cost, payment) {
+		if !validateElementPaymentWithOptions(available, cost, payment, lightWildcard) {
 			return false
 		}
 	} else {
 		var ok bool
-		payment, ok = calculateElementPayment(available, cost)
+		payment, ok = calculateElementPaymentWithOptions(available, cost, lightWildcard)
 		if !ok {
 			return false
 		}
