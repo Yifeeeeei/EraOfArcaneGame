@@ -3238,6 +3238,126 @@ func pendingCandidateIDContaining(t *testing.T, engine *Engine, fragment string)
 	return ""
 }
 
+func TestRoom5543CardAndTargetingRegressions(t *testing.T) {
+	t.Run("Fuye ultimate opens target choice when no target_id is supplied", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		fuye := NewCardInstance(baseCard(t, "4611002"), 0, engine.State.TurnNumber)
+		p0.Hero = fuye
+		target := placeUnit(baseCard(t, "1011002"), 0, 1, 0, engine)
+		setElementsGain(target, map[string]int{model.ElementArcane: 1})
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  fuye.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("use Fuye ultimate without direct target: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "fuye_ultimate_target" {
+			t.Fatalf("Fuye ultimate should ask for a companion target, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve Fuye target: %v", err)
+		}
+		if target.CurrentAttack != target.Card.Attack*2 || effectiveElementsGain(target)[model.ElementArcane] != 2 || target.Statuses["临时"] != 1 {
+			t.Fatalf("Fuye should double target attack/load and mark temporary, attack=%d load=%v statuses=%v", target.CurrentAttack, effectiveElementsGain(target), target.Statuses)
+		}
+	})
+
+	t.Run("Demon Lord can devour multiple dark-load companions before choosing occupied position", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		card := NewCardInstance(baseCard(t, "1621010"), 0, engine.State.TurnNumber)
+		p0.Hand = []*CardInstance{card}
+		p0.Elements[model.ElementShadow] = 10
+		left := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		right := placeUnit(baseCard(t, "1021002"), 0, 1, 0, engine)
+		setElementsGain(left, map[string]int{model.ElementShadow: 2})
+		setElementsGain(right, map[string]int{model.ElementShadow: 2})
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+			"instance_id": card.InstanceID,
+			"col":         float64(0),
+			"row":         float64(0),
+			"devour_ids":  []any{left.InstanceID, right.InstanceID},
+		}}); err != nil {
+			t.Fatalf("summon Demon Lord with multiple devour targets: %v", err)
+		}
+		if p0.Units[0][0] != card || p0.Units[1][0] != nil {
+			t.Fatalf("Demon Lord should enter a devoured position and remove both devoured units, units=%+v", p0.Units)
+		}
+	})
+
+	t.Run("Wizard Tower global mana range does not legalize back-row targets for front-row spells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		placeUnit(baseCard(t, "1011002"), 0, 0, 0, engine)
+		front := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		back := placeUnit(baseCard(t, "1021002"), 1, 1, 2, engine)
+		skill := readySkill(baseCard(t, "3121004"), 0)
+
+		if err := engine.validateSpellTargetWithPierce(0, skill, SpellTarget{Type: "unit", Position: *front.Position}, false); err != nil {
+			t.Fatalf("front-row spell should allow the actual front row: %v", err)
+		}
+		if err := engine.validateSpellTargetWithPierce(0, skill, SpellTarget{Type: "unit", Position: *back.Position}, false); err == nil {
+			t.Fatalf("front-row spell should reject back-row target even with Wizard Tower")
+		}
+	})
+
+	t.Run("attack spells can explicitly target friendly units", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p0.Elements[model.ElementShadow] = 10
+		skill := readySkill(baseCard(t, "3621002"), 0)
+		p0.Skills[0] = skill
+		ally := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		ownerID := 0
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id":  skill.InstanceID,
+			"target_type":  "unit",
+			"target_col":   float64(ally.Position.Col),
+			"target_row":   float64(ally.Position.Row),
+			"target_owner": float64(ownerID),
+		}}); err != nil {
+			t.Fatalf("cast Bloodsuck at friendly unit: %v", err)
+		}
+		if engine.State.PendingSpell == nil || engine.State.PendingSpell.Target.OwnerID == nil || *engine.State.PendingSpell.Target.OwnerID != ownerID {
+			t.Fatalf("friendly target owner should be preserved, pending=%+v", engine.State.PendingSpell)
+		}
+	})
+
+	t.Run("Dawn only splashes matching enemies when its target is an enemy companion", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		skill := readySkill(baseCard(t, "3521010"), 0)
+		allyA := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		ownerID := 0
+		affected := engine.spellAffectedUnits(ownerID, skill, SpellTarget{Type: "unit", Position: *allyA.Position, OwnerID: &ownerID})
+		if len(affected) != 1 || affected[0] != allyA {
+			t.Fatalf("Dawn should not splash across friendly units because its text requires an enemy companion target, affected=%v", cardsToInfo(affected))
+		}
+	})
+
+	t.Run("Sealing Scroll cannot be spent when the enemy has fewer than four skills", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p0.Elements[model.ElementArcane] = 10
+		scroll := NewCardInstance(baseCard(t, "2021010"), 0, engine.State.TurnNumber)
+		p0.Hand = []*CardInstance{scroll}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": scroll.InstanceID,
+		}}); err == nil {
+			t.Fatalf("Sealing Scroll should fail before payment when the enemy has fewer than four skills")
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != scroll || len(p0.Graveyard) != 0 {
+			t.Fatalf("failed Sealing Scroll should remain in hand, hand=%d grave=%d", len(p0.Hand), len(p0.Graveyard))
+		}
+	})
+}
+
 func resolvePendingSelection(t *testing.T, engine *Engine, playerID int, selected ...string) {
 	t.Helper()
 	values := make([]any, 0, len(selected))

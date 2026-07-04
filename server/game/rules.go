@@ -593,6 +593,20 @@ func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance
 		return fmt.Errorf("invalid target position")
 	}
 
+	targetOwnerID := 1 - playerID
+	if target.OwnerID != nil {
+		targetOwnerID = *target.OwnerID
+	}
+	if targetOwnerID != playerID && targetOwnerID != 1-playerID {
+		return fmt.Errorf("invalid spell target owner")
+	}
+	if targetOwnerID == playerID {
+		if e.State.Players[playerID].Units[target.Position.Col][target.Position.Row] != nil {
+			return nil
+		}
+		return fmt.Errorf("no friendly unit at target position")
+	}
+
 	opponent := e.State.Players[1-playerID]
 	if opponent.Units[target.Position.Col][target.Position.Row] == nil {
 		if e.effectiveSpellArea(skill) == SpellAreaColumn {
@@ -613,6 +627,13 @@ func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance
 			}
 		}
 		return fmt.Errorf("no enemy unit at target position")
+	}
+
+	if e.effectiveSpellArea(skill) == SpellAreaFrontRow {
+		frontRow := opponent.GetFrontRow()
+		if frontRow >= 0 && target.Position.Row != frontRow {
+			return fmt.Errorf("front-row spell target must be in the actual front row")
+		}
 	}
 
 	if !e.IsInSpellRange(playerID, target.Position.Col, target.Position.Row, hasPierce) {

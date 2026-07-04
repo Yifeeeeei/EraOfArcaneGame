@@ -747,7 +747,7 @@
                                      'summon-target': selectedHandCard && canSummonAt(col, row),
                                      'terrain-target': selectedHandCard && selectedHandCard.is_terrain && !getMyTerrain(col, row),
                                      'spell-target': isFriendlySpellTarget(col, row),
-                                     'invalid-target': (selectedHandCard && !canUseMyCell(col, row)) || (selectedSkill && selectedSkill.allows_friendly_target && !isFriendlySpellTarget(col, row))
+                                     'invalid-target': (selectedHandCard && !canUseMyCell(col, row)) || (activeTargetSpell() && !isFriendlySpellTarget(col, row))
                                  }"
                                  @click="handleCellClick(mySlot, col, row)">
                                 <div v-if="getMyTerrain(col, row)" class="terrain-layer"
@@ -1094,6 +1094,7 @@
             const opponentEquipmentSlotCount = computed(() => slotCount(opponent.value, 'equipment_slot_capacity'));
             const mySkills = computed(() => paddedSlots(myState.value.skills, mySkillSlotCount.value));
             const myEquipment = computed(() => paddedSlots(myState.value.equipment, myEquipmentSlotCount.value));
+            const opponentSkills = computed(() => paddedSlots(opponent.value.skills, opponentSkillSlotCount.value));
             const allMyBoundSkills = computed(() => {
                 const skills = [];
                 for (const unit of allMyFieldCards()) {
@@ -1723,7 +1724,7 @@
                             if (isSpellScrollItem(card) && card.needs_target) {
                                 selectedHandCard.value = null;
                                 selectedItemSpellScroll.value = card;
-                                addLog(`选择 ${card.name}，点击敌方目标`);
+                                addLog(`选择 ${card.name}，点击法力范围内目标`);
                             } else if (isConsumable(card)) {
                                 selectedHandCard.value = null;
                                 if (card.is_counter_trap) {
@@ -1867,7 +1868,7 @@
                                 setCounterCard(card);
                             } else if (isSpellScrollItem(card) && card.needs_target) {
                                 selectedItemSpellScroll.value = card;
-                                addLog(`选择 ${card.name}，点击敌方目标`);
+                                addLog(`选择 ${card.name}，点击法力范围内目标`);
                             } else {
                                 sendPaidAction('use_item', { instance_id: card.instance_id }, playCost(card), `使用 ${card.name}`, () => addLog(`使用 ${card.name}`));
                             }
@@ -1886,7 +1887,7 @@
                     }
                     if (card.type === '伙伴') addLog(`选择 ${card.name}，点击空格放置`);
                     else if (card.type === '道具' && card.is_terrain) addLog(`选择地形 ${card.name}，点击空格放置`);
-                    else if (card.type === '道具' && isSpellScrollItem(card) && card.needs_target) { selectedItemSpellScroll.value = card; addLog(`选择 ${card.name}，点击敌方目标`); }
+                    else if (card.type === '道具' && isSpellScrollItem(card) && card.needs_target) { selectedHandCard.value = null; selectedItemSpellScroll.value = card; addLog(`选择 ${card.name}，点击法力范围内目标`); }
                     else if (card.type === '道具' && isConsumable(card)) addLog(`选择 ${card.name}，再次点击使用`);
                     else if (card.type === '道具') addLog(`选择 ${card.name}，再次点击装备`);
                 }
@@ -1922,14 +1923,15 @@
                 if (ownerSlot === mySlot.value && selectedHandCard.value && selectedHandCard.value.type === '伙伴') {
                     if (!getMyUnit(col, row)) { summonCard(selectedHandCard.value, col, row); return; }
                 }
-                if (ownerSlot === mySlot.value && selectedSkill.value && isFriendlySpellTarget(col, row)) { castSpellAt(col, row); return; }
+                if (ownerSlot === mySlot.value && selectedItemSpellScroll.value && isFriendlySpellTarget(col, row)) { useSpellScrollAt(col, row, ownerSlot); return; }
+                if (ownerSlot === mySlot.value && selectedSkill.value && isFriendlySpellTarget(col, row)) { castSpellAt(col, row, ownerSlot); return; }
                 if (ownerSlot !== mySlot.value && selectedAttacker.value && isValidOpponentTarget(col, row)) { attackTarget(col, row); return; }
-                if (ownerSlot !== mySlot.value && selectedItemSpellScroll.value && isValidOpponentTarget(col, row)) { useSpellScrollAt(col, row); return; }
-                if (ownerSlot !== mySlot.value && selectedSkill.value && isValidOpponentTarget(col, row)) { castSpellAt(col, row); return; }
+                if (ownerSlot !== mySlot.value && selectedItemSpellScroll.value && isValidOpponentTarget(col, row)) { useSpellScrollAt(col, row, ownerSlot); return; }
+                if (ownerSlot !== mySlot.value && selectedSkill.value && isValidOpponentTarget(col, row)) { castSpellAt(col, row, ownerSlot); return; }
             }
 
             function handleUnitImageClick(ownerSlot, col, row, unit) {
-                if (selectedSkill.value && ((ownerSlot === mySlot.value && isFriendlySpellTarget(col, row)) || ownerSlot !== mySlot.value)) {
+                if ((selectedSkill.value || selectedItemSpellScroll.value) && ((ownerSlot === mySlot.value && isFriendlySpellTarget(col, row)) || ownerSlot !== mySlot.value)) {
                     handleCellClick(ownerSlot, col, row);
                     return;
                 }
@@ -2122,15 +2124,19 @@
                 const spell = activeTargetSpell();
                 if (!spell) return false;
                 if (pendingExtraTargetCast.value && selectedSkill.value?.number === '3321001') return !!unit;
+                const area = spell.spell_area || 'single';
+                if (area === 'front_row') {
+                    return !!unit && row === opponentFrontRow.value;
+                }
                 const inRange = activeTargetSpellHasPierce() || hasGlobalSpellRange() || row === opponentFrontRow.value || isTauntUnit(unit);
                 if (unit) return inRange;
-                if ((spell.spell_area || 'single') === 'column' && inRange) {
+                if (area === 'column' && inRange) {
                     return opponentColumnHasUnit(col);
                 }
                 return false;
             }
             function isSpellTarget(col, row) {
-                return !!selectedSkill.value && isValidOpponentTarget(col, row);
+                return !!activeTargetSpell() && isValidOpponentTarget(col, row);
             }
             function hoverOpponentCell(col, row) {
                 hoveredOpponentCell.value = { col, row };
@@ -2160,10 +2166,15 @@
                 return col === center.col && row === center.row;
             }
             function isFriendlySpellTarget(col, row) {
-                return !!selectedSkill.value && !!selectedSkill.value.allows_friendly_target && !!getMyUnit(col, row);
+                const spell = activeTargetSpell();
+                if (!spell || !getMyUnit(col, row)) return false;
+                return !!spell.allows_friendly_target || canAttackSpellTargetFriendlyUnit(spell);
             }
             function isFriendlyHeroSpellTarget() {
                 return !!selectedSkill.value && !!selectedSkill.value.allows_friendly_target && !!myState.value?.hero;
+            }
+            function canAttackSpellTargetFriendlyUnit(spell) {
+                return !!spell && !!spell.needs_target && spell.can_attack !== false && !spell.is_sorcery;
             }
             function activeTargetSpell() {
                 return selectedSkill.value || selectedItemSpellScroll.value || null;
@@ -2224,7 +2235,7 @@
                     castSpellWithoutTarget();
                     return;
                 }
-                addLog(`选择法术 ${skill.name}，点击敌方目标`);
+                addLog(`选择法术 ${skill.name}，点击法力范围内目标`);
             }
 
             // Boost skill selection for attack casting
@@ -2248,7 +2259,7 @@
                 else selectedBoostSkills.value.push(skill.instance_id);
             }
 
-            function useSpellScrollAt(col, row) {
+            function useSpellScrollAt(col, row, targetOwner = 1 - mySlot.value) {
                 if (!selectedItemSpellScroll.value) return;
                 const card = selectedItemSpellScroll.value;
                 const data = {
@@ -2256,6 +2267,7 @@
                     target_type: 'unit',
                     target_col: col,
                     target_row: row,
+                    target_owner: targetOwner,
                 };
                 sendPaidAction('use_item', data, playCost(card), `使用 ${card.name}`, () => {
                     addLog(`使用 ${card.name} → (${col},${row})`);
@@ -2263,7 +2275,7 @@
                     selectedHandCard.value = null;
                 });
             }
-            function castSpellAt(col, row) {
+            function castSpellAt(col, row, targetOwner = 1 - mySlot.value) {
                 if (!selectedSkill.value) return;
                 if (pendingExtraTargetCast.value && selectedSkill.value.number === '3321001') {
                     const data = { ...pendingExtraTargetCast.value };
@@ -2288,7 +2300,8 @@
                     instance_id: selectedSkill.value.instance_id,
                     target_type: 'unit',
                     target_col: col,
-                    target_row: row
+                    target_row: row,
+                    target_owner: targetOwner,
                 };
                 if (selectedBoostSkills.value.length > 0) {
                     data.boost_ids = [...selectedBoostSkills.value];
@@ -3102,12 +3115,14 @@
             function canPlayHandCard(card) {
                 if (!card || !isMyTurn.value || gameState.value.phase !== 'main') return false;
                 if (card.type === '技能') return false;
+                if (String(card.number) === '2021010' && opponentSkills.value.filter(Boolean).length < 4) return false;
                 if (card.is_counter_trap) return canSetCounterCard(card);
                 if (isEquippableItem(card)) return canEquipCard(card);
                 return canPayCost(playCost(card));
             }
             function handCardUnavailableText(card) {
                 if (!card) return '无法使用';
+                if (String(card.number) === '2021010' && opponentSkills.value.filter(Boolean).length < 4) return `${card.name} 需要敌方至少有4个法术`;
                 if (card.is_counter_trap && !hasEmptyEquipmentSlot()) return `${card.name} 无法盖放，装备区已满`;
                 if (isEquippableItem(card) && !hasEmptyEquipmentSlot() && replaceableEquipment.value.length === 0) {
                     return `${card.name} 无法装备，装备区已满且没有竖置装备可替换`;
@@ -3754,7 +3769,7 @@
                 abilityLabel,
                 canCastSkill, selectSkillToCast, canBoostWith, toggleBoostSkill, noDefend,
                 guideKicker, currentHint, waitingNotice, clearSelection, statusEntries,
-                hasActiveTargeting, isValidOpponentTarget, isSpellTarget, isFriendlySpellTarget, isFriendlyHeroSpellTarget, handleMyHeroClick, canUseMyCell,
+                hasActiveTargeting, activeTargetSpell, isValidOpponentTarget, isSpellTarget, isFriendlySpellTarget, isFriendlyHeroSpellTarget, handleMyHeroClick, canUseMyCell,
                 canShowCostHint, missingCostText, skillUseCost, canLearnSkill, costLabel,
                 skillReplaceRequest, replaceableSkills, confirmSkillReplacement,
                 equipmentReplaceRequest, replaceableEquipment, confirmEquipmentReplacement,

@@ -298,6 +298,11 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 					action = "equip"
 				} else if isConsumableItem(card) {
 					action = "use_item"
+					if card.Number == "2021010" {
+						for i := 0; i < 4; i++ {
+							engine.State.Players[1].Skills[i] = readySkill(cards.PlayableCardDB["3021005"], 1)
+						}
+					}
 					if isSpellScrollCard(card) && skillNeedsTargetCard(card) {
 						data["target_type"] = "unit"
 						data["target_col"] = float64(1)

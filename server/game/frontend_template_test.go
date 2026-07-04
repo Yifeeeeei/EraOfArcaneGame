@@ -207,3 +207,25 @@ func TestGameHTMLDefenseWindowDoesNotReadRawPendingSpellPower(t *testing.T) {
 		t.Fatalf("defense logging should use pendingAttackPower, not raw pending_spell.power")
 	}
 }
+
+func TestGameHTMLRoom5543TargetingRegressions(t *testing.T) {
+	content, err := os.ReadFile("../../web/game.html")
+	if err != nil {
+		t.Fatalf("read game.html: %v", err)
+	}
+	html := string(content)
+	for _, want := range []string{
+		"target_owner: targetOwner",
+		"hasActiveTargeting, activeTargetSpell,",
+		"if (area === 'front_row') {",
+		"return !!unit && row === opponentFrontRow.value;",
+		"function canAttackSpellTargetFriendlyUnit(spell)",
+		"selectedItemSpellScroll.value && isFriendlySpellTarget(col, row)",
+		"String(card.number) === '2021010' && opponentSkills.value.filter(Boolean).length < 4",
+		"需要敌方至少有4个法术",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("room 5543 frontend targeting fix missing %q", want)
+		}
+	}
+}

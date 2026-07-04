@@ -1052,6 +1052,10 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		Type:     targetType,
 		Position: Position{Col: int(targetColF), Row: int(targetRowF)},
 	}
+	if ownerF, ok := action.Data["target_owner"].(float64); ok {
+		ownerID := int(ownerF)
+		target.OwnerID = &ownerID
+	}
 	// Process boost skills (法术强化)
 	boostIDs := stringsFromAnySlice(boostIDsRaw)
 	boostSkills, boostCost, err := e.collectSkillUses(ps, boostIDs, skillPurposeAttackBoost, map[string]bool{instanceID: true})
@@ -1686,6 +1690,9 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 	defer e.endResolution()
 
 	defenderID := 1 - attackerID
+	if target.OwnerID != nil && *target.OwnerID == attackerID {
+		defenderID = attackerID
+	}
 	if friendly, ok := behaviorForNumber(skill.Card.Number).(FriendlySpellTargetBehavior); ok && friendly.HasActiveFriendlySpellTarget(skill) && friendly.AllowsFriendlySpellTarget() && target.Type == "unit" && target.Position.Valid() {
 		if e.State.Players[attackerID].Units[target.Position.Col][target.Position.Row] != nil {
 			defenderID = attackerID
@@ -1998,7 +2005,7 @@ func (e *Engine) spellAffectedUnits(defenderID int, skill *CardInstance, target 
 	defender := e.State.Players[defenderID]
 	units := make([]*CardInstance, 0, 9)
 
-	if skill != nil && skill.Card != nil && skill.Card.Number == "3521010" && target.Position.Valid() {
+	if skill != nil && skill.Card != nil && skill.Card.Number == "3521010" && defenderID != skill.OwnerID && target.Position.Valid() {
 		targetUnit := defender.Units[target.Position.Col][target.Position.Row]
 		if targetUnit != nil && targetUnit.Card != nil && targetUnit.Card.IsCompanion() {
 			for col := 0; col < 3; col++ {
@@ -2874,6 +2881,9 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 			return fmt.Errorf("item is not consumable")
 		}
 	}
+	if err := e.validateConsumableItemUse(playerID, card); err != nil {
+		return err
+	}
 
 	// Regular consumable item
 	cost := e.effectiveCardPlayCost(ps, card)
@@ -2917,6 +2927,19 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 	return nil
 }
 
+func (e *Engine) validateConsumableItemUse(playerID int, card *CardInstance) error {
+	if card == nil || card.Card == nil {
+		return nil
+	}
+	switch card.Card.Number {
+	case "2021010":
+		if len(e.enemySkills(playerID, nil)) < 4 {
+			return fmt.Errorf("Sealing Scroll requires the enemy to have at least four skills")
+		}
+	}
+	return nil
+}
+
 func (e *Engine) handleUseSpellScrollItem(playerID int, action ActionMessage, card *CardInstance, handIdx int) error {
 	ps := e.State.Players[playerID]
 	if isDefenseOnlySkill(card.Card) {
@@ -2938,6 +2961,10 @@ func (e *Engine) handleUseSpellScrollItem(playerID int, action ActionMessage, ca
 				return fmt.Errorf("spell scroll requires a target")
 			}
 			target = SpellTarget{Type: "unit", Position: Position{Col: int(colF), Row: int(rowF)}}
+			if ownerF, ok := action.Data["target_owner"].(float64); ok {
+				ownerID := int(ownerF)
+				target.OwnerID = &ownerID
+			}
 			if err := e.validateSpellTarget(playerID, card, target); err != nil {
 				return err
 			}
