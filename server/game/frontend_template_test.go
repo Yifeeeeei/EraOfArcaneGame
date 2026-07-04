@@ -122,7 +122,7 @@ func TestGameHTMLDefenseWindowClickHandlersAreReturned(t *testing.T) {
 		"defense_submit_blocked",
 		"if (!defenseSelected.value.includes(skill.instance_id))",
 		"if (!defenseScrollSelected.value.includes(scroll.instance_id))",
-		"handleDefensePanelClick, toggleDefenseSkill, toggleDefenseScroll, toggleDefenseBoost, toggleDefenseOverexert, reactSpell, submitDefend",
+		"handleDefensePanelClick, showInteractionCardContextMenu, toggleDefenseSkill, toggleDefenseScroll, toggleDefenseBoost, toggleDefenseOverexert, reactSpell, submitDefend",
 		"canSubmitDefense,",
 		"noDefend,",
 	} {
@@ -155,7 +155,7 @@ func TestGameHTMLInteractionWindowsUseUnifiedReadableCards(t *testing.T) {
 	}
 	html := string(content)
 	for _, want := range []string{
-		"css/game.css?v=20260702-defense-viewmodel",
+		"css/game.css?v=20260703-interaction-card-meta",
 		"class=\"overlay interaction-overlay defense-overlay\"",
 		"class=\"overlay-content interaction-panel defense-panel\"",
 		"class=\"overlay interaction-overlay pending-action-overlay\"",
@@ -165,9 +165,31 @@ func TestGameHTMLInteractionWindowsUseUnifiedReadableCards(t *testing.T) {
 		"class=\"interaction-detail-link\"",
 		"class=\"overlay card-detail-overlay\"",
 		"@mouseenter=\"candidate.number && previewCard(candidate)\"",
+		"@contextmenu.prevent=\"showInteractionCardContextMenu($event)\"",
+		"@contextmenu.prevent.stop=\"candidate.number && showCardContextMenu($event, candidate, 'interaction')\"",
+		"showInteractionCardContextMenu,",
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("interaction windows should share readable interaction UI, missing %q", want)
+		}
+	}
+}
+
+func TestGameCSSInteractionCardsKeepMetadataReadable(t *testing.T) {
+	content, err := os.ReadFile("../../web/css/game.css")
+	if err != nil {
+		t.Fatalf("read game.css: %v", err)
+	}
+	css := string(content)
+	for _, want := range []string{
+		"-webkit-line-clamp: 2;",
+		"grid-template-rows: minmax(32px, auto) auto;",
+		".pending-card-side {",
+		"z-index: 11950;",
+		"z-index: 11940;",
+	} {
+		if !strings.Contains(css, want) {
+			t.Fatalf("interaction cards should preserve metadata/readability, missing %q", want)
 		}
 	}
 }
