@@ -6,7 +6,7 @@
     <title>奥术纪元 — 对战</title>
     <link rel="icon" href="/favicon.ico">
     <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
-    <link rel="stylesheet" href="css/game.css?v=20260702-defense-viewmodel">
+    <link rel="stylesheet" href="css/game.css?v=20260703-interaction-card-meta">
 </head>
 <body>
     <div id="app">
@@ -62,7 +62,9 @@
 
         <!-- ═══ DEFENSE WINDOW OVERLAY ═══ -->
         <div v-if="!isSpectator && showDefenseWindow" class="overlay interaction-overlay defense-overlay">
-            <div class="overlay-content interaction-panel defense-panel" @click.capture="handleDefensePanelClick">
+            <div class="overlay-content interaction-panel defense-panel"
+                 @click.capture="handleDefensePanelClick"
+                 @contextmenu.prevent="showInteractionCardContextMenu($event)">
                 <h2>对手施放法术！</h2>
                 <div v-if="pendingSpellView" class="spell-info">
                     <div class="spell-info-main">
@@ -211,6 +213,7 @@
                          class="pending-card interaction-card"
                          :class="{ selected: pendingSelected.includes(candidate.instance_id), disabled: candidate.can_select === false, bottom: isPendingBottom(candidate.instance_id) }"
                          @mouseenter="candidate.number && previewCard(candidate)"
+                         @contextmenu.prevent.stop="candidate.number && showCardContextMenu($event, candidate, 'interaction')"
                          @click="togglePendingSelect(candidate)">
                         <img v-if="candidate.number" :src="getCardImage(candidate)" class="pending-card-img">
                         <div v-else class="pending-position-tile">{{ candidate.name }}</div>
@@ -242,14 +245,17 @@
                     <h3>发动费用 {{ costLabel(pendingAction.cost || {}) }}</h3>
                     <div class="defense-skill-list" v-if="pendingOverexertUnits.length > 0">
                         <button v-for="unit in pendingOverexertUnits" :key="unit.instance_id"
-                                class="defense-skill-card overexert-card"
+                                class="defense-skill-card interaction-card overexert-card"
                                 :class="{ selected: pendingOverexertSelected.includes(unit.instance_id) }"
+                                @mouseenter="previewCard(unit)"
+                                @contextmenu.prevent.stop="showCardContextMenu($event, unit, 'interaction')"
                                 @click="togglePendingOverexert(unit)">
                             <img :src="getCardImage(unit)" class="defense-skill-img">
                             <div class="defense-skill-info">
                                 <div class="defense-skill-name">{{ unit.name }}</div>
                                 <div class="defense-skill-power">{{ costLabel(unit.elements_gain) }}</div>
                             </div>
+                            <span class="interaction-detail-link" @click.stop="showCardDetail(unit)">查看</span>
                         </button>
                     </div>
                 </div>
@@ -273,6 +279,7 @@
                          class="pending-card interaction-card"
                          :class="{ selected: devourSelection.includes(candidate.instance_id) }"
                          @mouseenter="previewCard(candidate)"
+                         @contextmenu.prevent.stop="showCardContextMenu($event, candidate, 'interaction')"
                          @click="toggleDevourSelection(candidate)">
                         <img :src="getCardImage(candidate)" class="pending-card-img">
                         <span class="interaction-detail-link" @click.stop="showCardDetail(candidate)">查看</span>
@@ -426,6 +433,7 @@
                          class="pending-card interaction-card"
                          :class="{ selected: skillReplaceRequest.replaceId === skill.instance_id }"
                          @mouseenter="previewCard(skill)"
+                         @contextmenu.prevent.stop="showCardContextMenu($event, skill, 'interaction')"
                          @click="skillReplaceRequest.replaceId = skill.instance_id">
                         <img :src="getCardImage(skill)" class="pending-card-img">
                         <span class="interaction-detail-link" @click.stop="showCardDetail(skill)">查看</span>
@@ -450,6 +458,7 @@
                          class="pending-card interaction-card"
                          :class="{ selected: equipmentReplaceRequest.replaceId === equipment.instance_id }"
                          @mouseenter="previewCard(equipment)"
+                         @contextmenu.prevent.stop="showCardContextMenu($event, equipment, 'interaction')"
                          @click="equipmentReplaceRequest.replaceId = equipment.instance_id">
                         <img :src="getCardImage(equipment)" class="pending-card-img">
                         <span class="interaction-detail-link" @click.stop="showCardDetail(equipment)">查看</span>
@@ -1681,6 +1690,14 @@
                     card: card,
                     source: source
                 };
+            }
+
+            function showInteractionCardContextMenu(event) {
+                const cardEl = event.target.closest('[data-instance-id]');
+                if (!cardEl || !event.currentTarget.contains(cardEl)) return;
+                const card = defenseCardById(cardEl.dataset.instanceId || '');
+                if (!card) return;
+                showCardContextMenu(event, card, 'interaction');
             }
 
             function hideContextMenu() {
@@ -3752,7 +3769,7 @@
                 canPlayHandCard, canPayCost,
                 // Defense
                 defenseSelected, defenseScrollSelected, defenseBoostSelected, defenseOverexertSelected, availableDefenseSkills, availableDefenseScrolls, availableReactionSkills, availableDefenseBoostCandidates, availableBoostSkills, defenseOverexertUnits,
-                totalDefensePower, totalDefenseCost, defenseAvailableElements, pendingAttackPower, defenseSummaryText, defenseSummaryClass, defensePower, defenseBoostPower, defensePaymentCost, isDefenseBoostDisabled, handleDefensePanelClick, toggleDefenseSkill, toggleDefenseScroll, toggleDefenseBoost, toggleDefenseOverexert, reactSpell, submitDefend,
+                totalDefensePower, totalDefenseCost, defenseAvailableElements, pendingAttackPower, defenseSummaryText, defenseSummaryClass, defensePower, defenseBoostPower, defensePaymentCost, isDefenseBoostDisabled, handleDefensePanelClick, showInteractionCardContextMenu, toggleDefenseSkill, toggleDefenseScroll, toggleDefenseBoost, toggleDefenseOverexert, reactSpell, submitDefend,
                 hoverOpponentCell, clearHoverOpponentCell, isSpellAreaPreview,
                 // Pending action
                 pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction, pendingCandidateDetail, pendingContextText,
