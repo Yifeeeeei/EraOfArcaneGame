@@ -422,6 +422,7 @@ type SpellPowerSource struct {
 type SpellTarget struct {
 	Type     string   `json:"type"`     // "unit" or "area"
 	Position Position `json:"position"` // for unit targets
+	OwnerID  *int     `json:"owner_id,omitempty"`
 }
 
 // NewGameState creates a new game state
