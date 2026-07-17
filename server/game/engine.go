@@ -2936,6 +2936,10 @@ func (e *Engine) validateConsumableItemUse(playerID int, card *CardInstance) err
 		if len(e.enemySkills(playerID, nil)) < 4 {
 			return fmt.Errorf("Sealing Scroll requires the enemy to have at least four skills")
 		}
+	case "2611002":
+		if !e.demonContractHasPayablePathAfterEntryCost(playerID, card) {
+			return fmt.Errorf("Demon Contract requires a payable sacrifice and target")
+		}
 	}
 	return nil
 }

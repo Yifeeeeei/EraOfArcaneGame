@@ -23,10 +23,10 @@ func isBoostPurpose(purpose skillPurpose) bool {
 }
 
 func skillUseCost(card *model.Card) map[string]int {
-	if len(card.ElementsExpense) > 0 {
-		return card.ElementsExpense
+	if card == nil {
+		return map[string]int{}
 	}
-	return card.ElementsCost
+	return card.ElementsExpense
 }
 
 func copyElementCost(cost map[string]int) map[string]int {
