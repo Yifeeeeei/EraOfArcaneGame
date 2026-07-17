@@ -303,6 +303,14 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 							engine.State.Players[1].Skills[i] = readySkill(cards.PlayableCardDB["3021005"], 1)
 						}
 					}
+					if card.Number == "2611002" {
+						sacrifice := NewCardInstance(cards.PlayableCardDB["1021001"], 0, engine.State.TurnNumber)
+						sacrifice.Position = &Position{Col: 0, Row: 0}
+						ps.Units[0][0] = sacrifice
+						target := NewCardInstance(cards.PlayableCardDB["1021002"], 1, engine.State.TurnNumber)
+						target.Position = &Position{Col: 1, Row: 0}
+						engine.State.Players[1].Units[1][0] = target
+					}
 					if isSpellScrollCard(card) && skillNeedsTargetCard(card) {
 						data["target_type"] = "unit"
 						data["target_col"] = float64(1)

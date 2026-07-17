@@ -2935,11 +2935,102 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("resolve demon contract destroy: %v", err)
 		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "demon_contract_payment" || engine.State.PendingAction.Cost[model.ElementShadow] != 4 {
+			t.Fatalf("demon contract should ask for extra life-difference payment, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{enemy.InstanceID},
+			"payment":  map[string]any{model.ElementShadow: float64(1)},
+		}}); err == nil {
+			t.Fatalf("demon contract should reject insufficient explicit extra payment")
+		}
+		if p0.Units[1][0] != sacrifice || engine.State.Players[1].Units[1][0] != enemy || engine.State.PendingAction == nil || engine.State.PendingAction.Type != "demon_contract_payment" {
+			t.Fatalf("failed demon contract payment should keep pending action and units, pending=%+v own=%v enemy=%v", engine.State.PendingAction, p0.Units[1][0], engine.State.Players[1].Units[1][0])
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{enemy.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve demon contract payment: %v", err)
+		}
 		if p0.Elements[model.ElementShadow] != shadowAfterEntryCost-4 || p0.Units[1][0] != nil || engine.State.Players[1].Units[1][0] != nil {
 			t.Fatalf("demon contract should pay 4 shadow and destroy both units, elements=%v own=%v enemy=%v", p0.Elements, p0.Units[1][0], engine.State.Players[1].Units[1][0])
 		}
 		if len(p0.Graveyard) != 1 || p0.Graveyard[0] != sacrifice || len(p0.Deck) != 1 || p0.Deck[0] != contract {
 			t.Fatalf("contract should shuffle itself into deck while sacrifice goes to graveyard, grave=%v deck=%v", cardsToInfo(p0.Graveyard), cardsToInfo(p0.Deck))
+		}
+	})
+
+	t.Run("2611002 与恶魔的契约书 cannot be played without a payable full path", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		contract := NewCardInstance(baseCard(t, "2611002"), 0, 1)
+		p0.Hand = []*CardInstance{contract}
+		p0.Elements[model.ElementShadow] = 1
+		sacrifice := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		sacrifice.CurrentLife = 1
+		enemy := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
+		enemy.CurrentLife = 3
+
+		err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": contract.InstanceID,
+		}})
+		if err == nil {
+			t.Fatalf("demon contract should reject play when only entry cost is payable")
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != contract || len(p0.Graveyard) != 0 || p0.Elements[model.ElementShadow] != 1 {
+			t.Fatalf("failed demon contract play should leave hand/grave/elements unchanged, hand=%v grave=%v elements=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard), p0.Elements)
+		}
+		if p0.Units[1][0] != sacrifice || p1.Units[1][0] != enemy || engine.State.PendingAction != nil {
+			t.Fatalf("failed demon contract play should leave board and pending action unchanged, own=%v enemy=%v pending=%+v", p0.Units[1][0], p1.Units[1][0], engine.State.PendingAction)
+		}
+	})
+
+	t.Run("2611002 与恶魔的契约书 precheck respects rainbow angel light wildcard", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		contract := NewCardInstance(baseCard(t, "2611002"), 0, 1)
+		p0.Hand = []*CardInstance{contract}
+		p0.Elements[model.ElementShadow] = 4
+		p0.Elements[model.ElementLight] = 1
+		placeUnit(baseCard(t, "1521007"), 0, 0, 2, engine)
+		sacrifice := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		sacrifice.CurrentLife = 1
+		enemy := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
+		enemy.CurrentLife = 3
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": contract.InstanceID,
+			"payment":     map[string]any{model.ElementLight: float64(1)},
+		}}); err != nil {
+			t.Fatalf("demon contract should allow light wildcard to cover entry cost and preserve shadow for extra cost: %v", err)
+		}
+		if p0.Elements[model.ElementLight] != 0 || p0.Elements[model.ElementShadow] != 4 {
+			t.Fatalf("entry payment should use light and preserve shadow for extra cost, elements=%v", p0.Elements)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "demon_contract_sacrifice" {
+			t.Fatalf("demon contract should open sacrifice prompt after light wildcard payment, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{sacrifice.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve demon contract sacrifice after light payment: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{enemy.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve demon contract target after light payment: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "demon_contract_payment" || engine.State.PendingAction.Cost[model.ElementShadow] != 4 {
+			t.Fatalf("demon contract should ask for remaining 4 shadow extra cost, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{enemy.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve demon contract extra payment after light entry payment: %v", err)
+		}
+		if p0.Elements[model.ElementShadow] != 0 || p0.Units[1][0] != nil || engine.State.Players[1].Units[1][0] != nil {
+			t.Fatalf("demon contract should spend preserved shadow and destroy both units, elements=%v own=%v enemy=%v", p0.Elements, p0.Units[1][0], engine.State.Players[1].Units[1][0])
 		}
 	})
 
@@ -3973,8 +4064,8 @@ func TestMeditationCanCastWithoutTargetAndGainArcane(t *testing.T) {
 	if p0.Elements[model.ElementArcane] != 1 {
 		t.Fatalf("meditation should gain 1 arcane, elements=%v", p0.Elements)
 	}
-	if p0.Elements[model.ElementAir]+p0.Elements[model.ElementFire] != 0 {
-		t.Fatalf("meditation should spend two non-arcane elements for arcane cost, elements=%v", p0.Elements)
+	if p0.Elements[model.ElementAir] != 1 || p0.Elements[model.ElementFire] != 1 {
+		t.Fatalf("meditation should not spend its learn cost when used, elements=%v", p0.Elements)
 	}
 }
 
@@ -8509,6 +8600,13 @@ func TestEnemyAndGlobalSpellDamageReducers(t *testing.T) {
 		p0.Skills[1] = readySkill(baseCard(t, "3021005"), 0)
 		p0.Elements[model.ElementArcane] = 4
 
+		if damage := engine.effectiveSpellDamage(0, p0.Skills[0], p0.Skills[0].Card.Attack, nil); damage != p0.Skills[0].Card.Attack {
+			t.Fatalf("shadow cloak should not prevent damage during stat calculation, damage=%d", damage)
+		}
+		if cloak.Statuses[shadowCloakUsedStatus] != 0 {
+			t.Fatalf("shadow cloak should not be consumed by stat calculation, statuses=%v", cloak.Statuses)
+		}
+
 		for i := 0; i < 2; i++ {
 			if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
 				"instance_id": p0.Skills[i].InstanceID,
@@ -8519,7 +8617,7 @@ func TestEnemyAndGlobalSpellDamageReducers(t *testing.T) {
 				t.Fatalf("cast arcane arrow %d into shadow cloak: %v", i+1, err)
 			}
 		}
-		if target.CurrentLife != 2 || cloak.Statuses["已防护"] != 1 {
+		if target.CurrentLife != 2 || cloak.Statuses[shadowCloakUsedStatus] != 1 {
 			t.Fatalf("shadow cloak should block first hit only, life=%d statuses=%v", target.CurrentLife, cloak.Statuses)
 		}
 	})
