@@ -246,6 +246,24 @@ func (e *Engine) consumeFriendlySpellDamageMinus(ps *PlayerState, skill *CardIns
 	}
 }
 
+func (e *Engine) consumeAllSpellDamageZero(ps *PlayerState, skill *CardInstance) {
+	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
+		if modifier.Type != TempModAllSpellDamageZero {
+			continue
+		}
+		if modifier.RemainingUses == 0 {
+			continue
+		}
+		if modifier.TargetInstanceID != "" && (skill == nil || modifier.TargetInstanceID != skill.InstanceID) {
+			continue
+		}
+		modifier.RemainingUses--
+		if modifier.RemainingUses <= 0 {
+			e.removeTemporaryModifier(ps.PlayerID, modifier.ID)
+		}
+	}
+}
+
 func (e *Engine) addNextElementSpellPowerBonus(playerID int, elem string, amount int) {
 	if amount <= 0 {
 		return
