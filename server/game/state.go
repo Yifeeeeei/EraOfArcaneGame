@@ -134,6 +134,7 @@ type PlayerState struct {
 	DiscardAtTurnEnd   map[string]bool           `json:"discard_at_turn_end,omitempty"`
 	LoadGainAtTurnEnd  map[string]map[string]int `json:"load_gain_at_turn_end,omitempty"`
 	RevealedHand       map[string]bool           `json:"revealed_hand,omitempty"`
+	DrawnTurn          map[string]int            `json:"drawn_turn,omitempty"`
 	DrawCountThisTurn  int                       `json:"draw_count_this_turn,omitempty"`
 
 	// Legacy charge pool. Do not use this for 精通; mastery is a per-card
@@ -154,6 +155,7 @@ func NewPlayerState(id int, name string, deck *model.Deck) *PlayerState {
 		DiscardAtTurnEnd:   make(map[string]bool),
 		LoadGainAtTurnEnd:  make(map[string]map[string]int),
 		RevealedHand:       make(map[string]bool),
+		DrawnTurn:          make(map[string]int),
 		DeckDef:            deck,
 	}
 
