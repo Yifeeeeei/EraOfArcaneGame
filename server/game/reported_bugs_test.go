@@ -5648,6 +5648,16 @@ func TestRecyclingSpriteMovesSelectedGraveyardCardToDeckTop(t *testing.T) {
 	sprite := NewCardInstance(baseCard(t, "1021007"), 0, 1)
 	recovered := NewCardInstance(baseCard(t, "1021001"), 0, 1)
 	otherDeckCard := NewCardInstance(baseCard(t, "1021002"), 0, 1)
+	recovered.CurrentLife = 0
+	recovered.IsHorizontal = false
+	recovered.Position = &Position{Col: 2, Row: 0}
+	recovered.Statuses = map[string]int{"lethal_source_player": 2, StatusFreeze: 1}
+	recovered.ElementsGainBonus[model.ElementAir] = 2
+	recovered.PowerBonus = 3
+	recovered.AttackBonus = 1
+	recovered.BoundSkills = []*CardInstance{NewCardInstance(baseCard(t, "3001001"), 0, 1)}
+	recovered.UsedThisTurn = 1
+	recovered.UltimateUsed = true
 	p0.Hand = []*CardInstance{sprite}
 	p0.Graveyard = []*CardInstance{recovered}
 	p0.Deck = []*CardInstance{otherDeckCard}
@@ -5673,6 +5683,23 @@ func TestRecyclingSpriteMovesSelectedGraveyardCardToDeckTop(t *testing.T) {
 	}
 	if len(p0.Deck) == 0 || p0.Deck[0] != recovered {
 		t.Fatalf("selected graveyard card should be deck top, deck=%v", cardsToInfo(p0.Deck))
+	}
+	if recovered.CurrentLife != recovered.Card.Life || recovered.Position != nil || !recovered.IsHorizontal || len(recovered.Statuses) != 0 || len(recovered.BoundSkills) != 0 || recovered.PowerBonus != 0 || recovered.AttackBonus != 0 || len(recovered.ElementsGainBonus) != 0 {
+		t.Fatalf("recovered deck card should have battlefield state reset, card=%v", cardToInfo(recovered))
+	}
+	drawn := engine.drawCards(0, 1)
+	if len(drawn) != 1 || drawn[0] != recovered || len(p0.Hand) != 1 || p0.Hand[0] != recovered {
+		t.Fatalf("recovered card should be drawn from deck top, drawn=%v hand=%v", cardsToInfo(drawn), cardsToInfo(p0.Hand))
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+		"instance_id": recovered.InstanceID,
+		"col":         float64(1),
+		"row":         float64(0),
+	}}); err != nil {
+		t.Fatalf("resummon recovered card: %v", err)
+	}
+	if recovered.CurrentLife != recovered.Card.Life || recovered.Position == nil || recovered.Position.Col != 1 || recovered.Position.Row != 0 || len(recovered.Statuses) != 0 {
+		t.Fatalf("resummoned recovered card should enter fresh, card=%v", cardToInfo(recovered))
 	}
 }
 
