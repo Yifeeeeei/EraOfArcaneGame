@@ -29,4 +29,3 @@ Include at most 3–5 Match IDs with one-line relevance summaries.
 ## Questions for this match
 
 List the decisions or hypotheses this match should test.
-
