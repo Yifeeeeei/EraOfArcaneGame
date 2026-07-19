@@ -6997,6 +6997,78 @@ func TestItemSpellScrollEffects(t *testing.T) {
 			t.Fatalf("chain lightning should damage and draw, life=%d hand=%d", target.CurrentLife, len(p0.Hand))
 		}
 	})
+
+	t.Run("chain lightning chooses draw when another scroll is searchable", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		target := placeUnit(baseCard(t, "1021007"), 1, 1, 0, engine)
+		target.CurrentLife = 3
+		scroll := NewCardInstance(baseCard(t, "2321009"), 0, 1)
+		filler := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		searchable := NewCardInstance(baseCard(t, "2321009"), 0, 1)
+		p0.Hand = []*CardInstance{scroll}
+		p0.Deck = []*CardInstance{filler, searchable}
+		p0.Elements[model.ElementAir] = 2
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": scroll.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(target.Position.Col),
+			"target_row":  float64(target.Position.Row),
+		}}); err != nil {
+			t.Fatalf("use chain lightning: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve chain lightning hit: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "chain_lightning_scroll_choice" {
+			t.Fatalf("chain lightning should ask draw or search, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{chainLightningScrollDrawChoiceID},
+		}}); err != nil {
+			t.Fatalf("choose chain lightning draw: %v", err)
+		}
+		if target.CurrentLife != 2 || len(p0.Hand) != 1 || p0.Hand[0] != filler || len(p0.Deck) != 1 || p0.Deck[0] != searchable {
+			t.Fatalf("chain lightning draw choice should draw deck top only, life=%d hand=%v deck=%v", target.CurrentLife, cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
+		}
+	})
+
+	t.Run("chain lightning chooses searchable scroll", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		target := placeUnit(baseCard(t, "1021007"), 1, 1, 0, engine)
+		target.CurrentLife = 3
+		scroll := NewCardInstance(baseCard(t, "2321009"), 0, 1)
+		filler := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		searchable := NewCardInstance(baseCard(t, "2321009"), 0, 1)
+		p0.Hand = []*CardInstance{scroll}
+		p0.Deck = []*CardInstance{filler, searchable}
+		p0.Elements[model.ElementAir] = 2
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": scroll.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(target.Position.Col),
+			"target_row":  float64(target.Position.Row),
+		}}); err != nil {
+			t.Fatalf("use chain lightning: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve chain lightning hit: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "chain_lightning_scroll_choice" {
+			t.Fatalf("chain lightning should ask draw or search, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{searchable.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose chain lightning search: %v", err)
+		}
+		if target.CurrentLife != 2 || len(p0.Hand) != 1 || p0.Hand[0] != searchable || len(p0.Deck) != 1 || p0.Deck[0] != filler {
+			t.Fatalf("chain lightning search choice should take selected scroll, life=%d hand=%v deck=%v", target.CurrentLife, cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
+		}
+	})
 }
 
 func TestDefenseSpellScrollsCanDefendFromHand(t *testing.T) {
