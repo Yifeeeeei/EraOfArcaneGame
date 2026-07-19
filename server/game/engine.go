@@ -632,6 +632,10 @@ func (e *Engine) drawCards(playerID int, n int) []*CardInstance {
 	ps := e.State.Players[playerID]
 	drawn := ps.DrawCards(n)
 	for _, card := range drawn {
+		if ps.DrawnTurn == nil {
+			ps.DrawnTurn = make(map[string]int)
+		}
+		ps.DrawnTurn[card.InstanceID] = e.State.TurnNumber
 		ps.DrawCountThisTurn++
 		e.emit(GameEvent{
 			Type:   "draw_card",

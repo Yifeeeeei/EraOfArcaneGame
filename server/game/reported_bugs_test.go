@@ -4867,6 +4867,57 @@ func TestMagicDandelionRevealsWhenDrawnAndClearsWhenLeavingHand(t *testing.T) {
 	}
 }
 
+func TestMagicDandelionDrawsOnlyWhenSummonedSameTurnItWasDrawn(t *testing.T) {
+	t.Run("same turn draw and summon draws one card", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		dandelion := NewCardInstance(baseCard(t, "1321003"), 0, 1)
+		filler := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Deck = []*CardInstance{dandelion, filler}
+		p0.Elements[model.ElementAir] = 1
+
+		drawn := engine.drawCards(0, 1)
+		if len(drawn) != 1 || drawn[0] != dandelion {
+			t.Fatalf("expected to draw magic dandelion, drawn=%v", cardsToInfo(drawn))
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+			"instance_id": dandelion.InstanceID,
+			"col":         float64(0),
+			"row":         float64(0),
+		}}); err != nil {
+			t.Fatalf("summon same-turn magic dandelion: %v", err)
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != filler || len(p0.Deck) != 0 {
+			t.Fatalf("same-turn magic dandelion should draw one card, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
+		}
+	})
+
+	t.Run("later turn summon does not draw", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		dandelion := NewCardInstance(baseCard(t, "1321003"), 0, 1)
+		filler := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Deck = []*CardInstance{dandelion, filler}
+		p0.Elements[model.ElementAir] = 1
+
+		drawn := engine.drawCards(0, 1)
+		if len(drawn) != 1 || drawn[0] != dandelion {
+			t.Fatalf("expected to draw magic dandelion, drawn=%v", cardsToInfo(drawn))
+		}
+		engine.State.TurnNumber++
+		if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+			"instance_id": dandelion.InstanceID,
+			"col":         float64(0),
+			"row":         float64(0),
+		}}); err != nil {
+			t.Fatalf("summon later-turn magic dandelion: %v", err)
+		}
+		if len(p0.Hand) != 0 || len(p0.Deck) != 1 || p0.Deck[0] != filler {
+			t.Fatalf("later-turn magic dandelion should not draw, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
+		}
+	})
+}
+
 func TestLifePotionUsesPendingSelectionToHealFriendlyUnit(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]

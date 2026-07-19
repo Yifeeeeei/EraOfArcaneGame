@@ -8,7 +8,12 @@ func (Card1321003MagicDandelion) Name() string { return "魔法蒲公英" }
 func (Card1321003MagicDandelion) RevealsOnDraw() bool { return true }
 
 func (Card1321003MagicDandelion) OnEnter(ctx *EffectContext) error {
-	// Runtime still lacks per-instance draw-turn tracking. Keep the explicit
-	// playable behavior that used to come from text parsing: entering draws 1.
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil {
+		return nil
+	}
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	if ps == nil || ps.DrawnTurn == nil || ps.DrawnTurn[ctx.Source.InstanceID] != ctx.Engine.State.TurnNumber {
+		return nil
+	}
 	return DrawCards(1)(ctx)
 }
