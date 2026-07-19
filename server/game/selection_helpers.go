@@ -294,6 +294,7 @@ func (e *Engine) moveGraveyardCardToDeckTop(playerID int, instanceID string) boo
 			continue
 		}
 		ps.Graveyard = append(ps.Graveyard[:i], ps.Graveyard[i+1:]...)
+		resetCardForHiddenZone(card)
 		ps.Deck = append([]*CardInstance{card}, ps.Deck...)
 		e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
 			"effect": "graveyard_to_deck_top",
@@ -311,6 +312,7 @@ func (e *Engine) moveGraveyardCardToHand(playerID int, instanceID string) bool {
 			continue
 		}
 		ps.Graveyard = append(ps.Graveyard[:i], ps.Graveyard[i+1:]...)
+		resetCardForHiddenZone(card)
 		ps.Hand = append(ps.Hand, card)
 		e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
 			"effect": "graveyard_to_hand",
@@ -319,6 +321,30 @@ func (e *Engine) moveGraveyardCardToHand(playerID int, instanceID string) bool {
 		return true
 	}
 	return false
+}
+
+func resetCardForHiddenZone(card *CardInstance) {
+	if card == nil || card.Card == nil {
+		return
+	}
+	card.CurrentLife = card.Card.Life
+	card.CurrentAttack = card.Card.Attack
+	card.DamageTakenThisTurn = 0
+	card.IsHorizontal = true
+	card.Statuses = make(map[string]int)
+	card.ElementsGainBonus = make(map[string]int)
+	card.ElementsGainSet = nil
+	card.PowerBonus = 0
+	card.AttackBonus = 0
+	card.IsSetCounter = false
+	card.Position = nil
+	card.SlotIndex = -1
+	card.EnterTurn = 0
+	card.BoundSkills = nil
+	card.AttachedBehaviors = nil
+	card.UsedThisTurn = 0
+	card.UltimateUsed = false
+	card.UsesRemaining = 0
 }
 
 func (e *Engine) shuffleDeck(playerID int) {
