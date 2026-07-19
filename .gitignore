@@ -6,6 +6,7 @@ server/server
 tmp/
 server/logs/
 docs/project/
+agent-data/
 
 # OS
 .DS_Store
