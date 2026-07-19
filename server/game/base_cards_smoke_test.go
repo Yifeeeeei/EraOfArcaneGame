@@ -351,6 +351,9 @@ func TestEveryRegisteredBaseCardEffectHandlerRuns(t *testing.T) {
 						enemy.Position = &Position{Col: 1, Row: 0}
 						engine.State.Players[1].Units[1][0] = enemy
 					}
+					if card.Number == "1121003" && effect.Trigger == TriggerPerTurn {
+						engine.State.Players[0].Skills[0] = readySkill(cards.PlayableCardDB["3321005"], 0)
+					}
 					target := engine.State.Players[1].Hero
 					ctx := &EffectContext{
 						Engine:       engine,
