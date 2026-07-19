@@ -5208,13 +5208,17 @@ func TestStoneforgeArtisanGivesSelectedSpellPowerThisTurn(t *testing.T) {
 	p0.Elements[model.ElementAir] = 2
 	placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
 
-	if err := engine.HandleAction(0, ActionMessage{Action: "consume", Data: map[string]any{
-		"instance_id": artisan.InstanceID,
+	if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+		"ability_type": "per_turn",
+		"instance_id":  artisan.InstanceID,
 	}}); err != nil {
-		t.Fatalf("consume stoneforge artisan: %v", err)
+		t.Fatalf("use stoneforge artisan: %v", err)
 	}
 	if engine.State.Phase != PhaseWaitingAction {
 		t.Fatalf("expected spell selection for power bonus, phase=%v", engine.State.Phase)
+	}
+	if !artisan.IsHorizontal {
+		t.Fatalf("stoneforge artisan should pay its consume cost by turning horizontal")
 	}
 	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 		"selected": []any{p0.Skills[0].InstanceID},
@@ -5234,6 +5238,49 @@ func TestStoneforgeArtisanGivesSelectedSpellPowerThisTurn(t *testing.T) {
 	}
 	if engine.State.PendingSpell == nil || engine.State.PendingSpell.TotalPower != 3 {
 		t.Fatalf("cyclone wave should have base 1 +2 power, pending=%+v", engine.State.PendingSpell)
+	}
+}
+
+func TestStoneforgeArtisanOnlyTriggersFromOwnActiveAbility(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	artisan := placeUnit(baseCard(t, "1121003"), 0, 0, 0, engine)
+	otherFriendly := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+	enemyUnit := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+	p0.Skills[0] = readySkill(baseCard(t, "3321005"), 0)
+	engine.State.Phase = PhaseMain
+
+	engine.State.CurrentTurn = 0
+	if err := engine.HandleAction(0, ActionMessage{Action: "consume", Data: map[string]any{
+		"instance_id": otherFriendly.InstanceID,
+	}}); err != nil {
+		t.Fatalf("consume other friendly card: %v", err)
+	}
+	if engine.State.PendingAction != nil || len(p0.TempModifiers) != 0 || artisan.IsHorizontal {
+		t.Fatalf("other friendly consume should not trigger stoneforge, pending=%+v modifiers=%v horizontal=%v", engine.State.PendingAction, p0.TempModifiers, artisan.IsHorizontal)
+	}
+
+	engine.State.CurrentTurn = 1
+	if err := engine.HandleAction(1, ActionMessage{Action: "consume", Data: map[string]any{
+		"instance_id": enemyUnit.InstanceID,
+	}}); err != nil {
+		t.Fatalf("consume enemy unit: %v", err)
+	}
+	if engine.State.PendingAction != nil || len(p0.TempModifiers) != 0 || artisan.IsHorizontal {
+		t.Fatalf("enemy consume should not trigger stoneforge, pending=%+v modifiers=%v horizontal=%v", engine.State.PendingAction, p0.TempModifiers, artisan.IsHorizontal)
+	}
+
+	engine.State.CurrentTurn = 0
+	artisan.IsHorizontal = true
+	err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+		"ability_type": "per_turn",
+		"instance_id":  artisan.InstanceID,
+	}})
+	if err == nil {
+		t.Fatalf("horizontal stoneforge artisan should not pay consume cost")
+	}
+	if engine.State.PendingAction != nil || artisan.UsedThisTurn != 0 {
+		t.Fatalf("failed stoneforge activation should not open pending or consume use count, pending=%+v used=%d", engine.State.PendingAction, artisan.UsedThisTurn)
 	}
 }
 
