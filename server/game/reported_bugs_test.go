@@ -8593,7 +8593,10 @@ func TestEnemyAndGlobalSpellDamageReducers(t *testing.T) {
 		frostHeart := NewCardInstance(baseCard(t, "2221001"), 1, 1)
 		p1.Equipment[0] = frostHeart
 		p0.Skills[0] = readySkill(baseCard(t, "3121002"), 0)
+		p0.Skills[1] = readySkill(baseCard(t, "3121002"), 0)
+		p1Skill := readySkill(baseCard(t, "3121002"), 1)
 		p0.Elements[model.ElementFire] = 10
+		p1.Elements[model.ElementFire] = 10
 		if _, ok := globalRegistry.GetBehavior("2221001").(SpellReactionBehavior); !ok {
 			t.Fatalf("frost heart should expose spell reaction behavior")
 		}
@@ -8614,14 +8617,37 @@ func TestEnemyAndGlobalSpellDamageReducers(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("react with frost heart: %v", err)
 		}
+		if len(p1.TempModifiers) != 1 || p1.TempModifiers[0].TargetInstanceID != p0.Skills[0].InstanceID {
+			t.Fatalf("frost heart should scope damage-zero modifier to the pending spell, modifiers=%v", p1.TempModifiers)
+		}
+		if damage := engine.effectiveSpellDamage(1, p1Skill, p1Skill.Card.Attack, nil); damage != p1Skill.Card.Attack {
+			t.Fatalf("frost heart should not reduce its owner's own spell, damage=%d", damage)
+		}
 		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
 			t.Fatalf("resolve spell after frost heart: %v", err)
 		}
 		if target.CurrentLife != 3 {
 			t.Fatalf("frost heart should zero the incoming spell damage, life=%d", target.CurrentLife)
 		}
+		if len(p1.TempModifiers) != 0 {
+			t.Fatalf("frost heart modifier should be consumed by the triggering spell, modifiers=%v", p1.TempModifiers)
+		}
 		if p1.Equipment[0] != nil || len(p1.Graveyard) != 1 || p1.Graveyard[0] != frostHeart {
 			t.Fatalf("frost heart should sacrifice to graveyard, equipment=%v graveyard=%v", p1.Equipment[0], cardsToInfo(p1.Graveyard))
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": p0.Skills[1].InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("cast second spell after frost heart: %v", err)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve second spell after frost heart: %v", err)
+		}
+		if target.CurrentLife != 1 {
+			t.Fatalf("frost heart should not zero a later spell, life=%d", target.CurrentLife)
 		}
 	})
 

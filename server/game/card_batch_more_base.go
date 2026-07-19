@@ -1118,10 +1118,15 @@ func (Card2221001FrostHeart) CanReactToSpell(ctx *EffectContext, spell *SpellCas
 	return ctx != nil && spell != nil && spell.AttackerID != ctx.PlayerID
 }
 func (Card2221001FrostHeart) OnSpellReaction(ctx *EffectContext, spell *SpellCast) error {
+	targetInstanceID := ""
+	if spell != nil && spell.Skill != nil {
+		targetInstanceID = spell.Skill.InstanceID
+	}
 	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
-		Type:          TempModAllSpellDamageZero,
-		RemainingUses: 1,
-		ExpiresTurn:   ctx.Engine.State.TurnNumber + 1,
+		Type:             TempModAllSpellDamageZero,
+		TargetInstanceID: targetInstanceID,
+		RemainingUses:    1,
+		ExpiresTurn:      ctx.Engine.State.TurnNumber + 1,
 	})
 	ctx.Engine.discardFriendlyCandidate(ctx.PlayerID, ctx.Source.InstanceID)
 	ctx.Engine.emit(GameEvent{Type: "spell_reaction", Player: -1, Data: map[string]any{

@@ -1755,6 +1755,8 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 	}
 	dmg = e.effectiveSpellDamage(attackerID, skill, dmg, boostSkills)
 	e.consumeNextElementSpellDamageBonus(e.State.Players[attackerID], skill)
+	e.consumeAllSpellDamageZero(e.State.Players[attackerID], skill)
+	e.consumeAllSpellDamageZero(e.State.Players[defenderID], skill)
 	e.consumeFriendlySpellDamageMinus(e.State.Players[defenderID], skill)
 
 	{
