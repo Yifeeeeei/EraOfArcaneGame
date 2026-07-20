@@ -41,3 +41,27 @@ This file documents the layout only. Do not commit the contents of
 Raw transcripts, room logs, and full reviews are cold evidence. Agents should
 open them only when a relevant workbook row or context pack points to them.
 Every 10 matches, compact the knowledge layer while preserving the raw archive.
+
+## Optional shared knowledge repository
+
+Cross-machine, frequently updated experience can be shared through:
+
+```text
+https://github.com/Yifeeeeei/EraOfArcaneAgentLab
+```
+
+Keep it as a sibling checkout rather than a Git submodule or runtime dependency:
+
+```text
+Workspace/
+  EraOfArcaneGame/
+  EraOfArcaneAgentLab/
+```
+
+The shared repository contains compact match metadata, summaries, reviews,
+exact deck versions, promoted knowledge, and bounded context packs. Routine raw
+JSONL logs and generated workbooks remain ignored.
+
+Before a shared match, read the AgentLab `AGENTS.md` and bounded context packs.
+Afterward, update AgentLab only when the task authorizes sharing; do not make
+ordinary game development depend on network access or the sibling checkout.

@@ -36,6 +36,13 @@ Do not place reviews, transcripts, accumulated strategy notes, deck experiments,
 or the match workbook under `docs/`. Repository documentation describes how to
 play; `agent-data/` stores what the agents learned from playing.
 
+When a sibling `EraOfArcaneAgentLab` checkout is available for an authorized
+shared match, read its `AGENTS.md` and bounded context packs before selecting
+historical evidence. Do not read its entire match archive. Runtime transcripts
+remain under ignored local storage; only compact artifacts are promoted to the
+knowledge repository after the match. The external repository is optional and
+must never block this CLI or the game server.
+
 ## Start a match
 
 From a fresh clone, initialize the ignored local knowledge/archive structure.

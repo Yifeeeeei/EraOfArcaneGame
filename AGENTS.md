@@ -54,6 +54,7 @@ Serving:
 - `server/cmd/check-card-metadata/main.go`: audits structured card metadata such as `effect_categories` and `effect_optionality`.
 - `server/cmd/generate-card-definitions/main.go`: regenerates compiled Go card definitions from `data/supported_card_infos.json`.
 - `server/cmd/snapshot-supported-cards/main.go`: regenerates `data/supported_card_infos.json`.
+- `server/cmd/agent-player/main.go`: headless CLI used by Codex agents to initialize local match data, validate decks, create rooms, and play through the backend WebSocket without opening the frontend.
 - `server/game/card_behavior.go`: card behavior interfaces such as `OnEnterBehavior`, `OnDeathBehavior`, `PerTurnAbility`, and `UltimateAbility`.
 - `server/game/card_<number>_<name>.go`: one file per concrete base-set card with custom behavior.
 - `server/game/card_effects_catalog.go`: registers lazy behavior factories with the engine adapter; it should not instantiate every behavior at startup.
@@ -66,6 +67,8 @@ Serving:
 - `web/game.html`: actual match UI.
 - `web/card-test.html`: base-card testing workbench.
 - `web/css/main.css`, `web/css/lobby.css`, `web/css/game.css`: current visual language.
+- `docs/agent-player-protocol.md`: required machine-oriented workflow and action payload reference for headless Codex-agent matches.
+- `docs/agent-player-data-layout.md`: explains the ignored local archive, bounded context packs, and long-term knowledge layout.
 
 ## Running Locally
 
@@ -83,6 +86,67 @@ http://localhost:9090/
 ```
 
 The server currently assumes `../web` is available relative to the `server` directory. Card data is compiled into Go and is not read from JSON at startup.
+
+## Headless Codex-Agent Matches
+
+When asked to run, coordinate, debug, or review a Codex-agent match without the
+frontend, read these files before acting:
+
+1. `docs/agent-player-protocol.md`
+2. `docs/agent-player-data-layout.md`
+
+Discover the CLI and initialize its ignored local data from the `server`
+directory:
+
+```bash
+cd server
+go run ./cmd/agent-player --help
+go run ./cmd/agent-player init-data
+```
+
+Start exactly one game server from `server/`, then create a room in another
+terminal:
+
+```bash
+GOCACHE=/tmp/eraofarcane-go-cache go run .
+go run ./cmd/agent-player create-room
+```
+
+Use `agent-player validate-deck` before connecting. Each player agent must run a
+separate persistent `agent-player connect` process with a distinct stable
+`player-id` and transcript path. The second connection starts the match; actions
+are newline-delimited JSON written to each client's stdin. `sample-deck` is
+available for a first smoke match.
+
+Do not commit match transcripts, reviews, evolving strategy, deck experiments,
+or the match workbook. They belong under the ignored `agent-data/` directory,
+not under `docs/`. Repository documentation should contain only the reusable
+instructions required for another agent to operate the workflow.
+
+Shared cross-machine match knowledge lives in the separate repository:
+
+```text
+https://github.com/Yifeeeeei/EraOfArcaneAgentLab
+```
+
+For agent-match tasks, prefer a sibling checkout at
+`../EraOfArcaneAgentLab`. If it exists, read its `AGENTS.md`, then its bounded
+`context-packs/bootstrap.md` and `context-packs/next-match.md`; do not preload
+its complete match history. Record the exact EraOfArcaneGame commit in every
+shared match or deck artifact.
+
+The knowledge repository is optional infrastructure, not a game dependency.
+Normal coding, tests, builds, and human frontend matches must work without it.
+If it is unavailable, continue with ignored local `agent-data/` and report that
+shared knowledge was not loaded. Do not silently clone, pull, push, or modify
+the external repository unless the current task authorizes those network or
+repository changes.
+
+Routine raw transcripts and server room logs stay ignored locally. When a task
+does authorize sharing new experience, promote only compact match metadata,
+summaries, independent reviews, exact deck codes, and repeatedly supported
+knowledge to EraOfArcaneAgentLab; game bugs themselves still belong in this
+repository's GitHub Issues.
 
 ## Card Behavior Architecture
 
