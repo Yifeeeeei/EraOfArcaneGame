@@ -823,7 +823,7 @@ func (Card1621013WordSpirit) OnSpellCast(ctx *EffectContext) error {
 		return nil
 	}
 	for _, skill := range ctx.Engine.State.Players[ctx.OpponentID].Skills {
-		if skill != nil && skill.IsHorizontal {
+		if skill != nil && skill.IsHorizontal && canInstanceBeWeakened(skill) {
 			ctx.Engine.addStatus(skill, StatusWeaken, 1)
 		}
 	}

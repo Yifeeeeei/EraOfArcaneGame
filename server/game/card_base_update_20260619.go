@@ -239,42 +239,18 @@ func newBlessingStaff() CardBehavior {
 }
 
 func newBurier() CardBehavior {
-	canUse := func(ctx *EffectContext) bool {
-		return len(ctx.Engine.friendlyDeckCards(ctx.PlayerID, func(card *CardInstance) bool {
-			return card.Card.IsCompanion() && card.Card.Category == model.ElementShadow
-		})) > 0
-	}
-	return markerEquipment{id: "2621014", name: "埋葬者", counter: burierCounter, counters: 3, canUse: canUse, effect: func(ctx *EffectContext) error {
-		candidates := ctx.Engine.friendlyDeckCards(ctx.PlayerID, func(card *CardInstance) bool {
-			return card.Card.IsCompanion() && card.Card.Category == model.ElementShadow
-		})
-		ctx.Engine.SetPendingAction(ctx.PlayerID, "burier", "埋葬者:选择1张暗影伙伴送去弃牌堆", candidates, 1, 1, func(selected []string) {
-			card := removeSelectedDeckCard(ctx.Engine, ctx.PlayerID, selected, candidates)
-			if card != nil {
-				ps := ctx.Engine.State.Players[ctx.PlayerID]
-				ps.Graveyard = append(ps.Graveyard, card)
-				ctx.Engine.emit(GameEvent{Type: "discard", Player: ctx.PlayerID, Data: map[string]any{"card": cardToInfo(card)}})
-			}
-			ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementShadow: 2})
-		})
+	return markerEquipment{id: "2621014", name: "埋葬者", counter: burierCounter, counters: 3, effect: func(ctx *EffectContext) error {
+		ps := ctx.Engine.State.Players[ctx.PlayerID]
+		count := min(2, len(ps.Deck))
+		for i := 0; i < count; i++ {
+			card := ps.Deck[0]
+			ps.Deck = ps.Deck[1:]
+			ps.Graveyard = append(ps.Graveyard, card)
+			ctx.Engine.emit(GameEvent{Type: "discard", Player: ctx.PlayerID, Data: map[string]any{"card": cardToInfo(card)}})
+		}
+		ps.GainElements(map[string]int{model.ElementShadow: 2})
 		return nil
 	}}
-}
-
-func removeSelectedDeckCard(e *Engine, playerID int, selected []string, candidates []map[string]any) *CardInstance {
-	id := firstSelected(selected)
-	if id == "" || !candidateContains(candidates, id) {
-		return nil
-	}
-	ps := e.State.Players[playerID]
-	for i, card := range ps.Deck {
-		if card != nil && card.InstanceID == id {
-			ps.Deck = append(ps.Deck[:i], ps.Deck[i+1:]...)
-			e.shuffleDeck(playerID)
-			return card
-		}
-	}
-	return nil
 }
 
 func candidateContains(candidates []map[string]any, instanceID string) bool {

@@ -236,7 +236,7 @@ func (e *Engine) promptHeartPiercerAfterPhantomPain(ctx *EffectContext) {
 			return
 		}
 		target := e.findSkill(opponent, selected[0])
-		if target != nil && target.Card != nil && isSpellLikeCard(target.Card) {
+		if canInstanceBeWeakened(target) {
 			e.addStatus(target, StatusWeaken, 2)
 		}
 	})
@@ -246,7 +246,7 @@ func (e *Engine) enemySpellCardCandidates(playerID int) []map[string]any {
 	ps := e.State.Players[1-playerID]
 	candidates := make([]map[string]any, 0)
 	for _, skill := range ps.Skills {
-		if skill != nil && skill.Card != nil && isSpellLikeCard(skill.Card) {
+		if canInstanceBeWeakened(skill) {
 			candidates = append(candidates, candidateInfo(skill, "skill", "enemy"))
 		}
 	}
@@ -255,7 +255,7 @@ func (e *Engine) enemySpellCardCandidates(playerID int) []map[string]any {
 			continue
 		}
 		for _, skill := range card.BoundSkills {
-			if skill != nil && skill.Card != nil && isSpellLikeCard(skill.Card) {
+			if canInstanceBeWeakened(skill) {
 				candidates = append(candidates, candidateInfo(skill, "bound_skill", "enemy"))
 			}
 		}

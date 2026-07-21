@@ -507,7 +507,7 @@ func TestIssue33PlaytestRegressions(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		p1 := engine.State.Players[1]
-		enemyA := readySkill(baseCard(t, "3021005"), 1)
+		enemyA := readySkill(baseCard(t, "3121001"), 1)
 		enemyB := readySkill(baseCard(t, "3121002"), 1)
 		p1.Skills[0] = enemyA
 		p1.Skills[1] = enemyB
@@ -1380,7 +1380,7 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 	t.Run("1621005 诅咒魔像 asks which enemy skill to weaken on enter", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p1 := engine.State.Players[1]
-		p1.Skills[0] = readySkill(baseCard(t, "3021005"), 1)
+		p1.Skills[0] = readySkill(baseCard(t, "3121001"), 1)
 		golem := placeUnit(baseCard(t, "1621005"), 0, 0, 0, engine)
 
 		engine.triggerEffects(TriggerOnEnter, golem, nil, nil)
@@ -2158,27 +2158,36 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 	})
 
-	t.Run("2621014 埋葬者 does not pay consume or marker cost without a shadow companion in deck", func(t *testing.T) {
+	t.Run("2621014 埋葬者 mills up to two cards from deck top", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		burier := NewCardInstance(baseCard(t, "2621014"), 0, 1)
 		burier.IsHorizontal = false
 		burier.Statuses[burierCounter] = 3
 		p0.Equipment[0] = burier
+		top := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		second := NewCardInstance(baseCard(t, "1121001"), 0, 1)
+		third := NewCardInstance(baseCard(t, "1221001"), 0, 1)
 		p0.Deck = []*CardInstance{
-			NewCardInstance(baseCard(t, "1021001"), 0, 1),
-			NewCardInstance(baseCard(t, "1121001"), 0, 1),
+			top,
+			second,
+			third,
 		}
 
-		err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
 			"instance_id":  burier.InstanceID,
 			"ability_type": "per_turn",
-		}})
-		if err == nil {
-			t.Fatalf("burier should reject use without a shadow companion in deck")
+		}}); err != nil {
+			t.Fatalf("use burier: %v", err)
 		}
-		if burier.IsHorizontal || burier.Statuses[burierCounter] != 3 || burier.UsedThisTurn != 0 || engine.State.PendingAction != nil {
-			t.Fatalf("burier should not pay costs or leave pending on invalid use, horizontal=%v statuses=%v used=%d pending=%+v", burier.IsHorizontal, burier.Statuses, burier.UsedThisTurn, engine.State.PendingAction)
+		if !burier.IsHorizontal || burier.Statuses[burierCounter] != 2 || engine.State.PendingAction != nil {
+			t.Fatalf("burier should pay consume/marker without opening a target window, horizontal=%v statuses=%v pending=%+v", burier.IsHorizontal, burier.Statuses, engine.State.PendingAction)
+		}
+		if len(p0.Graveyard) != 2 || p0.Graveyard[0] != top || p0.Graveyard[1] != second || len(p0.Deck) != 1 || p0.Deck[0] != third {
+			t.Fatalf("burier should mill the top two cards in order, graveyard=%v deck=%v", cardsToInfo(p0.Graveyard), cardsToInfo(p0.Deck))
+		}
+		if p0.Elements[model.ElementShadow] != 2 {
+			t.Fatalf("burier should gain 2 shadow after milling, elements=%v", p0.Elements)
 		}
 	})
 
@@ -2570,7 +2579,7 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		book := NewCardInstance(baseCard(t, "2601002"), 0, 1)
 		frontEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
 		backEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
-		enemyA := readySkill(baseCard(t, "3021005"), 1)
+		enemyA := readySkill(baseCard(t, "3121001"), 1)
 		enemyB := readySkill(baseCard(t, "3021008"), 1)
 		engine.State.Players[1].Skills[0] = enemyA
 		engine.State.Players[1].Skills[1] = enemyB
@@ -3075,7 +3084,7 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		veil := NewCardInstance(baseCard(t, "2621004"), 0, 1)
 		ring := NewCardInstance(baseCard(t, "2621013"), 0, 1)
 		p0.Equipment[0] = ring
-		enemySkill := readySkill(baseCard(t, "3021005"), 1)
+		enemySkill := readySkill(baseCard(t, "3121001"), 1)
 		enemySkill.Statuses[StatusWeaken] = 1
 		engine.State.Players[1].Skills[0] = enemySkill
 
@@ -3352,8 +3361,16 @@ func TestRoom5543CardAndTargetingRegressions(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("resolve Fuye target: %v", err)
 		}
-		if target.CurrentAttack != target.Card.Attack*2 || effectiveElementsGain(target)[model.ElementArcane] != 2 || target.Statuses["临时"] != 1 {
-			t.Fatalf("Fuye should double target attack/load and mark temporary, attack=%d load=%v statuses=%v", target.CurrentAttack, effectiveElementsGain(target), target.Statuses)
+		if target.CurrentAttack != target.Card.Attack*2 || effectiveElementsGain(target)[model.ElementArcane] != 2 || target.Statuses[fuyeDeathAfterExertStatus] != 1 || target.Statuses["临时"] != 0 {
+			t.Fatalf("Fuye should double target attack/load and mark death after exert, attack=%d load=%v statuses=%v", target.CurrentAttack, effectiveElementsGain(target), target.Statuses)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "consume", Data: map[string]any{
+			"instance_id": target.InstanceID,
+		}}); err != nil {
+			t.Fatalf("consume Fuye-marked target: %v", err)
+		}
+		if p0.Units[1][0] != nil || len(p0.Graveyard) == 0 || p0.Graveyard[len(p0.Graveyard)-1] != target {
+			t.Fatalf("Fuye-marked target should die after consuming, units=%v graveyard=%v", p0.Units[1][0], cardsToInfo(p0.Graveyard))
 		}
 	})
 
@@ -4705,6 +4722,40 @@ func TestDefenseOverexertPaysOnlyForThisDefenseWithoutConsumeTriggers(t *testing
 	}
 	if target.CurrentLife != target.Card.Life {
 		t.Fatalf("successful defense should prevent spell hit, target life=%d", target.CurrentLife)
+	}
+}
+
+func TestFuyeMarkedCompanionDiesAfterDefenseOverexert(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+	target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+	overexerted := placeUnit(baseCard(t, "1011002"), 1, 0, 0, engine)
+	setElementsGain(overexerted, map[string]int{model.ElementArcane: 1})
+	applyFuyeUltimate(overexerted)
+	p0.Skills[0] = readySkill(baseCard(t, "3321005"), 0)
+	p0.Elements[model.ElementAir] = 2
+	p1.Skills[0] = readySkill(baseCard(t, "3021008"), 1)
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": p0.Skills[0].InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(1),
+		"target_row":  float64(0),
+	}}); err != nil {
+		t.Fatalf("cast cyclone wave: %v", err)
+	}
+	if err := engine.HandleAction(1, ActionMessage{Action: "defend", Data: map[string]any{
+		"skill_ids":     []any{p1.Skills[0].InstanceID},
+		"overexert_ids": []any{overexerted.InstanceID},
+	}}); err != nil {
+		t.Fatalf("defend by overexerting Fuye-marked unit: %v", err)
+	}
+	if p1.Units[0][0] != nil || len(p1.Graveyard) == 0 || p1.Graveyard[len(p1.Graveyard)-1] != overexerted {
+		t.Fatalf("Fuye-marked unit should die after overexerting, unit=%v graveyard=%v", p1.Units[0][0], cardsToInfo(p1.Graveyard))
+	}
+	if target.CurrentLife != target.Card.Life {
+		t.Fatalf("overexert payment should still count before Fuye death, target life=%d", target.CurrentLife)
 	}
 }
 
@@ -6252,6 +6303,9 @@ func TestSkillPendingChoiceEffects(t *testing.T) {
 		if p0.Hand[0] != scroll {
 			t.Fatalf("engrave should search selected rune or scroll, hand=%v", cardsToInfo(p0.Hand))
 		}
+		if skill.Statuses[StatusCooldown] != 2 {
+			t.Fatalf("engrave should apply cooldown 2, statuses=%v", skill.Statuses)
+		}
 	})
 
 	t.Run("healing spell heals selected friendly unit", func(t *testing.T) {
@@ -7455,7 +7509,7 @@ func TestUtilityScrollAndForesightEffects(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		p1 := engine.State.Players[1]
-		p1.Skills[0] = readySkill(baseCard(t, "3021005"), 1)
+		p1.Skills[0] = readySkill(baseCard(t, "3121002"), 1)
 		p1.Skills[1] = readySkill(baseCard(t, "3121001"), 1)
 		scroll := NewCardInstance(baseCard(t, "2621008"), 0, 1)
 		p0.Hand = []*CardInstance{scroll}
@@ -8304,11 +8358,11 @@ func TestChoiceUtilitySkillEffects(t *testing.T) {
 			t.Fatalf("elemental enchant should ask which status to apply, pending=%+v", engine.State.PendingAction)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
-			"selected": []any{StatusBurn},
+			"selected": []any{StatusStun},
 		}}); err != nil {
 			t.Fatalf("choose elemental enchant status: %v", err)
 		}
-		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Status != StatusBurn {
+		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Status != StatusStun {
 			t.Fatalf("elemental enchant should add next spell status modifier, modifiers=%v", p0.TempModifiers)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
@@ -8322,8 +8376,8 @@ func TestChoiceUtilitySkillEffects(t *testing.T) {
 		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
 			t.Fatalf("resolve enchanted fireball: %v", err)
 		}
-		if target.Statuses[StatusBurn] != 1 {
-			t.Fatalf("enchanted fireball should burn target, statuses=%v", target.Statuses)
+		if target.Statuses[StatusStun] != 1 {
+			t.Fatalf("enchanted fireball should stun target, statuses=%v", target.Statuses)
 		}
 	})
 
@@ -9742,22 +9796,39 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 		}
 	})
 
-	t.Run("1621013 言灵 weakens enemy horizontal skills after opponent uses a skill", func(t *testing.T) {
+	t.Run("1621013 言灵 weakens enemy horizontal spells but not sorceries", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		wordSpirit := placeUnit(baseCard(t, "1621013"), 0, 1, 1, engine)
 		p1 := engine.State.Players[1]
 		used := readySkill(baseCard(t, "3121001"), 1)
 		otherHorizontal := readySkill(baseCard(t, "3221009"), 1)
+		sorcery := readySkill(baseCard(t, "3001002"), 1)
 		vertical := readySkill(baseCard(t, "3321005"), 1)
 		used.IsHorizontal = true
 		otherHorizontal.IsHorizontal = true
+		sorcery.IsHorizontal = true
 		p1.Skills[0] = used
 		p1.Skills[1] = otherHorizontal
-		p1.Skills[2] = vertical
+		p1.Skills[2] = sorcery
+		p1.Skills[3] = vertical
 
 		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, used, map[string]any{"cast_player": 1})
-		if used.Statuses[StatusWeaken] != 1 || otherHorizontal.Statuses[StatusWeaken] != 1 || vertical.Statuses[StatusWeaken] != 0 {
-			t.Fatalf("word spirit should weaken enemy horizontal skills only, source=%v used=%v other=%v vertical=%v", wordSpirit.Statuses, used.Statuses, otherHorizontal.Statuses, vertical.Statuses)
+		if used.Statuses[StatusWeaken] != 1 || otherHorizontal.Statuses[StatusWeaken] != 1 || sorcery.Statuses[StatusWeaken] != 0 || vertical.Statuses[StatusWeaken] != 0 {
+			t.Fatalf("word spirit should weaken enemy horizontal spells only, source=%v used=%v other=%v sorcery=%v vertical=%v", wordSpirit.Statuses, used.Statuses, otherHorizontal.Statuses, sorcery.Statuses, vertical.Statuses)
+		}
+	})
+
+	t.Run("虚弱 can only be applied to spells with power", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		spell := readySkill(baseCard(t, "3121001"), 0)
+		sorcery := readySkill(baseCard(t, "3001002"), 0)
+		unit := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+
+		if !engine.addStatus(spell, StatusWeaken, 1) {
+			t.Fatalf("spell with power should accept weaken")
+		}
+		if engine.addStatus(sorcery, StatusWeaken, 1) || engine.addStatus(unit, StatusWeaken, 1) {
+			t.Fatalf("sorceries and units should reject weaken, sorcery=%v unit=%v", sorcery.Statuses, unit.Statuses)
 		}
 	})
 
@@ -10192,8 +10263,8 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 			t.Fatalf("use Fuye ultimate: %v", err)
 		}
 		gain := effectiveElementsGain(target)
-		if target.CurrentAttack != attack*2 || gain[model.ElementArcane] != load[model.ElementArcane]*2 || gain[model.ElementFire] != load[model.ElementFire]*2 || target.Statuses["临时"] != 1 {
-			t.Fatalf("Fuye should double attack/load and mark temporary, attack=%d gain=%v statuses=%v", target.CurrentAttack, effectiveElementsGain(target), target.Statuses)
+		if target.CurrentAttack != attack*2 || gain[model.ElementArcane] != load[model.ElementArcane]*2 || gain[model.ElementFire] != load[model.ElementFire]*2 || target.Statuses[fuyeDeathAfterExertStatus] != 1 || target.Statuses["临时"] != 0 {
+			t.Fatalf("Fuye should double attack/load and mark death after exert, attack=%d gain=%v statuses=%v", target.CurrentAttack, effectiveElementsGain(target), target.Statuses)
 		}
 	})
 }

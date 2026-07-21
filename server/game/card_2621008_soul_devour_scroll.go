@@ -12,7 +12,7 @@ func (Card2621008SoulDevourScroll) OnSpellHit(ctx *EffectContext) error {
 	if ctx.Target != nil && ctx.Target.Card != nil && ctx.Target.Card.IsSkill() {
 		return nil
 	}
-	candidates := ctx.Engine.enemySkills(ctx.PlayerID, nil)
+	candidates := ctx.Engine.enemySkills(ctx.PlayerID, canInstanceBeWeakened)
 	if len(candidates) == 0 {
 		return nil
 	}

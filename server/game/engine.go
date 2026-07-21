@@ -271,6 +271,7 @@ func (e *Engine) handleReactSpell(playerID int, action ActionMessage) error {
 	if !payDefenseCostWithOptions(ps, cost, action, overexertUnits, e.playerHasLightWildcard(ps)) {
 		return fmt.Errorf("invalid payment")
 	}
+	e.destroyFuyeDoomedAfterExert(overexertUnits)
 
 	if skill.Card.IsSkill() {
 		skill.IsHorizontal = true
@@ -1008,6 +1009,7 @@ func (e *Engine) handleConsume(playerID int, action ActionMessage) error {
 		"gained":          gains,
 	})
 	e.advanceMastery(card, playerID, 1)
+	e.destroyFuyeDoomedCardAfterExert(card)
 
 	return nil
 }
@@ -1238,6 +1240,7 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		if !payDefenseCostWithOptions(ps, totalCost, action, overexertUnits, e.playerHasLightWildcard(ps)) {
 			return fmt.Errorf("invalid payment")
 		}
+		e.destroyFuyeDoomedAfterExert(overexertUnits)
 		tapSkills(defenseSkills)
 		tapSkills(boostSkills)
 		e.moveHandConsumablesToGraveyard(ps, append(defenseScrolls, boostScrolls...))
@@ -1585,6 +1588,7 @@ func (e *Engine) payAndUseDispel(playerID int, dispel *CardInstance, cost map[st
 	if !payDefenseCostWithOptions(e.State.Players[playerID], cost, ActionMessage{Data: data}, overexertUnits, e.playerHasLightWildcard(e.State.Players[playerID])) {
 		return fmt.Errorf("invalid payment")
 	}
+	e.destroyFuyeDoomedAfterExert(overexertUnits)
 	dispel.IsHorizontal = true
 	if !e.shouldSkipCooldown(e.State.Players[playerID], dispel) {
 		e.ApplyKeywordOnSkillUse(dispel)

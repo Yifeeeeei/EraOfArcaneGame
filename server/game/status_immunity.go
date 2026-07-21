@@ -22,6 +22,9 @@ func (e *Engine) addStatus(card *CardInstance, status string, amount int) bool {
 	if card == nil || amount <= 0 {
 		return false
 	}
+	if status == StatusWeaken && !canCardBeWeakened(card.Card) {
+		return false
+	}
 	if isNegativeStatus(status) && e.rejectsNegativeStatusApplication(card) {
 		return false
 	}

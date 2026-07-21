@@ -5,7 +5,7 @@ type Card1621005CursedGolem struct{ AlwaysActive }
 func (Card1621005CursedGolem) ID() string   { return "1621005" }
 func (Card1621005CursedGolem) Name() string { return "诅咒魔像" }
 func (Card1621005CursedGolem) OnEnter(ctx *EffectContext) error {
-	candidates := ctx.Engine.enemySkills(ctx.PlayerID, nil)
+	candidates := ctx.Engine.enemySkills(ctx.PlayerID, canInstanceBeWeakened)
 	if len(candidates) == 0 {
 		return nil
 	}

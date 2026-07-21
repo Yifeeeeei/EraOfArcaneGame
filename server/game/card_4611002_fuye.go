@@ -1,5 +1,7 @@
 package game
 
+const fuyeDeathAfterExertStatus = "fuye_death_after_exert"
+
 type Card4611002Fuye struct{ AlwaysActive }
 
 func (Card4611002Fuye) ID() string   { return "4611002" }
@@ -16,7 +18,7 @@ func (Card4611002Fuye) OnUltimate(ctx *EffectContext) error {
 		return nil
 	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "fuye_ultimate_target",
-		"芙雅夫人:选择1个友方伙伴，其攻击力和负载翻倍，并获得临时", candidates, 1, 1,
+		"芙雅夫人:选择1个友方伙伴，其攻击力和负载翻倍，并在消耗或透支后死亡", candidates, 1, 1,
 		func(selected []string) {
 			if len(selected) == 0 {
 				return
@@ -38,5 +40,23 @@ func applyFuyeUltimate(target *CardInstance) {
 		doubled[elem] = amount * 2
 	}
 	setElementsGain(target, doubled)
-	target.Statuses["临时"] = 1
+	target.Statuses[fuyeDeathAfterExertStatus] = 1
+}
+
+func (e *Engine) destroyFuyeDoomedAfterExert(cards []*CardInstance) {
+	for _, card := range cards {
+		e.destroyFuyeDoomedCardAfterExert(card)
+	}
+}
+
+func (e *Engine) destroyFuyeDoomedCardAfterExert(card *CardInstance) {
+	if card == nil || card.Statuses[fuyeDeathAfterExertStatus] <= 0 {
+		return
+	}
+	ps := e.State.Players[card.OwnerID]
+	if ps == nil || e.findUnitOnGrid(ps, card.InstanceID) == nil {
+		return
+	}
+	delete(card.Statuses, fuyeDeathAfterExertStatus)
+	e.destroyUnitWithCause(card, card.OwnerID, "fuye_exert")
 }
