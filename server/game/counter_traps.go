@@ -384,6 +384,7 @@ func (e *Engine) payAndRevealCounterTrap(playerID int, counter *CardInstance, co
 	if !payDefenseCost(e.State.Players[playerID], cost, ActionMessage{Data: data}, overexertUnits) {
 		return fmt.Errorf("invalid payment")
 	}
+	e.destroyFuyeDoomedAfterExert(overexertUnits)
 	counter.IsSetCounter = false
 	e.emit(GameEvent{Type: "counter_revealed", Player: -1, Data: map[string]any{
 		"player": playerID,

@@ -6,7 +6,7 @@ func (Card2621001WeakeningPotion) ID() string   { return "2621001" }
 func (Card2621001WeakeningPotion) Name() string { return "虚弱药剂" }
 
 func (Card2621001WeakeningPotion) OnUseItem(ctx *EffectContext) error {
-	candidates := ctx.Engine.enemySkills(ctx.PlayerID, nil)
+	candidates := ctx.Engine.enemySkills(ctx.PlayerID, canInstanceBeWeakened)
 	if len(candidates) == 0 {
 		return nil
 	}

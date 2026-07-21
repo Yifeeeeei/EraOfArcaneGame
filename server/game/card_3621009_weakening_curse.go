@@ -9,7 +9,7 @@ func (Card3621009WeakeningCurse) OnSpellCast(ctx *EffectContext) error {
 	if !isSpellBeingCast(ctx) {
 		return nil
 	}
-	candidates := ctx.Engine.enemySkills(ctx.PlayerID, nil)
+	candidates := ctx.Engine.enemySkills(ctx.PlayerID, canInstanceBeWeakened)
 	if len(candidates) == 0 {
 		return nil
 	}

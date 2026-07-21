@@ -76,6 +76,14 @@ func isSpellLikeCard(card *model.Card) bool {
 	return card != nil && (card.IsSkill() || isSpellScrollCard(card))
 }
 
+func canCardBeWeakened(card *model.Card) bool {
+	return isSpellLikeCard(card) && card.Power >= 0
+}
+
+func canInstanceBeWeakened(card *CardInstance) bool {
+	return card != nil && card.Card != nil && canCardBeWeakened(card.Card)
+}
+
 func traitsForCardNumber(number string) cardTraits {
 	t := cardTraits{area: SpellAreaSingle}
 	if card, ok := cards.GetPlayableCard(number); ok && card.IsSkill() && card.Power == -1 {
@@ -95,9 +103,9 @@ func traitsForCardNumber(number string) cardTraits {
 		t.pierce = true
 	}
 	switch number {
-	case "3021004", "3021006", "3021008", "3021010", "3021012", "3121007", "3121008", "3221006", "3221007", "3221008", "3221010", "3221015", "3321007", "3321008", "3321012", "3321014", "3421009", "3421013", "3421014", "3521014", "3621010":
+	case "3021006", "3021008", "3021010", "3021012", "3121007", "3121008", "3221006", "3221007", "3221008", "3221010", "3221015", "3321007", "3321008", "3321012", "3321014", "3421009", "3421013", "3421014", "3521014", "3621010":
 		t.cooldown = 1
-	case "3421015", "3521011", "3621015":
+	case "3021004", "3421015", "3521011", "3621015":
 		t.cooldown = 2
 	}
 	switch number {
