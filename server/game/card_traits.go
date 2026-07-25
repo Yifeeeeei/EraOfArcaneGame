@@ -579,3 +579,13 @@ func isConstructOrDemon(card *CardInstance) bool {
 		return false
 	}
 }
+
+func isShadowConstructOrDemon(card *CardInstance) bool {
+	if card == nil || card.Card == nil || !card.Card.IsCompanion() {
+		return false
+	}
+	if hasAnyTag(card.Card.Tag, "恶魔") {
+		return true
+	}
+	return card.Card.Category == model.ElementShadow && hasAnyTag(card.Card.Tag, "造物")
+}

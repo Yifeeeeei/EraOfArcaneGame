@@ -17,12 +17,26 @@ func (Card3621006DeadSoulBite) OnSpellHit(ctx *EffectContext) error {
 		return nil
 	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "dead_soul_bite_weaken",
-		"选择最多3个敌方法术分配虚弱", candidates, 1, 3,
+		"死魂之噬:选择最多3个敌方法术分配3层虚弱", candidates, 1, 3,
 		func(selected []string) {
+			if len(selected) == 0 {
+				return
+			}
+			allocations := map[string]int{}
+			order := make([]string, 0, len(selected))
 			for _, id := range selected {
+				if allocations[id] == 0 {
+					order = append(order, id)
+				}
+				allocations[id]++
+			}
+			for remaining := 3 - len(selected); remaining > 0 && len(order) > 0; remaining-- {
+				allocations[order[0]]++
+			}
+			for id, amount := range allocations {
 				for _, skill := range ctx.Engine.State.Players[ctx.OpponentID].Skills {
 					if skill != nil && skill.InstanceID == id {
-						ctx.Engine.addStatus(skill, StatusWeaken, 1)
+						ctx.Engine.addStatus(skill, StatusWeaken, amount)
 					}
 				}
 			}
