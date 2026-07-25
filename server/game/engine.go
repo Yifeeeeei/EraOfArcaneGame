@@ -1149,6 +1149,9 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 			BoostSkills:  boostSkills,
 			ExtraTargets: extraTargets,
 		}
+		resolveWithoutDefense := func() {
+			e.resolvePendingSpellHit()
+		}
 		openDefenseWindow := func() {
 			if e.State.PendingSpell == nil {
 				return
@@ -1163,11 +1166,17 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 				},
 			})
 		}
-		if e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, spellCastData, openDefenseWindow) {
-			e.State.ResumePhase = PhaseDefenseWindow
+		continueSpell := openDefenseWindow
+		if !e.spellAllowsDefense(playerID, skill, target) {
+			continueSpell = resolveWithoutDefense
+		}
+		if e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, spellCastData, continueSpell) {
+			if e.spellAllowsDefense(playerID, skill, target) {
+				e.State.ResumePhase = PhaseDefenseWindow
+			}
 			return nil
 		}
-		openDefenseWindow()
+		continueSpell()
 	}
 
 	return nil
@@ -1650,25 +1659,33 @@ func (e *Engine) handleNoDefend(playerID int, action ActionMessage) error {
 		return fmt.Errorf("attacker cannot respond here")
 	}
 
-	// Spell hits
+	e.resolvePendingSpellHit()
+	return nil
+}
+
+func (e *Engine) resolvePendingSpellHit() {
+	if e.State.PendingSpell == nil {
+		return
+	}
+	spell := e.State.PendingSpell
 	if e.resolveSpellHit(
-		e.State.PendingSpell.AttackerID,
-		e.State.PendingSpell.Skill,
-		e.State.PendingSpell.Target,
-		e.State.PendingSpell.BoostSkills,
-		e.State.PendingSpell.ExtraTargets,
+		spell.AttackerID,
+		spell.Skill,
+		spell.Target,
+		spell.BoostSkills,
+		spell.ExtraTargets,
 	) {
-		return nil
+		return
 	}
 
-	e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
-	e.State.PendingSpell = nil
+	e.removeStoredArchmageStaffSkillAfterUse(spell.AttackerID, spell.Skill)
+	if e.State.PendingSpell == spell {
+		e.State.PendingSpell = nil
+	}
 	if e.State.PendingAction == nil {
 		e.State.Phase = PhaseMain
 	}
 	e.checkWinCondition()
-
-	return nil
 }
 
 func (e *Engine) cancelPendingSpell(playerID int, source *CardInstance, reason string) {
@@ -1691,24 +1708,35 @@ func (e *Engine) cancelPendingSpell(playerID int, source *CardInstance, reason s
 	}
 }
 
+func (e *Engine) spellAllowsDefense(attackerID int, skill *CardInstance, target SpellTarget) bool {
+	return e.spellDefenderID(attackerID, skill, target) != attackerID
+}
+
+func (e *Engine) spellDefenderID(attackerID int, skill *CardInstance, target SpellTarget) int {
+	defenderID := 1 - attackerID
+	if target.OwnerID != nil && *target.OwnerID == attackerID {
+		defenderID = attackerID
+	}
+	if skill != nil && skill.Card != nil {
+		if friendly, ok := behaviorForNumber(skill.Card.Number).(FriendlySpellTargetBehavior); ok && friendly.HasActiveFriendlySpellTarget(skill) && friendly.AllowsFriendlySpellTarget() && target.Type == "unit" && target.Position.Valid() {
+			if e.State.Players[attackerID].Units[target.Position.Col][target.Position.Row] != nil {
+				defenderID = attackerID
+			}
+		}
+	}
+	if target.Type == "hero" {
+		defenderID = attackerID
+	}
+	return defenderID
+}
+
 // resolveSpellHit applies spell damage to the target. It returns true when a
 // pre-hit counter prompt delayed resolution.
 func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target SpellTarget, boostSkills []*CardInstance, extraTargets []SpellTarget) bool {
 	e.beginResolution()
 	defer e.endResolution()
 
-	defenderID := 1 - attackerID
-	if target.OwnerID != nil && *target.OwnerID == attackerID {
-		defenderID = attackerID
-	}
-	if friendly, ok := behaviorForNumber(skill.Card.Number).(FriendlySpellTargetBehavior); ok && friendly.HasActiveFriendlySpellTarget(skill) && friendly.AllowsFriendlySpellTarget() && target.Type == "unit" && target.Position.Valid() {
-		if e.State.Players[attackerID].Units[target.Position.Col][target.Position.Row] != nil {
-			defenderID = attackerID
-		}
-	}
-	if target.Type == "hero" {
-		defenderID = attackerID
-	}
+	defenderID := e.spellDefenderID(attackerID, skill, target)
 	affectedUnits := e.spellAffectedUnits(defenderID, skill, target)
 	for _, extraTarget := range extraTargets {
 		if extraTarget.Type != "unit" || !extraTarget.Position.Valid() {
@@ -3061,11 +3089,19 @@ func (e *Engine) startSpellScrollCast(playerID int, scroll *CardInstance, target
 		e.State.Phase = PhaseDefenseWindow
 		e.emit(GameEvent{Type: "defense_window", Player: 1 - playerID, Data: map[string]any{"timeout": 30}})
 	}
-	if e.triggerSpellCastFieldEffectsWithContinuation(playerID, scroll, spellCastData, openDefenseWindow) {
-		e.State.ResumePhase = PhaseDefenseWindow
+	continueSpell := openDefenseWindow
+	if !e.spellAllowsDefense(playerID, scroll, target) {
+		continueSpell = func() {
+			e.resolvePendingSpellHit()
+		}
+	}
+	if e.triggerSpellCastFieldEffectsWithContinuation(playerID, scroll, spellCastData, continueSpell) {
+		if e.spellAllowsDefense(playerID, scroll, target) {
+			e.State.ResumePhase = PhaseDefenseWindow
+		}
 		return
 	}
-	openDefenseWindow()
+	continueSpell()
 }
 
 // handlePlaceTerrain handles placing a terrain card (地形牌) on the battlefield

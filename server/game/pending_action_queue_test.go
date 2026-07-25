@@ -121,8 +121,8 @@ func TestFriendlyDeathPendingActionsAndStateTriggersAreNotSuppressed(t *testing.
 	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "alice_boost_spell" {
 		t.Fatalf("Alice should open the first friendly-death prompt, pending=%+v", engine.State.PendingAction)
 	}
-	if demonSummoner.Statuses[demonSummonerDeathReady] != 1 {
-		t.Fatalf("demon summoner should still arm its death trigger while Alice prompt is pending, statuses=%v", demonSummoner.Statuses)
+	if len(engine.State.PendingActionQueue) != 1 || engine.State.PendingActionQueue[0].Type != "demon_summoner_search" {
+		t.Fatalf("demon summoner search should queue behind Alice prompt, queue=%+v", engine.State.PendingActionQueue)
 	}
 
 	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
@@ -136,26 +136,16 @@ func TestFriendlyDeathPendingActionsAndStateTriggersAreNotSuppressed(t *testing.
 	if !hasEvent(engine.log, "pending_action_cleared", "alice_boost_spell") {
 		t.Fatalf("resolving Alice prompt should emit pending_action_cleared, events=%v", eventTypes(engine.log))
 	}
-	if engine.State.PendingAction != nil || len(engine.State.PendingActionQueue) != 0 || engine.State.Phase != PhaseMain {
-		t.Fatalf("Alice prompt should clear immediately after resolution, phase=%s pending=%+v queue=%d", engine.State.Phase, engine.State.PendingAction, len(engine.State.PendingActionQueue))
-	}
-
-	if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
-		"instance_id":  demonSummoner.InstanceID,
-		"ability_type": "per_turn",
-	}}); err != nil {
-		t.Fatalf("use armed demon summoner: %v", err)
-	}
 	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "demon_summoner_search" {
-		t.Fatalf("demon summoner should open its search after the queued death state was preserved, pending=%+v", engine.State.PendingAction)
+		t.Fatalf("demon summoner should open its queued search after Alice resolves, pending=%+v", engine.State.PendingAction)
 	}
 	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 		"selected": []any{searchTarget.InstanceID},
 	}}); err != nil {
 		t.Fatalf("resolve demon summoner search: %v", err)
 	}
-	if len(p0.Hand) != 1 || p0.Hand[0].InstanceID != searchTarget.InstanceID || demonSummoner.Statuses[demonSummonerDeathReady] != 0 {
-		t.Fatalf("demon summoner should search and clear ready mark, hand=%v statuses=%v", cardsToInfo(p0.Hand), demonSummoner.Statuses)
+	if len(p0.Hand) != 1 || p0.Hand[0].InstanceID != searchTarget.InstanceID || demonSummoner.UsedThisTurn != 1 {
+		t.Fatalf("demon summoner should search and spend its trigger, hand=%v used=%d", cardsToInfo(p0.Hand), demonSummoner.UsedThisTurn)
 	}
 }
 

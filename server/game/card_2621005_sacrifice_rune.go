@@ -8,3 +8,7 @@ func (Card2621005SacrificeRune) Name() string { return "献祭符文" }
 func (Card2621005SacrificeRune) OnFriendlyDeath(ctx *EffectContext) error {
 	return DrawCards(2)(ctx)
 }
+
+func (Card2621005SacrificeRune) OnEnemyDeath(ctx *EffectContext) error {
+	return DrawCards(2)(ctx)
+}

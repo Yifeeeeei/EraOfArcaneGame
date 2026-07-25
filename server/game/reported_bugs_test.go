@@ -1407,25 +1407,16 @@ func TestHighRiskFireLightShadowCompanionSemantics(t *testing.T) {
 		p0.Deck = []*CardInstance{demon}
 
 		engine.destroyUnit(ally, 0)
-		if summoner.Statuses[demonSummonerDeathReady] != 1 {
-			t.Fatalf("summoner should arm search after friendly death, statuses=%v", summoner.Statuses)
-		}
-		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
-			"instance_id":  summoner.InstanceID,
-			"ability_type": "per_turn",
-		}}); err != nil {
-			t.Fatalf("use demon summoner: %v", err)
-		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "demon_summoner_search" {
-			t.Fatalf("demon summoner should open search, pending=%+v", engine.State.PendingAction)
+			t.Fatalf("demon summoner should open search immediately, pending=%+v", engine.State.PendingAction)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{demon.InstanceID},
 		}}); err != nil {
 			t.Fatalf("resolve demon summoner search: %v", err)
 		}
-		if len(p0.Hand) != 1 || p0.Hand[0].InstanceID != demon.InstanceID || summoner.Statuses[demonSummonerDeathReady] != 0 {
-			t.Fatalf("demon summoner should search demon and clear ready mark, hand=%+v statuses=%v", cardsToInfo(p0.Hand), summoner.Statuses)
+		if len(p0.Hand) != 1 || p0.Hand[0].InstanceID != demon.InstanceID || summoner.UsedThisTurn != 1 {
+			t.Fatalf("demon summoner should search demon and spend its trigger, hand=%+v used=%d", cardsToInfo(p0.Hand), summoner.UsedThisTurn)
 		}
 	})
 }
@@ -3431,8 +3422,11 @@ func TestRoom5543CardAndTargetingRegressions(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("cast Bloodsuck at friendly unit: %v", err)
 		}
-		if engine.State.PendingSpell == nil || engine.State.PendingSpell.Target.OwnerID == nil || *engine.State.PendingSpell.Target.OwnerID != ownerID {
-			t.Fatalf("friendly target owner should be preserved, pending=%+v", engine.State.PendingSpell)
+		if engine.State.PendingSpell != nil {
+			t.Fatalf("friendly target should resolve without opening opponent defense, pending=%+v", engine.State.PendingSpell)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "bloodsuck_buff" {
+			t.Fatalf("friendly target should still reach Bloodsuck hit effect, pending action=%+v", engine.State.PendingAction)
 		}
 	})
 
@@ -7836,11 +7830,162 @@ func TestSplashBlizzardAndSoulBiteEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("resolve dead soul bite weaken: %v", err)
 		}
-		if p1.Skills[0].Statuses[StatusWeaken] != 1 {
+		if p1.Skills[0].Statuses[StatusWeaken] != 3 {
 			t.Fatalf("dead soul bite should add weaken, statuses=%v", p1.Skills[0].Statuses)
 		}
-		if power := engine.effectiveSpellPower(1, p1.Skills[0], nil); power != baseCard(t, "3121001").Power-1 {
-			t.Fatalf("weaken should lower spell power by 1, got %d", power)
+		if power := engine.effectiveSpellPower(1, p1.Skills[0], nil); power != baseCard(t, "3121001").Power-3 {
+			t.Fatalf("weaken should lower spell power by 3, got %d", power)
+		}
+	})
+}
+
+func TestJuly24DeathAndWeakenRegressions(t *testing.T) {
+	t.Run("sacrifice rune draws when any companion dies after reveal", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		counter := NewCardInstance(baseCard(t, "2621005"), 0, 1)
+		counter.IsSetCounter = true
+		counter.IsHorizontal = true
+		counter.SlotIndex = 0
+		p0.Equipment[0] = counter
+		p0.Elements[model.ElementShadow] = 1
+		p0.Deck = []*CardInstance{
+			NewCardInstance(baseCard(t, "1021001"), 0, 1),
+			NewCardInstance(baseCard(t, "1021002"), 0, 1),
+		}
+		deadEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		engine.destroyUnit(deadEnemy, 1)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "counter_trigger" {
+			t.Fatalf("enemy companion death should ask sacrifice rune owner, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{counter.InstanceID},
+		}}); err != nil {
+			t.Fatalf("reveal sacrifice rune: %v", err)
+		}
+		if len(p0.Hand) != 2 || len(p0.Deck) != 0 || p0.Equipment[0] != nil {
+			t.Fatalf("sacrifice rune should draw 2 then enter graveyard, hand=%d deck=%d equipment=%v p1grave=%d", len(p0.Hand), len(p0.Deck), p0.Equipment[0], len(p1.Graveyard))
+		}
+	})
+
+	t.Run("cursed golem weakens a selected enemy spell", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p1 := engine.State.Players[1]
+		golem := placeUnit(baseCard(t, "1621005"), 0, 1, 1, engine)
+		spell := readySkill(baseCard(t, "3121001"), 1)
+		sorcery := readySkill(baseCard(t, "3001002"), 1)
+		p1.Skills[0] = spell
+		p1.Skills[1] = sorcery
+
+		engine.triggerEffects(TriggerOnEnter, golem, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "cursed_golem_weaken" {
+			t.Fatalf("cursed golem should ask for an enemy spell, pending=%+v", engine.State.PendingAction)
+		}
+		if len(engine.State.PendingAction.Candidates) != 1 || engine.State.PendingAction.Candidates[0]["instance_id"] != spell.InstanceID {
+			t.Fatalf("cursed golem should offer only weakenable spells, candidates=%+v", engine.State.PendingAction.Candidates)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{spell.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve cursed golem weaken: %v", err)
+		}
+		if spell.Statuses[StatusWeaken] != 2 || sorcery.Statuses[StatusWeaken] != 0 {
+			t.Fatalf("cursed golem should weaken selected spell only, spell=%v sorcery=%v", spell.Statuses, sorcery.Statuses)
+		}
+	})
+
+	t.Run("demon summoner triggers immediately and searches only shadow constructs or demons", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		engine.State.CurrentTurn = 1
+		summoner := placeUnit(baseCard(t, "1621009"), 0, 2, 2, engine)
+		dead := placeUnit(baseCard(t, "1021001"), 0, 1, 1, engine)
+		tower := NewCardInstance(baseCard(t, "1011002"), 0, 1)
+		target := NewCardInstance(baseCard(t, "1621005"), 0, 1)
+		demon := NewCardInstance(baseCard(t, "1121005"), 0, 1)
+		p0.Deck = []*CardInstance{tower, target, demon}
+
+		engine.destroyUnit(dead, 0)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "demon_summoner_search" {
+			t.Fatalf("demon summoner should immediately ask after friendly companion death, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == tower.InstanceID {
+				t.Fatalf("demon summoner must not offer Tongtiange as a non-shadow construct, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve demon summoner search: %v", err)
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != target || summoner.UsedThisTurn != 1 {
+			t.Fatalf("demon summoner should search the selected legal card and spend its trigger, hand=%v used=%d", cardsToInfo(p0.Hand), summoner.UsedThisTurn)
+		}
+	})
+
+	t.Run("necromancy stone trigger limit refreshes only at its owner turn end", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		engine.State.CurrentTurn = 1
+		stone := NewCardInstance(baseCard(t, "2611001"), 0, 1)
+		p0.Equipment[0] = stone
+
+		first := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		engine.destroyUnit(first, 0)
+		if effectiveElementsGain(stone)[model.ElementShadow] != 1 || stone.UsedThisTurn != 1 {
+			t.Fatalf("necromancy stone should trigger once, load=%v used=%d", effectiveElementsGain(stone), stone.UsedThisTurn)
+		}
+		second := placeUnit(baseCard(t, "1021002"), 0, 0, 0, engine)
+		engine.destroyUnit(second, 0)
+		if effectiveElementsGain(stone)[model.ElementShadow] != 1 {
+			t.Fatalf("necromancy stone should not refresh during the opponent turn, load=%v", effectiveElementsGain(stone))
+		}
+
+		engine.endTurn()
+		third := placeUnit(baseCard(t, "1021003"), 0, 0, 0, engine)
+		engine.destroyUnit(third, 0)
+		if effectiveElementsGain(stone)[model.ElementShadow] != 1 {
+			t.Fatalf("opponent turn end should not refresh owner trigger, load=%v used=%d", effectiveElementsGain(stone), stone.UsedThisTurn)
+		}
+
+		engine.endTurn()
+		fourth := placeUnit(baseCard(t, "1021004"), 0, 0, 0, engine)
+		engine.destroyUnit(fourth, 0)
+		if effectiveElementsGain(stone)[model.ElementShadow] != 2 || stone.UsedThisTurn != 1 {
+			t.Fatalf("owner turn end should refresh necromancy stone, load=%v used=%d", effectiveElementsGain(stone), stone.UsedThisTurn)
+		}
+	})
+
+	t.Run("friendly target spell skips opponent defense window", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		ally := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		ally.Statuses[StatusBurn] = 1
+		p0.Skills[0] = readySkill(baseCard(t, "3521002"), 0)
+		p1.Skills[0] = readySkill(baseCard(t, "3121012"), 1)
+		p0.Elements[model.ElementLight] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id":  p0.Skills[0].InstanceID,
+			"target_type":  "unit",
+			"target_col":   float64(1),
+			"target_row":   float64(0),
+			"target_owner": float64(0),
+		}}); err != nil {
+			t.Fatalf("cast holy fire on friendly target: %v", err)
+		}
+		if engine.State.Phase == PhaseDefenseWindow || engine.State.PendingSpell != nil {
+			t.Fatalf("friendly target spell should resolve without opponent defense, phase=%s pending=%+v", engine.State.Phase, engine.State.PendingSpell)
+		}
+		if ally.Statuses[StatusBurn] != 0 || ally.CurrentLife != ally.Card.Life {
+			t.Fatalf("holy fire should cleanse friendly target without damage, life=%d statuses=%v", ally.CurrentLife, ally.Statuses)
+		}
+		if p1.Skills[0].IsHorizontal {
+			t.Fatalf("opponent defense skill should not be used against a friendly target spell")
 		}
 	})
 }
@@ -9224,8 +9369,8 @@ func TestReviewCardsLoadReviveAndFriendlyTargetSpells(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("cast holy fire on ally: %v", err)
 		}
-		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
-			t.Fatalf("resolve holy fire on ally: %v", err)
+		if engine.State.Phase == PhaseDefenseWindow || engine.State.PendingSpell != nil {
+			t.Fatalf("holy fire on ally should skip opponent defense, phase=%s pending=%+v", engine.State.Phase, engine.State.PendingSpell)
 		}
 		if ally.CurrentLife != ally.Card.Life || ally.Statuses[StatusBurn] != 0 || ally.Statuses[StatusStun] != 0 {
 			t.Fatalf("holy fire should cleanse friendly target without damage, life=%d statuses=%v", ally.CurrentLife, ally.Statuses)
