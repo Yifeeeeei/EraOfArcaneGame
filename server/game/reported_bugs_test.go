@@ -2015,6 +2015,64 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 	})
 
+	t.Run("2021012 sketch scroll does not disguise heroes as unit targets", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		hero := placeUnit(baseCard(t, "4311003"), 1, 0, 0, engine)
+		companion := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		skill := readySkill(baseCard(t, "3121002"), 0)
+		p0.Skills[0] = skill
+		p0.Elements[model.ElementFire] = 10
+		scroll := NewCardInstance(baseCard(t, "2021012"), 0, 1)
+
+		engine.triggerEffects(TriggerOnUseItem, scroll, nil, nil)
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{skill.InstanceID},
+		}}); err != nil {
+			t.Fatalf("choose sketch skill: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "sketch_scroll_target" {
+			t.Fatalf("sketch scroll should ask for target, pending=%+v", engine.State.PendingAction)
+		}
+		foundCompanion := false
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			switch candidate["instance_id"] {
+			case hero.InstanceID:
+				t.Fatalf("sketch scroll should not offer heroes as unit targets, candidates=%+v", engine.State.PendingAction.Candidates)
+			case companion.InstanceID:
+				foundCompanion = true
+			}
+		}
+		if !foundCompanion {
+			t.Fatalf("sketch scroll should still offer legal companions, candidates=%+v", engine.State.PendingAction.Candidates)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{hero.InstanceID},
+		}}); err == nil {
+			t.Fatalf("forged sketch scroll hero target should be rejected")
+		}
+	})
+
+	t.Run("2021012 sketch scroll does not consume when copied spell cost is unpayable", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		skill := readySkill(baseCard(t, "3121002"), 0)
+		p0.Skills[0] = skill
+		p0.Elements[model.ElementWater] = 2
+		scroll := NewCardInstance(baseCard(t, "2021012"), 0, 1)
+		p0.Hand = []*CardInstance{scroll}
+
+		err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": scroll.InstanceID,
+		}})
+		if err == nil {
+			t.Fatalf("sketch scroll should reject use when copied spell cost is unpayable")
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != scroll || len(p0.Graveyard) != 0 || engine.State.PendingAction != nil {
+			t.Fatalf("failed sketch scroll use should keep card in hand and avoid pending, hand=%v grave=%v pending=%+v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard), engine.State.PendingAction)
+		}
+	})
+
 	t.Run("2021012 sketch scroll does not cast targeted spells without legal targets", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]

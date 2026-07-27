@@ -1,35 +1,56 @@
 package game
 
-func (e *Engine) resolveSketchScrollSkill(playerID int, skillID string) {
+import "fmt"
+
+func (e *Engine) sketchScrollSkillCandidates(playerID int) []map[string]any {
+	ps := e.State.Players[playerID]
+	return e.friendlySkills(playerID, func(skill *CardInstance) bool {
+		return canUseSkillForPurpose(skill.Card, skillPurposeAttack) &&
+			!isSorcerySkill(skill.Card) &&
+			e.canPayCost(ps, e.effectiveSkillUseCost(ps, skill))
+	})
+}
+
+func (e *Engine) resolveSketchScrollSkill(playerID int, skillID string) error {
 	ps := e.State.Players[playerID]
 	skill := e.findSkill(ps, skillID)
 	if skill == nil || skill.Card == nil || !canUseSkillForPurpose(skill.Card, skillPurposeAttack) {
-		return
+		return fmt.Errorf("invalid sketch scroll skill")
+	}
+	if isSorcerySkill(skill.Card) {
+		return fmt.Errorf("sketch scroll cannot copy sorceries")
+	}
+	cost := e.effectiveSkillUseCost(ps, skill)
+	if !e.canPayCost(ps, cost) {
+		return fmt.Errorf("not enough elements")
 	}
 	targets := e.spellTargetCandidates(playerID, skill)
 	if skillNeedsTargetInstance(skill) {
 		if len(targets) == 0 {
-			return
+			return nil
 		}
-		e.SetPendingAction(playerID, "sketch_scroll_target",
+		e.SetPendingActionWithError(playerID, "sketch_scroll_target",
 			"选择速写卷轴释放目标", targets, 1, 1,
-			func(selected []string) {
+			nil, false, func(selected []string, _ map[string]any) error {
 				if len(selected) == 0 {
-					return
+					return nil
 				}
 				target := selectedUnitFromCandidates(e, selected, targets)
 				if target == nil || target.Position == nil {
-					return
+					return fmt.Errorf("invalid sketch scroll target")
+				}
+				if target.Card != nil && target.Card.IsHero() {
+					return fmt.Errorf("sketch scroll cannot target heroes as units")
 				}
 				spellTarget := SpellTarget{Type: "unit", Position: *target.Position}
 				if err := e.validateSpellTarget(playerID, skill, spellTarget); err != nil {
-					return
+					return err
 				}
-				e.castSkillFromSketchScroll(playerID, skill, spellTarget)
+				return e.castSkillFromSketchScroll(playerID, skill, spellTarget)
 			})
-		return
+		return nil
 	}
-	e.castSkillFromSketchScroll(playerID, skill, SpellTarget{Type: "none"})
+	return e.castSkillFromSketchScroll(playerID, skill, SpellTarget{Type: "none"})
 }
 
 func (e *Engine) spellTargetCandidates(playerID int, skill *CardInstance) []map[string]any {
@@ -39,6 +60,9 @@ func (e *Engine) spellTargetCandidates(playerID int, skill *CardInstance) []map[
 		for row := 0; row < 3; row++ {
 			unit := ps.Units[col][row]
 			if unit == nil || unit.Position == nil {
+				continue
+			}
+			if unit.Card != nil && unit.Card.IsHero() {
 				continue
 			}
 			target := SpellTarget{Type: "unit", Position: *unit.Position}
@@ -51,11 +75,11 @@ func (e *Engine) spellTargetCandidates(playerID int, skill *CardInstance) []map[
 	return candidates
 }
 
-func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, target SpellTarget) {
+func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, target SpellTarget) error {
 	ps := e.State.Players[playerID]
 	cost := e.effectiveSkillUseCost(ps, skill)
 	if !e.payCostForAction(ps, cost, ActionMessage{}) {
-		return
+		return fmt.Errorf("not enough elements")
 	}
 	e.applySkillUseCooldownModifiers(ps, skill)
 	e.advanceMasteryForUsedSkills(playerID, skill)
@@ -78,10 +102,10 @@ func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, ta
 			e.resolveSpellHit(playerID, skill, target, nil, nil)
 		}
 		if e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, spellCastData, resolveSorcery) {
-			return
+			return nil
 		}
 		resolveSorcery()
-		return
+		return nil
 	}
 	e.State.PendingSpell = &SpellCast{
 		AttackerID:  playerID,
@@ -100,7 +124,8 @@ func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, ta
 	}
 	if e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, spellCastData, openDefenseWindow) {
 		e.State.ResumePhase = PhaseDefenseWindow
-		return
+		return nil
 	}
 	openDefenseWindow()
+	return nil
 }

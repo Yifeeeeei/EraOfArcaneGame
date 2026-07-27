@@ -2978,6 +2978,10 @@ func (e *Engine) validateConsumableItemUse(playerID int, card *CardInstance) err
 		if !e.demonContractHasPayablePathAfterEntryCost(playerID, card) {
 			return fmt.Errorf("Demon Contract requires a payable sacrifice and target")
 		}
+	case "2021012":
+		if len(e.sketchScrollSkillCandidates(playerID)) == 0 {
+			return fmt.Errorf("Sketch Scroll requires a payable learned attack spell")
+		}
 	}
 	return nil
 }

@@ -290,6 +290,9 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 				ps.Hand = append(ps.Hand, instance)
 				action := "use_item"
 				data := map[string]any{"instance_id": instance.InstanceID}
+				if card.Number == "2021012" {
+					ps.Skills[0] = readySkill(cards.PlayableCardDB["3121002"], 0)
+				}
 				if cards.IsTerrain(card.Number) {
 					action = "place_terrain"
 					data["col"] = float64(0)

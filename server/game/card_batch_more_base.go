@@ -935,19 +935,17 @@ type Card2021012SketchScroll struct{ AlwaysActive }
 func (Card2021012SketchScroll) ID() string   { return "2021012" }
 func (Card2021012SketchScroll) Name() string { return "速写卷轴" }
 func (Card2021012SketchScroll) OnUseItem(ctx *EffectContext) error {
-	candidates := ctx.Engine.friendlySkills(ctx.PlayerID, func(skill *CardInstance) bool {
-		return canUseSkillForPurpose(skill.Card, skillPurposeAttack) && !isSorcerySkill(skill.Card)
-	})
+	candidates := ctx.Engine.sketchScrollSkillCandidates(ctx.PlayerID)
 	if len(candidates) == 0 {
 		return nil
 	}
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "sketch_scroll_skill",
+	ctx.Engine.SetPendingActionWithError(ctx.PlayerID, "sketch_scroll_skill",
 		"选择1个已学习法术释放，本次无需消耗该技能", candidates, 1, 1,
-		func(selected []string) {
+		nil, false, func(selected []string, _ map[string]any) error {
 			if len(selected) == 0 {
-				return
+				return nil
 			}
-			ctx.Engine.resolveSketchScrollSkill(ctx.PlayerID, selected[0])
+			return ctx.Engine.resolveSketchScrollSkill(ctx.PlayerID, selected[0])
 		})
 	return nil
 }
