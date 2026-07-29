@@ -646,6 +646,9 @@ func (e *Engine) notifyCardDrawn(playerID int, card *CardInstance) {
 	if ps.DrawnTurn == nil {
 		ps.DrawnTurn = make(map[string]int)
 	}
+	if cardRevealsOnDraw(card) {
+		ps.RevealedHand[card.InstanceID] = true
+	}
 	ps.DrawnTurn[card.InstanceID] = e.State.TurnNumber
 	ps.DrawCountThisTurn++
 	e.emit(GameEvent{

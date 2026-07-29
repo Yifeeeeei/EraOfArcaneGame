@@ -785,6 +785,31 @@ func TestRoyalConflictFlipMechanicAndCards(t *testing.T) {
 
 	engine = setupReportedBugEngine(t)
 	p0 = engine.State.Players[0]
+	revealedOnDraw := NewCardInstance(baseCard(t, "1321003"), 0, 1)
+	p0.Deck = []*CardInstance{revealedOnDraw}
+	engine.flipDeckMatchesToHand(0, 1, 0, nil)
+	if !p0.RevealedHand[revealedOnDraw.InstanceID] {
+		t.Fatalf("flipped cards should honor reveal-on-draw, revealed=%v", p0.RevealedHand)
+	}
+
+	engine = setupReportedBugEngine(t)
+	p0 = engine.State.Players[0]
+	sword := NewCardInstance(baseCard(t, "2211101"), 0, 1)
+	p0.Deck = []*CardInstance{sword}
+	waterDivination := NewCardInstance(baseCard(t, "3221007"), 0, 1)
+	if err := (Card3221007WaterDivination{}).OnSpellCast(&EffectContext{Engine: engine, Source: waterDivination, PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("3221007 on spell cast: %v", err)
+	}
+	if engine.State.PendingAction == nil || len(engine.State.PendingAction.Candidates) != 1 || engine.State.PendingAction.Candidates[0]["can_select"] != false {
+		t.Fatalf("water divination should show unsearchable sword but make it unselectable, pending=%+v", engine.State.PendingAction)
+	}
+	resolveWaterDivination(engine, 0, []*CardInstance{sword}, []string{sword.InstanceID}, nil)
+	if len(p0.Hand) != 0 || !containsCardInstance(p0.Deck, sword) {
+		t.Fatalf("forged water divination selection should not search unsearchable sword, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
+	}
+
+	engine = setupReportedBugEngine(t)
+	p0 = engine.State.Players[0]
 	sandworm := NewCardInstance(baseCard(t, "1421114"), 0, 1)
 	p0.Deck = []*CardInstance{sandworm}
 	bait := NewCardInstance(baseCard(t, "2421110"), 0, 1)

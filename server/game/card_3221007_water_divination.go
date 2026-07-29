@@ -22,8 +22,9 @@ func (Card3221007WaterDivination) OnSpellCast(ctx *EffectContext) error {
 	for i, card := range looked {
 		info := candidateInfo(card, "deck", "own")
 		info["deck_index"] = i
-		info["can_select"] = card.Card.Category == model.ElementWater
-		if card.Card.Category == model.ElementWater {
+		canSelect := canFlipOrSearchCard(card) && card.Card.Category == model.ElementWater
+		info["can_select"] = canSelect
+		if canSelect {
 			hasWater = true
 		}
 		candidates = append(candidates, info)
@@ -54,7 +55,7 @@ func resolveWaterDivination(e *Engine, playerID int, looked []*CardInstance, sel
 
 	var searched *CardInstance
 	if len(selected) > 0 {
-		if card := lookedByID[selected[0]]; card != nil && card.Card.Category == model.ElementWater {
+		if card := lookedByID[selected[0]]; card != nil && canFlipOrSearchCard(card) && card.Card.Category == model.ElementWater {
 			searched = card
 		}
 	}
