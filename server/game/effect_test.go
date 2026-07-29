@@ -761,6 +761,68 @@ func TestRoyalConflictStrictPaymentCards(t *testing.T) {
 	}
 }
 
+func TestRoyalConflictFlipMechanicAndCards(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+
+	unflippable := NewCardInstance(baseCard(t, "2211101"), 0, 1)
+	fireOne := NewCardInstance(baseCard(t, "1121111"), 0, 1)
+	fireTwo := NewCardInstance(baseCard(t, "1121101"), 0, 1)
+	p0.Deck = []*CardInstance{unflippable, fireOne, fireTwo}
+	rally := NewCardInstance(baseCard(t, "2121107"), 0, 1)
+	if err := (Card2121107SacredFireRally{}).OnEnter(&EffectContext{Engine: engine, Source: rally, PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("2121107 on enter: %v", err)
+	}
+	if len(p0.Hand) != 2 || !containsCardInstance(p0.Hand, fireOne) || !containsCardInstance(p0.Hand, fireTwo) || containsCardInstance(p0.Hand, unflippable) {
+		t.Fatalf("2121107 should flip two fire companions and skip unflippable card, hand=%v", cardsToInfo(p0.Hand))
+	}
+	if p0.DrawCountThisTurn != 2 || p0.DrawnTurn[fireOne.InstanceID] == 0 || p0.DrawnTurn[fireTwo.InstanceID] == 0 {
+		t.Fatalf("flipped cards should count as drawn, count=%d drawn=%v", p0.DrawCountThisTurn, p0.DrawnTurn)
+	}
+	if !containsCardInstance(p0.Deck, unflippable) {
+		t.Fatalf("unflippable card should remain in deck, deck=%v", cardsToInfo(p0.Deck))
+	}
+
+	engine = setupReportedBugEngine(t)
+	p0 = engine.State.Players[0]
+	sandworm := NewCardInstance(baseCard(t, "1421114"), 0, 1)
+	p0.Deck = []*CardInstance{sandworm}
+	bait := NewCardInstance(baseCard(t, "2421110"), 0, 1)
+	if err := (Card2421110SandwormBait{}).OnUseItem(&EffectContext{Engine: engine, Source: bait, PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("2421110 on use: %v", err)
+	}
+	if len(p0.Hand) != 1 || p0.Hand[0] != sandworm || sandworm.Statuses["入场费用地-2"] != 1 {
+		t.Fatalf("2421110 should flip giant sandworm with earth discount, hand=%v statuses=%v", cardsToInfo(p0.Hand), sandworm.Statuses)
+	}
+	if cost := engine.effectiveCardPlayCost(p0, sandworm); cost[model.ElementEarth] != 4 {
+		t.Fatalf("giant sandworm earth discount should reduce play cost to 4 earth, cost=%v", cost)
+	}
+
+	engine = setupReportedBugEngine(t)
+	p0 = engine.State.Players[0]
+	angel := NewCardInstance(baseCard(t, "1521109"), 0, 1)
+	p0.Deck = []*CardInstance{angel}
+	prayer := NewCardInstance(baseCard(t, "2521110"), 0, 1)
+	if err := (Card2521110AngelPrayer{}).OnUseItem(&EffectContext{Engine: engine, Source: prayer, PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("2521110 on use: %v", err)
+	}
+	if len(p0.Hand) != 1 || p0.Hand[0] != angel || angel.Statuses["入场费用光-1"] != 1 {
+		t.Fatalf("2521110 should flip light spirit with light discount, hand=%v statuses=%v", cardsToInfo(p0.Hand), angel.Statuses)
+	}
+	if cost := engine.effectiveCardPlayCost(p0, angel); cost[model.ElementLight] != 1 {
+		t.Fatalf("light spirit discount should reduce play cost to 1 light, cost=%v", cost)
+	}
+}
+
+func containsCardInstance(cards []*CardInstance, target *CardInstance) bool {
+	for _, card := range cards {
+		if card == target {
+			return true
+		}
+	}
+	return false
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

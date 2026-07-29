@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"eraofarcane/model"
@@ -20,6 +21,14 @@ const (
 
 func isBoostPurpose(purpose skillPurpose) bool {
 	return purpose == skillPurposeBoost || purpose == skillPurposeAttackBoost || purpose == skillPurposeDefenseBoost
+}
+
+func parsePositiveInt(s string) int {
+	n, err := strconv.Atoi(s)
+	if err != nil || n <= 0 {
+		return 0
+	}
+	return n
 }
 
 func skillUseCost(card *model.Card) map[string]int {
@@ -115,8 +124,14 @@ func (e *Engine) effectiveCardPlayCost(ps *PlayerState, card *CardInstance) map[
 			modifier.ModifyCardPlayCost(ctx, card, cost)
 		}
 	}
-	if card.Statuses["入场费用水-1"] > 0 {
-		reduceCost(cost, model.ElementWater, card.Statuses["入场费用水-1"])
+	for _, elem := range model.AllElements {
+		key := "入场费用" + elem + "-"
+		for status, amount := range card.Statuses {
+			if amount <= 0 || !strings.HasPrefix(status, key) {
+				continue
+			}
+			reduceCost(cost, elem, parsePositiveInt(status[len(key):])*amount)
+		}
 	}
 	return cost
 }

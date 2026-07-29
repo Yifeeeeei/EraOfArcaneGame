@@ -633,38 +633,42 @@ func (e *Engine) drawCards(playerID int, n int) []*CardInstance {
 	ps := e.State.Players[playerID]
 	drawn := ps.DrawCards(n)
 	for _, card := range drawn {
-		if ps.DrawnTurn == nil {
-			ps.DrawnTurn = make(map[string]int)
-		}
-		ps.DrawnTurn[card.InstanceID] = e.State.TurnNumber
-		ps.DrawCountThisTurn++
-		e.emit(GameEvent{
-			Type:   "draw_card",
-			Player: playerID,
-			Data:   map[string]any{"card": cardToInfo(card)},
-		})
-		e.triggerFieldEffectsWithData(TriggerOnDraw, playerID, card, map[string]any{
-			"drawn_card":           card,
-			"drawn_player":         playerID,
-			"draw_count_this_turn": ps.DrawCountThisTurn,
-			"initial_hand":         e.State.Phase == PhaseWaitingPlayers || e.State.Phase == PhaseMulligan,
-		})
-		if h, ok := cardBehavior(card).(OnSelfDrawBehavior); ok && h.HasActiveDraw(card) {
-			_ = h.OnSelfDraw(&EffectContext{
-				Engine:     e,
-				Source:     card,
-				PlayerID:   playerID,
-				OpponentID: 1 - playerID,
-				ExtraData: map[string]any{
-					"drawn_card":           card,
-					"drawn_player":         playerID,
-					"draw_count_this_turn": ps.DrawCountThisTurn,
-					"initial_hand":         e.State.Phase == PhaseWaitingPlayers || e.State.Phase == PhaseMulligan,
-				},
-			})
-		}
+		e.notifyCardDrawn(playerID, card)
 	}
 	return drawn
+}
+
+func (e *Engine) notifyCardDrawn(playerID int, card *CardInstance) {
+	if card == nil {
+		return
+	}
+	ps := e.State.Players[playerID]
+	if ps.DrawnTurn == nil {
+		ps.DrawnTurn = make(map[string]int)
+	}
+	ps.DrawnTurn[card.InstanceID] = e.State.TurnNumber
+	ps.DrawCountThisTurn++
+	e.emit(GameEvent{
+		Type:   "draw_card",
+		Player: playerID,
+		Data:   map[string]any{"card": cardToInfo(card)},
+	})
+	data := map[string]any{
+		"drawn_card":           card,
+		"drawn_player":         playerID,
+		"draw_count_this_turn": ps.DrawCountThisTurn,
+		"initial_hand":         e.State.Phase == PhaseWaitingPlayers || e.State.Phase == PhaseMulligan,
+	}
+	e.triggerFieldEffectsWithData(TriggerOnDraw, playerID, card, data)
+	if h, ok := cardBehavior(card).(OnSelfDrawBehavior); ok && h.HasActiveDraw(card) {
+		_ = h.OnSelfDraw(&EffectContext{
+			Engine:     e,
+			Source:     card,
+			PlayerID:   playerID,
+			OpponentID: 1 - playerID,
+			ExtraData:  data,
+		})
+	}
 }
 
 // resetCards resets all cards to vertical state
