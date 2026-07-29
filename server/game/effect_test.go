@@ -495,6 +495,171 @@ func TestRoyalConflictEmeraldImmortalityProtectsWhileShielded(t *testing.T) {
 	}
 }
 
+func TestRoyalConflictStealthCardBehaviors(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+
+	mistKing := placeUnit(baseCard(t, "1211101"), 0, 0, 0, engine)
+	ally := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+	alreadyStealth := placeUnit(baseCard(t, "1021002"), 0, 2, 0, engine)
+	alreadyStealth.Statuses[StatusStealth] = 1
+	engine.triggerEffects(TriggerOnEnter, mistKing, nil, nil)
+	if mistKing.Statuses[StatusStealth] != 2 || ally.Statuses[StatusStealth] != 2 || alreadyStealth.Statuses[StatusStealth] != 1 {
+		t.Fatalf("1211101 should give stealth2 only to friendly units without stealth, king=%v ally=%v existing=%v", mistKing.Statuses, ally.Statuses, alreadyStealth.Statuses)
+	}
+
+	phantom := NewCardInstance(baseCard(t, "1221109"), 0, 1)
+	engine.triggerEffects(TriggerOnEnter, phantom, nil, nil)
+	if phantom.Statuses[StatusStealth] != 3 || effectiveElementsGain(phantom)[model.ElementWater] != 2 {
+		t.Fatalf("1221109 should enter with stealth3 and dynamic water load while stealthy, statuses=%v load=%v", phantom.Statuses, effectiveElementsGain(phantom))
+	}
+	phantom.Statuses[StatusStealth] = 0
+	if effectiveElementsGain(phantom)[model.ElementWater] != 0 {
+		t.Fatalf("1221109 dynamic water load should disappear without stealth, load=%v", effectiveElementsGain(phantom))
+	}
+
+	mage := placeUnit(baseCard(t, "1221102"), 0, 0, 1, engine)
+	target := placeUnit(baseCard(t, "1021003"), 0, 1, 1, engine)
+	if !cardHasActivePerTurn(mage) {
+		t.Fatal("1221102 should expose a per-turn ability")
+	}
+	if err := globalRegistry.GetBehavior("1221102").(PerTurnAbility).OnPerTurn(&EffectContext{Engine: engine, Source: mage, PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("1221102 per-turn: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "mist_mage_stealth" {
+		t.Fatalf("1221102 should ask for a friendly unit, pending=%+v", engine.State.PendingAction)
+	}
+	resolvePendingSelection(t, engine, 0, target.InstanceID)
+	if target.Statuses[StatusStealth] != 2 {
+		t.Fatalf("1221102 should grant stealth2 to selected ally, statuses=%v", target.Statuses)
+	}
+	p0.Units[0][1] = nil
+	p0.Units[1][1] = nil
+
+	sandworm := placeUnit(baseCard(t, "1421114"), 0, 0, 1, engine)
+	sandworm.CurrentLife = 6
+	engine.dealDamageWithExtra(sandworm, 1, 0, map[string]any{"damage_source": "effect", "attacker": 1})
+	if sandworm.Statuses[StatusStealth] != 1 {
+		t.Fatalf("1421114 should gain stealth1 after taking damage, statuses=%v", sandworm.Statuses)
+	}
+
+	promptEngine := setupReportedBugEngine(t)
+	dancer := placeUnit(baseCard(t, "1221105"), 0, 0, 0, promptEngine)
+	dancerTarget := placeUnit(baseCard(t, "1021004"), 0, 1, 0, promptEngine)
+	promptEngine.triggerEffects(TriggerOnEnter, dancer, nil, nil)
+	if promptEngine.State.PendingAction == nil || promptEngine.State.PendingAction.Type != "mist_dancer_stealth" {
+		t.Fatalf("1221105 should ask for a companion target, pending=%+v", promptEngine.State.PendingAction)
+	}
+	resolvePendingSelection(t, promptEngine, 0, dancerTarget.InstanceID)
+	if dancerTarget.Statuses[StatusStealth] != 2 {
+		t.Fatalf("1221105 should grant stealth2 to selected companion, statuses=%v", dancerTarget.Statuses)
+	}
+
+	potionEngine := setupReportedBugEngine(t)
+	potionTarget := placeUnit(baseCard(t, "1021005"), 0, 0, 0, potionEngine)
+	potion := NewCardInstance(baseCard(t, "2021103"), 0, 1)
+	if err := globalRegistry.GetBehavior("2021103").(OnUseItemBehavior).OnUseItem(&EffectContext{Engine: potionEngine, Source: potion, PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("2021103 use item: %v", err)
+	}
+	if potionEngine.State.PendingAction == nil || potionEngine.State.PendingAction.Type != "mist_potion_stealth" {
+		t.Fatalf("2021103 should ask for a companion target, pending=%+v", potionEngine.State.PendingAction)
+	}
+	resolvePendingSelection(t, potionEngine, 0, potionTarget.InstanceID)
+	if potionTarget.Statuses[StatusStealth] != 2 {
+		t.Fatalf("2021103 should grant stealth2 to selected companion, statuses=%v", potionTarget.Statuses)
+	}
+}
+
+func TestRoyalConflictStealthTargetingAndDelayedSummon(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+
+	frontStealth := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+	frontStealth.Statuses[StatusStealth] = 1
+	backStealth := placeUnit(baseCard(t, "1021002"), 1, 1, 2, engine)
+	backStealth.Statuses[StatusStealth] = 1
+	backVisible := placeUnit(baseCard(t, "1021003"), 1, 2, 2, engine)
+	visibleFront := placeUnit(baseCard(t, "1021004"), 1, 2, 0, engine)
+
+	undercurrent := readySkill(baseCard(t, "3221106"), 0)
+	if err := engine.validateSpellTarget(0, undercurrent, SpellTarget{Type: "unit", Position: *backStealth.Position}); err != nil {
+		t.Fatalf("3221106 should target stealth units regardless of row: %v", err)
+	}
+	if err := engine.validateSpellTarget(0, undercurrent, SpellTarget{Type: "unit", Position: *backVisible.Position}); err == nil {
+		t.Fatal("3221106 should not get global range against ordinary non-stealth back-row units")
+	}
+	if got := engine.effectiveSpellPower(0, undercurrent, nil, SpellTarget{Type: "unit", Position: *backStealth.Position}); got != undercurrent.Card.Power+2 {
+		t.Fatalf("3221106 should gain +2 power against stealth targets, got %d", got)
+	}
+	if got := engine.effectiveSpellPower(0, undercurrent, nil, SpellTarget{Type: "unit", Position: *backVisible.Position}); got != undercurrent.Card.Power {
+		t.Fatalf("3221106 should not gain power against visible targets, got %d", got)
+	}
+	p1.Units[visibleFront.Position.Col][visibleFront.Position.Row] = nil
+
+	waterEscape := readySkill(baseCard(t, "3221104"), 0)
+	ally := placeUnit(baseCard(t, "1021004"), 0, 0, 0, engine)
+	ownerID := 0
+	if err := engine.validateSpellTarget(0, waterEscape, SpellTarget{Type: "unit", OwnerID: &ownerID, Position: *ally.Position}); err != nil {
+		t.Fatalf("3221104 should target friendly non-stealth units: %v", err)
+	}
+	ally.Statuses[StatusStealth] = 1
+	if err := engine.validateSpellTarget(0, waterEscape, SpellTarget{Type: "unit", OwnerID: &ownerID, Position: *ally.Position}); err == nil {
+		t.Fatal("3221104 should reject units that already have stealth")
+	}
+	ally.Statuses[StatusStealth] = 0
+	engine.resolveSpellHit(0, waterEscape, SpellTarget{Type: "unit", OwnerID: &ownerID, Position: *ally.Position}, nil, nil)
+	if ally.Statuses[StatusStealth] != 2 {
+		t.Fatalf("3221104 should grant stealth2 on hit, statuses=%v", ally.Statuses)
+	}
+
+	weaver := placeUnit(baseCard(t, "1321104"), 0, 2, 0, engine)
+	engine.triggerEffects(TriggerOnEnter, weaver, nil, nil)
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "mist_weaver_stealth" {
+		t.Fatalf("1321104 should ask for a visible enemy target, pending=%+v", engine.State.PendingAction)
+	}
+	for _, candidate := range engine.State.PendingAction.Candidates {
+		if candidate["instance_id"] == frontStealth.InstanceID || candidate["instance_id"] == backStealth.InstanceID {
+			t.Fatalf("1321104 should not offer opposing stealth units, candidates=%+v", engine.State.PendingAction.Candidates)
+		}
+	}
+	resolvePendingSelection(t, engine, 0, backVisible.InstanceID)
+	if backVisible.Statuses[StatusStealth] != 2 {
+		t.Fatalf("1321104 should grant stealth2 to selected enemy, statuses=%v", backVisible.Statuses)
+	}
+
+	if !cardHasActiveUltimate(NewCardInstance(baseCard(t, "4311102"), 0, 1)) {
+		t.Fatal("4311102 should expose an ultimate ability")
+	}
+	fug := NewCardInstance(baseCard(t, "4311102"), 0, 1)
+	if err := globalRegistry.GetBehavior("4311102").(UltimateAbility).OnUltimate(&EffectContext{Engine: engine, Source: fug, PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("4311102 ultimate: %v", err)
+	}
+	next0 := NewCardInstance(baseCard(t, "1021005"), 0, 1)
+	p0.Hand = append(p0.Hand, next0)
+	for _, elem := range model.AllElements {
+		p0.Elements[elem] = 9
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{"instance_id": next0.InstanceID, "col": float64(1), "row": float64(0)}}); err != nil {
+		t.Fatalf("summon p0 next companion: %v", err)
+	}
+	if next0.Statuses[StatusStealth] != 2 || p0.NextCompanionStealth != 0 {
+		t.Fatalf("4311102 should give p0 next summoned companion stealth2 once, statuses=%v pending=%d", next0.Statuses, p0.NextCompanionStealth)
+	}
+	next1 := NewCardInstance(baseCard(t, "1021006"), 1, 1)
+	p1.Hand = append(p1.Hand, next1)
+	for _, elem := range model.AllElements {
+		p1.Elements[elem] = 9
+	}
+	engine.State.CurrentTurn = 1
+	if err := engine.HandleAction(1, ActionMessage{Action: "summon", Data: map[string]any{"instance_id": next1.InstanceID, "col": float64(2), "row": float64(0)}}); err != nil {
+		t.Fatalf("summon p1 next companion: %v", err)
+	}
+	if next1.Statuses[StatusStealth] != 2 || p1.NextCompanionStealth != 0 {
+		t.Fatalf("4311102 should give p1 next summoned companion stealth2 once, statuses=%v pending=%d", next1.Statuses, p1.NextCompanionStealth)
+	}
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

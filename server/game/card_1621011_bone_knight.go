@@ -31,6 +31,7 @@ func (Card1621011BoneKnight) OnDeath(ctx *EffectContext) error {
 	ctx.Source.IsHorizontal = true
 	ctx.Source.EnterTurn = ctx.Engine.State.TurnNumber
 	ps.Units[pos.Col][pos.Row] = ctx.Source
+	ctx.Engine.ApplySummonModifiersOnEnter(ctx.Source)
 	ctx.Engine.emit(GameEvent{Type: "summon", Player: ctx.PlayerID, Data: map[string]any{
 		"player":   ctx.PlayerID,
 		"card":     cardToInfo(ctx.Source),

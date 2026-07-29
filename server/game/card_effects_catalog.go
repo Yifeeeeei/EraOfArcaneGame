@@ -296,20 +296,30 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"1221107": func() CardBehavior {
 		return royalShieldOnEnter{id: "1221107", name: "心莲守护者", amount: 2}
 	},
+	"1211101": func() CardBehavior { return Card1211101MistKingNalanti{} },
+	"1221102": func() CardBehavior { return Card1221102MistMage{} },
+	"1221105": func() CardBehavior { return Card1221105MistDancer{} },
+	"1221109": func() CardBehavior { return Card1221109MistPhantom{} },
+	"1321104": func() CardBehavior { return Card1321104MistWeaver{} },
 	"1421102": func() CardBehavior { return Card1421102EmeraldGuard{} },
 	"1421104": func() CardBehavior {
 		return royalShieldOnEnter{id: "1421104", name: "拜利兰森林熊", amount: 3}
 	},
+	"1421114": func() CardBehavior { return Card1421114GiantSandworm{} },
 	"1511101": func() CardBehavior {
 		return royalShieldOnEnter{id: "1511101", name: "末路的王子 灰烬 凯尔特", amount: 2}
 	},
 	"2011101": func() CardBehavior { return Card2011101ArcaneArmorSky{} },
 	"2021102": func() CardBehavior { return Card2021102DemonBreakingBlade{} },
+	"2021103": func() CardBehavior { return Card2021103MistPotion{} },
 	"2221102": func() CardBehavior { return Card2221102OceanShieldScroll{} },
 	"2411101": func() CardBehavior { return Card2411101EmeraldImmortality{} },
 	"2521105": func() CardBehavior {
 		return royalShieldOnEnter{id: "2521105", name: "孤星守护者", amount: 2}
 	},
+	"3221104": func() CardBehavior { return Card3221104WaterEscape{} },
+	"3221106": func() CardBehavior { return Card3221106Undercurrent{} },
+	"4311102": func() CardBehavior { return Card4311102MistmakerFug{} },
 }
 
 // RegisterAllCardEffects registers lazy factories for implemented card

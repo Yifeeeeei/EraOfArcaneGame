@@ -1,5 +1,7 @@
 package game
 
+import "eraofarcane/model"
+
 func effectiveElementsGain(card *CardInstance) map[string]int {
 	gains := make(map[string]int)
 	if card == nil || card.Card == nil {
@@ -18,6 +20,9 @@ func effectiveElementsGain(card *CardInstance) map[string]int {
 		if amount != 0 {
 			gains[elem] += amount
 		}
+	}
+	if card.Card.Number == "1221109" && card.Statuses[StatusStealth] > 0 {
+		gains[model.ElementWater] += 2
 	}
 	return gains
 }

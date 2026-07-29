@@ -19,6 +19,22 @@ func (e *Engine) ApplyKeywordOnEnter(card *CardInstance) {
 	}
 }
 
+func (e *Engine) ApplySummonModifiersOnEnter(card *CardInstance) {
+	if card == nil || card.Card == nil || !card.Card.IsCompanion() || card.OwnerID < 0 || card.OwnerID >= len(e.State.Players) {
+		return
+	}
+	ps := e.State.Players[card.OwnerID]
+	if ps.NextCompanionStealth <= 0 {
+		return
+	}
+	e.grantStealth(card, ps.NextCompanionStealth)
+	ps.NextCompanionStealth = 0
+}
+
+func (e *Engine) grantStealth(card *CardInstance, amount int) bool {
+	return e.addStatus(card, StatusStealth, amount)
+}
+
 // ApplyKeywordOnSkillUse applies keyword effects when a skill is used
 func (e *Engine) ApplyKeywordOnSkillUse(skill *CardInstance) {
 	if cd := skillCooldown(skill); cd > 0 {

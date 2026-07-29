@@ -259,6 +259,16 @@ type FriendlySpellTargetBehavior interface {
 	AllowsFriendlySpellTarget() bool
 }
 
+type StealthSpellTargetBehavior interface {
+	HasActiveSpellTargeting(*CardInstance) bool
+	AllowsStealthSpellTarget() bool
+}
+
+type SpellTargetValidationBehavior interface {
+	HasActiveSpellTargeting(*CardInstance) bool
+	ValidateSpellTarget(*EffectContext, SpellTarget, *CardInstance) error
+}
+
 type SpellAreaBehavior interface {
 	HasActiveSpellArea(*CardInstance) bool
 	SpellArea() SpellArea

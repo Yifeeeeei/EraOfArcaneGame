@@ -604,7 +604,11 @@ func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance
 		return fmt.Errorf("invalid spell target owner")
 	}
 	if targetOwnerID == playerID {
-		if e.State.Players[playerID].Units[target.Position.Col][target.Position.Row] != nil {
+		targetUnit := e.State.Players[playerID].Units[target.Position.Col][target.Position.Row]
+		if targetUnit != nil {
+			if err := e.validateCardSpecificSpellTarget(playerID, skill, target, targetUnit); err != nil {
+				return err
+			}
 			return nil
 		}
 		return fmt.Errorf("no friendly unit at target position")
@@ -631,6 +635,10 @@ func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance
 		}
 		return fmt.Errorf("no enemy unit at target position")
 	}
+	targetUnit := opponent.Units[target.Position.Col][target.Position.Row]
+	if err := e.validateCardSpecificSpellTarget(playerID, skill, target, targetUnit); err != nil {
+		return err
+	}
 
 	if e.effectiveSpellArea(skill) == SpellAreaFrontRow {
 		frontRow := opponent.GetFrontRow()
@@ -639,11 +647,39 @@ func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance
 		}
 	}
 
+	if e.hasStealthFromOpponent(playerID, targetUnit) && e.spellAllowsStealthTarget(skill) {
+		return nil
+	}
 	if !e.IsInSpellRange(playerID, target.Position.Col, target.Position.Row, hasPierce) {
 		return fmt.Errorf("target is not in spell range")
 	}
 
 	return nil
+}
+
+func (e *Engine) validateCardSpecificSpellTarget(playerID int, skill *CardInstance, target SpellTarget, targetUnit *CardInstance) error {
+	if skill == nil || skill.Card == nil {
+		return nil
+	}
+	validator, ok := behaviorForNumber(skill.Card.Number).(SpellTargetValidationBehavior)
+	if !ok || !validator.HasActiveSpellTargeting(skill) {
+		return nil
+	}
+	return validator.ValidateSpellTarget(&EffectContext{
+		Engine:     e,
+		Source:     skill,
+		Target:     targetUnit,
+		PlayerID:   playerID,
+		OpponentID: 1 - playerID,
+	}, target, targetUnit)
+}
+
+func (e *Engine) spellAllowsStealthTarget(skill *CardInstance) bool {
+	if skill == nil || skill.Card == nil {
+		return false
+	}
+	behavior, ok := behaviorForNumber(skill.Card.Number).(StealthSpellTargetBehavior)
+	return ok && behavior.HasActiveSpellTargeting(skill) && behavior.AllowsStealthSpellTarget()
 }
 
 func (e *Engine) validateSpellExtraTarget(playerID int, target SpellTarget) error {

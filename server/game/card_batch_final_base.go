@@ -649,6 +649,7 @@ func (e *Engine) summonWaterPhantomCopy(playerID int, targetID string, pos Posit
 	copyUnit.CurrentLife = 1
 	copyUnit.Statuses["水幻影复制"] = 1
 	ps.Units[pos.Col][pos.Row] = copyUnit
+	e.ApplySummonModifiersOnEnter(copyUnit)
 	e.emit(GameEvent{
 		Type:   "summon",
 		Player: -1,

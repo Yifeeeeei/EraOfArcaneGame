@@ -779,6 +779,7 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 
 	// Apply keyword effects (速攻 makes it enter vertical, etc.)
 	e.ApplyKeywordOnEnter(card)
+	e.ApplySummonModifiersOnEnter(card)
 
 	e.emit(GameEvent{
 		Type:   "summon",

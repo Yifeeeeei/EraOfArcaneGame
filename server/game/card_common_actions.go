@@ -176,6 +176,7 @@ func summonCardFreeFromHandOrDeckAtPosition(ctx *EffectContext, instanceID strin
 	card.IsHorizontal = true
 	card.EnterTurn = ctx.Engine.State.TurnNumber
 	ps.Units[pos.Col][pos.Row] = card
+	ctx.Engine.ApplySummonModifiersOnEnter(card)
 	ctx.Engine.triggerEffects(TriggerOnEnter, card, nil, nil)
 	ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.PlayerID, card, map[string]any{"entered_player": ctx.PlayerID})
 	ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.OpponentID, card, map[string]any{"entered_player": ctx.PlayerID})
