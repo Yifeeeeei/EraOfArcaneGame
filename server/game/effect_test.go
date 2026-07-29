@@ -1935,6 +1935,84 @@ func countCardsByNumber(cards []*CardInstance, number string) int {
 	return count
 }
 
+func TestRoyalConflictLoadChoiceEffects(t *testing.T) {
+	t.Run("five color coral gains two different non-arcane loads", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		coral := NewCardInstance(baseCard(t, "2021104"), 0, 1)
+		engine.triggerEffects(TriggerOnEnter, coral, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "five_color_coral_load" {
+			t.Fatalf("2021104 should prompt for two elements, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, model.ElementFire, model.ElementWater)
+		load := effectiveElementsGain(coral)
+		if load[model.ElementFire] != 1 || load[model.ElementWater] != 1 || load[model.ElementArcane] != 0 {
+			t.Fatalf("2021104 should gain selected non-arcane loads, load=%v", load)
+		}
+
+		forgedEngine := setupReportedBugEngine(t)
+		forgedCoral := NewCardInstance(baseCard(t, "2021104"), 0, 1)
+		forgedEngine.triggerEffects(TriggerOnEnter, forgedCoral, nil, nil)
+		if err := forgedEngine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{model.ElementFire, model.ElementFire},
+		}}); err == nil {
+			t.Fatal("2021104 should reject forged duplicate element selections")
+		}
+		if effectiveElementsGain(forgedCoral)[model.ElementFire] != 0 {
+			t.Fatalf("2021104 should not gain load from rejected duplicate selection, load=%v", effectiveElementsGain(forgedCoral))
+		}
+	})
+
+	t.Run("emerald fruit gives selected friendly companion a non-earth non-arcane load", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		target := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		fruit := NewCardInstance(baseCard(t, "2421108"), 0, 1)
+		engine.triggerEffects(TriggerOnEnter, fruit, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "emerald_fruit_target" {
+			t.Fatalf("2421108 should prompt for a friendly companion, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, target.InstanceID)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "emerald_fruit_element" {
+			t.Fatalf("2421108 should prompt for a load element after target, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == model.ElementEarth || candidate["instance_id"] == model.ElementArcane {
+				t.Fatalf("2421108 should not offer earth or arcane load choices, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
+		}
+		resolvePendingSelection(t, engine, 0, model.ElementShadow)
+		if effectiveElementsGain(target)[model.ElementShadow] != 1 {
+			t.Fatalf("2421108 should add selected shadow load to target, load=%v", effectiveElementsGain(target))
+		}
+	})
+
+	t.Run("lone star iron knight only buffs itself when isolated in front row", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		knight := placeUnit(baseCard(t, "1521115"), 0, 1, 0, engine)
+		beforeLife := knight.CurrentLife
+		engine.triggerEffects(TriggerOnEnter, knight, nil, nil)
+		if knight.CurrentLife != beforeLife+1 || effectiveElementsGain(knight)[model.ElementLight] != knight.Card.ElementsGain[model.ElementLight]+1 {
+			t.Fatalf("1521115 should gain +1 life and +1 light load when isolated front row, life=%d load=%v", knight.CurrentLife, effectiveElementsGain(knight))
+		}
+
+		blockedEngine := setupReportedBugEngine(t)
+		blocked := placeUnit(baseCard(t, "1521115"), 0, 1, 0, blockedEngine)
+		placeUnit(baseCard(t, "1021001"), 0, 1, 1, blockedEngine)
+		blockedBeforeLife := blocked.CurrentLife
+		blockedEngine.triggerEffects(TriggerOnEnter, blocked, nil, nil)
+		if blocked.CurrentLife != blockedBeforeLife || effectiveElementsGain(blocked)[model.ElementLight] != blocked.Card.ElementsGain[model.ElementLight] {
+			t.Fatalf("1521115 should not buff with adjacent companion, life=%d load=%v", blocked.CurrentLife, effectiveElementsGain(blocked))
+		}
+
+		backEngine := setupReportedBugEngine(t)
+		back := placeUnit(baseCard(t, "1521115"), 0, 1, 1, backEngine)
+		backBeforeLife := back.CurrentLife
+		backEngine.triggerEffects(TriggerOnEnter, back, nil, nil)
+		if back.CurrentLife != backBeforeLife || effectiveElementsGain(back)[model.ElementLight] != back.Card.ElementsGain[model.ElementLight] {
+			t.Fatalf("1521115 should not buff outside front row, life=%d load=%v", back.CurrentLife, effectiveElementsGain(back))
+		}
+	})
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

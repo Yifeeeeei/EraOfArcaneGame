@@ -205,6 +205,19 @@ func (Card1521110CouncilSpeaker) OnDeath(ctx *EffectContext) error {
 	return nil
 }
 
+type Card1521115LoneStarIronKnight struct{ AlwaysActive }
+
+func (Card1521115LoneStarIronKnight) ID() string   { return "1521115" }
+func (Card1521115LoneStarIronKnight) Name() string { return "孤星铁骑士" }
+func (Card1521115LoneStarIronKnight) OnEnter(ctx *EffectContext) error {
+	if ctx.Source == nil || ctx.Source.Position == nil || ctx.Source.Position.Row != 0 || len(adjacentFriendlyCompanions(ctx)) > 0 {
+		return nil
+	}
+	ctx.Source.CurrentLife++
+	ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementLight, 1, ctx.Source)
+	return nil
+}
+
 type Card1421105InactiveRoot struct{ AlwaysActive }
 
 func (Card1421105InactiveRoot) ID() string            { return "1421105" }
@@ -273,6 +286,26 @@ func (Card2021107Reshape) OnUseItem(ctx *EffectContext) error {
 	}
 	ps.Hand = nil
 	ctx.Engine.drawCards(ctx.PlayerID, 2)
+	return nil
+}
+
+type Card2021104FiveColorCoral struct{ AlwaysActive }
+
+func (Card2021104FiveColorCoral) ID() string   { return "2021104" }
+func (Card2021104FiveColorCoral) Name() string { return "五色珊瑚" }
+func (Card2021104FiveColorCoral) OnEnter(ctx *EffectContext) error {
+	choices := elementChoiceCandidates("2021104", model.ElementFire, model.ElementWater, model.ElementEarth, model.ElementAir, model.ElementLight, model.ElementShadow)
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "five_color_coral_load",
+		"五色珊瑚:选择2种不同的非奥术元素各获得1点负载", choices, 2, 2,
+		func(selected []string) {
+			seen := make(map[string]bool, len(selected))
+			for _, elem := range selected {
+				if isNonArcaneElement(elem) && !seen[elem] {
+					ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, elem, 1, ctx.Source)
+					seen[elem] = true
+				}
+			}
+		})
 	return nil
 }
 
@@ -515,6 +548,37 @@ func (Card2521106MoonlightScroll) OnUseItem(ctx *EffectContext) error {
 	return nil
 }
 
+type Card2421108EmeraldFruit struct{ AlwaysActive }
+
+func (Card2421108EmeraldFruit) ID() string   { return "2421108" }
+func (Card2421108EmeraldFruit) Name() string { return "翡翠果" }
+func (Card2421108EmeraldFruit) OnEnter(ctx *EffectContext) error {
+	targets := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
+		return card != nil && card.Card != nil && card.Card.IsCompanion()
+	})
+	if len(targets) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "emerald_fruit_target",
+		"翡翠果:选择1个友方伙伴获得负载", targets, 1, 1,
+		func(selected []string) {
+			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, firstSelected(selected))
+			if target == nil || zone != "unit" || target.Card == nil || !target.Card.IsCompanion() {
+				return
+			}
+			choices := elementChoiceCandidates("2421108", model.ElementFire, model.ElementWater, model.ElementAir, model.ElementLight, model.ElementShadow)
+			ctx.Engine.SetPendingAction(ctx.PlayerID, "emerald_fruit_element",
+				"翡翠果:选择除地与奥术外的1点负载", choices, 1, 1,
+				func(selected []string) {
+					elem := firstSelected(selected)
+					if elem != model.ElementEarth && isNonArcaneElement(elem) {
+						ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, elem, 1, ctx.Source)
+					}
+				})
+		})
+	return nil
+}
+
 func royalFriendlyUnits(ctx *EffectContext) []*CardInstance {
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	units := make([]*CardInstance, 0, 9)
@@ -671,6 +735,25 @@ func (e *Engine) findFriendlyCardIncludingBound(playerID int, instanceID string)
 		}
 	}
 	return nil
+}
+
+func elementChoiceCandidates(sourceNumber string, elements ...string) []map[string]any {
+	candidates := make([]map[string]any, 0, len(elements))
+	for _, elem := range elements {
+		candidates = append(candidates, map[string]any{
+			"instance_id": elem,
+			"number":      sourceNumber,
+			"name":        elem,
+			"type":        "元素",
+			"zone":        "choice",
+			"side":        "own",
+		})
+	}
+	return candidates
+}
+
+func isNonArcaneElement(elem string) bool {
+	return elem == model.ElementFire || elem == model.ElementWater || elem == model.ElementEarth || elem == model.ElementAir || elem == model.ElementLight || elem == model.ElementShadow
 }
 
 func adjacentFriendlyCompanions(ctx *EffectContext) []map[string]any {
