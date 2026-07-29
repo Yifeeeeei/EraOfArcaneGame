@@ -378,10 +378,10 @@ func (e *Engine) payAndRevealCounterTrap(playerID int, counter *CardInstance, co
 	if err != nil {
 		return err
 	}
-	if !canPayCostWithOverexert(e.State.Players[playerID], cost, overexertUnits) {
+	if !e.canPayCostWithOverexertOptions(e.State.Players[playerID], cost, overexertUnits, false) {
 		return fmt.Errorf("not enough elements for counter")
 	}
-	if !payDefenseCost(e.State.Players[playerID], cost, ActionMessage{Data: data}, overexertUnits) {
+	if !e.payDefenseCostWithOptions(e.State.Players[playerID], cost, ActionMessage{Data: data}, overexertUnits, false) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.destroyFuyeDoomedAfterExert(overexertUnits)

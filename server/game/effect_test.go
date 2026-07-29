@@ -522,6 +522,16 @@ func TestRoyalConflictStealthCardBehaviors(t *testing.T) {
 	if effectiveElementsGain(phantom)[model.ElementWater] != 0 {
 		t.Fatalf("1221109 dynamic water load should disappear while petrified, load=%v", effectiveElementsGain(phantom))
 	}
+	shieldedEngine := setupReportedBugEngine(t)
+	shieldedP0 := shieldedEngine.State.Players[0]
+	shieldedP0.Shield = 1
+	shieldedP0.Equipment[0] = NewCardInstance(baseCard(t, "2411101"), 0, 1)
+	shieldedPhantom := placeUnit(baseCard(t, "1221109"), 0, 0, 0, shieldedEngine)
+	shieldedPhantom.Statuses[StatusStealth] = 1
+	shieldedPhantom.Statuses[StatusPetrify] = 1
+	if shieldedEngine.effectiveElementsGain(shieldedPhantom)[model.ElementWater] != 2 {
+		t.Fatalf("1221109 should keep dynamic water load when petrify is ineffective, load=%v", shieldedEngine.effectiveElementsGain(shieldedPhantom))
+	}
 
 	mage := placeUnit(baseCard(t, "1221102"), 0, 0, 1, engine)
 	target := placeUnit(baseCard(t, "1021003"), 0, 1, 1, engine)

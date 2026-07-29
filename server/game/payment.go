@@ -158,12 +158,27 @@ func availableElementsWithOverexert(ps *PlayerState, units []*CardInstance) map[
 	return available
 }
 
+func (e *Engine) availableElementsWithOverexert(ps *PlayerState, units []*CardInstance) map[string]int {
+	available := cloneElements(ps.Elements)
+	for _, unit := range units {
+		for elem, amount := range e.effectiveElementsGain(unit) {
+			available[elem] += amount
+		}
+	}
+	return available
+}
+
 func canPayCostWithOverexert(ps *PlayerState, cost map[string]int, units []*CardInstance) bool {
 	return canPayCostWithOverexertOptions(ps, cost, units, false)
 }
 
 func canPayCostWithOverexertOptions(ps *PlayerState, cost map[string]int, units []*CardInstance, lightWildcard bool) bool {
 	_, ok := calculateElementPaymentWithOptions(availableElementsWithOverexert(ps, units), cost, lightWildcard)
+	return ok
+}
+
+func (e *Engine) canPayCostWithOverexertOptions(ps *PlayerState, cost map[string]int, units []*CardInstance, lightWildcard bool) bool {
+	_, ok := calculateElementPaymentWithOptions(e.availableElementsWithOverexert(ps, units), cost, lightWildcard)
 	return ok
 }
 
@@ -185,6 +200,29 @@ func payDefenseCostWithOptions(ps *PlayerState, cost map[string]int, action Acti
 		if !ok {
 			return false
 		}
+	}
+
+	for elem, amount := range payment {
+		spendFromPool := min(ps.Elements[elem], amount)
+		ps.Elements[elem] -= spendFromPool
+	}
+	for _, unit := range units {
+		unit.IsHorizontal = true
+	}
+	return true
+}
+
+func (e *Engine) payDefenseCostWithOptions(ps *PlayerState, cost map[string]int, action ActionMessage, units []*CardInstance, lightWildcard bool) bool {
+	available := e.availableElementsWithOverexert(ps, units)
+	payment := paymentFromAction(action)
+	if payment == nil {
+		var ok bool
+		payment, ok = calculateElementPaymentWithOptions(available, cost, lightWildcard)
+		if !ok {
+			return false
+		}
+	} else if !validateElementPaymentWithOptions(available, cost, payment, lightWildcard) {
+		return false
 	}
 
 	for elem, amount := range payment {

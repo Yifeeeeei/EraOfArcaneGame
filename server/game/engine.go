@@ -265,10 +265,10 @@ func (e *Engine) handleReactSpell(playerID int, action ActionMessage) error {
 	if err != nil {
 		return err
 	}
-	if !canPayCostWithOverexertOptions(ps, cost, overexertUnits, e.playerHasLightWildcard(ps)) {
+	if !e.canPayCostWithOverexertOptions(ps, cost, overexertUnits, e.playerHasLightWildcard(ps)) {
 		return fmt.Errorf("not enough elements")
 	}
-	if !payDefenseCostWithOptions(ps, cost, action, overexertUnits, e.playerHasLightWildcard(ps)) {
+	if !e.payDefenseCostWithOptions(ps, cost, action, overexertUnits, e.playerHasLightWildcard(ps)) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.destroyFuyeDoomedAfterExert(overexertUnits)
@@ -839,7 +839,7 @@ func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, 
 		if target.CurrentLife > 0 {
 			total[DevourLife] += target.CurrentLife
 		}
-		for elem, amount := range effectiveElementsGain(target) {
+		for elem, amount := range e.effectiveElementsGain(target) {
 			if amount > 0 {
 				total[elem] += amount
 			}
@@ -871,7 +871,7 @@ func isValidSummonDevourTarget(target *CardInstance, summoned *CardInstance) boo
 
 // handleConsume handles consuming a card (横置 to gain elements)
 func (e *Engine) elementsGainedFromConsume(playerID int, card *CardInstance, action ActionMessage) (map[string]int, error) {
-	gains := effectiveElementsGain(card)
+	gains := e.effectiveElementsGain(card)
 	if !e.isFirstPlayerFirstTurnHeroConsume(playerID, card) {
 		return gains, nil
 	}
@@ -1243,11 +1243,11 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		return err
 	}
 	totalCost := mergeElementCosts(defenseCost, scrollCost, boostCost, boostScrollCost)
-	if !canPayCostWithOverexertOptions(ps, totalCost, overexertUnits, e.playerHasLightWildcard(ps)) {
+	if !e.canPayCostWithOverexertOptions(ps, totalCost, overexertUnits, e.playerHasLightWildcard(ps)) {
 		return fmt.Errorf("not enough elements for defense")
 	}
 	if len(defenseSkills)+len(defenseScrolls)+len(boostSkills) > 0 {
-		if !payDefenseCostWithOptions(ps, totalCost, action, overexertUnits, e.playerHasLightWildcard(ps)) {
+		if !e.payDefenseCostWithOptions(ps, totalCost, action, overexertUnits, e.playerHasLightWildcard(ps)) {
 			return fmt.Errorf("invalid payment")
 		}
 		e.destroyFuyeDoomedAfterExert(overexertUnits)
@@ -1592,10 +1592,10 @@ func (e *Engine) payAndUseDispel(playerID int, dispel *CardInstance, cost map[st
 	if err != nil {
 		return err
 	}
-	if !canPayCostWithOverexertOptions(e.State.Players[playerID], cost, overexertUnits, e.playerHasLightWildcard(e.State.Players[playerID])) {
+	if !e.canPayCostWithOverexertOptions(e.State.Players[playerID], cost, overexertUnits, e.playerHasLightWildcard(e.State.Players[playerID])) {
 		return fmt.Errorf("not enough elements")
 	}
-	if !payDefenseCostWithOptions(e.State.Players[playerID], cost, ActionMessage{Data: data}, overexertUnits, e.playerHasLightWildcard(e.State.Players[playerID])) {
+	if !e.payDefenseCostWithOptions(e.State.Players[playerID], cost, ActionMessage{Data: data}, overexertUnits, e.playerHasLightWildcard(e.State.Players[playerID])) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.destroyFuyeDoomedAfterExert(overexertUnits)
@@ -4112,6 +4112,29 @@ func cardsToInfo(cards []*CardInstance) []map[string]any {
 	return result
 }
 
+func (e *Engine) cardToInfo(ci *CardInstance) map[string]any {
+	info := cardToInfo(ci)
+	if info == nil {
+		return nil
+	}
+	info["elements_gain"] = e.effectiveElementsGain(ci)
+	if len(ci.BoundSkills) > 0 {
+		info["bound_skills"] = e.cardsToInfo(ci.BoundSkills)
+	}
+	if len(ci.UnderCards) > 0 {
+		info["under_cards"] = e.cardsToInfo(ci.UnderCards)
+	}
+	return info
+}
+
+func (e *Engine) cardsToInfo(cards []*CardInstance) []map[string]any {
+	result := make([]map[string]any, len(cards))
+	for i, c := range cards {
+		result[i] = e.cardToInfo(c)
+	}
+	return result
+}
+
 func deckSummaryToInfo(deck []*CardInstance) []map[string]any {
 	type summary struct {
 		card  *model.Card
@@ -4193,7 +4216,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 	info := map[string]any{
 		"player_id":          ps.PlayerID,
 		"player_name":        ps.PlayerName,
-		"hero":               cardToInfo(ps.Hero),
+		"hero":               e.cardToInfo(ps.Hero),
 		"elements":           ps.Elements,
 		"strict_arcane":      ps.StrictArcane,
 		"shield":             ps.Shield,
@@ -4201,15 +4224,15 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 		"charge":             ps.Charge,
 		"temp_modifiers":     ps.TempModifiers,
 		"deck_count":         len(ps.Deck),
-		"graveyard":          cardsToInfo(ps.Graveyard),
-		"exile":              cardsToInfo(ps.Exile),
+		"graveyard":          e.cardsToInfo(ps.Graveyard),
+		"exile":              e.cardsToInfo(ps.Exile),
 	}
 
 	// Units grid
 	units := [3][3]any{}
 	for col := 0; col < 3; col++ {
 		for row := 0; row < 3; row++ {
-			units[col][row] = cardToInfo(ps.Units[col][row])
+			units[col][row] = e.cardToInfo(ps.Units[col][row])
 		}
 	}
 	info["units"] = units
@@ -4218,7 +4241,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 	terrain := [3][3]any{}
 	for col := 0; col < 3; col++ {
 		for row := 0; row < 3; row++ {
-			terrain[col][row] = cardToInfo(ps.Terrain[col][row])
+			terrain[col][row] = e.cardToInfo(ps.Terrain[col][row])
 		}
 	}
 	info["terrain"] = terrain
@@ -4237,7 +4260,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 		if !isOwner && ps.Equipment[i] != nil && ps.Equipment[i].IsSetCounter {
 			equipment[i] = hiddenCounterInfo(ps.Equipment[i])
 		} else {
-			equipment[i] = cardToInfo(ps.Equipment[i])
+			equipment[i] = e.cardToInfo(ps.Equipment[i])
 		}
 	}
 	info["equipment"] = equipment
@@ -4257,7 +4280,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 				revealed = append(revealed, card)
 			}
 		}
-		info["revealed_hand"] = cardsToInfo(revealed)
+		info["revealed_hand"] = e.cardsToInfo(revealed)
 		info["skill_pool_count"] = len(ps.SkillPool)
 	}
 
@@ -4281,7 +4304,7 @@ func (e *Engine) cardsToInfoWithEffectiveCosts(ps *PlayerState, cards []*CardIns
 }
 
 func (e *Engine) cardToInfoForPlayer(ps *PlayerState, card *CardInstance) map[string]any {
-	info := cardToInfo(card)
+	info := e.cardToInfo(card)
 	if ps == nil || card == nil || card.Card == nil {
 		return info
 	}
