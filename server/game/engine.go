@@ -751,7 +751,7 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 		return fmt.Errorf("not enough elements")
 	}
 
-	if !e.canPayCostForAction(ps, cost, action) {
+	if !e.canPayCostForCardAction(ps, card, cost, cost, paymentPurposePlay, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	if err := e.validateAndApplySummonDevour(playerID, card, action); err != nil {
@@ -767,7 +767,7 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 	}
 
 	// Pay cost and place
-	if !e.payCostForAction(ps, cost, action) {
+	if !e.payCostForCardAction(ps, card, cost, cost, paymentPurposePlay, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.notifyCardPlayCostPaid(ps, card)
@@ -1088,7 +1088,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	}
 
 	// Pay costs and set cards horizontal only after all validation succeeds.
-	if !e.payCostForAction(ps, totalCost, action) {
+	if !e.payCostForCardAction(ps, skill, cost, totalCost, paymentPurposeUse, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	skill.IsHorizontal = true
@@ -2714,7 +2714,7 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 		}
 	}
 
-	if !e.payCostForAction(ps, cost, action) {
+	if !e.payCostForCardAction(ps, card, cost, cost, paymentPurposePlay, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.notifyCardPlayCostPaid(ps, card)
@@ -2816,7 +2816,7 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 	}
 
 	// Pay cost and place
-	if !e.payCostForAction(ps, cost, action) {
+	if !e.payCostForCardAction(ps, skill, cost, cost, paymentPurposeLearn, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.notifyCardPlayCostPaid(ps, skill)
@@ -3744,11 +3744,45 @@ func (e *Engine) payCostForAction(ps *PlayerState, cost map[string]int, action A
 	return true
 }
 
+func (e *Engine) payCostForCardAction(ps *PlayerState, card *CardInstance, strictCost map[string]int, totalCost map[string]int, purpose paymentPurpose, action ActionMessage) bool {
+	payment := paymentFromAction(action)
+	if payment == nil {
+		var ok bool
+		payment, ok = calculateElementPaymentWithOptions(ps.Elements, totalCost, e.playerHasLightWildcard(ps))
+		if !ok {
+			return false
+		}
+	} else if !validateElementPaymentWithOptions(ps.Elements, totalCost, payment, e.playerHasLightWildcard(ps)) {
+		return false
+	}
+	if !strictPaymentSatisfied(card, purpose, strictCost, payment) {
+		return false
+	}
+	for elem, amount := range payment {
+		ps.Elements[elem] -= amount
+	}
+	return true
+}
+
 func (e *Engine) canPayCostForAction(ps *PlayerState, cost map[string]int, action ActionMessage) bool {
 	if payment := paymentFromAction(action); payment != nil {
 		return validateElementPaymentWithOptions(ps.Elements, cost, payment, e.playerHasLightWildcard(ps))
 	}
 	return e.canPayCost(ps, cost)
+}
+
+func (e *Engine) canPayCostForCardAction(ps *PlayerState, card *CardInstance, strictCost map[string]int, totalCost map[string]int, purpose paymentPurpose, action ActionMessage) bool {
+	payment := paymentFromAction(action)
+	if payment == nil {
+		var ok bool
+		payment, ok = calculateElementPaymentWithOptions(ps.Elements, totalCost, e.playerHasLightWildcard(ps))
+		if !ok {
+			return false
+		}
+	} else if !validateElementPaymentWithOptions(ps.Elements, totalCost, payment, e.playerHasLightWildcard(ps)) {
+		return false
+	}
+	return strictPaymentSatisfied(card, purpose, strictCost, payment)
 }
 
 func (e *Engine) canPayCost(ps *PlayerState, cost map[string]int) bool {

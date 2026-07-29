@@ -704,6 +704,63 @@ func TestRoyalConflictStealthTargetingAndDelayedSummon(t *testing.T) {
 	}
 }
 
+func TestRoyalConflictStrictPaymentCards(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+
+	pureBody := NewCardInstance(baseCard(t, "1021112"), 0, 1)
+	playCost := engine.effectiveCardPlayCost(p0, pureBody)
+	p0.Elements[model.ElementFire] = 4
+	if engine.canPayCostForCardAction(p0, pureBody, playCost, playCost, paymentPurposePlay, ActionMessage{}) {
+		t.Fatal("1021112 should not allow non-arcane elements for its strict entry cost")
+	}
+	p0.Elements[model.ElementFire] = 0
+	p0.Elements[model.ElementArcane] = 4
+	if !engine.canPayCostForCardAction(p0, pureBody, playCost, playCost, paymentPurposePlay, ActionMessage{}) {
+		t.Fatal("1021112 should allow its strict entry cost to be paid with arcane")
+	}
+
+	absolutePure := NewCardInstance(baseCard(t, "3011101"), 0, 1)
+	learnCost := engine.effectiveSkillLearnCost(p0, absolutePure)
+	p0.Elements = cloneElements(map[string]int{model.ElementWater: 11})
+	if engine.canPayCostForCardAction(p0, absolutePure, learnCost, learnCost, paymentPurposeLearn, ActionMessage{}) {
+		t.Fatal("3011101 should require strict arcane for learning")
+	}
+	p0.Elements = cloneElements(map[string]int{model.ElementArcane: 11})
+	if !engine.canPayCostForCardAction(p0, absolutePure, learnCost, learnCost, paymentPurposeLearn, ActionMessage{}) {
+		t.Fatal("3011101 should allow learning with strict arcane")
+	}
+	useCost := engine.effectiveSkillUseCost(p0, absolutePure)
+	totalUseCost := mergeElementCosts(useCost, map[string]int{model.ElementFire: 1})
+	p0.Elements = cloneElements(map[string]int{model.ElementArcane: 7, model.ElementFire: 1})
+	if !engine.canPayCostForCardAction(p0, absolutePure, useCost, totalUseCost, paymentPurposeUse, ActionMessage{Data: map[string]any{
+		"payment": map[string]any{model.ElementArcane: float64(7), model.ElementFire: float64(1)},
+	}}) {
+		t.Fatal("3011101 strict use cost should allow separate non-strict boost payment")
+	}
+	p0.Elements = cloneElements(map[string]int{model.ElementWater: 7, model.ElementFire: 1})
+	if engine.canPayCostForCardAction(p0, absolutePure, useCost, totalUseCost, paymentPurposeUse, ActionMessage{Data: map[string]any{
+		"payment": map[string]any{model.ElementWater: float64(7), model.ElementFire: float64(1)},
+	}}) {
+		t.Fatal("3011101 should reject non-arcane payment for its own use cost")
+	}
+
+	timeCycle := NewCardInstance(baseCard(t, "3411101"), 0, 1)
+	timeCost := engine.effectiveSkillLearnCost(p0, timeCycle)
+	p0.Elements = cloneElements(map[string]int{model.ElementArcane: 2})
+	if engine.canPayCostForCardAction(p0, timeCycle, timeCost, timeCost, paymentPurposeLearn, ActionMessage{}) {
+		t.Fatal("3411101 should require earth for its earth component")
+	}
+	p0.Elements = cloneElements(map[string]int{model.ElementEarth: 1, model.ElementFire: 1})
+	if engine.canPayCostForCardAction(p0, timeCycle, timeCost, timeCost, paymentPurposeLearn, ActionMessage{}) {
+		t.Fatal("3411101 should require arcane for its arcane component")
+	}
+	p0.Elements = cloneElements(map[string]int{model.ElementEarth: 1, model.ElementArcane: 1})
+	if !engine.canPayCostForCardAction(p0, timeCycle, timeCost, timeCost, paymentPurposeLearn, ActionMessage{}) {
+		t.Fatal("3411101 should allow strict earth plus arcane payment")
+	}
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

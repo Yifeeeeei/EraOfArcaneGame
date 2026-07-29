@@ -2,6 +2,14 @@ package game
 
 import "eraofarcane/model"
 
+type paymentPurpose string
+
+const (
+	paymentPurposePlay  paymentPurpose = "play"
+	paymentPurposeLearn paymentPurpose = "learn"
+	paymentPurposeUse   paymentPurpose = "use"
+)
+
 func cloneElements(elements map[string]int) map[string]int {
 	result := make(map[string]int)
 	for _, elem := range model.AllElements {
@@ -119,6 +127,49 @@ func validateElementPaymentWithOptions(available map[string]int, cost map[string
 	}
 	for _, elem := range model.AllElements {
 		if spent[elem] != payment[elem] {
+			return false
+		}
+	}
+	return true
+}
+
+func strictPaymentRequirement(card *CardInstance, purpose paymentPurpose, cost map[string]int) map[string]int {
+	if card == nil || card.Card == nil {
+		return nil
+	}
+	switch card.Card.Number {
+	case "1021112":
+		if purpose == paymentPurposePlay {
+			return map[string]int{model.ElementArcane: totalElementCost(cost)}
+		}
+	case "3011101":
+		if purpose == paymentPurposeLearn || purpose == paymentPurposeUse {
+			return map[string]int{model.ElementArcane: totalElementCost(cost)}
+		}
+	case "3411101":
+		if purpose == paymentPurposeLearn || purpose == paymentPurposeUse {
+			earth := cost[model.ElementEarth]
+			arcane := totalElementCost(cost) - earth
+			requirement := map[string]int{}
+			if earth > 0 {
+				requirement[model.ElementEarth] = earth
+			}
+			if arcane > 0 {
+				requirement[model.ElementArcane] = arcane
+			}
+			return requirement
+		}
+	}
+	return nil
+}
+
+func strictPaymentSatisfied(card *CardInstance, purpose paymentPurpose, strictCost map[string]int, payment map[string]int) bool {
+	requirement := strictPaymentRequirement(card, purpose, strictCost)
+	if len(requirement) == 0 {
+		return true
+	}
+	for elem, amount := range requirement {
+		if payment[elem] < amount {
 			return false
 		}
 	}
