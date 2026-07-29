@@ -1837,14 +1837,24 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 			}
 
 			if dmg > 0 {
+				spellDamageData := map[string]any{
+					"damage_source":  "spell",
+					"damage_element": skill.Card.Category,
+					"skill":          skill.Card.Number,
+					"attacker":       attackerID,
+					"boost_count":    len(boostSkills),
+				}
+				spellDamage := dmg
+				if len(affectedUnits) > 1 {
+					shieldTarget := targetUnit
+					if shieldTarget == nil && len(affectedUnits) > 0 {
+						shieldTarget = affectedUnits[0]
+					}
+					spellDamage = e.applyPlayerShieldDamage(shieldTarget, dmg, spellDamageData)
+					spellDamageData["skip_player_shield"] = true
+				}
 				for _, unit := range affectedUnits {
-					e.dealDamageWithExtra(unit, dmg, defenderID, map[string]any{
-						"damage_source":  "spell",
-						"damage_element": skill.Card.Category,
-						"skill":          skill.Card.Number,
-						"attacker":       attackerID,
-						"boost_count":    len(boostSkills),
-					})
+					e.dealDamageWithExtra(unit, spellDamage, defenderID, spellDamageData)
 				}
 			}
 			resolvedUnits := e.unitsStillOnField(affectedUnits)

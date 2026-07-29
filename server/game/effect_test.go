@@ -212,6 +212,49 @@ func TestRoyalConflictStealthDoesNotBlockSpellRange(t *testing.T) {
 	if engine.IsInAttackRange(0, attacker, stealthFront.Position.Col, stealthFront.Position.Row) {
 		t.Fatal("opposing stealth unit should not be targetable by direct attack")
 	}
+
+	stealthFront.Statuses[StatusPetrify] = 1
+	if engine.IsInSpellRange(0, back.Position.Col, back.Position.Row, false) {
+		t.Fatal("petrified stealth front row should block default spell range again")
+	}
+	if !engine.IsInSpellRange(0, stealthFront.Position.Col, stealthFront.Position.Row, false) {
+		t.Fatal("petrified stealth unit should be targetable as the visible front row")
+	}
+}
+
+func TestRoyalConflictStealthBeatsGlobalSpellRange(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	placeUnit(baseCard(t, "1011002"), 0, 0, 0, engine)
+	stealthBack := placeUnit(baseCard(t, "1021001"), 1, 0, 2, engine)
+	stealthBack.Statuses[StatusStealth] = 1
+	visibleBack := placeUnit(baseCard(t, "1021002"), 1, 1, 2, engine)
+
+	if engine.IsInSpellRange(0, stealthBack.Position.Col, stealthBack.Position.Row, false) {
+		t.Fatal("global spell range should not allow targeting opposing stealth units")
+	}
+	if !engine.IsInSpellRange(0, visibleBack.Position.Col, visibleBack.Position.Row, false) {
+		t.Fatal("global spell range should still allow ordinary visible back-row units")
+	}
+}
+
+func TestRoyalConflictAreaSpellShieldAppliesOnce(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p1 := engine.State.Players[1]
+	left := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+	right := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
+	left.CurrentLife = 5
+	right.CurrentLife = 5
+	skill := readySkill(baseCard(t, "3121001"), 0)
+	skill.AttackBonus = 2 - skill.Card.Attack
+	p1.Shield = 1
+
+	engine.resolveSpellHit(0, skill, SpellTarget{Type: "unit", Position: *left.Position}, nil, []SpellTarget{{Type: "unit", Position: *right.Position}})
+	if p1.Shield != 0 {
+		t.Fatalf("area spell should spend player shield once, got %d", p1.Shield)
+	}
+	if left.CurrentLife != 4 || right.CurrentLife != 4 {
+		t.Fatalf("remaining area spell damage should apply equally after one shield reduction, left=%d right=%d", left.CurrentLife, right.CurrentLife)
+	}
 }
 
 func TestRoyalConflictPublicSpecialZones(t *testing.T) {

@@ -39,6 +39,11 @@ func (e *Engine) IsInSpellRange(casterID int, targetCol, targetRow int, hasPierc
 	opponent := e.State.Players[1-casterID]
 	caster := e.State.Players[casterID]
 
+	target := opponent.Units[targetCol][targetRow]
+	if target != nil && e.hasStealthFromOpponent(casterID, target) {
+		return false
+	}
+
 	for _, card := range e.getAllFieldCards(caster) {
 		if card != nil && card.Card != nil && !e.hasEffectiveStatus(card, StatusPetrify) {
 			if cardHasActiveGlobalSpellRange(card) {
@@ -58,17 +63,12 @@ func (e *Engine) IsInSpellRange(casterID int, targetCol, targetRow int, hasPierc
 		}
 	}
 
-	target := opponent.Units[targetCol][targetRow]
-	if target != nil && e.hasStealthFromOpponent(casterID, target) {
-		return false
-	}
-
 	if hasPierce {
 		return true // pierce can target any non-stealth unit or area
 	}
 
 	// Default: enemy front row only. Stealth units do not block spell range.
-	frontRow := opponent.GetSpellRangeFrontRowAgainst(casterID)
+	frontRow := e.spellRangeFrontRowAgainst(opponent, casterID)
 	if frontRow == -1 {
 		return true // no enemy units, any position is valid
 	}
@@ -157,17 +157,24 @@ func (e *Engine) hasStealthFromOpponent(playerID int, target *CardInstance) bool
 	if target == nil || target.OwnerID == playerID {
 		return false
 	}
-	return e.hasEffectiveStatus(target, StatusStealth)
+	return e.hasActiveStealth(target)
 }
 
-func (ps *PlayerState) GetSpellRangeFrontRowAgainst(casterID int) int {
+func (e *Engine) hasActiveStealth(card *CardInstance) bool {
+	return card != nil && !e.hasEffectiveStatus(card, StatusPetrify) && e.hasEffectiveStatus(card, StatusStealth)
+}
+
+func (e *Engine) spellRangeFrontRowAgainst(ps *PlayerState, casterID int) int {
+	if ps == nil {
+		return -1
+	}
 	for row := 0; row < 3; row++ {
 		for col := 0; col < 3; col++ {
 			unit := ps.Units[col][row]
 			if unit == nil {
 				continue
 			}
-			if unit.OwnerID != casterID && unit.Statuses[StatusStealth] > 0 {
+			if unit.OwnerID != casterID && e.hasActiveStealth(unit) {
 				continue
 			}
 			return row
@@ -219,6 +226,9 @@ func (e *Engine) spendStrictArcane(playerID int, amount int) bool {
 
 func (e *Engine) applyPlayerShieldDamage(target *CardInstance, damage int, damageData map[string]any) int {
 	if target == nil || damage <= 0 || damageData == nil || damageData["damage_source"] != "spell" {
+		return damage
+	}
+	if skip, _ := damageData["skip_player_shield"].(bool); skip {
 		return damage
 	}
 	attacker, ok := damageData["attacker"].(int)
