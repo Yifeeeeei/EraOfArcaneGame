@@ -291,6 +291,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"4611003": func() CardBehavior { return Card4611003Jieying{} },
 
 	"1011103": func() CardBehavior { return Card1011103Gambler{} },
+	"1021102": func() CardBehavior { return Card1021102SwordsmanshipTeacher{} },
 	"1021103": func() CardBehavior {
 		return royalShieldOnEnter{id: "1021103", name: "皇城结界兽", amount: 2}
 	},
@@ -314,11 +315,14 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"1511101": func() CardBehavior {
 		return royalShieldOnEnter{id: "1511101", name: "末路的王子 灰烬 凯尔特", amount: 2}
 	},
+	"1521103": func() CardBehavior { return Card1521103LoneStarGuardianSpirit{} },
 	"1521114": func() CardBehavior { return Card1521114HuiPrayer{} },
 	"1611101": func() CardBehavior { return Card1611101RedMoonWitchSeviana{} },
 	"1621103": func() CardBehavior { return Card1621103BloodPuppet{} },
 	"1621110": func() CardBehavior { return Card1621110ScarletBeast{} },
 	"1621111": func() CardBehavior { return Card1621111RedMoonProphet{} },
+	"1621112": func() CardBehavior { return Card1621112WhisperElfHunter{} },
+	"1621113": func() CardBehavior { return Card1621113WhisperElfPriest{} },
 	"2011101": func() CardBehavior { return Card2011101ArcaneArmorSky{} },
 	"2021101": func() CardBehavior { return Card2021101LostSilverleaf{} },
 	"2021102": func() CardBehavior { return Card2021102DemonBreakingBlade{} },

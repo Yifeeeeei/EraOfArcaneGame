@@ -1456,6 +1456,99 @@ func TestRoyalConflictSimpleGeneratedAndPrayerEffects(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictSimpleTargetedEnterAndDeathEffects(t *testing.T) {
+	t.Run("swordsmanship teacher buffs adjacent friendly companion attack", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		teacher := placeUnit(baseCard(t, "1021102"), 0, 1, 1, engine)
+		adjacent := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		far := placeUnit(baseCard(t, "1021002"), 0, 2, 2, engine)
+
+		engine.triggerEffects(TriggerOnEnter, teacher, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "swordsmanship_teacher_buff" {
+			t.Fatalf("swordsmanship teacher should prompt for adjacent target, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == far.InstanceID {
+				t.Fatalf("swordsmanship teacher should not offer non-adjacent target, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{adjacent.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve swordsmanship teacher: %v", err)
+		}
+		if adjacent.AttackBonus != 1 || far.AttackBonus != 0 {
+			t.Fatalf("swordsmanship teacher should buff selected adjacent companion only, adjacent=%d far=%d", adjacent.AttackBonus, far.AttackBonus)
+		}
+	})
+
+	t.Run("lone star guardian spirit enter and death prompts", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		guardian := placeUnit(baseCard(t, "1521103"), 0, 0, 0, engine)
+		target := placeUnit(baseCard(t, "1021003"), 0, 1, 0, engine)
+
+		engine.triggerEffects(TriggerOnEnter, guardian, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "lone_star_guardian_life" {
+			t.Fatalf("guardian enter should prompt for life target, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve guardian enter: %v", err)
+		}
+		if target.CurrentLife != target.Card.Life+1 {
+			t.Fatalf("guardian enter should give +1 life, life=%d", target.CurrentLife)
+		}
+
+		engine.triggerEffects(TriggerOnDeath, guardian, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "lone_star_guardian_load" {
+			t.Fatalf("guardian death should prompt for load target, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve guardian death: %v", err)
+		}
+		if effectiveElementsGain(target)[model.ElementLight] != target.Card.ElementsGain[model.ElementLight]+1 {
+			t.Fatalf("guardian death should add +1 light load, load=%v", effectiveElementsGain(target))
+		}
+	})
+
+	t.Run("whisper elf deathrattles target enemy and friendly companions", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		hunter := placeUnit(baseCard(t, "1621112"), 0, 0, 0, engine)
+		enemy := placeUnit(baseCard(t, "1021004"), 1, 1, 0, engine)
+		priest := placeUnit(baseCard(t, "1621113"), 0, 1, 0, engine)
+		ally := placeUnit(baseCard(t, "1021005"), 0, 2, 0, engine)
+
+		engine.triggerEffects(TriggerOnDeath, hunter, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "whisper_elf_hunter_damage" {
+			t.Fatalf("hunter death should prompt for enemy target, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{enemy.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve hunter death: %v", err)
+		}
+		if enemy.CurrentLife != enemy.Card.Life-1 {
+			t.Fatalf("hunter death should damage selected enemy, life=%d", enemy.CurrentLife)
+		}
+
+		engine.triggerEffects(TriggerOnDeath, priest, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "whisper_elf_priest_load" {
+			t.Fatalf("priest death should prompt for friendly companion, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{ally.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve priest death: %v", err)
+		}
+		if effectiveElementsGain(ally)[model.ElementShadow] != ally.Card.ElementsGain[model.ElementShadow]+1 {
+			t.Fatalf("priest death should add +1 shadow load, load=%v", effectiveElementsGain(ally))
+		}
+	})
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

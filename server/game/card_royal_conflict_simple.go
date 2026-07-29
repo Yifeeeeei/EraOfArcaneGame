@@ -27,6 +27,26 @@ func (Card1221106MirrorLotus) OnPerTurn(ctx *EffectContext) error {
 	return nil
 }
 
+type Card1021102SwordsmanshipTeacher struct{ AlwaysActive }
+
+func (Card1021102SwordsmanshipTeacher) ID() string   { return "1021102" }
+func (Card1021102SwordsmanshipTeacher) Name() string { return "剑术师傅" }
+func (Card1021102SwordsmanshipTeacher) OnEnter(ctx *EffectContext) error {
+	candidates := adjacentFriendlyCompanions(ctx)
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "swordsmanship_teacher_buff",
+		"剑术师傅:选择1个相邻友方伙伴获得+1攻", candidates, 1, 1,
+		func(selected []string) {
+			target := ctx.Engine.findFieldCardByInstance(ctx.Engine.State.Players[ctx.PlayerID], firstSelected(selected))
+			if target != nil && target.Card != nil && target.Card.IsCompanion() {
+				target.AttackBonus++
+			}
+		})
+	return nil
+}
+
 type Card1421115Geomancer struct{ AlwaysActive }
 
 func (Card1421115Geomancer) ID() string   { return "1421115" }
@@ -110,6 +130,87 @@ func (Card1621103BloodPuppet) ID() string   { return "1621103" }
 func (Card1621103BloodPuppet) Name() string { return "鲜血傀儡" }
 func (Card1621103BloodPuppet) OnEnter(ctx *EffectContext) error {
 	ctx.Engine.dealDamage(ctx.Engine.State.Players[ctx.PlayerID].Hero, 2, ctx.PlayerID)
+	return nil
+}
+
+type Card1521103LoneStarGuardianSpirit struct{ AlwaysActive }
+
+func (Card1521103LoneStarGuardianSpirit) ID() string   { return "1521103" }
+func (Card1521103LoneStarGuardianSpirit) Name() string { return "孤星城的守护灵" }
+func (Card1521103LoneStarGuardianSpirit) OnEnter(ctx *EffectContext) error {
+	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
+		return card != nil && card.Card != nil && card.Card.IsCompanion()
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "lone_star_guardian_life",
+		"孤星城的守护灵:选择1个友方伙伴+1血", candidates, 1, 1,
+		func(selected []string) {
+			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, firstSelected(selected))
+			if target != nil && zone == "unit" && target.Card != nil && target.Card.IsCompanion() {
+				target.CurrentLife++
+			}
+		})
+	return nil
+}
+func (Card1521103LoneStarGuardianSpirit) OnDeath(ctx *EffectContext) error {
+	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
+		return card != nil && card.Card != nil && card.Card.IsCompanion()
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "lone_star_guardian_load",
+		"孤星城的守护灵:选择1个友方伙伴负载+1光", candidates, 1, 1,
+		func(selected []string) {
+			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, firstSelected(selected))
+			if target != nil && zone == "unit" && target.Card != nil && target.Card.IsCompanion() {
+				ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementLight, 1, ctx.Source)
+			}
+		})
+	return nil
+}
+
+type Card1621112WhisperElfHunter struct{ AlwaysActive }
+
+func (Card1621112WhisperElfHunter) ID() string   { return "1621112" }
+func (Card1621112WhisperElfHunter) Name() string { return "谧语精灵猎手" }
+func (Card1621112WhisperElfHunter) OnDeath(ctx *EffectContext) error {
+	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, true, nil)
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "whisper_elf_hunter_damage",
+		"谧语精灵猎手:选择1个敌人造成1点伤害", candidates, 1, 1,
+		func(selected []string) {
+			target := ctx.Engine.findUnitByInstanceID(firstSelected(selected))
+			if target != nil {
+				ctx.Engine.dealDamage(target, 1, target.OwnerID)
+			}
+		})
+	return nil
+}
+
+type Card1621113WhisperElfPriest struct{ AlwaysActive }
+
+func (Card1621113WhisperElfPriest) ID() string   { return "1621113" }
+func (Card1621113WhisperElfPriest) Name() string { return "谧语精灵祭司" }
+func (Card1621113WhisperElfPriest) OnDeath(ctx *EffectContext) error {
+	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
+		return card != nil && card.Card != nil && card.Card.IsCompanion()
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "whisper_elf_priest_load",
+		"谧语精灵祭司:选择1个友方伙伴负载+1暗", candidates, 1, 1,
+		func(selected []string) {
+			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, firstSelected(selected))
+			if target != nil && zone == "unit" && target.Card != nil && target.Card.IsCompanion() {
+				ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementShadow, 1, ctx.Source)
+			}
+		})
 	return nil
 }
 
@@ -220,4 +321,17 @@ func royalFriendlyUnits(ctx *EffectContext) []*CardInstance {
 		}
 	}
 	return units
+}
+
+func adjacentFriendlyCompanions(ctx *EffectContext) []map[string]any {
+	if ctx.Source == nil || ctx.Source.Position == nil {
+		return nil
+	}
+	candidates := make([]map[string]any, 0, 4)
+	for _, unit := range adjacentUnits(ctx.Engine.State.Players[ctx.PlayerID], ctx.Source.Position) {
+		if unit != nil && unit.Card != nil && unit.Card.IsCompanion() {
+			candidates = append(candidates, candidateInfo(unit, "unit", "own"))
+		}
+	}
+	return candidates
 }
