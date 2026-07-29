@@ -859,6 +859,8 @@ func (CardDef3421015) isSkillCard() {}
 
 func (CardDef3501001) isSkillCard() {}
 
+func (CardDef3511010) isSkillCard() {}
+
 func (CardDef3521001) isSkillCard() {}
 
 func (CardDef3521002) isSkillCard() {}
@@ -876,8 +878,6 @@ func (CardDef3521007) isSkillCard() {}
 func (CardDef3521008) isSkillCard() {}
 
 func (CardDef3521009) isSkillCard() {}
-
-func (CardDef3521010) isSkillCard() {}
 
 func (CardDef3521011) isSkillCard() {}
 

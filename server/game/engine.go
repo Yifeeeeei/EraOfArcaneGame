@@ -2043,7 +2043,7 @@ func (e *Engine) spellAffectedUnits(defenderID int, skill *CardInstance, target 
 	defender := e.State.Players[defenderID]
 	units := make([]*CardInstance, 0, 9)
 
-	if skill != nil && skill.Card != nil && skill.Card.Number == "3521010" && defenderID != skill.OwnerID && target.Position.Valid() {
+	if skill != nil && skill.Card != nil && skill.Card.Number == "3511010" && defenderID != skill.OwnerID && target.Position.Valid() {
 		targetUnit := defender.Units[target.Position.Col][target.Position.Row]
 		if targetUnit != nil && targetUnit.Card != nil && targetUnit.Card.IsCompanion() {
 			for col := 0; col < 3; col++ {

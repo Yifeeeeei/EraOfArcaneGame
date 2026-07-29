@@ -1917,9 +1917,9 @@ func (CardDef1321002) Card() model.Card {
 		Name:            "随风旅行者",
 		Category:        "气",
 		Tag:             "精灵",
-		Description:     "入场:获得2\\气.遗言:抽1张牌",
+		Description:     "入场:获得1\\气.遗言:抽1张牌",
 		Quote:           "记得避开艾拉雅",
-		ElementsCost:    map[string]int{"气": 1},
+		ElementsCost:    map[string]int{},
 		ElementsGain:    map[string]int{},
 		ElementsExpense: map[string]int{},
 		VersionNum:      "1",
@@ -5939,7 +5939,7 @@ func (CardDef2311002) Card() model.Card {
 		Tag:             "传奇-装备",
 		Description:     "诱发:每当你抽1张牌时,可以将其展示并在此卡上放置1个标记.主动回合技:移除3个标记才能发动,本回合你的大气法术获得+1\\攻或者晕眩1",
 		Quote:           "沉重的闷响传向远方,然后从远方传来",
-		ElementsCost:    map[string]int{"气": 3},
+		ElementsCost:    map[string]int{"气": 2},
 		ElementsGain:    map[string]int{},
 		ElementsExpense: map[string]int{},
 		VersionNum:      "1",
@@ -6117,9 +6117,9 @@ func (CardDef2321006) Card() model.Card {
 		Name:            "瓶中闪电",
 		Category:        "气",
 		Tag:             "消耗品-药剂",
-		Description:     "获得3\\气,使1个友方单位获得晕眩2",
+		Description:     "获得2\\气,使1个友方大气单位获得晕眩2",
 		Quote:           "",
-		ElementsCost:    map[string]int{"气": 1},
+		ElementsCost:    map[string]int{},
 		ElementsGain:    map[string]int{},
 		ElementsExpense: map[string]int{},
 		VersionNum:      "1",
@@ -9777,11 +9777,11 @@ func (CardDef3321014) Card() model.Card {
 		Name:            "引雷",
 		Category:        "气",
 		Tag:             "咒术-驱动",
-		Description:     "冷却1.丢弃1张手牌,使1个敌人晕眩1",
+		Description:     "冷却1.丢弃1张手牌,使1个敌方伙伴晕眩1",
 		Quote:           "",
 		ElementsCost:    map[string]int{"气": 1},
 		ElementsGain:    map[string]int{},
-		ElementsExpense: map[string]int{"气": 1},
+		ElementsExpense: map[string]int{},
 		VersionNum:      "1",
 		VersionName:     "基础包",
 		Attack:          -1,
@@ -10303,6 +10303,36 @@ func (CardDef3501001) Card() model.Card {
 	}
 }
 
+type CardDef3511010 struct{}
+
+func (CardDef3511010) ID() string      { return "3511010" }
+func (CardDef3511010) Name() string    { return "破晓" }
+func (CardDef3511010) Kind() string    { return "技能" }
+func (CardDef3511010) Element() string { return "光" }
+
+func (CardDef3511010) Card() model.Card {
+	return model.Card{
+		Number:          "3511010",
+		Type:            "技能",
+		Name:            "破晓",
+		Category:        "光",
+		Tag:             "传奇-法术-驱动",
+		Description:     "如果攻击目标为敌方伙伴,将同时命中所有与之属性相同的敌人.诱发:你每召唤1个负载有光的伙伴此卡获得永久+1\\威.此卡仅当\\威大于8时才能用于攻击",
+		Quote:           "\"结束了?我们...胜利了吗?\"",
+		ElementsCost:    map[string]int{"光": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"光": 3},
+		VersionNum:      "1",
+		VersionName:     "基础包",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           1,
+		Spawns:          []string{},
+		OutputPath:      "output\\基础包\\技能\\光\\3511010.jpg",
+	}
+}
+
 type CardDef3521001 struct{}
 
 func (CardDef3521001) ID() string      { return "3521001" }
@@ -10570,36 +10600,6 @@ func (CardDef3521009) Card() model.Card {
 		Power:           6,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\技能\\光\\3521009.jpg",
-	}
-}
-
-type CardDef3521010 struct{}
-
-func (CardDef3521010) ID() string      { return "3521010" }
-func (CardDef3521010) Name() string    { return "破晓" }
-func (CardDef3521010) Kind() string    { return "技能" }
-func (CardDef3521010) Element() string { return "光" }
-
-func (CardDef3521010) Card() model.Card {
-	return model.Card{
-		Number:          "3521010",
-		Type:            "技能",
-		Name:            "破晓",
-		Category:        "光",
-		Tag:             "传奇-法术-驱动",
-		Description:     "如果攻击目标为敌方伙伴,将同时命中所有与之属性相同的敌人.诱发:你每召唤1个负载有光的伙伴此卡获得永久+1\\威.此卡仅当\\威大于8时才能用于攻击",
-		Quote:           "\"结束了?我们...胜利了吗?\"",
-		ElementsCost:    map[string]int{"光": 2},
-		ElementsGain:    map[string]int{},
-		ElementsExpense: map[string]int{"光": 3},
-		VersionNum:      "1",
-		VersionName:     "基础包",
-		Attack:          1,
-		Life:            -1,
-		Duration:        -1,
-		Power:           1,
-		Spawns:          []string{},
-		OutputPath:      "output\\基础包\\技能\\光\\3521010.jpg",
 	}
 }
 
@@ -11757,7 +11757,7 @@ func (CardDef4611002) Card() model.Card {
 		Name:            "芙雅夫人",
 		Category:        "暗",
 		Tag:             "",
-		Description:     "主动绝技:使你的1个伙伴攻击和负载翻倍,但会在消耗或透支后死亡",
+		Description:     "主动绝技:选择你的1个竖置状态的伙伴,使其攻击和负载翻倍,但会在消耗或透支后死亡",
 		Quote:           "\"你是想现在就为我服务,还是死后再为我服务?\"",
 		ElementsCost:    map[string]int{},
 		ElementsGain:    map[string]int{"暗": 4},
@@ -12147,6 +12147,7 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef3421014{},
 	CardDef3421015{},
 	CardDef3501001{},
+	CardDef3511010{},
 	CardDef3521001{},
 	CardDef3521002{},
 	CardDef3521003{},
@@ -12156,7 +12157,6 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef3521007{},
 	CardDef3521008{},
 	CardDef3521009{},
-	CardDef3521010{},
 	CardDef3521011{},
 	CardDef3521012{},
 	CardDef3521013{},

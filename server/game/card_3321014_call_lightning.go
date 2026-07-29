@@ -11,7 +11,9 @@ func (Card3321014CallLightning) OnSpellCast(ctx *EffectContext) error {
 	}
 	hand := ctx.Engine.friendlyHandCards(ctx.PlayerID, nil)
 	targets := ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
-		return card != nil && card.Position.Valid() && ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
+		return card != nil && card.Card != nil && card.Card.IsCompanion() &&
+			card.Position.Valid() &&
+			ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
 	})
 	if len(hand) == 0 || len(targets) == 0 {
 		return nil
@@ -23,11 +25,11 @@ func (Card3321014CallLightning) OnSpellCast(ctx *EffectContext) error {
 				return
 			}
 			ctx.Engine.SetPendingAction(ctx.PlayerID, "call_lightning_stun",
-				"选择1个敌人晕眩1", targets, 1, 1,
+				"选择1个敌方伙伴晕眩1", targets, 1, 1,
 				func(selected []string) {
 					for _, id := range selected {
 						card := ctx.Engine.findFieldCardByInstance(ctx.Engine.State.Players[ctx.OpponentID], id)
-						if card != nil {
+						if card != nil && card.Card != nil && card.Card.IsCompanion() {
 							ctx.Engine.addStatus(card, StatusStun, 1)
 						}
 						return

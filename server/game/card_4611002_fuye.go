@@ -8,11 +8,14 @@ func (Card4611002Fuye) ID() string   { return "4611002" }
 func (Card4611002Fuye) Name() string { return "芙雅夫人" }
 func (Card4611002Fuye) OnUltimate(ctx *EffectContext) error {
 	if ctx.Target != nil {
+		if ctx.Target.IsHorizontal {
+			return nil
+		}
 		applyFuyeUltimate(ctx.Target)
 		return nil
 	}
 	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
-		return card != nil && card.Card != nil && card.Card.IsCompanion()
+		return card != nil && card.Card != nil && card.Card.IsCompanion() && !card.IsHorizontal
 	})
 	if len(candidates) == 0 {
 		return nil
@@ -24,7 +27,7 @@ func (Card4611002Fuye) OnUltimate(ctx *EffectContext) error {
 				return
 			}
 			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, selected[0])
-			if target == nil || zone != "unit" || target.Card == nil || !target.Card.IsCompanion() {
+			if target == nil || zone != "unit" || target.Card == nil || !target.Card.IsCompanion() || target.IsHorizontal {
 				return
 			}
 			applyFuyeUltimate(target)

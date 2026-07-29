@@ -254,7 +254,7 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 				}
 				if canUseSkillForPurpose(card, skillPurposeAttack) {
 					ps.Skills[0].IsHorizontal = false
-					if card.Number == "3521010" {
+					if card.Number == "3511010" {
 						ps.Skills[0].PowerBonus = 8
 					}
 					if card.Number == "3201002" {
