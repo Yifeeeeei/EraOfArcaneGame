@@ -1655,6 +1655,120 @@ func TestRoyalConflictBloodNourishExilesShadowGraveyardCard(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictSimpleEnterBatchTwo(t *testing.T) {
+	t.Run("dimensional rift beast exiles only selected enemy companion in spell range", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		beast := placeUnit(baseCard(t, "1021104"), 0, 1, 0, engine)
+		inRange := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		outOfRange := placeUnit(baseCard(t, "1021002"), 1, 1, 2, engine)
+
+		engine.triggerEffects(TriggerOnEnter, beast, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "dimensional_rift_beast_exile" {
+			t.Fatalf("1021104 should ask for an enemy companion in spell range, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == outOfRange.InstanceID {
+				t.Fatalf("1021104 should not offer out-of-range enemy companions, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{outOfRange.InstanceID},
+		}}); err == nil {
+			t.Fatal("1021104 should reject forged out-of-range selections")
+		}
+		resolvePendingSelection(t, engine, 0, inRange.InstanceID)
+		if len(engine.State.Players[1].Exile) != 1 || engine.State.Players[1].Exile[0] != inRange {
+			t.Fatalf("1021104 should exile selected enemy companion, exile=%v", cardsToInfo(engine.State.Players[1].Exile))
+		}
+		if engine.State.Players[1].Units[outOfRange.Position.Col][outOfRange.Position.Row] != outOfRange {
+			t.Fatal("1021104 should leave unselected enemy companions on the battlefield")
+		}
+	})
+
+	t.Run("beacon guard gains shield only when outnumbered", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		guard := placeUnit(baseCard(t, "1121103"), 0, 0, 0, engine)
+		placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
+		engine.triggerEffects(TriggerOnEnter, guard, nil, nil)
+		if p0.Shield != 3 {
+			t.Fatalf("1121103 should gain shield 3 when friendly units are fewer, got %d", p0.Shield)
+		}
+
+		evenEngine := setupReportedBugEngine(t)
+		evenP0 := evenEngine.State.Players[0]
+		evenGuard := placeUnit(baseCard(t, "1121103"), 0, 0, 0, evenEngine)
+		placeUnit(baseCard(t, "1021001"), 1, 0, 0, evenEngine)
+		evenEngine.triggerEffects(TriggerOnEnter, evenGuard, nil, nil)
+		if evenP0.Shield != 0 {
+			t.Fatalf("1121103 should not gain shield when not outnumbered, got %d", evenP0.Shield)
+		}
+	})
+
+	t.Run("silverleaf messenger searches lost silverleaf", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		messenger := placeUnit(baseCard(t, "1321110"), 0, 0, 0, engine)
+		flower := NewCardInstance(baseCard(t, "2021101"), 0, 1)
+		other := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Deck = []*CardInstance{other, flower}
+
+		engine.triggerEffects(TriggerOnEnter, messenger, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "silverleaf_messenger_search" {
+			t.Fatalf("1321110 should prompt to search lost silverleaf, pending=%+v", engine.State.PendingAction)
+		}
+		if len(engine.State.PendingAction.Candidates) != 1 || engine.State.PendingAction.Candidates[0]["instance_id"] != flower.InstanceID {
+			t.Fatalf("1321110 should only offer lost silverleaf cards, candidates=%+v", engine.State.PendingAction.Candidates)
+		}
+		resolvePendingSelection(t, engine, 0, flower.InstanceID)
+		if len(p0.Hand) != 1 || p0.Hand[0] != flower {
+			t.Fatalf("1321110 should move selected lost silverleaf to hand, hand=%v", cardsToInfo(p0.Hand))
+		}
+	})
+
+	t.Run("council messenger gives opponent a jiuxiao mark", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		messenger := placeUnit(baseCard(t, "1321113"), 0, 0, 0, engine)
+		engine.triggerEffects(TriggerOnEnter, messenger, nil, nil)
+		p1 := engine.State.Players[1]
+		if len(p1.Hand) != 1 || p1.Hand[0].Card.Number != "2001102" || p1.Hand[0].OwnerID != 1 {
+			t.Fatalf("1321113 should add a Jiuxiao Mark to opponent hand, hand=%v", cardsToInfo(p1.Hand))
+		}
+	})
+
+	t.Run("church exorcist purifies one friendly card and gains light per layer", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		exorcist := placeUnit(baseCard(t, "1521106"), 0, 0, 0, engine)
+		target := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		target.Statuses[StatusBurn] = 2
+		target.Statuses[StatusFreeze] = 1
+		target.Statuses[StatusCooldown] = 4
+		skill := readySkill(baseCard(t, "3021001"), 0)
+		skill.Statuses[StatusWeaken] = 1
+		p0.Skills[0] = skill
+
+		engine.triggerEffects(TriggerOnEnter, exorcist, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "church_exorcist_purify" {
+			t.Fatalf("1521106 should prompt for a friendly card with negative statuses, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, target.InstanceID)
+		if target.Statuses[StatusBurn] != 0 || target.Statuses[StatusFreeze] != 0 {
+			t.Fatalf("1521106 should clear selected negative statuses, statuses=%v", target.Statuses)
+		}
+		if target.Statuses[StatusCooldown] != 4 {
+			t.Fatalf("1521106 should not clear non-negative statuses, statuses=%v", target.Statuses)
+		}
+		if p0.Elements[model.ElementLight] != 3 {
+			t.Fatalf("1521106 should gain 1 light per removed layer, elements=%v", p0.Elements)
+		}
+		if skill.Statuses[StatusWeaken] != 1 {
+			t.Fatalf("1521106 should only purify the selected card, skill statuses=%v", skill.Statuses)
+		}
+	})
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

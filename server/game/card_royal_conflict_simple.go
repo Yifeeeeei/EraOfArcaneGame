@@ -47,6 +47,32 @@ func (Card1021102SwordsmanshipTeacher) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
+type Card1021104DimensionalRiftBeast struct{ AlwaysActive }
+
+func (Card1021104DimensionalRiftBeast) ID() string   { return "1021104" }
+func (Card1021104DimensionalRiftBeast) Name() string { return "次元撕裂兽" }
+func (Card1021104DimensionalRiftBeast) OnEnter(ctx *EffectContext) error {
+	candidates := companionSpellRangeCandidates(ctx, false)
+	filtered := candidates[:0]
+	for _, candidate := range candidates {
+		if candidate["side"] == "enemy" {
+			filtered = append(filtered, candidate)
+		}
+	}
+	if len(filtered) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "dimensional_rift_beast_exile",
+		"次元撕裂兽:选择法力范围内1个敌方伙伴移出游戏", filtered, 1, 1,
+		func(selected []string) {
+			target := selectedUnitFromCandidates(ctx.Engine, selected, filtered)
+			if target != nil && target.Card != nil && target.Card.IsCompanion() {
+				ctx.Engine.exileCard(target.OwnerID, target)
+			}
+		})
+	return nil
+}
+
 type Card1021106SkyCityTycoon struct{ AlwaysActive }
 
 func (Card1021106SkyCityTycoon) ID() string   { return "1021106" }
@@ -77,12 +103,51 @@ func (Card1021106SkyCityTycoon) OnPerTurn(ctx *EffectContext) error {
 	return nil
 }
 
+type Card1121103BeaconGuard struct{ AlwaysActive }
+
+func (Card1121103BeaconGuard) ID() string   { return "1121103" }
+func (Card1121103BeaconGuard) Name() string { return "烽火台守卫" }
+func (Card1121103BeaconGuard) OnEnter(ctx *EffectContext) error {
+	if royalCompanionCount(ctx.Engine.State.Players[ctx.PlayerID]) < royalCompanionCount(ctx.Engine.State.Players[ctx.OpponentID]) {
+		ctx.Engine.gainPlayerShield(ctx.PlayerID, 3)
+	}
+	return nil
+}
+
 type Card1421115Geomancer struct{ AlwaysActive }
 
 func (Card1421115Geomancer) ID() string   { return "1421115" }
 func (Card1421115Geomancer) Name() string { return "地卜行者" }
 func (Card1421115Geomancer) OnEnter(ctx *EffectContext) error {
 	ctx.Engine.drawCards(ctx.PlayerID, 1)
+	return nil
+}
+
+type Card1321110SilverleafMessenger struct{ AlwaysActive }
+
+func (Card1321110SilverleafMessenger) ID() string   { return "1321110" }
+func (Card1321110SilverleafMessenger) Name() string { return "银叶信使" }
+func (Card1321110SilverleafMessenger) OnEnter(ctx *EffectContext) error {
+	candidates := ctx.Engine.friendlyDeckCards(ctx.PlayerID, func(card *CardInstance) bool {
+		return card != nil && card.Card != nil && card.Card.Number == "2021101"
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "silverleaf_messenger_search",
+		"银叶信使:检索1张失落的银叶花", candidates, 1, 1,
+		func(selected []string) {
+			ctx.Engine.searchDeckToHand(ctx.PlayerID, firstSelected(selected))
+		})
+	return nil
+}
+
+type Card1321113CouncilMessenger struct{ AlwaysActive }
+
+func (Card1321113CouncilMessenger) ID() string   { return "1321113" }
+func (Card1321113CouncilMessenger) Name() string { return "议庭传信鸽" }
+func (Card1321113CouncilMessenger) OnEnter(ctx *EffectContext) error {
+	addGeneratedCardToPlayerHand(ctx, ctx.OpponentID, "2001102")
 	return nil
 }
 
@@ -112,6 +177,31 @@ func (Card1521114HuiPrayer) OnEnter(ctx *EffectContext) error {
 	if wounded > 0 {
 		ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementLight: wounded})
 	}
+	return nil
+}
+
+type Card1521106ChurchExorcist struct{ AlwaysActive }
+
+func (Card1521106ChurchExorcist) ID() string   { return "1521106" }
+func (Card1521106ChurchExorcist) Name() string { return "教廷驱魔师" }
+func (Card1521106ChurchExorcist) OnEnter(ctx *EffectContext) error {
+	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, true, hasAnyNegativeStatus)
+	candidates = append(candidates, ctx.Engine.friendlyEquipment(ctx.PlayerID, hasAnyNegativeStatus)...)
+	candidates = append(candidates, ctx.Engine.friendlySkills(ctx.PlayerID, hasAnyNegativeStatus)...)
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "church_exorcist_purify",
+		"教廷驱魔师:选择1张友方卡牌移除全部负面状态", candidates, 1, 1,
+		func(selected []string) {
+			target, _ := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, firstSelected(selected))
+			removed := countNegativeStatusLayers(target)
+			if removed <= 0 {
+				return
+			}
+			clearNegativeStatuses(target)
+			ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementLight: removed})
+		})
 	return nil
 }
 
@@ -384,6 +474,50 @@ func royalFriendlyUnits(ctx *EffectContext) []*CardInstance {
 		}
 	}
 	return units
+}
+
+func royalCompanionCount(ps *PlayerState) int {
+	if ps == nil {
+		return 0
+	}
+	count := 0
+	for col := 0; col < 3; col++ {
+		for row := 0; row < 3; row++ {
+			unit := ps.Units[col][row]
+			if unit != nil && unit.Card != nil && unit.Card.IsCompanion() {
+				count++
+			}
+		}
+	}
+	return count
+}
+
+func addGeneratedCardToPlayerHand(ctx *EffectContext, playerID int, cardNumber string) *CardInstance {
+	card := getCardDB()[cardNumber]
+	if card == nil {
+		return nil
+	}
+	instance := NewCardInstance(card, playerID, ctx.Engine.State.TurnNumber)
+	ctx.Engine.State.Players[playerID].Hand = append(ctx.Engine.State.Players[playerID].Hand, instance)
+	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
+		"source": cardToInfo(ctx.Source),
+		"card":   cardToInfo(instance),
+		"effect": "add_generated_card_to_hand",
+	}})
+	return instance
+}
+
+func countNegativeStatusLayers(card *CardInstance) int {
+	if card == nil {
+		return 0
+	}
+	total := 0
+	for _, status := range negativeStatuses {
+		if card.Statuses[status] > 0 {
+			total += card.Statuses[status]
+		}
+	}
+	return total
 }
 
 func adjacentFriendlyCompanions(ctx *EffectContext) []map[string]any {
