@@ -1105,11 +1105,11 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	if !e.shouldSkipCooldown(ps, skill) {
 		e.ApplyKeywordOnSkillUse(skill)
 	}
+	e.applySkillUseCooldownModifiers(ps, append([]*CardInstance{skill}, boostSkills...)...)
 	if skill.Card.Number == "3611101" {
 		e.applyNextRedMoonModifiers(playerID, skill)
 		e.refreshRedMoonState(playerID)
 	}
-	e.applySkillUseCooldownModifiers(ps, append([]*CardInstance{skill}, boostSkills...)...)
 	e.consumeNextSkillUseModifiers(ps, skill)
 	e.advanceMasteryForUsedSkills(playerID, append([]*CardInstance{skill}, boostSkills...)...)
 

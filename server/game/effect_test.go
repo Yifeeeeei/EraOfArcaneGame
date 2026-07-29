@@ -1133,6 +1133,33 @@ func TestRoyalConflictRedMoonProphetReducesCurrentOrNextCooldown(t *testing.T) {
 		}
 	})
 
+	t.Run("next cooldown reduction applies after cooldown additions", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		redMoon := readySkill(baseCard(t, "3611101"), 0)
+		p0.Skills[0] = redMoon
+		p0.NextRedMoonCooldown = 3
+		p0.TempModifiers = append(p0.TempModifiers, TemporaryModifier{
+			Type:        TempModSkillUseCooldownAdd,
+			Amount:      2,
+			ExpiresTurn: engine.State.TurnNumber + 1,
+		})
+
+		p0.Elements[model.ElementShadow] = 1
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": redMoon.InstanceID,
+			"target_type": "none",
+		}}); err != nil {
+			t.Fatalf("cast red moon with stacked cooldown modifiers: %v", err)
+		}
+		if got := redMoon.Statuses[StatusCooldown]; got != 1 {
+			t.Fatalf("next red moon cooldown reduction should apply after additions, got %d statuses=%v", got, redMoon.Statuses)
+		}
+		if p0.NextRedMoonCooldown != 0 {
+			t.Fatalf("next red moon cooldown should be consumed, got %d", p0.NextRedMoonCooldown)
+		}
+	})
+
 	t.Run("current red moon", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
