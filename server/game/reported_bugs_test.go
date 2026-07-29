@@ -975,8 +975,8 @@ func TestHighRiskWaterAndAirCompanionSemantics(t *testing.T) {
 		p0.Deck = []*CardInstance{draw}
 
 		engine.triggerEffects(TriggerOnEnter, traveler, nil, nil)
-		if p0.Elements[model.ElementAir] != 2 {
-			t.Fatalf("wind traveler should gain 2 air on enter, elements=%v", p0.Elements)
+		if p0.Elements[model.ElementAir] != 1 {
+			t.Fatalf("wind traveler should gain 1 air on enter, elements=%v", p0.Elements)
 		}
 		engine.destroyUnit(traveler, 0)
 		if len(p0.Hand) != 1 || p0.Hand[0].InstanceID != draw.InstanceID {
@@ -3302,10 +3302,10 @@ func TestFrenzyRuneCounterTrap(t *testing.T) {
 }
 
 func TestDawnRules(t *testing.T) {
-	t.Run("3521010 gains permanent power from friendly light-load companion entering", func(t *testing.T) {
+	t.Run("3511010 gains permanent power from friendly light-load companion entering", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
-		dawn := readySkill(baseCard(t, "3521010"), 0)
+		dawn := readySkill(baseCard(t, "3511010"), 0)
 		p0.Skills[0] = dawn
 		lightCompanion := placeUnit(baseCard(t, "1421004"), 0, 1, 1, engine)
 		setElementsGain(lightCompanion, map[string]int{model.ElementLight: 1})
@@ -3320,10 +3320,10 @@ func TestDawnRules(t *testing.T) {
 		}
 	})
 
-	t.Run("3521010 can attack only above 8 printed plus permanent plus temporary power", func(t *testing.T) {
+	t.Run("3511010 can attack only above 8 printed plus permanent plus temporary power", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
-		dawn := readySkill(baseCard(t, "3521010"), 0)
+		dawn := readySkill(baseCard(t, "3511010"), 0)
 		p0.Skills[0] = dawn
 
 		dawn.PowerBonus = 7
@@ -3336,9 +3336,9 @@ func TestDawnRules(t *testing.T) {
 		}
 	})
 
-	t.Run("3521010 hits all enemy units sharing the target companion element", func(t *testing.T) {
+	t.Run("3511010 hits all enemy units sharing the target companion element", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
-		dawn := readySkill(baseCard(t, "3521010"), 0)
+		dawn := readySkill(baseCard(t, "3511010"), 0)
 		waterA := placeUnit(baseCard(t, "1221001"), 1, 0, 0, engine)
 		waterB := placeUnit(baseCard(t, "1221002"), 1, 1, 1, engine)
 		fireUnit := placeUnit(baseCard(t, "1121001"), 1, 2, 0, engine)
@@ -3490,7 +3490,7 @@ func TestRoom5543CardAndTargetingRegressions(t *testing.T) {
 
 	t.Run("Dawn only splashes matching enemies when its target is an enemy companion", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
-		skill := readySkill(baseCard(t, "3521010"), 0)
+		skill := readySkill(baseCard(t, "3511010"), 0)
 		allyA := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
 		placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
 		ownerID := 0
@@ -6217,7 +6217,7 @@ func TestConsumableTargetedItemEffects(t *testing.T) {
 		item := NewCardInstance(baseCard(t, "2321006"), 0, 1)
 		p0.Hand = []*CardInstance{item}
 		p0.Elements[model.ElementAir] = 10
-		target := placeUnit(baseCard(t, "1021004"), 0, 1, 0, engine)
+		target := placeUnit(baseCard(t, "1321002"), 0, 1, 0, engine)
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
 			"instance_id": item.InstanceID,
@@ -6225,7 +6225,7 @@ func TestConsumableTargetedItemEffects(t *testing.T) {
 			t.Fatalf("use bottled lightning: %v", err)
 		}
 		if p0.Elements[model.ElementAir] != 12 {
-			t.Fatalf("bottled lightning should net +3 air after paying 1, elements=%v", p0.Elements)
+			t.Fatalf("bottled lightning should net +2 air with no entry cost, elements=%v", p0.Elements)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
 			"selected": []any{target.InstanceID},
@@ -8318,10 +8318,10 @@ func TestDefenseAndPositionSkillEffects(t *testing.T) {
 }
 
 func TestSelectionSorcerySkillEffects(t *testing.T) {
-	t.Run("call lightning discards then stuns selected enemy", func(t *testing.T) {
+	t.Run("call lightning discards then stuns selected enemy companion", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
-		target := placeUnit(baseCard(t, "4011001"), 1, 1, 1, engine)
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
 		backTarget := placeUnit(baseCard(t, "1021001"), 1, 2, 2, engine)
 		discard := NewCardInstance(baseCard(t, "1021001"), 0, 1)
 		p0.Hand = []*CardInstance{discard}
@@ -10468,6 +10468,30 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 		gain := effectiveElementsGain(target)
 		if target.CurrentAttack != attack*2 || gain[model.ElementArcane] != load[model.ElementArcane]*2 || gain[model.ElementFire] != load[model.ElementFire]*2 || target.Statuses[fuyeDeathAfterExertStatus] != 1 || target.Statuses["临时"] != 0 {
 			t.Fatalf("Fuye should double attack/load and mark death after exert, attack=%d gain=%v statuses=%v", target.CurrentAttack, effectiveElementsGain(target), target.Statuses)
+		}
+	})
+
+	t.Run("4611002 芙雅 rejects forged enemy direct target", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		fuye := NewCardInstance(baseCard(t, "4611002"), 0, 1)
+		p0.Hero = fuye
+		target := placeUnit(baseCard(t, "1011002"), 1, 1, 0, engine)
+		setElementsGain(target, map[string]int{model.ElementArcane: 1, model.ElementFire: 2})
+		attack := target.CurrentAttack
+		load := effectiveElementsGain(target)
+
+		err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  fuye.InstanceID,
+			"ability_type": "ultimate",
+			"target_id":    target.InstanceID,
+		}})
+		if err == nil || !strings.Contains(err.Error(), "invalid Fuye target") {
+			t.Fatalf("forged enemy Fuye target should be rejected, err=%v", err)
+		}
+		gain := effectiveElementsGain(target)
+		if target.CurrentAttack != attack || gain[model.ElementArcane] != load[model.ElementArcane] || gain[model.ElementFire] != load[model.ElementFire] || target.Statuses[fuyeDeathAfterExertStatus] != 0 || fuye.UltimateUsed {
+			t.Fatalf("forged enemy target should remain unchanged, attack=%d gain=%v statuses=%v ultimate=%v", target.CurrentAttack, gain, target.Statuses, fuye.UltimateUsed)
 		}
 	})
 }

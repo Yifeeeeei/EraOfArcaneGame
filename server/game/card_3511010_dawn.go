@@ -6,12 +6,12 @@ import (
 	"eraofarcane/model"
 )
 
-type Card3521010Dawn struct{ AlwaysActive }
+type Card3511010Dawn struct{ AlwaysActive }
 
-func (Card3521010Dawn) ID() string   { return "3521010" }
-func (Card3521010Dawn) Name() string { return "破晓" }
+func (Card3511010Dawn) ID() string   { return "3511010" }
+func (Card3511010Dawn) Name() string { return "破晓" }
 
-func (Card3521010Dawn) OnUnitEnter(ctx *EffectContext) error {
+func (Card3511010Dawn) OnUnitEnter(ctx *EffectContext) error {
 	if ctx.Target == nil || ctx.Target.Card == nil || !ctx.Target.Card.IsCompanion() {
 		return nil
 	}
@@ -27,8 +27,8 @@ func (Card3521010Dawn) OnUnitEnter(ctx *EffectContext) error {
 	return nil
 }
 
-func (Card3521010Dawn) ValidateSkillUse(ctx *EffectContext, skill *CardInstance, purpose skillPurpose) error {
-	if skill == nil || skill.Card == nil || skill.Card.Number != "3521010" || purpose != skillPurposeAttack {
+func (Card3511010Dawn) ValidateSkillUse(ctx *EffectContext, skill *CardInstance, purpose skillPurpose) error {
+	if skill == nil || skill.Card == nil || skill.Card.Number != "3511010" || purpose != skillPurposeAttack {
 		return nil
 	}
 	power := skill.Card.Power + skill.PowerBonus

@@ -1547,11 +1547,9 @@
     "name": "随风旅行者",
     "category": "气",
     "tag": "精灵",
-    "description": "入场:获得2\\气.遗言:抽1张牌",
+    "description": "入场:获得1\\气.遗言:抽1张牌",
     "quote": "记得避开艾拉雅",
-    "elements_cost": {
-      "气": 1
-    },
+    "elements_cost": {},
     "elements_gain": {},
     "elements_expense": {},
     "version_number": "1",
@@ -4697,7 +4695,7 @@
     "description": "诱发:每当你抽1张牌时,可以将其展示并在此卡上放置1个标记.主动回合技:移除3个标记才能发动,本回合你的大气法术获得+1\\攻或者晕眩1",
     "quote": "沉重的闷响传向远方,然后从远方传来",
     "elements_cost": {
-      "气": 3
+      "气": 2
     },
     "elements_gain": {},
     "elements_expense": {},
@@ -4828,11 +4826,9 @@
     "name": "瓶中闪电",
     "category": "气",
     "tag": "消耗品-药剂",
-    "description": "获得3\\气,使1个友方单位获得晕眩2",
+    "description": "获得2\\气,使1个友方大气单位获得晕眩2",
     "quote": "",
-    "elements_cost": {
-      "气": 1
-    },
+    "elements_cost": {},
     "elements_gain": {},
     "elements_expense": {},
     "version_number": "1",
@@ -7681,15 +7677,13 @@
     "name": "引雷",
     "category": "气",
     "tag": "咒术-驱动",
-    "description": "冷却1.丢弃1张手牌,使1个敌人晕眩1",
+    "description": "冷却1.丢弃1张手牌,使1个敌方伙伴晕眩1",
     "quote": "",
     "elements_cost": {
       "气": 1
     },
     "elements_gain": {},
-    "elements_expense": {
-      "气": 1
-    },
+    "elements_expense": {},
     "version_number": "1",
     "version_name": "基础包",
     "attack": -1,
@@ -8111,6 +8105,30 @@
     "output_path": "output\\基础包\\技能\\光\\3501001.jpg"
   },
   {
+    "number": "3511010",
+    "type": "技能",
+    "name": "破晓",
+    "category": "光",
+    "tag": "传奇-法术-驱动",
+    "description": "如果攻击目标为敌方伙伴,将同时命中所有与之属性相同的敌人.诱发:你每召唤1个负载有光的伙伴此卡获得永久+1\\威.此卡仅当\\威大于8时才能用于攻击",
+    "quote": "\"结束了?我们...胜利了吗?\"",
+    "elements_cost": {
+      "光": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "光": 3
+    },
+    "version_number": "1",
+    "version_name": "基础包",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 1,
+    "spawns": [],
+    "output_path": "output\\基础包\\技能\\光\\3511010.jpg"
+  },
+  {
     "number": "3521001",
     "type": "技能",
     "name": "治疗术",
@@ -8335,30 +8353,6 @@
     "power": 6,
     "spawns": [],
     "output_path": "output\\基础包\\技能\\光\\3521009.jpg"
-  },
-  {
-    "number": "3521010",
-    "type": "技能",
-    "name": "破晓",
-    "category": "光",
-    "tag": "传奇-法术-驱动",
-    "description": "如果攻击目标为敌方伙伴,将同时命中所有与之属性相同的敌人.诱发:你每召唤1个负载有光的伙伴此卡获得永久+1\\威.此卡仅当\\威大于8时才能用于攻击",
-    "quote": "\"结束了?我们...胜利了吗?\"",
-    "elements_cost": {
-      "光": 2
-    },
-    "elements_gain": {},
-    "elements_expense": {
-      "光": 3
-    },
-    "version_number": "1",
-    "version_name": "基础包",
-    "attack": 1,
-    "life": -1,
-    "duration": -1,
-    "power": 1,
-    "spawns": [],
-    "output_path": "output\\基础包\\技能\\光\\3521010.jpg"
   },
   {
     "number": "3521011",
@@ -9264,7 +9258,7 @@
     "name": "芙雅夫人",
     "category": "暗",
     "tag": "",
-    "description": "主动绝技:使你的1个伙伴攻击和负载翻倍,但会在消耗或透支后死亡",
+    "description": "主动绝技:选择你的1个竖置状态的伙伴,使其攻击和负载翻倍,但会在消耗或透支后死亡",
     "quote": "\"你是想现在就为我服务,还是死后再为我服务?\"",
     "elements_cost": {},
     "elements_gain": {

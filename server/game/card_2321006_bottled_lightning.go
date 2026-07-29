@@ -9,25 +9,27 @@ func (Card2321006BottledLightning) Name() string { return "瓶中闪电" }
 
 func (Card2321006BottledLightning) OnUseItem(ctx *EffectContext) error {
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
-	ps.Elements[model.ElementAir] += 3
+	ps.Elements[model.ElementAir] += 2
 	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 		"source":  cardToInfo(ctx.Source),
 		"effect":  "gain_element",
 		"element": model.ElementAir,
-		"amount":  3,
+		"amount":  2,
 	}})
-	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, true, nil)
+	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
+		return card != nil && card.Card != nil && card.Card.Category == model.ElementAir
+	})
 	if len(candidates) == 0 {
 		return nil
 	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "bottled_lightning_stun",
-		"选择1个友方单位获得晕眩2", candidates, 1, 1,
+		"选择1个友方大气单位获得晕眩2", candidates, 1, 1,
 		func(selected []string) {
 			if len(selected) == 0 {
 				return
 			}
 			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, selected[0])
-			if target == nil || zone != "unit" {
+			if target == nil || zone != "unit" || target.Card == nil || target.Card.Category != model.ElementAir {
 				return
 			}
 			if !ctx.Engine.addStatus(target, StatusStun, 2) {
