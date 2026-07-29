@@ -1767,6 +1767,32 @@ func TestRoyalConflictSimpleEnterBatchTwo(t *testing.T) {
 			t.Fatalf("1521106 should only purify the selected card, skill statuses=%v", skill.Statuses)
 		}
 	})
+
+	t.Run("church exorcist can purify bound skills", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		exorcist := placeUnit(baseCard(t, "1521106"), 0, 0, 0, engine)
+		host := placeUnit(baseCard(t, "1011103"), 0, 1, 0, engine)
+		bound := NewCardInstance(baseCard(t, "3001101"), 0, 1)
+		bound.SlotIndex = -1
+		bound.Statuses[StatusWeaken] = 2
+		host.BoundSkills = []*CardInstance{bound}
+
+		engine.triggerEffects(TriggerOnEnter, exorcist, nil, nil)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "church_exorcist_purify" {
+			t.Fatalf("1521106 should prompt for a bound skill with negative statuses, pending=%+v", engine.State.PendingAction)
+		}
+		if len(engine.State.PendingAction.Candidates) != 1 || engine.State.PendingAction.Candidates[0]["zone"] != "bound_skill" {
+			t.Fatalf("1521106 should expose bound skill candidates, candidates=%+v", engine.State.PendingAction.Candidates)
+		}
+		resolvePendingSelection(t, engine, 0, bound.InstanceID)
+		if bound.Statuses[StatusWeaken] != 0 {
+			t.Fatalf("1521106 should clear selected bound skill negative statuses, statuses=%v", bound.Statuses)
+		}
+		if p0.Elements[model.ElementLight] != 2 {
+			t.Fatalf("1521106 should gain light for bound skill negative layers, elements=%v", p0.Elements)
+		}
+	})
 }
 
 func TestChargeSystem(t *testing.T) {

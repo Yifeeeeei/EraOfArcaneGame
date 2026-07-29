@@ -187,14 +187,14 @@ func (Card1521106ChurchExorcist) Name() string { return "教廷驱魔师" }
 func (Card1521106ChurchExorcist) OnEnter(ctx *EffectContext) error {
 	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, true, hasAnyNegativeStatus)
 	candidates = append(candidates, ctx.Engine.friendlyEquipment(ctx.PlayerID, hasAnyNegativeStatus)...)
-	candidates = append(candidates, ctx.Engine.friendlySkills(ctx.PlayerID, hasAnyNegativeStatus)...)
+	candidates = append(candidates, ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, hasAnyNegativeStatus)...)
 	if len(candidates) == 0 {
 		return nil
 	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "church_exorcist_purify",
 		"教廷驱魔师:选择1张友方卡牌移除全部负面状态", candidates, 1, 1,
 		func(selected []string) {
-			target, _ := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, firstSelected(selected))
+			target := ctx.Engine.findFriendlyCardIncludingBound(ctx.PlayerID, firstSelected(selected))
 			removed := countNegativeStatusLayers(target)
 			if removed <= 0 {
 				return
@@ -518,6 +518,27 @@ func countNegativeStatusLayers(card *CardInstance) int {
 		}
 	}
 	return total
+}
+
+func (e *Engine) findFriendlyCardIncludingBound(playerID int, instanceID string) *CardInstance {
+	if card, _ := e.findFriendlyCandidate(playerID, instanceID); card != nil {
+		return card
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return nil
+	}
+	for _, host := range e.getAllFieldCards(ps) {
+		if host == nil {
+			continue
+		}
+		for _, skill := range host.BoundSkills {
+			if skill != nil && skill.InstanceID == instanceID {
+				return skill
+			}
+		}
+	}
+	return nil
 }
 
 func adjacentFriendlyCompanions(ctx *EffectContext) []map[string]any {
