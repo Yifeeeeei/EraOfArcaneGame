@@ -2,6 +2,7 @@ package game
 
 import (
 	"fmt"
+	"math/rand"
 
 	"eraofarcane/model"
 )
@@ -148,6 +149,59 @@ func (Card1321113CouncilMessenger) ID() string   { return "1321113" }
 func (Card1321113CouncilMessenger) Name() string { return "议庭传信鸽" }
 func (Card1321113CouncilMessenger) OnEnter(ctx *EffectContext) error {
 	addGeneratedCardToPlayerHand(ctx, ctx.OpponentID, "2001102")
+	return nil
+}
+
+type Card1021115JiuxiaoAssassin struct{ AlwaysActive }
+
+func (Card1021115JiuxiaoAssassin) ID() string   { return "1021115" }
+func (Card1021115JiuxiaoAssassin) Name() string { return "九霄刺客" }
+func (Card1021115JiuxiaoAssassin) OnEnter(ctx *EffectContext) error {
+	addGeneratedCardToPlayerHand(ctx, ctx.OpponentID, "2001102")
+	return nil
+}
+func (Card1021115JiuxiaoAssassin) OnDeath(ctx *EffectContext) error {
+	addGeneratedCardsToPlayerDeck(ctx, ctx.OpponentID, "2001102", 4)
+	return nil
+}
+
+type Card1321112JiuxiaoContact struct{ AlwaysActive }
+
+func (Card1321112JiuxiaoContact) ID() string            { return "1321112" }
+func (Card1321112JiuxiaoContact) Name() string          { return "九霄接头人" }
+func (Card1321112JiuxiaoContact) IsPrayerAbility() bool { return true }
+func (Card1321112JiuxiaoContact) OnPerTurn(ctx *EffectContext) error {
+	opponent := ctx.Engine.State.Players[ctx.OpponentID]
+	if len(opponent.Hand) < ctx.Engine.handLimitForPlayer(opponent) {
+		addGeneratedCardToPlayerHand(ctx, ctx.OpponentID, "2001102")
+	}
+	return nil
+}
+
+type Card1321114CouncilExecutor struct{ AlwaysActive }
+
+func (Card1321114CouncilExecutor) ID() string   { return "1321114" }
+func (Card1321114CouncilExecutor) Name() string { return "议庭执行者" }
+func (Card1321114CouncilExecutor) OnEnter(ctx *EffectContext) error {
+	first := ctx.Engine.discardRandomHandCard(ctx.OpponentID)
+	if first != nil && first.Card != nil && first.Card.Number == "2001102" {
+		ctx.Engine.discardRandomHandCard(ctx.OpponentID)
+	}
+	return nil
+}
+
+type Card1521110CouncilSpeaker struct{ AlwaysActive }
+
+func (Card1521110CouncilSpeaker) ID() string   { return "1521110" }
+func (Card1521110CouncilSpeaker) Name() string { return "议庭言客" }
+func (Card1521110CouncilSpeaker) OnEnter(ctx *EffectContext) error {
+	addGeneratedCardsToPlayerDeck(ctx, ctx.OpponentID, "2001102", 4)
+	return nil
+}
+func (Card1521110CouncilSpeaker) OnDeath(ctx *EffectContext) error {
+	ctx.Engine.moveDeckCardToTop(ctx.OpponentID, func(card *CardInstance) bool {
+		return card != nil && card.Card != nil && card.Card.Number == "2001102"
+	})
 	return nil
 }
 
@@ -505,6 +559,61 @@ func addGeneratedCardToPlayerHand(ctx *EffectContext, playerID int, cardNumber s
 		"effect": "add_generated_card_to_hand",
 	}})
 	return instance
+}
+
+func addGeneratedCardsToPlayerDeck(ctx *EffectContext, playerID int, cardNumber string, count int) []*CardInstance {
+	card := getCardDB()[cardNumber]
+	if card == nil || count <= 0 {
+		return nil
+	}
+	ps := ctx.Engine.State.Players[playerID]
+	added := make([]*CardInstance, 0, count)
+	for i := 0; i < count; i++ {
+		instance := NewCardInstance(card, playerID, ctx.Engine.State.TurnNumber)
+		ps.Deck = append(ps.Deck, instance)
+		added = append(added, instance)
+	}
+	ctx.Engine.shuffleDeck(playerID)
+	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
+		"source": cardToInfo(ctx.Source),
+		"cards":  cardsToInfo(added),
+		"effect": "add_generated_cards_to_deck",
+	}})
+	return added
+}
+
+func (e *Engine) discardRandomHandCard(playerID int) *CardInstance {
+	ps := e.State.Players[playerID]
+	if ps == nil || len(ps.Hand) == 0 {
+		return nil
+	}
+	idx := rand.Intn(len(ps.Hand))
+	card := ps.Hand[idx]
+	ps.Hand = append(ps.Hand[:idx], ps.Hand[idx+1:]...)
+	ps.Graveyard = append(ps.Graveyard, card)
+	delete(ps.RevealedHand, card.InstanceID)
+	e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
+	return card
+}
+
+func (e *Engine) moveDeckCardToTop(playerID int, predicate func(*CardInstance) bool) *CardInstance {
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return nil
+	}
+	for i, card := range ps.Deck {
+		if card == nil || (predicate != nil && !predicate(card)) {
+			continue
+		}
+		ps.Deck = append(ps.Deck[:i], ps.Deck[i+1:]...)
+		ps.Deck = append([]*CardInstance{card}, ps.Deck...)
+		e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
+			"card":   cardToInfo(card),
+			"effect": "deck_card_to_top",
+		}})
+		return card
+	}
+	return nil
 }
 
 func countNegativeStatusLayers(card *CardInstance) int {

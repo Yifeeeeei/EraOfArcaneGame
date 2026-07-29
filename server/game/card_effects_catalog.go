@@ -294,6 +294,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"1021102": func() CardBehavior { return Card1021102SwordsmanshipTeacher{} },
 	"1021104": func() CardBehavior { return Card1021104DimensionalRiftBeast{} },
 	"1021106": func() CardBehavior { return Card1021106SkyCityTycoon{} },
+	"1021115": func() CardBehavior { return Card1021115JiuxiaoAssassin{} },
 	"1021103": func() CardBehavior {
 		return royalShieldOnEnter{id: "1021103", name: "皇城结界兽", amount: 2}
 	},
@@ -309,7 +310,9 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"1321104": func() CardBehavior { return Card1321104MistWeaver{} },
 	"1321108": func() CardBehavior { return Card1321108EmeraldHummingbird{} },
 	"1321110": func() CardBehavior { return Card1321110SilverleafMessenger{} },
+	"1321112": func() CardBehavior { return Card1321112JiuxiaoContact{} },
 	"1321113": func() CardBehavior { return Card1321113CouncilMessenger{} },
+	"1321114": func() CardBehavior { return Card1321114CouncilExecutor{} },
 	"1421102": func() CardBehavior { return Card1421102EmeraldGuard{} },
 	"1421104": func() CardBehavior {
 		return royalShieldOnEnter{id: "1421104", name: "拜利兰森林熊", amount: 3}
@@ -322,6 +325,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	},
 	"1521103": func() CardBehavior { return Card1521103LoneStarGuardianSpirit{} },
 	"1521106": func() CardBehavior { return Card1521106ChurchExorcist{} },
+	"1521110": func() CardBehavior { return Card1521110CouncilSpeaker{} },
 	"1521114": func() CardBehavior { return Card1521114HuiPrayer{} },
 	"1611101": func() CardBehavior { return Card1611101RedMoonWitchSeviana{} },
 	"1621103": func() CardBehavior { return Card1621103BloodPuppet{} },

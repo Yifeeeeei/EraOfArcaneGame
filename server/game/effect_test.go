@@ -1795,6 +1795,102 @@ func TestRoyalConflictSimpleEnterBatchTwo(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictJiuxiaoMarkEffects(t *testing.T) {
+	t.Run("jiuxiao assassin adds marks to hand and deck", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		assassin := placeUnit(baseCard(t, "1021115"), 0, 0, 0, engine)
+		p1 := engine.State.Players[1]
+
+		engine.triggerEffects(TriggerOnEnter, assassin, nil, nil)
+		if len(p1.Hand) != 1 || p1.Hand[0].Card.Number != "2001102" || p1.Hand[0].OwnerID != 1 {
+			t.Fatalf("1021115 enter should add a Jiuxiao Mark to opponent hand, hand=%v", cardsToInfo(p1.Hand))
+		}
+		engine.triggerEffects(TriggerOnDeath, assassin, nil, nil)
+		if countCardsByNumber(p1.Deck, "2001102") != 4 {
+			t.Fatalf("1021115 death should shuffle four Jiuxiao Marks into opponent deck, deck=%v", cardsToInfo(p1.Deck))
+		}
+	})
+
+	t.Run("jiuxiao contact prayer respects opponent hand limit", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p1 := engine.State.Players[1]
+		contact := placeUnit(baseCard(t, "1321112"), 0, 0, 0, engine)
+		if err := globalRegistry.GetBehavior("1321112").(PerTurnAbility).OnPerTurn(&EffectContext{Engine: engine, Source: contact, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1321112 prayer under hand limit: %v", err)
+		}
+		if len(p1.Hand) != 1 || p1.Hand[0].Card.Number != "2001102" {
+			t.Fatalf("1321112 should add a Jiuxiao Mark while opponent hand is below limit, hand=%v", cardsToInfo(p1.Hand))
+		}
+
+		limitEngine := setupReportedBugEngine(t)
+		limitP1 := limitEngine.State.Players[1]
+		for i := 0; i < limitEngine.handLimitForPlayer(limitP1); i++ {
+			limitP1.Hand = append(limitP1.Hand, NewCardInstance(baseCard(t, "1021001"), 1, 1))
+		}
+		limitContact := placeUnit(baseCard(t, "1321112"), 0, 0, 0, limitEngine)
+		if err := globalRegistry.GetBehavior("1321112").(PerTurnAbility).OnPerTurn(&EffectContext{Engine: limitEngine, Source: limitContact, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1321112 prayer at hand limit: %v", err)
+		}
+		if countCardsByNumber(limitP1.Hand, "2001102") != 0 {
+			t.Fatalf("1321112 should not add a mark when opponent hand reached limit, hand=%v", cardsToInfo(limitP1.Hand))
+		}
+	})
+
+	t.Run("council executor discards an extra card when it hits a mark", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p1 := engine.State.Players[1]
+		p1.Hand = []*CardInstance{
+			NewCardInstance(baseCard(t, "2001102"), 1, 1),
+			NewCardInstance(baseCard(t, "2001102"), 1, 1),
+		}
+		executor := placeUnit(baseCard(t, "1321114"), 0, 0, 0, engine)
+		engine.triggerEffects(TriggerOnEnter, executor, nil, nil)
+		if len(p1.Hand) != 0 || countCardsByNumber(p1.Graveyard, "2001102") != 2 {
+			t.Fatalf("1321114 should discard a second card after hitting a mark, hand=%v grave=%v", cardsToInfo(p1.Hand), cardsToInfo(p1.Graveyard))
+		}
+
+		normalEngine := setupReportedBugEngine(t)
+		normalP1 := normalEngine.State.Players[1]
+		normalP1.Hand = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 1, 1)}
+		normalExecutor := placeUnit(baseCard(t, "1321114"), 0, 0, 0, normalEngine)
+		normalEngine.triggerEffects(TriggerOnEnter, normalExecutor, nil, nil)
+		if len(normalP1.Hand) != 0 || len(normalP1.Graveyard) != 1 || normalP1.Graveyard[0].Card.Number == "2001102" {
+			t.Fatalf("1321114 should only discard once when the first discard is not a mark, hand=%v grave=%v", cardsToInfo(normalP1.Hand), cardsToInfo(normalP1.Graveyard))
+		}
+	})
+
+	t.Run("council speaker shuffles marks and moves one to deck top on death", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		speaker := placeUnit(baseCard(t, "1521110"), 0, 0, 0, engine)
+		p1 := engine.State.Players[1]
+		engine.triggerEffects(TriggerOnEnter, speaker, nil, nil)
+		if countCardsByNumber(p1.Deck, "2001102") != 4 {
+			t.Fatalf("1521110 enter should shuffle four Jiuxiao Marks into opponent deck, deck=%v", cardsToInfo(p1.Deck))
+		}
+
+		deathEngine := setupReportedBugEngine(t)
+		deathSpeaker := placeUnit(baseCard(t, "1521110"), 0, 0, 0, deathEngine)
+		deathP1 := deathEngine.State.Players[1]
+		other := NewCardInstance(baseCard(t, "1021001"), 1, 1)
+		mark := NewCardInstance(baseCard(t, "2001102"), 1, 1)
+		deathP1.Deck = []*CardInstance{other, mark}
+		deathEngine.triggerEffects(TriggerOnDeath, deathSpeaker, nil, nil)
+		if len(deathP1.Deck) == 0 || deathP1.Deck[0] != mark {
+			t.Fatalf("1521110 death should move a Jiuxiao Mark from opponent deck to top, deck=%v", cardsToInfo(deathP1.Deck))
+		}
+	})
+}
+
+func countCardsByNumber(cards []*CardInstance, number string) int {
+	count := 0
+	for _, card := range cards {
+		if card != nil && card.Card != nil && card.Card.Number == number {
+			count++
+		}
+	}
+	return count
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 
