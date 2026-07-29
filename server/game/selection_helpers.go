@@ -221,7 +221,9 @@ func (e *Engine) discardFriendlyCandidate(playerID int, instanceID string) bool 
 		if card != nil && card.InstanceID == instanceID {
 			ps.Graveyard = append(ps.Graveyard, card)
 			ps.Hand = append(ps.Hand[:i], ps.Hand[i+1:]...)
+			delete(ps.RevealedHand, card.InstanceID)
 			e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
+			e.resolveDiscardedCardEffects(playerID, card)
 			return true
 		}
 	}

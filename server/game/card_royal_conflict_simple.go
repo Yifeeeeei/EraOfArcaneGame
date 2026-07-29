@@ -593,7 +593,38 @@ func (e *Engine) discardRandomHandCard(playerID int) *CardInstance {
 	ps.Graveyard = append(ps.Graveyard, card)
 	delete(ps.RevealedHand, card.InstanceID)
 	e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
+	e.resolveDiscardedCardEffects(playerID, card)
 	return card
+}
+
+func (e *Engine) resolveDiscardedCardEffects(playerID int, card *CardInstance) {
+	if card == nil || card.Card == nil {
+		return
+	}
+	if card.Card.Number == "2001102" {
+		if hero := e.playerHeroCard(playerID); hero != nil {
+			e.dealDamage(hero, 2, playerID)
+		}
+	}
+}
+
+func (e *Engine) playerHeroCard(playerID int) *CardInstance {
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return nil
+	}
+	if ps.Hero != nil {
+		return ps.Hero
+	}
+	for col := 0; col < 3; col++ {
+		for row := 0; row < 3; row++ {
+			card := ps.Units[col][row]
+			if card != nil && card.Card != nil && card.Card.IsHero() {
+				return card
+			}
+		}
+	}
+	return nil
 }
 
 func (e *Engine) moveDeckCardToTop(playerID int, predicate func(*CardInstance) bool) *CardInstance {

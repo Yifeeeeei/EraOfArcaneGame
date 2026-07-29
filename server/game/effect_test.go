@@ -1839,23 +1839,37 @@ func TestRoyalConflictJiuxiaoMarkEffects(t *testing.T) {
 	t.Run("council executor discards an extra card when it hits a mark", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p1 := engine.State.Players[1]
+		p1.Hero = NewCardInstance(baseCard(t, "4311003"), 1, 1)
+		p1.Hero.Position = &Position{Col: 1, Row: 1}
+		p1.Units[1][1] = p1.Hero
 		p1.Hand = []*CardInstance{
 			NewCardInstance(baseCard(t, "2001102"), 1, 1),
 			NewCardInstance(baseCard(t, "2001102"), 1, 1),
 		}
+		beforeLife := p1.Hero.CurrentLife
 		executor := placeUnit(baseCard(t, "1321114"), 0, 0, 0, engine)
 		engine.triggerEffects(TriggerOnEnter, executor, nil, nil)
 		if len(p1.Hand) != 0 || countCardsByNumber(p1.Graveyard, "2001102") != 2 {
 			t.Fatalf("1321114 should discard a second card after hitting a mark, hand=%v grave=%v", cardsToInfo(p1.Hand), cardsToInfo(p1.Graveyard))
 		}
+		if p1.Hero.CurrentLife != beforeLife-4 {
+			t.Fatalf("discarded Jiuxiao Marks should deal 2 damage each to their hero, before=%d life=%d", beforeLife, p1.Hero.CurrentLife)
+		}
 
 		normalEngine := setupReportedBugEngine(t)
 		normalP1 := normalEngine.State.Players[1]
+		normalP1.Hero = NewCardInstance(baseCard(t, "4311003"), 1, 1)
+		normalP1.Hero.Position = &Position{Col: 1, Row: 1}
+		normalP1.Units[1][1] = normalP1.Hero
 		normalP1.Hand = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 1, 1)}
+		normalBeforeLife := normalP1.Hero.CurrentLife
 		normalExecutor := placeUnit(baseCard(t, "1321114"), 0, 0, 0, normalEngine)
 		normalEngine.triggerEffects(TriggerOnEnter, normalExecutor, nil, nil)
 		if len(normalP1.Hand) != 0 || len(normalP1.Graveyard) != 1 || normalP1.Graveyard[0].Card.Number == "2001102" {
 			t.Fatalf("1321114 should only discard once when the first discard is not a mark, hand=%v grave=%v", cardsToInfo(normalP1.Hand), cardsToInfo(normalP1.Graveyard))
+		}
+		if normalP1.Hero.CurrentLife != normalBeforeLife {
+			t.Fatalf("non-mark discard should not damage hero, before=%d life=%d", normalBeforeLife, normalP1.Hero.CurrentLife)
 		}
 	})
 
