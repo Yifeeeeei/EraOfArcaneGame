@@ -2022,6 +2022,63 @@ func TestRoyalConflictLoadChoiceEffects(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictRuneAndDiscardEffects(t *testing.T) {
+	t.Run("infusion runes permanently buff friendly spells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		powerSkill := readySkill(baseCard(t, "3021001"), 0)
+		p0.Skills[0] = powerSkill
+		runeA := NewCardInstance(baseCard(t, "2021111"), 0, 1)
+		if err := globalRegistry.GetBehavior("2021111").(OnUseItemBehavior).OnUseItem(&EffectContext{Engine: engine, Source: runeA, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("use 2021111: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "royal_infusion_rune_skill" {
+			t.Fatalf("2021111 should prompt for a friendly spell, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, powerSkill.InstanceID)
+		if powerSkill.PowerBonus != 2 {
+			t.Fatalf("2021111 should add +2 power, bonus=%d", powerSkill.PowerBonus)
+		}
+
+		host := placeUnit(baseCard(t, "1011103"), 0, 0, 0, engine)
+		bound := NewCardInstance(baseCard(t, "3001101"), 0, 1)
+		bound.SlotIndex = -1
+		host.BoundSkills = []*CardInstance{bound}
+		runeB := NewCardInstance(baseCard(t, "2021112"), 0, 1)
+		if err := globalRegistry.GetBehavior("2021112").(OnUseItemBehavior).OnUseItem(&EffectContext{Engine: engine, Source: runeB, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("use 2021112: %v", err)
+		}
+		resolvePendingSelection(t, engine, 0, bound.InstanceID)
+		if bound.AttackBonus != 1 {
+			t.Fatalf("2021112 should add +1 attack to selected bound spell, bonus=%d", bound.AttackBonus)
+		}
+	})
+
+	t.Run("sky city thief discards one card from each player", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		p0.Hand = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1)}
+		p1.Hero = NewCardInstance(baseCard(t, "4311003"), 1, 1)
+		p1.Hero.Position = &Position{Col: 1, Row: 1}
+		p1.Units[1][1] = p1.Hero
+		p1.Hand = []*CardInstance{NewCardInstance(baseCard(t, "2001102"), 1, 1)}
+		beforeLife := p1.Hero.CurrentLife
+
+		thief := placeUnit(baseCard(t, "1321107"), 0, 0, 0, engine)
+		engine.triggerEffects(TriggerOnEnter, thief, nil, nil)
+		if len(p0.Hand) != 0 || len(p0.Graveyard) != 1 {
+			t.Fatalf("1321107 should discard one friendly hand card, hand=%v grave=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
+		}
+		if len(p1.Hand) != 0 || len(p1.Graveyard) != 1 || p1.Graveyard[0].Card.Number != "2001102" {
+			t.Fatalf("1321107 should discard one enemy hand card, hand=%v grave=%v", cardsToInfo(p1.Hand), cardsToInfo(p1.Graveyard))
+		}
+		if p1.Hero.CurrentLife != beforeLife-2 {
+			t.Fatalf("discarded Jiuxiao Mark from 1321107 should damage owner hero, before=%d life=%d", beforeLife, p1.Hero.CurrentLife)
+		}
+	})
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

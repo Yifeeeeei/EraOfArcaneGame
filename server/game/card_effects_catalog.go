@@ -308,6 +308,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"1221109": func() CardBehavior { return Card1221109MistPhantom{} },
 	"1121103": func() CardBehavior { return Card1121103BeaconGuard{} },
 	"1321104": func() CardBehavior { return Card1321104MistWeaver{} },
+	"1321107": func() CardBehavior { return Card1321107SkyCityThief{} },
 	"1321108": func() CardBehavior { return Card1321108EmeraldHummingbird{} },
 	"1321110": func() CardBehavior { return Card1321110SilverleafMessenger{} },
 	"1321112": func() CardBehavior { return Card1321112JiuxiaoContact{} },
@@ -340,6 +341,12 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"2021103": func() CardBehavior { return Card2021103MistPotion{} },
 	"2021104": func() CardBehavior { return Card2021104FiveColorCoral{} },
 	"2021107": func() CardBehavior { return Card2021107Reshape{} },
+	"2021111": func() CardBehavior {
+		return royalInfusionRune{id: "2021111", name: "注能符文A型", powerBonus: 2}
+	},
+	"2021112": func() CardBehavior {
+		return royalInfusionRune{id: "2021112", name: "注能符文B型", attackBonus: 1}
+	},
 	"2021116": func() CardBehavior { return Card2021116ArcaneBomb{} },
 	"2121107": func() CardBehavior { return Card2121107SacredFireRally{} },
 	"2201101": func() CardBehavior { return Card2201101DreamBloom{} },

@@ -310,6 +310,37 @@ func (Card2021104FiveColorCoral) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
+type royalInfusionRune struct {
+	AlwaysActive
+	id          string
+	name        string
+	powerBonus  int
+	attackBonus int
+}
+
+func (r royalInfusionRune) ID() string   { return r.id }
+func (r royalInfusionRune) Name() string { return r.name }
+func (r royalInfusionRune) OnUseItem(ctx *EffectContext) error {
+	candidates := ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, func(skill *CardInstance) bool {
+		return skill != nil && skill.Card != nil && isSpellLikeCard(skill.Card)
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "royal_infusion_rune_skill",
+		r.name+":选择你的1个法术永久强化", candidates, 1, 1,
+		func(selected []string) {
+			skill := ctx.Engine.findSkill(ctx.Engine.State.Players[ctx.PlayerID], firstSelected(selected))
+			if skill == nil || skill.Card == nil || !isSpellLikeCard(skill.Card) {
+				return
+			}
+			skill.PowerBonus += r.powerBonus
+			skill.AttackBonus += r.attackBonus
+			ctx.Engine.refreshPendingSpellPowerForModifiedSkill(ctx.PlayerID, skill)
+		})
+	return nil
+}
+
 type Card2021101LostSilverleaf struct{ AlwaysActive }
 
 func (Card2021101LostSilverleaf) ID() string   { return "2021101" }
@@ -327,6 +358,16 @@ func (Card2021101LostSilverleaf) OnUseItem(ctx *EffectContext) error {
 				ctx.Engine.discardFriendlyCandidate(ctx.PlayerID, selected[0])
 			}
 		})
+	return nil
+}
+
+type Card1321107SkyCityThief struct{ AlwaysActive }
+
+func (Card1321107SkyCityThief) ID() string   { return "1321107" }
+func (Card1321107SkyCityThief) Name() string { return "云霄城大盗" }
+func (Card1321107SkyCityThief) OnEnter(ctx *EffectContext) error {
+	ctx.Engine.discardRandomHandCard(ctx.PlayerID)
+	ctx.Engine.discardRandomHandCard(ctx.OpponentID)
 	return nil
 }
 
