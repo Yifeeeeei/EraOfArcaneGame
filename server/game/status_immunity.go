@@ -51,7 +51,7 @@ func (e *Engine) negativeStatusIneffective(card *CardInstance, status string) bo
 		return true
 	}
 	ps := e.State.Players[card.OwnerID]
-	if ps != nil && ps.Shield > 0 && e.playerHasActiveCard(ps, "2411101") {
+	if ps != nil && card.Position != nil && ps.Shield > 0 && e.playerHasActiveCard(ps, "2411101") {
 		return true
 	}
 	if ps == nil || card.Position == nil {

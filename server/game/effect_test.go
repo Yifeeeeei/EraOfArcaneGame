@@ -364,6 +364,12 @@ func TestRoyalConflictStaticSpellTraits(t *testing.T) {
 			t.Fatalf("%s should apply %s1, statuses=%v", number, status, traits.statuses)
 		}
 	}
+
+	for _, number := range []string{"3221104", "3321108", "3321110"} {
+		if !skillNeedsTargetCard(baseCard(t, number)) {
+			t.Fatalf("%s should require a target", number)
+		}
+	}
 }
 
 func TestRoyalConflictSpellScrollItemsAreSpellLike(t *testing.T) {
@@ -419,6 +425,15 @@ func TestRoyalConflictShieldCardBehaviors(t *testing.T) {
 	if p0.Shield != 2 {
 		t.Fatalf("2011101 should prevent shield decay while active, got %d", p0.Shield)
 	}
+	p0.Equipment[0] = nil
+	engine.HandleShieldDecay(p0)
+	if p0.Shield != 1 {
+		t.Fatalf("2011101 should stop preventing shield decay after leaving field, got %d", p0.Shield)
+	}
+	engine.gainPlayerShield(0, 2)
+	if p0.Shield != 1 {
+		t.Fatalf("2011101 should keep blocking future shield gains after leaving field, got %d", p0.Shield)
+	}
 
 	p1.Shield = 4
 	breakingBlade := NewCardInstance(baseCard(t, "2021102"), 0, 1)
@@ -462,6 +477,12 @@ func TestRoyalConflictEmeraldImmortalityProtectsWhileShielded(t *testing.T) {
 	ally.Statuses[StatusFreeze] = 1
 	if engine.hasEffectiveStatus(ally, StatusFreeze) {
 		t.Fatal("2411101 should make friendly negative statuses ineffective while shielded")
+	}
+	skill := readySkill(baseCard(t, "3621009"), 0)
+	p0.Skills[0] = skill
+	skill.Statuses[StatusWeaken] = 1
+	if !engine.hasEffectiveStatus(skill, StatusWeaken) {
+		t.Fatal("2411101 should not protect non-unit cards from negative statuses")
 	}
 
 	p0.Shield = 0
