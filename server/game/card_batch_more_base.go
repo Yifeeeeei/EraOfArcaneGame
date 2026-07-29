@@ -101,6 +101,7 @@ func summonHandCompanionFree(ctx *EffectContext, predicate func(*CardInstance) b
 		card.IsHorizontal = true
 		card.EnterTurn = ctx.Engine.State.TurnNumber
 		ps.Units[pos.Col][pos.Row] = card
+		ctx.Engine.ApplySummonModifiersOnEnter(card)
 		ctx.Engine.triggerEffects(TriggerOnEnter, card, nil, nil)
 		ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.PlayerID, card, map[string]any{"entered_player": ctx.PlayerID})
 		return card
@@ -555,6 +556,7 @@ func summonGreatDruidLifeSeedAtPosition(ctx *EffectContext, pos Position) {
 		seed.ElementsGainSet = copyElementCost(ctx.Target.ElementsGainSet)
 	}
 	ps.Units[pos.Col][pos.Row] = seed
+	ctx.Engine.ApplySummonModifiersOnEnter(seed)
 	ctx.Engine.triggerEffects(TriggerOnEnter, seed, nil, nil)
 	ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.PlayerID, seed, map[string]any{"entered_player": ctx.PlayerID})
 	ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.OpponentID, seed, map[string]any{"entered_player": ctx.PlayerID})

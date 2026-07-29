@@ -41,6 +41,7 @@ func (e *Engine) reviveCompanionFromGraveyardWithLifeAtPosition(playerID int, in
 		card.IsHorizontal = true
 		card.Position = &pos
 		ps.Units[pos.Col][pos.Row] = card
+		e.ApplySummonModifiersOnEnter(card)
 		e.emit(GameEvent{Type: "summon", Player: -1, Data: map[string]any{
 			"player":   playerID,
 			"card":     cardToInfo(card),

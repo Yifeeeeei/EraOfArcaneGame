@@ -77,7 +77,7 @@ func (Card1321104MistWeaver) Name() string { return "织雾者" }
 
 func (Card1321104MistWeaver) OnEnter(ctx *EffectContext) error {
 	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
-		return card.Position != nil && ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
+		return card.Position != nil && !ctx.Engine.hasActiveStealth(card)
 	})
 	if len(candidates) == 0 {
 		return nil
@@ -127,11 +127,11 @@ func (Card3221104WaterEscape) Name() string { return "水遁术" }
 
 func (Card3221104WaterEscape) AllowsFriendlySpellTarget() bool { return true }
 
-func (Card3221104WaterEscape) ValidateSpellTarget(_ *EffectContext, _ SpellTarget, target *CardInstance) error {
+func (Card3221104WaterEscape) ValidateSpellTarget(ctx *EffectContext, _ SpellTarget, target *CardInstance) error {
 	if target == nil {
 		return nil
 	}
-	if target.Statuses[StatusStealth] > 0 {
+	if ctx != nil && ctx.Engine != nil && ctx.Engine.hasActiveStealth(target) {
 		return fmt.Errorf("target already has stealth")
 	}
 	return nil

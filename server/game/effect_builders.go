@@ -449,7 +449,10 @@ func SummonToken(cardID string) EffectHandler {
 					turn = ctx.Engine.State.TurnNumber
 				}
 				instance := NewCardInstance(card, ctx.PlayerID, turn)
+				instance.Position = &Position{Col: col, Row: 0}
 				ps.Units[col][0] = instance
+				ctx.Engine.ApplyKeywordOnEnter(instance)
+				ctx.Engine.ApplySummonModifiersOnEnter(instance)
 				ctx.Engine.emit(GameEvent{
 					Type: "summon", Player: ctx.PlayerID,
 					Data: map[string]any{"card": cardToInfo(instance)},

@@ -21,7 +21,7 @@ func effectiveElementsGain(card *CardInstance) map[string]int {
 			gains[elem] += amount
 		}
 	}
-	if card.Card.Number == "1221109" && card.Statuses[StatusStealth] > 0 {
+	if card.Card.Number == "1221109" && card.Statuses[StatusStealth] > 0 && card.Statuses[StatusPetrify] <= 0 {
 		gains[model.ElementWater] += 2
 	}
 	return gains

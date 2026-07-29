@@ -517,6 +517,11 @@ func TestRoyalConflictStealthCardBehaviors(t *testing.T) {
 	if effectiveElementsGain(phantom)[model.ElementWater] != 0 {
 		t.Fatalf("1221109 dynamic water load should disappear without stealth, load=%v", effectiveElementsGain(phantom))
 	}
+	phantom.Statuses[StatusStealth] = 1
+	phantom.Statuses[StatusPetrify] = 1
+	if effectiveElementsGain(phantom)[model.ElementWater] != 0 {
+		t.Fatalf("1221109 dynamic water load should disappear while petrified, load=%v", effectiveElementsGain(phantom))
+	}
 
 	mage := placeUnit(baseCard(t, "1221102"), 0, 0, 1, engine)
 	target := placeUnit(baseCard(t, "1021003"), 0, 1, 1, engine)
@@ -607,6 +612,11 @@ func TestRoyalConflictStealthTargetingAndDelayedSummon(t *testing.T) {
 	if err := engine.validateSpellTarget(0, waterEscape, SpellTarget{Type: "unit", OwnerID: &ownerID, Position: *ally.Position}); err == nil {
 		t.Fatal("3221104 should reject units that already have stealth")
 	}
+	ally.Statuses[StatusPetrify] = 1
+	if err := engine.validateSpellTarget(0, waterEscape, SpellTarget{Type: "unit", OwnerID: &ownerID, Position: *ally.Position}); err != nil {
+		t.Fatalf("3221104 should allow targets whose stealth is disabled by petrify: %v", err)
+	}
+	ally.Statuses[StatusPetrify] = 0
 	ally.Statuses[StatusStealth] = 0
 	engine.resolveSpellHit(0, waterEscape, SpellTarget{Type: "unit", OwnerID: &ownerID, Position: *ally.Position}, nil, nil)
 	if ally.Statuses[StatusStealth] != 2 {
@@ -657,6 +667,30 @@ func TestRoyalConflictStealthTargetingAndDelayedSummon(t *testing.T) {
 	}
 	if next1.Statuses[StatusStealth] != 2 || p1.NextCompanionStealth != 0 {
 		t.Fatalf("4311102 should give p1 next summoned companion stealth2 once, statuses=%v pending=%d", next1.Statuses, p1.NextCompanionStealth)
+	}
+
+	pathEngine := setupReportedBugEngine(t)
+	pathP0 := pathEngine.State.Players[0]
+	pathP0.NextCompanionStealth = 2
+	freeSummon := NewCardInstance(baseCard(t, "1021007"), 0, 1)
+	pathP0.Hand = append(pathP0.Hand, freeSummon)
+	if got := summonHandCompanionFree(&EffectContext{Engine: pathEngine, PlayerID: 0, OpponentID: 1}, func(card *CardInstance) bool {
+		return card == freeSummon
+	}); got != freeSummon {
+		t.Fatalf("expected free hand summon path to return selected card, got %+v", got)
+	}
+	if freeSummon.Statuses[StatusStealth] != 2 || pathP0.NextCompanionStealth != 0 {
+		t.Fatalf("free hand summon should consume next companion stealth, statuses=%v pending=%d", freeSummon.Statuses, pathP0.NextCompanionStealth)
+	}
+
+	pathP0.NextCompanionStealth = 2
+	revived := NewCardInstance(baseCard(t, "1021008"), 0, 1)
+	pathP0.Graveyard = append(pathP0.Graveyard, revived)
+	if !pathEngine.reviveCompanionFromGraveyardWithLifeAtPosition(0, revived.InstanceID, 1, false, Position{Col: 1, Row: 0}) {
+		t.Fatal("expected graveyard revive path to succeed")
+	}
+	if revived.Statuses[StatusStealth] != 2 || pathP0.NextCompanionStealth != 0 {
+		t.Fatalf("graveyard revive should consume next companion stealth, statuses=%v pending=%d", revived.Statuses, pathP0.NextCompanionStealth)
 	}
 }
 
