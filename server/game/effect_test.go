@@ -1295,6 +1295,101 @@ func TestRoyalConflictSimpleCardEffects(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictSimpleConsumableChoiceEffects(t *testing.T) {
+	t.Run("lost silverleaf draws then discards one selected hand card", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		silverleaf := NewCardInstance(baseCard(t, "2021101"), 0, 1)
+		kept := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		drawA := NewCardInstance(baseCard(t, "1021002"), 0, 1)
+		drawB := NewCardInstance(baseCard(t, "1021003"), 0, 1)
+		p0.Hand = []*CardInstance{silverleaf, kept}
+		p0.Deck = []*CardInstance{drawA, drawB}
+		p0.Elements[model.ElementArcane] = 1
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": silverleaf.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use lost silverleaf: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "lost_silverleaf_discard" {
+			t.Fatalf("lost silverleaf should prompt for discard after drawing, pending=%+v", engine.State.PendingAction)
+		}
+		if len(p0.Hand) != 3 || p0.Hand[0] != kept || p0.Hand[1] != drawA || p0.Hand[2] != drawB {
+			t.Fatalf("lost silverleaf should draw two before discard, hand=%v", cardsToInfo(p0.Hand))
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{drawA.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve silverleaf discard: %v", err)
+		}
+		if len(p0.Hand) != 2 || p0.Hand[0] != kept || p0.Hand[1] != drawB {
+			t.Fatalf("lost silverleaf should discard the selected card, hand=%v", cardsToInfo(p0.Hand))
+		}
+		if len(p0.Graveyard) != 2 || p0.Graveyard[0] != silverleaf || p0.Graveyard[1] != drawA {
+			t.Fatalf("lost silverleaf graveyard order wrong, grave=%v", cardsToInfo(p0.Graveyard))
+		}
+	})
+
+	t.Run("blessed lone star buffs a selected friendly companion", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		item := NewCardInstance(baseCard(t, "2521101"), 0, 1)
+		target := placeUnit(baseCard(t, "1021004"), 0, 0, 0, engine)
+		p0.Hand = []*CardInstance{item}
+		p0.Elements[model.ElementLight] = 2
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": item.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use blessed lone star: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "blessed_lone_star_target" {
+			t.Fatalf("blessed lone star should prompt for target, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{target.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve blessed lone star: %v", err)
+		}
+		if target.CurrentLife != target.Card.Life+1 || effectiveElementsGain(target)[model.ElementLight] != target.Card.ElementsGain[model.ElementLight]+1 {
+			t.Fatalf("blessed lone star should add +1 life and +1 light load, life=%d load=%v", target.CurrentLife, effectiveElementsGain(target))
+		}
+	})
+
+	t.Run("arcane bomb damages a companion in spell range", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		bomb := NewCardInstance(baseCard(t, "2021116"), 0, 1)
+		front := placeUnit(baseCard(t, "1021005"), 1, 1, 0, engine)
+		back := placeUnit(baseCard(t, "1021006"), 1, 1, 2, engine)
+		p0.Hand = []*CardInstance{bomb}
+		p0.Elements[model.ElementArcane] = 3
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": bomb.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use arcane bomb: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "arcane_bomb_target" {
+			t.Fatalf("arcane bomb should prompt for companion target, pending=%+v", engine.State.PendingAction)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == back.InstanceID {
+				t.Fatalf("arcane bomb should not offer enemy back row behind a front unit, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{front.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve arcane bomb: %v", err)
+		}
+		if front.CurrentLife != front.Card.Life-2 {
+			t.Fatalf("arcane bomb should deal 2 damage to selected companion, life=%d", front.CurrentLife)
+		}
+	})
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

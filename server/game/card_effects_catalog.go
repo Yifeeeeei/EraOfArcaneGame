@@ -317,14 +317,17 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"1621110": func() CardBehavior { return Card1621110ScarletBeast{} },
 	"1621111": func() CardBehavior { return Card1621111RedMoonProphet{} },
 	"2011101": func() CardBehavior { return Card2011101ArcaneArmorSky{} },
+	"2021101": func() CardBehavior { return Card2021101LostSilverleaf{} },
 	"2021102": func() CardBehavior { return Card2021102DemonBreakingBlade{} },
 	"2021103": func() CardBehavior { return Card2021103MistPotion{} },
 	"2021107": func() CardBehavior { return Card2021107Reshape{} },
+	"2021116": func() CardBehavior { return Card2021116ArcaneBomb{} },
 	"2121107": func() CardBehavior { return Card2121107SacredFireRally{} },
 	"2221102": func() CardBehavior { return Card2221102OceanShieldScroll{} },
 	"2411101": func() CardBehavior { return Card2411101EmeraldImmortality{} },
 	"2421110": func() CardBehavior { return Card2421110SandwormBait{} },
 	"2511102": func() CardBehavior { return Card2511102FiveRainbowRing{} },
+	"2521101": func() CardBehavior { return Card2521101BlessedLoneStar{} },
 	"2521110": func() CardBehavior { return Card2521110AngelPrayer{} },
 	"2521105": func() CardBehavior {
 		return royalShieldOnEnter{id: "2521105", name: "孤星守护者", amount: 2}
