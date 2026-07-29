@@ -1592,6 +1592,69 @@ func TestRoyalConflictSkyCityTycoonConsumesForOrderedDraw(t *testing.T) {
 	}
 }
 
+func TestRoyalConflictBloodNourishExilesShadowGraveyardCard(t *testing.T) {
+	t.Run("exiles selected shadow card and gains shadow elements", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		nourish := readySkill(baseCard(t, "3621110"), 0)
+		shadow := NewCardInstance(baseCard(t, "1621112"), 0, 1)
+		other := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Skills[0] = nourish
+		p0.Graveyard = []*CardInstance{other, shadow}
+		p0.Elements[model.ElementShadow] = 2
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": nourish.InstanceID,
+			"target_type": "none",
+		}}); err != nil {
+			t.Fatalf("cast blood nourish: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "blood_nourish_exile" {
+			t.Fatalf("blood nourish should prompt for shadow graveyard card, pending=%+v", engine.State.PendingAction)
+		}
+		if len(engine.State.PendingAction.Candidates) != 1 || engine.State.PendingAction.Candidates[0]["instance_id"] != shadow.InstanceID {
+			t.Fatalf("blood nourish should only offer shadow graveyard cards, candidates=%+v", engine.State.PendingAction.Candidates)
+		}
+		afterPay := p0.Elements[model.ElementShadow]
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+			"selected": []any{shadow.InstanceID},
+		}}); err != nil {
+			t.Fatalf("resolve blood nourish: %v", err)
+		}
+		if len(p0.Exile) != 1 || p0.Exile[0] != shadow {
+			t.Fatalf("blood nourish should exile selected shadow card, exile=%v grave=%v", cardsToInfo(p0.Exile), cardsToInfo(p0.Graveyard))
+		}
+		if len(p0.Graveyard) != 1 || p0.Graveyard[0] != other {
+			t.Fatalf("blood nourish should leave non-selected graveyard cards, grave=%v", cardsToInfo(p0.Graveyard))
+		}
+		if p0.Elements[model.ElementShadow] != afterPay+2 {
+			t.Fatalf("blood nourish should gain 2 shadow after selection, before=%d elements=%v", afterPay, p0.Elements)
+		}
+	})
+
+	t.Run("does nothing without shadow graveyard card", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		nourish := readySkill(baseCard(t, "3621110"), 0)
+		p0.Skills[0] = nourish
+		p0.Graveyard = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1)}
+		p0.Elements[model.ElementShadow] = 2
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": nourish.InstanceID,
+			"target_type": "none",
+		}}); err != nil {
+			t.Fatalf("cast blood nourish without target: %v", err)
+		}
+		if engine.State.PendingAction != nil {
+			t.Fatalf("blood nourish should not prompt without shadow graveyard card, pending=%+v", engine.State.PendingAction)
+		}
+		if len(p0.Exile) != 0 {
+			t.Fatalf("blood nourish should not exile anything without shadow target, exile=%v", cardsToInfo(p0.Exile))
+		}
+	})
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 
