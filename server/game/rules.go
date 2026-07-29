@@ -589,7 +589,7 @@ func skillIDSet(skills []*CardInstance) map[string]bool {
 }
 
 func (e *Engine) validateSpellTarget(playerID int, skill *CardInstance, target SpellTarget) error {
-	return e.validateSpellTargetWithPierce(playerID, skill, target, cardHasPierce(skill) || e.windBladeGrantsPierce(playerID, skill))
+	return e.validateSpellTargetWithPierce(playerID, skill, target, e.skillHasPierce(playerID, skill))
 }
 
 func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance, target SpellTarget, hasPierce bool) error {
@@ -711,14 +711,30 @@ func (e *Engine) validateSpellExtraTarget(playerID int, target SpellTarget) erro
 }
 
 func (e *Engine) spellHasPierceWithBoosts(playerID int, skill *CardInstance, boostSkills []*CardInstance) bool {
-	if cardHasPierce(skill) {
-		return true
-	}
-	if e.windBladeGrantsPierce(playerID, skill) {
+	if e.skillHasPierce(playerID, skill) {
 		return true
 	}
 	for _, boostSkill := range boostSkills {
 		if e.skillContributionStats(playerID, boostSkill, skill, skillPurposeAttackBoost).Pierce {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Engine) skillHasPierce(playerID int, skill *CardInstance) bool {
+	if cardHasPierce(skill) || e.windBladeGrantsPierce(playerID, skill) {
+		return true
+	}
+	return skill != nil && skill.Card != nil && skill.Card.Number == "3621107" && e.redMoonActive(playerID)
+}
+
+func (e *Engine) redMoonActive(playerID int) bool {
+	if playerID < 0 || playerID >= len(e.State.Players) {
+		return false
+	}
+	for _, card := range e.getAllFieldCards(e.State.Players[playerID]) {
+		if card != nil && card.Card != nil && card.Card.Number == "3611101" && abilityDurationActive(card) && !e.hasEffectiveStatus(card, StatusPetrify) {
 			return true
 		}
 	}

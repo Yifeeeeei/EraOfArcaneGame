@@ -4347,7 +4347,7 @@ func (e *Engine) cardToInfoForPlayer(ps *PlayerState, card *CardInstance) map[st
 		return info
 	}
 	if isSpellLikeCard(card.Card) {
-		info["has_pierce"] = cardHasPierce(card) || e.windBladeGrantsPierce(ps.PlayerID, card)
+		info["has_pierce"] = e.skillHasPierce(ps.PlayerID, card)
 		info["spell_area"] = e.effectiveSpellArea(card)
 		info["effective_defense_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeDefend)
 		info["effective_defense_boost_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeDefenseBoost)

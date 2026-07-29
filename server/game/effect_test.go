@@ -953,6 +953,51 @@ func TestRoyalConflictPrintedBoundSkills(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictRedMoonBasics(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	front := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+	back := placeUnit(baseCard(t, "1021002"), 1, 1, 2, engine)
+	redMoon := readySkill(baseCard(t, "3611101"), 0)
+	willErosion := readySkill(baseCard(t, "3621107"), 0)
+	p0.Skills[0] = redMoon
+	p0.Skills[1] = willErosion
+
+	if engine.redMoonActive(0) {
+		t.Fatal("red moon should not be active before duration is set")
+	}
+	if err := engine.validateSpellTarget(0, willErosion, SpellTarget{Type: "unit", Position: *back.Position}); err == nil {
+		t.Fatalf("will erosion should not pierce back-row target before red moon")
+	}
+	if got := engine.effectiveSpellPower(0, willErosion, nil, SpellTarget{Type: "unit", Position: *front.Position}); got != willErosion.Card.Power {
+		t.Fatalf("will erosion should use base power before red moon, got %d", got)
+	}
+
+	redMoon.Statuses[StatusAbilityDuration] = 1
+	if !engine.redMoonActive(0) {
+		t.Fatal("red moon should be active while its ability duration mark is present")
+	}
+	if err := engine.validateSpellTarget(0, willErosion, SpellTarget{Type: "unit", Position: *back.Position}); err != nil {
+		t.Fatalf("will erosion should pierce during red moon: %v", err)
+	}
+	if info := engine.cardToInfoForPlayer(p0, willErosion); info["has_pierce"] != true {
+		t.Fatalf("will erosion should expose dynamic pierce during red moon, info=%+v", info)
+	}
+	if got := engine.effectiveSpellPower(0, willErosion, nil, SpellTarget{Type: "unit", Position: *back.Position}); got != willErosion.Card.Power+3 {
+		t.Fatalf("red moon should give shadow spell +2 and will erosion +1, got %d", got)
+	}
+
+	beast := placeUnit(baseCard(t, "1621110"), 0, 0, 0, engine)
+	if got := engine.effectiveSpellPower(0, willErosion, nil, SpellTarget{Type: "unit", Position: *back.Position}); got != willErosion.Card.Power+5 {
+		t.Fatalf("scarlet beast should add +2 during red moon, got %d with beast %v", got, cardToInfo(beast))
+	}
+
+	delete(redMoon.Statuses, StatusAbilityDuration)
+	if err := engine.validateSpellTarget(0, willErosion, SpellTarget{Type: "unit", Position: *back.Position}); err == nil {
+		t.Fatalf("will erosion should stop piercing after red moon ends")
+	}
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 
