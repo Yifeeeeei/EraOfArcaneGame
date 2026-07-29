@@ -1549,6 +1549,49 @@ func TestRoyalConflictSimpleTargetedEnterAndDeathEffects(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictSkyCityTycoonConsumesForOrderedDraw(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+	tycoon := placeUnit(baseCard(t, "1021106"), 0, 0, 0, engine)
+	selfDraw := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+	opponentDraw := NewCardInstance(baseCard(t, "1021002"), 1, 1)
+	p0.Deck = []*CardInstance{selfDraw}
+	p1.Deck = []*CardInstance{opponentDraw}
+	beforeArcane := p0.Elements[model.ElementArcane]
+	beforeAir := p0.Elements[model.ElementAir]
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+		"instance_id":  tycoon.InstanceID,
+		"ability_type": "per_turn",
+	}}); err != nil {
+		t.Fatalf("use sky city tycoon: %v", err)
+	}
+	if !tycoon.IsHorizontal {
+		t.Fatalf("sky city tycoon should be horizontal after paying consume cost")
+	}
+	if p0.Elements[model.ElementArcane] != beforeArcane || p0.Elements[model.ElementAir] != beforeAir {
+		t.Fatalf("sky city tycoon active consume should not grant its printed load, elements=%v", p0.Elements)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "sky_city_tycoon_draw_order" {
+		t.Fatalf("sky city tycoon should ask for draw order, pending=%+v", engine.State.PendingAction)
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+		"selected": []any{"opponent_first"},
+	}}); err != nil {
+		t.Fatalf("resolve sky city tycoon draw order: %v", err)
+	}
+	if len(p1.Hand) != 1 || p1.Hand[0] != opponentDraw || len(p0.Hand) != 1 || p0.Hand[0] != selfDraw {
+		t.Fatalf("sky city tycoon should draw one for each player in chosen order, p0=%v p1=%v", cardsToInfo(p0.Hand), cardsToInfo(p1.Hand))
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+		"instance_id":  tycoon.InstanceID,
+		"ability_type": "per_turn",
+	}}); err == nil {
+		t.Fatalf("sky city tycoon should not be usable while already horizontal")
+	}
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 
