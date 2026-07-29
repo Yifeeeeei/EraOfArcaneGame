@@ -327,10 +327,18 @@ func resetCardForHiddenZone(card *CardInstance) {
 	if card == nil || card.Card == nil {
 		return
 	}
+	resetCardForPublicSpecialZone(card)
+	card.IsHorizontal = true
+}
+
+func resetCardForPublicSpecialZone(card *CardInstance) {
+	if card == nil || card.Card == nil {
+		return
+	}
 	card.CurrentLife = card.Card.Life
 	card.CurrentAttack = card.Card.Attack
 	card.DamageTakenThisTurn = 0
-	card.IsHorizontal = true
+	card.IsHorizontal = false
 	card.Statuses = make(map[string]int)
 	card.ElementsGainBonus = make(map[string]int)
 	card.ElementsGainSet = nil
@@ -341,6 +349,7 @@ func resetCardForHiddenZone(card *CardInstance) {
 	card.SlotIndex = -1
 	card.EnterTurn = 0
 	card.BoundSkills = nil
+	card.UnderCards = nil
 	card.AttachedBehaviors = nil
 	card.UsedThisTurn = 0
 	card.UltimateUsed = false

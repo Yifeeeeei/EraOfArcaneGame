@@ -41,6 +41,7 @@ type CardInstance struct {
 	SlotIndex           int                `json:"slot_index"`             // for skill/equipment slots
 	EnterTurn           int                `json:"enter_turn"`             // which turn this card entered the field
 	BoundSkills         []*CardInstance    `json:"bound_skills,omitempty"` // skills attached to this card, not skill slots
+	UnderCards          []*CardInstance    `json:"under_cards,omitempty"`  // public cards placed under this card
 	AttachedBehaviors   []AttachedBehavior `json:"-"`                      // runtime-granted behavior objects
 
 	// Skill-specific
@@ -102,6 +103,7 @@ const (
 	StatusCooldown = "冷却"
 	StatusSeal     = "封印"
 	StatusMastery  = "精通"
+	StatusStealth  = "隐蔽"
 )
 
 const (
@@ -124,10 +126,13 @@ type PlayerState struct {
 	Deck       []*CardInstance                  `json:"deck"` // remaining draw pile
 	SkillPool  []*CardInstance                  `json:"skill_pool"`
 	Graveyard  []*CardInstance                  `json:"graveyard"`
+	Exile      []*CardInstance                  `json:"exile,omitempty"`
 	ExtraDeck  []*CardInstance                  `json:"extra_deck"`
 
 	// Element pool - available elements this turn
 	Elements           map[string]int            `json:"elements"`
+	StrictArcane       int                       `json:"strict_arcane,omitempty"`
+	Shield             int                       `json:"shield,omitempty"`
 	SkipNextDraw       bool                      `json:"skip_next_draw"`
 	TempModifiers      []TemporaryModifier       `json:"temp_modifiers"`
 	SpellsCastThisTurn map[string]int            `json:"spells_cast_this_turn,omitempty"`

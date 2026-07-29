@@ -186,17 +186,25 @@ func RemoveStatusFromTarget(status string) EffectHandler {
 
 // GainShield 自身获得护盾
 func GainShield(amount int) EffectHandler {
-	return ApplyStatusToSelf("护盾", amount)
+	return func(ctx *EffectContext) error {
+		ctx.Engine.gainPlayerShield(ctx.PlayerID, amount)
+		return nil
+	}
 }
 
 // GainStealth 自身获得隐蔽
 func GainStealth(amount int) EffectHandler {
-	return ApplyStatusToSelf("隐蔽", amount)
+	return ApplyStatusToSelf(StatusStealth, amount)
 }
 
 // GiveShieldToTarget 给目标护盾
 func GiveShieldToTarget(amount int) EffectHandler {
-	return ApplyStatusToTarget("护盾", amount)
+	return func(ctx *EffectContext) error {
+		if ctx.Target != nil {
+			ctx.Engine.gainPlayerShield(ctx.Target.OwnerID, amount)
+		}
+		return nil
+	}
 }
 
 // ══════════════════════════════════════

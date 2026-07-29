@@ -2320,7 +2320,7 @@ func (e *Engine) isEnemyFrontRowAttackTarget(playerID int, attacker *CardInstanc
 	if target == nil {
 		return false
 	}
-	if e.hasEffectiveStatus(target, "隐蔽") && !cardHasPierce(attacker) {
+	if e.hasStealthFromOpponent(playerID, target) {
 		return false
 	}
 	return true
@@ -2423,17 +2423,8 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 		}
 	}
 
-	// Apply shield damage reduction
-	amount = ApplyShieldDamage(target, amount)
+	amount = e.applyPlayerShieldDamage(target, amount, damageData)
 	if amount <= 0 {
-		e.emit(GameEvent{
-			Type:   "shield_block",
-			Player: -1,
-			Data: map[string]any{
-				"target": cardToInfo(target),
-				"shield": target.Statuses["护盾"],
-			},
-		})
 		return
 	}
 	if target.Statuses["防止致命"] > 0 && target.CurrentLife-amount <= 0 {
@@ -2602,6 +2593,7 @@ func (e *Engine) destroyUnitWithData(unit *CardInstance, ownerID int, deathData 
 
 	// Bound skills live only while their host is on the battlefield. They do not
 	// enter the graveyard as independent cards.
+	e.releaseUnderCardsToGraveyard(ownerID, unit)
 	unit.BoundSkills = nil
 
 	// Add to graveyard
@@ -4050,6 +4042,9 @@ func cardToInfo(ci *CardInstance) map[string]any {
 	if len(ci.BoundSkills) > 0 {
 		info["bound_skills"] = cardsToInfo(ci.BoundSkills)
 	}
+	if len(ci.UnderCards) > 0 {
+		info["under_cards"] = cardsToInfo(ci.UnderCards)
+	}
 	if attached := attachedBehaviorsInfo(ci); len(attached) > 0 {
 		info["attached_behaviors"] = attached
 	}
@@ -4189,10 +4184,13 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 		"player_name":    ps.PlayerName,
 		"hero":           cardToInfo(ps.Hero),
 		"elements":       ps.Elements,
+		"strict_arcane":  ps.StrictArcane,
+		"shield":         ps.Shield,
 		"charge":         ps.Charge,
 		"temp_modifiers": ps.TempModifiers,
 		"deck_count":     len(ps.Deck),
 		"graveyard":      cardsToInfo(ps.Graveyard),
+		"exile":          cardsToInfo(ps.Exile),
 	}
 
 	// Units grid

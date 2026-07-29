@@ -125,28 +125,129 @@ func TestCardRuleInfoDoesNotMaterializeLazyBehaviors(t *testing.T) {
 }
 
 func TestShieldMechanic(t *testing.T) {
-	// Test shield damage reduction
-	card := &CardInstance{
-		CurrentLife: 10,
-		Statuses:    map[string]int{"护盾": 3},
+	engine := setupReportedBugEngine(t)
+	target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+	target.CurrentLife = 5
+	engine.State.Players[1].Shield = 3
+
+	engine.dealDamageWithExtra(target, 2, 1, map[string]any{"damage_source": "spell", "attacker": 0})
+	if target.CurrentLife != 5 || engine.State.Players[1].Shield != 1 {
+		t.Fatalf("enemy spell damage should hit player shield first, life=%d shield=%d", target.CurrentLife, engine.State.Players[1].Shield)
 	}
 
-	// Shield should block damage
-	remaining := ApplyShieldDamage(card, 2)
-	if remaining != 0 {
-		t.Errorf("Expected 0 remaining damage with shield, got %d", remaining)
-	}
-	if card.Statuses["护盾"] != 2 {
-		t.Errorf("Expected shield 2 after block, got %d", card.Statuses["护盾"])
+	engine.dealDamageWithExtra(target, 3, 1, map[string]any{"damage_source": "spell", "attacker": 0})
+	if target.CurrentLife != 3 || engine.State.Players[1].Shield != 0 {
+		t.Fatalf("spell damage should overflow after shield breaks, life=%d shield=%d", target.CurrentLife, engine.State.Players[1].Shield)
 	}
 
-	// Damage exceeding shield
-	remaining = ApplyShieldDamage(card, 5)
-	if remaining != 3 {
-		t.Errorf("Expected 3 remaining damage, got %d", remaining)
+	engine.State.Players[1].Shield = 2
+	engine.dealDamageWithExtra(target, 1, 1, map[string]any{"damage_source": "attack", "attacker": 0})
+	if target.CurrentLife != 2 || engine.State.Players[1].Shield != 2 {
+		t.Fatalf("non-spell damage should ignore player shield, life=%d shield=%d", target.CurrentLife, engine.State.Players[1].Shield)
 	}
-	if card.Statuses["护盾"] != 0 {
-		t.Errorf("Expected shield 0 after break, got %d", card.Statuses["护盾"])
+
+	engine.dealDamageWithExtra(target, 1, 1, map[string]any{"damage_source": "spell", "attacker": 1})
+	if target.CurrentLife != 1 || engine.State.Players[1].Shield != 2 {
+		t.Fatalf("friendly spell damage should ignore player shield, life=%d shield=%d", target.CurrentLife, engine.State.Players[1].Shield)
+	}
+}
+
+func TestRoyalConflictShieldDecayAndStrictArcane(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+
+	p0.Shield = 2
+	engine.HandleShieldDecay(p0)
+	if p0.Shield != 1 {
+		t.Fatalf("shield should decay by one without support, got %d", p0.Shield)
+	}
+
+	jadeBaron := placeUnit(baseCard(t, "4411101"), 0, 0, 0, engine)
+	p0.Shield = 2
+	engine.HandleShieldDecay(p0)
+	if p0.Shield != 2 {
+		t.Fatalf("翡翠男爵 should keep shield below 3 from decaying, got %d", p0.Shield)
+	}
+
+	p0.Shield = 3
+	engine.HandleShieldDecay(p0)
+	if p0.Shield != 2 {
+		t.Fatalf("翡翠男爵 should not prevent decay at 3 shield, got %d", p0.Shield)
+	}
+
+	jadeBaron.Statuses[StatusPetrify] = 1
+	p0.Shield = 2
+	engine.HandleShieldDecay(p0)
+	if p0.Shield != 1 {
+		t.Fatalf("petrified 翡翠男爵 should not prevent shield decay, got %d", p0.Shield)
+	}
+
+	engine.gainStrictArcane(0, 3)
+	if p0.StrictArcane != 3 {
+		t.Fatalf("strict arcane should be tracked separately, got %d", p0.StrictArcane)
+	}
+	if !engine.spendStrictArcane(0, 2) || p0.StrictArcane != 1 {
+		t.Fatalf("strict arcane spend failed, got %d", p0.StrictArcane)
+	}
+	if engine.spendStrictArcane(0, 2) || p0.StrictArcane != 1 {
+		t.Fatalf("strict arcane should not overspend, got %d", p0.StrictArcane)
+	}
+}
+
+func TestRoyalConflictStealthDoesNotBlockSpellRange(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	stealthFront := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+	stealthFront.Statuses[StatusStealth] = 1
+	back := placeUnit(baseCard(t, "1021002"), 1, 0, 1, engine)
+
+	if engine.IsInSpellRange(0, stealthFront.Position.Col, stealthFront.Position.Row, true) {
+		t.Fatal("opposing stealth unit should not be targetable even with pierce")
+	}
+	if !engine.IsInSpellRange(0, back.Position.Col, back.Position.Row, false) {
+		t.Fatal("stealth front row should not block spell range to the next visible row")
+	}
+
+	attacker := placeUnit(baseCard(t, "1021003"), 0, 0, 0, engine)
+	attacker.IsHorizontal = false
+	if engine.IsInAttackRange(0, attacker, stealthFront.Position.Col, stealthFront.Position.Row) {
+		t.Fatal("opposing stealth unit should not be targetable by direct attack")
+	}
+}
+
+func TestRoyalConflictPublicSpecialZones(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	host := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+	under := NewCardInstance(baseCard(t, "1021002"), 0, 1)
+	p0.Hand = []*CardInstance{under}
+
+	if !engine.placeCardUnder(host, under) {
+		t.Fatal("expected hand card to be placed under host")
+	}
+	if len(p0.Hand) != 0 || len(host.UnderCards) != 1 || host.UnderCards[0] != under {
+		t.Fatalf("under card should move from hand to host, hand=%v under=%v", cardsToInfo(p0.Hand), cardsToInfo(host.UnderCards))
+	}
+	if info := cardToInfo(host); len(info["under_cards"].([]map[string]any)) != 1 {
+		t.Fatalf("card info should expose public under cards, info=%v", info)
+	}
+
+	engine.destroyUnit(host, 0)
+	if len(p0.Graveyard) != 2 || p0.Graveyard[0] != under || p0.Graveyard[1] != host || len(host.UnderCards) != 0 {
+		t.Fatalf("destroying host should release under cards before host, graveyard=%v hostUnder=%v", cardsToInfo(p0.Graveyard), cardsToInfo(host.UnderCards))
+	}
+
+	exiled := NewCardInstance(baseCard(t, "1021003"), 0, 1)
+	p0.Graveyard = append(p0.Graveyard, exiled)
+	if !engine.exileCard(0, exiled) {
+		t.Fatal("expected graveyard card to be exiled")
+	}
+	if len(p0.Exile) != 1 || p0.Exile[0] != exiled {
+		t.Fatalf("exile zone should contain moved card, exile=%v", cardsToInfo(p0.Exile))
+	}
+	for _, card := range p0.Graveyard {
+		if card == exiled {
+			t.Fatalf("exiled card should leave graveyard, graveyard=%v", cardsToInfo(p0.Graveyard))
+		}
 	}
 }
 
