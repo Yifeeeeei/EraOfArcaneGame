@@ -2073,6 +2073,26 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 	})
 
+	t.Run("2021012 sketch scroll honors strict payment on copied spells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		strictSkill := readySkill(baseCard(t, "3011101"), 0)
+		p0.Skills[0] = strictSkill
+		p0.Elements[model.ElementWater] = 20
+		scroll := NewCardInstance(baseCard(t, "2021012"), 0, 1)
+		p0.Hand = []*CardInstance{scroll}
+
+		err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": scroll.InstanceID,
+		}})
+		if err == nil {
+			t.Fatalf("sketch scroll should not copy 3011101 with non-arcane payment")
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != scroll || len(p0.Graveyard) != 0 || engine.State.PendingAction != nil {
+			t.Fatalf("failed strict sketch scroll use should keep card in hand and avoid pending, hand=%v grave=%v pending=%+v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard), engine.State.PendingAction)
+		}
+	})
+
 	t.Run("2021012 sketch scroll does not cast targeted spells without legal targets", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]

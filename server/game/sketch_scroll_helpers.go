@@ -5,9 +5,10 @@ import "fmt"
 func (e *Engine) sketchScrollSkillCandidates(playerID int) []map[string]any {
 	ps := e.State.Players[playerID]
 	return e.friendlySkills(playerID, func(skill *CardInstance) bool {
+		cost := e.effectiveSkillUseCost(ps, skill)
 		return canUseSkillForPurpose(skill.Card, skillPurposeAttack) &&
 			!isSorcerySkill(skill.Card) &&
-			e.canPayCost(ps, e.effectiveSkillUseCost(ps, skill))
+			e.canPayCostForCardAction(ps, skill, cost, cost, paymentPurposeUse, ActionMessage{})
 	})
 }
 
@@ -21,7 +22,7 @@ func (e *Engine) resolveSketchScrollSkill(playerID int, skillID string) error {
 		return fmt.Errorf("sketch scroll cannot copy sorceries")
 	}
 	cost := e.effectiveSkillUseCost(ps, skill)
-	if !e.canPayCost(ps, cost) {
+	if !e.canPayCostForCardAction(ps, skill, cost, cost, paymentPurposeUse, ActionMessage{}) {
 		return fmt.Errorf("not enough elements")
 	}
 	targets := e.spellTargetCandidates(playerID, skill)
@@ -78,7 +79,7 @@ func (e *Engine) spellTargetCandidates(playerID int, skill *CardInstance) []map[
 func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, target SpellTarget) error {
 	ps := e.State.Players[playerID]
 	cost := e.effectiveSkillUseCost(ps, skill)
-	if !e.payCostForAction(ps, cost, ActionMessage{}) {
+	if !e.payCostForCardAction(ps, skill, cost, cost, paymentPurposeUse, ActionMessage{}) {
 		return fmt.Errorf("not enough elements")
 	}
 	e.applySkillUseCooldownModifiers(ps, skill)
