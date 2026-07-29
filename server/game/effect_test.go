@@ -1184,6 +1184,117 @@ func TestRoyalConflictRedMoonProphetReducesCurrentOrNextCooldown(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictSimpleCardEffects(t *testing.T) {
+	t.Run("enter draw and resource effects", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		drawOne := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		drawTwoA := NewCardInstance(baseCard(t, "1021002"), 0, 1)
+		drawTwoB := NewCardInstance(baseCard(t, "1021003"), 0, 1)
+		p0.Deck = []*CardInstance{drawOne, drawTwoA, drawTwoB}
+
+		geomancer := placeUnit(baseCard(t, "1421115"), 0, 0, 0, engine)
+		engine.triggerEffects(TriggerOnEnter, geomancer, nil, nil)
+		if len(p0.Hand) != 1 || p0.Hand[0] != drawOne {
+			t.Fatalf("geomancer should draw one card, hand=%v", cardsToInfo(p0.Hand))
+		}
+
+		p0.Hand = nil
+		hummingbird := placeUnit(baseCard(t, "1321108"), 0, 1, 0, engine)
+		engine.triggerEffects(TriggerOnEnter, hummingbird, nil, nil)
+		if len(p0.Hand) != 2 || p0.Hand[0] != drawTwoA || p0.Hand[1] != drawTwoB {
+			t.Fatalf("hummingbird should draw two with fewer than two cards in hand, hand=%v", cardsToInfo(p0.Hand))
+		}
+
+		p0.Hand = []*CardInstance{
+			NewCardInstance(baseCard(t, "1021004"), 0, 1),
+			NewCardInstance(baseCard(t, "1021005"), 0, 1),
+		}
+		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021006"), 0, 1)}
+		engine.triggerEffects(TriggerOnEnter, hummingbird, nil, nil)
+		if len(p0.Hand) != 2 {
+			t.Fatalf("hummingbird should not draw when hand has two cards, hand=%v", cardsToInfo(p0.Hand))
+		}
+
+		geomancer.CurrentLife = geomancer.Card.Life - 1
+		ally := placeUnit(baseCard(t, "1021007"), 0, 2, 0, engine)
+		ally.CurrentLife = ally.Card.Life - 1
+		healthy := placeUnit(baseCard(t, "1021008"), 0, 2, 1, engine)
+		prayer := placeUnit(baseCard(t, "1521114"), 0, 0, 1, engine)
+		before := p0.Elements[model.ElementLight]
+		engine.triggerEffects(TriggerOnEnter, prayer, nil, nil)
+		if got := p0.Elements[model.ElementLight] - before; got != 2 {
+			t.Fatalf("prayer should gain light for two wounded friendly units, got %d with healthy=%v", got, cardToInfo(healthy))
+		}
+	})
+
+	t.Run("use item and equipment active effects", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		reshape := NewCardInstance(baseCard(t, "2021107"), 0, 1)
+		discardA := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		discardB := NewCardInstance(baseCard(t, "1021002"), 0, 1)
+		drawA := NewCardInstance(baseCard(t, "1021003"), 0, 1)
+		drawB := NewCardInstance(baseCard(t, "1021004"), 0, 1)
+		p0.Hand = []*CardInstance{reshape, discardA, discardB}
+		p0.Deck = []*CardInstance{drawA, drawB}
+		p0.RevealedHand[discardA.InstanceID] = true
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": reshape.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use reshape: %v", err)
+		}
+		if len(p0.Hand) != 2 || p0.Hand[0] != drawA || p0.Hand[1] != drawB {
+			t.Fatalf("reshape should discard hand then draw two, hand=%v", cardsToInfo(p0.Hand))
+		}
+		if len(p0.Graveyard) != 3 || p0.Graveyard[0] != reshape || p0.Graveyard[1] != discardA || p0.Graveyard[2] != discardB {
+			t.Fatalf("reshape should place itself and discarded cards in graveyard, grave=%v", cardsToInfo(p0.Graveyard))
+		}
+		if p0.RevealedHand[discardA.InstanceID] {
+			t.Fatalf("reshape should clear revealed flags for discarded cards")
+		}
+
+		p0.Hand = []*CardInstance{NewCardInstance(baseCard(t, "2521106"), 0, 1)}
+		p0.Elements[model.ElementLight] = 1
+		p0.Deck = nil
+		p0.Graveyard = nil
+		woundedA := placeUnit(baseCard(t, "1021004"), 0, 0, 1, engine)
+		woundedA.CurrentLife = woundedA.Card.Life - 2
+		ally := placeUnit(baseCard(t, "1021005"), 0, 0, 2, engine)
+		ally.CurrentLife = ally.Card.Life - 2
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": p0.Hand[0].InstanceID,
+		}}); err != nil {
+			t.Fatalf("use moonlight scroll: %v", err)
+		}
+		if woundedA.CurrentLife != woundedA.Card.Life || ally.CurrentLife != ally.Card.Life {
+			t.Fatalf("moonlight scroll should heal all friendly units by 2, woundedA=%d ally=%d", woundedA.CurrentLife, ally.CurrentLife)
+		}
+
+		dragonbone := NewCardInstance(baseCard(t, "2521104"), 0, 1)
+		p0.Equipment[0] = dragonbone
+		dragonbone.SlotIndex = 0
+		p0.Deck = []*CardInstance{
+			NewCardInstance(baseCard(t, "1021006"), 0, 1),
+			NewCardInstance(baseCard(t, "1021007"), 0, 1),
+		}
+		p0.Hand = nil
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  dragonbone.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use golden dragonbone: %v", err)
+		}
+		if p0.Equipment[0] != nil || len(p0.Hand) != 2 {
+			t.Fatalf("golden dragonbone should sacrifice itself and draw two, equipment=%v hand=%v", p0.Equipment[0], cardsToInfo(p0.Hand))
+		}
+		if len(p0.Graveyard) == 0 || p0.Graveyard[len(p0.Graveyard)-1] != dragonbone {
+			t.Fatalf("golden dragonbone should move to graveyard, grave=%v", cardsToInfo(p0.Graveyard))
+		}
+	})
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

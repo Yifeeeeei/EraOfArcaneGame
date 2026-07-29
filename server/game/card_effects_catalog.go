@@ -302,20 +302,24 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"1221105": func() CardBehavior { return Card1221105MistDancer{} },
 	"1221109": func() CardBehavior { return Card1221109MistPhantom{} },
 	"1321104": func() CardBehavior { return Card1321104MistWeaver{} },
+	"1321108": func() CardBehavior { return Card1321108EmeraldHummingbird{} },
 	"1421102": func() CardBehavior { return Card1421102EmeraldGuard{} },
 	"1421104": func() CardBehavior {
 		return royalShieldOnEnter{id: "1421104", name: "拜利兰森林熊", amount: 3}
 	},
 	"1421114": func() CardBehavior { return Card1421114GiantSandworm{} },
+	"1421115": func() CardBehavior { return Card1421115Geomancer{} },
 	"1511101": func() CardBehavior {
 		return royalShieldOnEnter{id: "1511101", name: "末路的王子 灰烬 凯尔特", amount: 2}
 	},
+	"1521114": func() CardBehavior { return Card1521114HuiPrayer{} },
 	"1611101": func() CardBehavior { return Card1611101RedMoonWitchSeviana{} },
 	"1621110": func() CardBehavior { return Card1621110ScarletBeast{} },
 	"1621111": func() CardBehavior { return Card1621111RedMoonProphet{} },
 	"2011101": func() CardBehavior { return Card2011101ArcaneArmorSky{} },
 	"2021102": func() CardBehavior { return Card2021102DemonBreakingBlade{} },
 	"2021103": func() CardBehavior { return Card2021103MistPotion{} },
+	"2021107": func() CardBehavior { return Card2021107Reshape{} },
 	"2121107": func() CardBehavior { return Card2121107SacredFireRally{} },
 	"2221102": func() CardBehavior { return Card2221102OceanShieldScroll{} },
 	"2411101": func() CardBehavior { return Card2411101EmeraldImmortality{} },
@@ -325,6 +329,8 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"2521105": func() CardBehavior {
 		return royalShieldOnEnter{id: "2521105", name: "孤星守护者", amount: 2}
 	},
+	"2521104": func() CardBehavior { return Card2521104GoldenDragonbone{} },
+	"2521106": func() CardBehavior { return Card2521106MoonlightScroll{} },
 	"2621105": func() CardBehavior { return Card2621105RedMoonPendant{} },
 	"3221104": func() CardBehavior { return Card3221104WaterEscape{} },
 	"3221106": func() CardBehavior { return Card3221106Undercurrent{} },
