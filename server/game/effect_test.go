@@ -2003,12 +2003,21 @@ func TestRoyalConflictLoadChoiceEffects(t *testing.T) {
 			t.Fatalf("1521115 should not buff with adjacent companion, life=%d load=%v", blocked.CurrentLife, effectiveElementsGain(blocked))
 		}
 
+		dynamicFrontEngine := setupReportedBugEngine(t)
+		dynamicFront := placeUnit(baseCard(t, "1521115"), 0, 1, 1, dynamicFrontEngine)
+		dynamicFrontBeforeLife := dynamicFront.CurrentLife
+		dynamicFrontEngine.triggerEffects(TriggerOnEnter, dynamicFront, nil, nil)
+		if dynamicFront.CurrentLife != dynamicFrontBeforeLife+1 || effectiveElementsGain(dynamicFront)[model.ElementLight] != dynamicFront.Card.ElementsGain[model.ElementLight]+1 {
+			t.Fatalf("1521115 should buff in row 1 when row 1 is the current front row, life=%d load=%v", dynamicFront.CurrentLife, effectiveElementsGain(dynamicFront))
+		}
+
 		backEngine := setupReportedBugEngine(t)
+		placeUnit(baseCard(t, "1021001"), 0, 0, 0, backEngine)
 		back := placeUnit(baseCard(t, "1521115"), 0, 1, 1, backEngine)
 		backBeforeLife := back.CurrentLife
 		backEngine.triggerEffects(TriggerOnEnter, back, nil, nil)
 		if back.CurrentLife != backBeforeLife || effectiveElementsGain(back)[model.ElementLight] != back.Card.ElementsGain[model.ElementLight] {
-			t.Fatalf("1521115 should not buff outside front row, life=%d load=%v", back.CurrentLife, effectiveElementsGain(back))
+			t.Fatalf("1521115 should not buff behind the current front row, life=%d load=%v", back.CurrentLife, effectiveElementsGain(back))
 		}
 	})
 }
