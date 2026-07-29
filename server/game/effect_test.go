@@ -894,6 +894,41 @@ func TestRoyalConflictPrintedBoundSkills(t *testing.T) {
 			}
 		})
 	}
+
+	t.Run("equipment replacement clears bound skills from old host", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		oldRing := NewCardInstance(baseCard(t, "2511102"), 0, 1)
+		p0.Equipment[0] = oldRing
+		oldRing.SlotIndex = 0
+		oldRing.IsHorizontal = false
+		engine.triggerEffects(TriggerOnEnter, oldRing, nil, nil)
+		if len(oldRing.BoundSkills) != 1 {
+			t.Fatalf("old ring should bind skill before replacement, bound=%v", cardsToInfo(oldRing.BoundSkills))
+		}
+
+		newRing := NewCardInstance(baseCard(t, "2511102"), 0, 1)
+		p0.Hand = []*CardInstance{newRing}
+		setAllElements(p0, 10)
+		if err := engine.HandleAction(0, ActionMessage{Action: "equip", Data: map[string]any{
+			"instance_id": newRing.InstanceID,
+			"replace_id":  oldRing.InstanceID,
+		}}); err != nil {
+			t.Fatalf("replace five rainbow ring: %v", err)
+		}
+		if len(p0.Graveyard) != 1 || p0.Graveyard[0] != oldRing {
+			t.Fatalf("old ring should move to graveyard, grave=%v", cardsToInfo(p0.Graveyard))
+		}
+		if len(oldRing.BoundSkills) != 0 {
+			t.Fatalf("bound skills should disappear when equipment host leaves, bound=%v", cardsToInfo(oldRing.BoundSkills))
+		}
+		if info := cardToInfo(oldRing); info["bound_skills"] != nil {
+			t.Fatalf("graveyard equipment should not expose old bound skills, info=%+v", info["bound_skills"])
+		}
+		if len(newRing.BoundSkills) != 1 || newRing.BoundSkills[0].Card.Number != "3501101" {
+			t.Fatalf("new ring should bind its own skill after replacement, bound=%v", cardsToInfo(newRing.BoundSkills))
+		}
+	})
 }
 
 func TestChargeSystem(t *testing.T) {

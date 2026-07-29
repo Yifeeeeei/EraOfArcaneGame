@@ -2727,10 +2727,7 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 	e.notifyCardPlayCostPaid(ps, card)
 	ps.RemoveFromHand(handIdx)
 	if replacedEquipment != nil {
-		ps.Equipment[slotIdx] = nil
-		replacedEquipment.SlotIndex = -1
-		ps.Graveyard = append(ps.Graveyard, replacedEquipment)
-		e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(replacedEquipment)}})
+		e.moveEquipmentToGraveyard(playerID, slotIdx, replacedEquipment)
 	}
 	card.IsHorizontal = true
 	card.SlotIndex = slotIdx

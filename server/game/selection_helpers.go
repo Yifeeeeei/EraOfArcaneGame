@@ -227,9 +227,7 @@ func (e *Engine) discardFriendlyCandidate(playerID int, instanceID string) bool 
 	}
 	for i, card := range ps.Equipment {
 		if card != nil && card.InstanceID == instanceID {
-			ps.Graveyard = append(ps.Graveyard, card)
-			ps.Equipment[i] = nil
-			e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
+			e.moveEquipmentToGraveyard(playerID, i, card)
 			return true
 		}
 	}
