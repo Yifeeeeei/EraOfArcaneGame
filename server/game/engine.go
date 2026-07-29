@@ -2996,6 +2996,10 @@ func (e *Engine) validateConsumableItemUse(playerID int, card *CardInstance) err
 		if len(e.sketchScrollSkillCandidates(playerID)) == 0 {
 			return fmt.Errorf("Sketch Scroll requires a payable learned attack spell")
 		}
+	case "2621111":
+		if countShadowCompanionsInGraveyard(e.State.Players[playerID]) < 5 {
+			return fmt.Errorf("Dark Burst Scroll requires at least five shadow companions in graveyard")
+		}
 	}
 	return nil
 }

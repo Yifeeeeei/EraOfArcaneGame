@@ -352,7 +352,14 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"2201101": func() CardBehavior { return Card2201101DreamBloom{} },
 	"2201102": func() CardBehavior { return Card2201102DreamMana{} },
 	"2221102": func() CardBehavior { return Card2221102OceanShieldScroll{} },
+	"2221101": func() CardBehavior {
+		return royalWaterUseCostReduction{id: "2221101", name: "镜花海的天泉"}
+	},
+	"2221107": func() CardBehavior {
+		return royalWaterUseCostReduction{id: "2221107", name: "水纹之镜", requireWater: true, triggerOnEnter: true}
+	},
 	"2411101": func() CardBehavior { return Card2411101EmeraldImmortality{} },
+	"2421103": func() CardBehavior { return Card2421103Dreamcatcher{} },
 	"2421108": func() CardBehavior { return Card2421108EmeraldFruit{} },
 	"2421110": func() CardBehavior { return Card2421110SandwormBait{} },
 	"2511102": func() CardBehavior { return Card2511102FiveRainbowRing{} },
@@ -364,6 +371,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"2521104": func() CardBehavior { return Card2521104GoldenDragonbone{} },
 	"2521106": func() CardBehavior { return Card2521106MoonlightScroll{} },
 	"2621105": func() CardBehavior { return Card2621105RedMoonPendant{} },
+	"2621111": func() CardBehavior { return Card2621111DarkBurstScroll{} },
 	"3221104": func() CardBehavior { return Card3221104WaterEscape{} },
 	"3221106": func() CardBehavior { return Card3221106Undercurrent{} },
 	"3611101": func() CardBehavior { return Card3611101RedMoon{} },

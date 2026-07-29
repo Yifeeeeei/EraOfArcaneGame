@@ -361,6 +361,104 @@ func (Card2021101LostSilverleaf) OnUseItem(ctx *EffectContext) error {
 	return nil
 }
 
+type royalWaterUseCostReduction struct {
+	AlwaysActive
+	id             string
+	name           string
+	requireWater   bool
+	triggerOnEnter bool
+}
+
+func (r royalWaterUseCostReduction) ID() string   { return r.id }
+func (r royalWaterUseCostReduction) Name() string { return r.name }
+func (r royalWaterUseCostReduction) HasActiveUseItem(*CardInstance) bool {
+	return !r.triggerOnEnter
+}
+func (r royalWaterUseCostReduction) HasActiveOnEnter(*CardInstance) bool {
+	return r.triggerOnEnter
+}
+func (r royalWaterUseCostReduction) OnUseItem(ctx *EffectContext) error {
+	return r.prompt(ctx)
+}
+func (r royalWaterUseCostReduction) OnEnter(ctx *EffectContext) error {
+	if !r.triggerOnEnter {
+		return nil
+	}
+	return r.prompt(ctx)
+}
+func (r royalWaterUseCostReduction) prompt(ctx *EffectContext) error {
+	candidates := ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, func(skill *CardInstance) bool {
+		return skill != nil && skill.Card != nil && isSpellLikeCard(skill.Card) && (!r.requireWater || skill.Card.Category == model.ElementWater)
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "royal_water_use_cost_reduction",
+		r.name+":选择你的1个法术使用花费-1水", candidates, 1, 1,
+		func(selected []string) {
+			skill := ctx.Engine.findSkill(ctx.Engine.State.Players[ctx.PlayerID], firstSelected(selected))
+			if skill == nil || skill.Card == nil || !isSpellLikeCard(skill.Card) || (r.requireWater && skill.Card.Category != model.ElementWater) {
+				return
+			}
+			skill.Statuses["使用费用"+model.ElementWater+"-1"]++
+		})
+	return nil
+}
+
+type Card2421103Dreamcatcher struct{ AlwaysActive }
+
+func (Card2421103Dreamcatcher) ID() string   { return "2421103" }
+func (Card2421103Dreamcatcher) Name() string { return "捕梦网" }
+func (Card2421103Dreamcatcher) OnEnter(ctx *EffectContext) error {
+	for _, skill := range ctx.Engine.State.Players[ctx.PlayerID].Skills {
+		if skill != nil && skill.Card != nil && isSpellLikeCard(skill.Card) && hasCardTag(skill.Card, "灵媒") {
+			skill.PowerBonus += 2
+			ctx.Engine.refreshPendingSpellPowerForModifiedSkill(ctx.PlayerID, skill)
+		}
+	}
+	return nil
+}
+
+type Card2621111DarkBurstScroll struct{ AlwaysActive }
+
+func (Card2621111DarkBurstScroll) ID() string   { return "2621111" }
+func (Card2621111DarkBurstScroll) Name() string { return "暗黑爆发卷轴" }
+func (Card2621111DarkBurstScroll) OnUseItem(ctx *EffectContext) error {
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	targets := make([]*CardInstance, 0)
+	for _, card := range ps.Graveyard {
+		if card != nil && card.Card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementShadow {
+			targets = append(targets, card)
+		}
+	}
+	if len(targets) < 5 {
+		return nil
+	}
+	exiled := 0
+	for _, card := range targets {
+		if ctx.Engine.exileCard(ctx.PlayerID, card) {
+			exiled++
+		}
+	}
+	if exiled > 0 {
+		ps.GainElements(map[string]int{model.ElementShadow: exiled * 2})
+	}
+	return nil
+}
+
+func countShadowCompanionsInGraveyard(ps *PlayerState) int {
+	if ps == nil {
+		return 0
+	}
+	count := 0
+	for _, card := range ps.Graveyard {
+		if card != nil && card.Card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementShadow {
+			count++
+		}
+	}
+	return count
+}
+
 type Card1321107SkyCityThief struct{ AlwaysActive }
 
 func (Card1321107SkyCityThief) ID() string   { return "1321107" }

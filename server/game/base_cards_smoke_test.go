@@ -322,6 +322,11 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 						target.Position = &Position{Col: 1, Row: 0}
 						engine.State.Players[1].Units[1][0] = target
 					}
+					if card.Number == "2621111" {
+						for i := 0; i < 5; i++ {
+							ps.Graveyard = append(ps.Graveyard, NewCardInstance(cards.PlayableCardDB["1621103"], 0, engine.State.TurnNumber))
+						}
+					}
 					if isSpellScrollCard(card) && skillNeedsTargetCard(card) {
 						data["target_type"] = "unit"
 						data["target_col"] = float64(1)

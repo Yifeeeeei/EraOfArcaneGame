@@ -2079,6 +2079,110 @@ func TestRoyalConflictRuneAndDiscardEffects(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictPermanentSkillCostAndGraveyardBurstEffects(t *testing.T) {
+	t.Run("water use cost reductions apply to selected friendly spells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		waterSkill := readySkill(baseCard(t, "3221103"), 0)
+		fireSkill := readySkill(baseCard(t, "3121102"), 0)
+		p0.Skills[0] = waterSkill
+		p0.Skills[1] = fireSkill
+
+		spring := NewCardInstance(baseCard(t, "2221101"), 0, 1)
+		if err := globalRegistry.GetBehavior("2221101").(OnUseItemBehavior).OnUseItem(&EffectContext{Engine: engine, Source: spring, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("use 2221101: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "royal_water_use_cost_reduction" {
+			t.Fatalf("2221101 should prompt for a friendly spell, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, waterSkill.InstanceID)
+		if got := engine.effectiveSkillUseCost(p0, waterSkill)[model.ElementWater]; got != 1 {
+			t.Fatalf("2221101 should reduce water skill use cost by 1 water, cost=%v", engine.effectiveSkillUseCost(p0, waterSkill))
+		}
+
+		mirror := NewCardInstance(baseCard(t, "2221107"), 0, 1)
+		mirror.SlotIndex = 0
+		p0.Equipment[0] = mirror
+		engine.triggerEffects(TriggerOnEnter, mirror, nil, nil)
+		if engine.State.PendingAction == nil || len(engine.State.PendingAction.Candidates) != 1 || engine.State.PendingAction.Candidates[0]["instance_id"] != waterSkill.InstanceID {
+			t.Fatalf("2221107 should offer only learned water spells, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, waterSkill.InstanceID)
+		if got := engine.effectiveSkillUseCost(p0, waterSkill)[model.ElementWater]; got != 0 {
+			t.Fatalf("2221107 should stack another -1 water use cost, cost=%v", engine.effectiveSkillUseCost(p0, waterSkill))
+		}
+		if got := engine.effectiveSkillUseCost(p0, fireSkill)[model.ElementFire]; got != 3 {
+			t.Fatalf("water cost reducers should not affect fire spell, cost=%v", engine.effectiveSkillUseCost(p0, fireSkill))
+		}
+	})
+
+	t.Run("dreamcatcher buffs learned spirit spells only", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		spiritSpell := readySkill(baseCard(t, "3421101"), 0)
+		shadowSpiritSpell := readySkill(baseCard(t, "3621105"), 0)
+		nonSpiritSpell := readySkill(baseCard(t, "3221103"), 0)
+		p0.Skills[0] = spiritSpell
+		p0.Skills[1] = shadowSpiritSpell
+		p0.Skills[2] = nonSpiritSpell
+
+		dreamcatcher := NewCardInstance(baseCard(t, "2421103"), 0, 1)
+		dreamcatcher.SlotIndex = 0
+		p0.Equipment[0] = dreamcatcher
+		engine.triggerEffects(TriggerOnEnter, dreamcatcher, nil, nil)
+		if spiritSpell.PowerBonus != 2 || shadowSpiritSpell.PowerBonus != 2 {
+			t.Fatalf("2421103 should give learned spirit spells +2 power, spirit=%d shadow=%d", spiritSpell.PowerBonus, shadowSpiritSpell.PowerBonus)
+		}
+		if nonSpiritSpell.PowerBonus != 0 {
+			t.Fatalf("2421103 should not buff non-spirit spells, bonus=%d", nonSpiritSpell.PowerBonus)
+		}
+	})
+
+	t.Run("dark burst scroll exiles five or more shadow companions for shadow elements", func(t *testing.T) {
+		failEngine := setupReportedBugEngine(t)
+		failP0 := failEngine.State.Players[0]
+		failScroll := NewCardInstance(baseCard(t, "2621111"), 0, 1)
+		failP0.Hand = []*CardInstance{failScroll}
+		failP0.Elements[model.ElementShadow] = 4
+		for i := 0; i < 4; i++ {
+			failP0.Graveyard = append(failP0.Graveyard, NewCardInstance(baseCard(t, "1621103"), 0, 1))
+		}
+		if err := failEngine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": failScroll.InstanceID,
+		}}); err == nil {
+			t.Fatal("2621111 should require at least five shadow companions in graveyard")
+		}
+		if len(failP0.Hand) != 1 || len(failP0.Graveyard) != 4 {
+			t.Fatalf("failed 2621111 should leave zones unchanged, hand=%v grave=%v", cardsToInfo(failP0.Hand), cardsToInfo(failP0.Graveyard))
+		}
+
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		scroll := NewCardInstance(baseCard(t, "2621111"), 0, 1)
+		nonShadow := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Hand = []*CardInstance{scroll}
+		p0.Elements[model.ElementShadow] = 4
+		p0.Graveyard = []*CardInstance{nonShadow}
+		for i := 0; i < 5; i++ {
+			p0.Graveyard = append(p0.Graveyard, NewCardInstance(baseCard(t, "1621112"), 0, 1))
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": scroll.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use 2621111: %v", err)
+		}
+		if len(p0.Exile) != 5 {
+			t.Fatalf("2621111 should exile five shadow companions, exile=%v grave=%v", cardsToInfo(p0.Exile), cardsToInfo(p0.Graveyard))
+		}
+		if len(p0.Graveyard) != 2 || p0.Graveyard[0] != nonShadow || p0.Graveyard[1] != scroll {
+			t.Fatalf("2621111 should leave non-shadow card and itself in graveyard, grave=%v", cardsToInfo(p0.Graveyard))
+		}
+		if p0.Elements[model.ElementShadow] != 10 {
+			t.Fatalf("2621111 should spend 4 shadow then gain 10 shadow, elements=%v", p0.Elements)
+		}
+	})
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

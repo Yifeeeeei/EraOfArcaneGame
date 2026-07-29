@@ -95,6 +95,15 @@ func (e *Engine) effectiveSkillUseCostForPurpose(ps *PlayerState, skill *CardIns
 			modifier.ModifySkillUseCost(ctx, cost)
 		}
 	}
+	for _, elem := range model.AllElements {
+		key := "使用费用" + elem + "-"
+		for status, amount := range skill.Statuses {
+			if amount <= 0 || !strings.HasPrefix(status, key) {
+				continue
+			}
+			reduceCost(cost, elem, parsePositiveInt(status[len(key):])*amount)
+		}
+	}
 	if !isBoostPurpose(purpose) && e.nextSkillCostZeroModifier(ps, skill) != nil {
 		for elem := range cost {
 			delete(cost, elem)
