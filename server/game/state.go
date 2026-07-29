@@ -133,6 +133,7 @@ type PlayerState struct {
 	Elements           map[string]int            `json:"elements"`
 	StrictArcane       int                       `json:"strict_arcane,omitempty"`
 	Shield             int                       `json:"shield,omitempty"`
+	CannotGainShield   bool                      `json:"cannot_gain_shield,omitempty"`
 	SkipNextDraw       bool                      `json:"skip_next_draw"`
 	TempModifiers      []TemporaryModifier       `json:"temp_modifiers"`
 	SpellsCastThisTurn map[string]int            `json:"spells_cast_this_turn,omitempty"`

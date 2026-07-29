@@ -289,6 +289,27 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"4611001": func() CardBehavior { return Card4611001Alice{} },
 	"4611002": func() CardBehavior { return Card4611002Fuye{} },
 	"4611003": func() CardBehavior { return Card4611003Jieying{} },
+
+	"1021103": func() CardBehavior {
+		return royalShieldOnEnter{id: "1021103", name: "皇城结界兽", amount: 2}
+	},
+	"1221107": func() CardBehavior {
+		return royalShieldOnEnter{id: "1221107", name: "心莲守护者", amount: 2}
+	},
+	"1421102": func() CardBehavior { return Card1421102EmeraldGuard{} },
+	"1421104": func() CardBehavior {
+		return royalShieldOnEnter{id: "1421104", name: "拜利兰森林熊", amount: 3}
+	},
+	"1511101": func() CardBehavior {
+		return royalShieldOnEnter{id: "1511101", name: "末路的王子 灰烬 凯尔特", amount: 2}
+	},
+	"2011101": func() CardBehavior { return Card2011101ArcaneArmorSky{} },
+	"2021102": func() CardBehavior { return Card2021102DemonBreakingBlade{} },
+	"2221102": func() CardBehavior { return Card2221102OceanShieldScroll{} },
+	"2411101": func() CardBehavior { return Card2411101EmeraldImmortality{} },
+	"2521105": func() CardBehavior {
+		return royalShieldOnEnter{id: "2521105", name: "孤星守护者", amount: 2}
+	},
 }
 
 // RegisterAllCardEffects registers lazy factories for implemented card

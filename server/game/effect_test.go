@@ -294,6 +294,186 @@ func TestRoyalConflictPublicSpecialZones(t *testing.T) {
 	}
 }
 
+func TestRoyalConflictStaticSpellTraits(t *testing.T) {
+	setupReportedBugEngine(t)
+
+	for _, number := range []string{"3001101", "3021105", "3021107", "3021108", "3221104", "3221108", "3321101", "3321105", "3321107"} {
+		card := NewCardInstance(baseCard(t, number), 0, 1)
+		if !cardHasRush(card) {
+			t.Fatalf("%s should have rush", number)
+		}
+	}
+
+	for number, want := range map[string]int{
+		"3021103": 1,
+		"3021108": 1,
+		"3111101": 1,
+		"3221104": 1,
+		"3421107": 1,
+		"3011101": 2,
+		"3021105": 2,
+		"3211102": 2,
+		"3411101": 2,
+	} {
+		if got := skillCooldown(NewCardInstance(baseCard(t, number), 0, 1)); got != want {
+			t.Fatalf("%s cooldown=%d, want %d", number, got, want)
+		}
+	}
+
+	for number, want := range map[string]SpellArea{
+		"3011101": SpellAreaAll,
+		"3111101": SpellAreaAll,
+		"2121112": SpellAreaColumn,
+		"3121104": SpellAreaColumn,
+		"2521112": SpellAreaSquare,
+		"3221107": SpellAreaSquare,
+		"3421108": SpellAreaSquare,
+		"3121107": SpellAreaFrontRow,
+		"3221110": SpellAreaFrontRow,
+		"3511102": SpellAreaSplashCross,
+		"3621109": SpellAreaSplashCross,
+	} {
+		if got := spellArea(NewCardInstance(baseCard(t, number), 0, 1)); got != want {
+			t.Fatalf("%s spell area=%s, want %s", number, got, want)
+		}
+	}
+
+	for _, number := range []string{"3021102", "3121102", "3121108", "3221103", "3321104", "3521107"} {
+		card := baseCard(t, number)
+		if !isDefenseOnlySkill(card) || canUseSkillForPurpose(card, skillPurposeAttack) {
+			t.Fatalf("%s should be defense-only", number)
+		}
+	}
+	if canUseSkillForPurpose(baseCard(t, "3121105"), skillPurposeDefend) {
+		t.Fatal("3121105 should not be usable for defense")
+	}
+
+	for _, number := range []string{"3121106", "3511102", "3521103"} {
+		if !cardHasPierce(NewCardInstance(baseCard(t, number), 0, 1)) {
+			t.Fatalf("%s should have pierce", number)
+		}
+	}
+	for number, status := range map[string]string{
+		"3211101": StatusStun,
+		"3621109": StatusStun,
+		"3221108": StatusFreeze,
+		"2121112": StatusBurn,
+	} {
+		traits := traitsForCardNumber(number)
+		if traits.statuses[status] != 1 {
+			t.Fatalf("%s should apply %s1, statuses=%v", number, status, traits.statuses)
+		}
+	}
+}
+
+func TestRoyalConflictSpellScrollItemsAreSpellLike(t *testing.T) {
+	setupReportedBugEngine(t)
+	for _, number := range []string{"2121109", "2121112", "2221110", "2521112"} {
+		card := baseCard(t, number)
+		if !isSpellScrollCard(card) || !isSpellLikeCard(card) {
+			t.Fatalf("%s should be a spell-like scroll item", number)
+		}
+		if card.Attack >= 0 || card.Power >= 0 {
+			if !skillNeedsTargetCard(card) {
+				t.Fatalf("%s should expose spell target requirement", number)
+			}
+		}
+	}
+}
+
+func TestRoyalConflictShieldCardBehaviors(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+
+	barrierBeast := NewCardInstance(baseCard(t, "1021103"), 0, 1)
+	engine.triggerEffects(TriggerOnEnter, barrierBeast, nil, nil)
+	if p0.Shield != 2 {
+		t.Fatalf("1021103 should gain shield 2 on enter, got %d", p0.Shield)
+	}
+
+	p0.Shield = 1
+	emeraldGuard := NewCardInstance(baseCard(t, "1421102"), 0, 1)
+	engine.triggerEffects(TriggerOnEnter, emeraldGuard, nil, nil)
+	if p0.Shield != 1 {
+		t.Fatalf("1421102 should not gain shield while player already has shield, got %d", p0.Shield)
+	}
+	p0.Shield = 0
+	engine.triggerEffects(TriggerOnEnter, emeraldGuard, nil, nil)
+	if p0.Shield != 2 {
+		t.Fatalf("1421102 should gain shield 2 when player has no shield, got %d", p0.Shield)
+	}
+
+	p0.Shield = 0
+	skyArmor := NewCardInstance(baseCard(t, "2011101"), 0, 1)
+	p0.Equipment[0] = skyArmor
+	engine.triggerEffects(TriggerOnEnter, skyArmor, nil, nil)
+	if p0.Shield != 2 || !p0.CannotGainShield {
+		t.Fatalf("2011101 should gain initial shield then block future shield, shield=%d blocked=%v", p0.Shield, p0.CannotGainShield)
+	}
+	engine.gainPlayerShield(0, 2)
+	if p0.Shield != 2 {
+		t.Fatalf("2011101 should prevent future shield gains, got %d", p0.Shield)
+	}
+	engine.HandleShieldDecay(p0)
+	if p0.Shield != 2 {
+		t.Fatalf("2011101 should prevent shield decay while active, got %d", p0.Shield)
+	}
+
+	p1.Shield = 4
+	breakingBlade := NewCardInstance(baseCard(t, "2021102"), 0, 1)
+	engine.triggerEffects(TriggerOnEnter, breakingBlade, nil, nil)
+	if p1.Shield != 1 {
+		t.Fatalf("2021102 should remove opponent shield 3, got %d", p1.Shield)
+	}
+
+	p0.CannotGainShield = false
+	p0.Shield = 0
+	oceanShield := NewCardInstance(baseCard(t, "2221102"), 0, 1)
+	behavior, ok := globalRegistry.GetBehavior("2221102").(OnUseItemBehavior)
+	if !ok {
+		t.Fatal("2221102 should register an item-use behavior")
+	}
+	if err := behavior.OnUseItem(&EffectContext{Engine: engine, Source: oceanShield, PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("use 2221102: %v", err)
+	}
+	if p0.Shield != 2 {
+		t.Fatalf("2221102 should gain shield 2 on use, got %d", p0.Shield)
+	}
+}
+
+func TestRoyalConflictEmeraldImmortalityProtectsWhileShielded(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	emerald := NewCardInstance(baseCard(t, "2411101"), 0, 1)
+	p0.Equipment[0] = emerald
+	engine.triggerEffects(TriggerOnEnter, emerald, nil, nil)
+	if p0.Shield != 2 {
+		t.Fatalf("2411101 should gain shield 2 on enter, got %d", p0.Shield)
+	}
+
+	ally := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+	ally.CurrentLife = 5
+	engine.dealDamageWithExtra(ally, 2, 0, map[string]any{"damage_source": "effect", "attacker": 1})
+	if ally.CurrentLife != 5 || p0.Shield != 2 {
+		t.Fatalf("2411101 should prevent friendly unit damage while shielded, life=%d shield=%d", ally.CurrentLife, p0.Shield)
+	}
+
+	ally.Statuses[StatusFreeze] = 1
+	if engine.hasEffectiveStatus(ally, StatusFreeze) {
+		t.Fatal("2411101 should make friendly negative statuses ineffective while shielded")
+	}
+
+	p0.Shield = 0
+	engine.dealDamageWithExtra(ally, 2, 0, map[string]any{"damage_source": "effect", "attacker": 1})
+	if ally.CurrentLife != 3 {
+		t.Fatalf("2411101 should stop protecting after shield is gone, life=%d", ally.CurrentLife)
+	}
+	if !engine.hasEffectiveStatus(ally, StatusFreeze) {
+		t.Fatal("negative status should become effective after shield is gone")
+	}
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

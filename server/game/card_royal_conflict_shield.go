@@ -1,0 +1,67 @@
+package game
+
+type royalShieldOnEnter struct {
+	AlwaysActive
+	id     string
+	name   string
+	amount int
+}
+
+func (c royalShieldOnEnter) ID() string   { return c.id }
+func (c royalShieldOnEnter) Name() string { return c.name }
+func (c royalShieldOnEnter) OnEnter(ctx *EffectContext) error {
+	ctx.Engine.gainPlayerShield(ctx.PlayerID, c.amount)
+	return nil
+}
+
+type Card1421102EmeraldGuard struct{ AlwaysActive }
+
+func (Card1421102EmeraldGuard) ID() string   { return "1421102" }
+func (Card1421102EmeraldGuard) Name() string { return "翡翠守卫" }
+func (Card1421102EmeraldGuard) OnEnter(ctx *EffectContext) error {
+	if ctx.Engine.State.Players[ctx.PlayerID].Shield == 0 {
+		ctx.Engine.gainPlayerShield(ctx.PlayerID, 2)
+	}
+	return nil
+}
+
+type Card2011101ArcaneArmorSky struct{ AlwaysActive }
+
+func (Card2011101ArcaneArmorSky) ID() string   { return "2011101" }
+func (Card2011101ArcaneArmorSky) Name() string { return "奥术铠甲 天穹" }
+func (Card2011101ArcaneArmorSky) OnEnter(ctx *EffectContext) error {
+	ctx.Engine.gainPlayerShield(ctx.PlayerID, 2)
+	ctx.Engine.State.Players[ctx.PlayerID].CannotGainShield = true
+	return nil
+}
+
+type Card2021102DemonBreakingBlade struct{ AlwaysActive }
+
+func (Card2021102DemonBreakingBlade) ID() string   { return "2021102" }
+func (Card2021102DemonBreakingBlade) Name() string { return "破魔之刃" }
+func (Card2021102DemonBreakingBlade) OnEnter(ctx *EffectContext) error {
+	ctx.Engine.losePlayerShield(ctx.OpponentID, 3)
+	return nil
+}
+
+type Card2221102OceanShieldScroll struct{ AlwaysActive }
+
+func (Card2221102OceanShieldScroll) ID() string   { return "2221102" }
+func (Card2221102OceanShieldScroll) Name() string { return "海洋之盾卷轴" }
+func (Card2221102OceanShieldScroll) OnUseItem(ctx *EffectContext) error {
+	ctx.Engine.gainPlayerShield(ctx.PlayerID, 2)
+	return nil
+}
+
+type Card2411101EmeraldImmortality struct{ AlwaysActive }
+
+func (Card2411101EmeraldImmortality) ID() string   { return "2411101" }
+func (Card2411101EmeraldImmortality) Name() string { return "翡翠永生" }
+func (Card2411101EmeraldImmortality) OnEnter(ctx *EffectContext) error {
+	ctx.Engine.gainPlayerShield(ctx.PlayerID, 2)
+	return nil
+}
+func (Card2411101EmeraldImmortality) PreventsFieldDamage(ctx *EffectContext) bool {
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	return ps != nil && ps.Shield > 0
+}

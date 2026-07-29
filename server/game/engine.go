@@ -4190,17 +4190,18 @@ func turnOrderLabel(playerID int, firstPlayer int) string {
 
 func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any {
 	info := map[string]any{
-		"player_id":      ps.PlayerID,
-		"player_name":    ps.PlayerName,
-		"hero":           cardToInfo(ps.Hero),
-		"elements":       ps.Elements,
-		"strict_arcane":  ps.StrictArcane,
-		"shield":         ps.Shield,
-		"charge":         ps.Charge,
-		"temp_modifiers": ps.TempModifiers,
-		"deck_count":     len(ps.Deck),
-		"graveyard":      cardsToInfo(ps.Graveyard),
-		"exile":          cardsToInfo(ps.Exile),
+		"player_id":          ps.PlayerID,
+		"player_name":        ps.PlayerName,
+		"hero":               cardToInfo(ps.Hero),
+		"elements":           ps.Elements,
+		"strict_arcane":      ps.StrictArcane,
+		"shield":             ps.Shield,
+		"cannot_gain_shield": ps.CannotGainShield,
+		"charge":             ps.Charge,
+		"temp_modifiers":     ps.TempModifiers,
+		"deck_count":         len(ps.Deck),
+		"graveyard":          cardsToInfo(ps.Graveyard),
+		"exile":              cardsToInfo(ps.Exile),
 	}
 
 	// Units grid

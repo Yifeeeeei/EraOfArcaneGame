@@ -142,11 +142,24 @@ func (e *Engine) HandleShieldDecay(ps *PlayerState) {
 }
 
 func (e *Engine) playerShieldDecayPrevented(ps *PlayerState) bool {
-	if ps == nil || ps.Shield >= 3 {
+	if ps == nil {
+		return false
+	}
+	if e.playerHasActiveCard(ps, "2011101") {
+		return true
+	}
+	if ps.Shield >= 3 {
+		return false
+	}
+	return e.playerHasActiveCard(ps, "4411101")
+}
+
+func (e *Engine) playerHasActiveCard(ps *PlayerState, number string) bool {
+	if ps == nil || number == "" {
 		return false
 	}
 	for _, card := range e.getAllFieldCards(ps) {
-		if card != nil && card.Card != nil && card.Card.Number == "4411101" && !e.hasEffectiveStatus(card, StatusPetrify) {
+		if card != nil && card.Card != nil && card.Card.Number == number && !e.hasEffectiveStatus(card, StatusPetrify) {
 			return true
 		}
 	}
@@ -187,11 +200,32 @@ func (e *Engine) gainPlayerShield(playerID int, amount int) {
 	if amount <= 0 || playerID < 0 || playerID >= len(e.State.Players) {
 		return
 	}
-	e.State.Players[playerID].Shield += amount
+	ps := e.State.Players[playerID]
+	if ps == nil || ps.CannotGainShield {
+		return
+	}
+	ps.Shield += amount
 	e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
 		"effect": "gain_shield",
 		"amount": amount,
-		"shield": e.State.Players[playerID].Shield,
+		"shield": ps.Shield,
+	}})
+}
+
+func (e *Engine) losePlayerShield(playerID int, amount int) {
+	if amount <= 0 || playerID < 0 || playerID >= len(e.State.Players) {
+		return
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil || ps.Shield <= 0 {
+		return
+	}
+	lost := min(amount, ps.Shield)
+	ps.Shield -= lost
+	e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
+		"effect": "lose_shield",
+		"amount": lost,
+		"shield": ps.Shield,
 	}})
 }
 
