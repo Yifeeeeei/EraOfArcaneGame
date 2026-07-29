@@ -2,21 +2,28 @@ package cards
 
 import "testing"
 
-func TestLoadCardsBuildsBasePlayablePool(t *testing.T) {
+func TestLoadCardsBuildsSupportedPlayablePool(t *testing.T) {
 	if err := LoadCards(); err != nil {
 		t.Fatalf("LoadCards: %v", err)
 	}
 
-	if len(CardDB) != 393 {
-		t.Fatalf("expected 393 compiled base cards, got %d", len(CardDB))
+	const expectedBaseCards = 393
+	const expectedRoyalConflictCards = 335
+	expectedSupportedCards := expectedBaseCards + expectedRoyalConflictCards
+
+	if len(CardDB) != expectedSupportedCards {
+		t.Fatalf("expected %d compiled supported cards, got %d", expectedSupportedCards, len(CardDB))
 	}
-	if len(PlayableCardDB) != 393 {
-		t.Fatalf("expected 393 base cards, got %d", len(PlayableCardDB))
+	if len(BaseCardDB) != expectedBaseCards {
+		t.Fatalf("expected %d base cards, got %d", expectedBaseCards, len(BaseCardDB))
+	}
+	if len(PlayableCardDB) != expectedSupportedCards {
+		t.Fatalf("expected %d playable supported cards, got %d", expectedSupportedCards, len(PlayableCardDB))
 	}
 
 	for id, card := range PlayableCardDB {
-		if card.VersionName != BaseVersionName {
-			t.Fatalf("playable card %s is from %s, want %s", id, card.VersionName, BaseVersionName)
+		if !IsSupportedVersion(card.VersionName) {
+			t.Fatalf("playable card %s is from unsupported version %s", id, card.VersionName)
 		}
 	}
 }

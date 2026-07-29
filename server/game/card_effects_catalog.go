@@ -291,10 +291,9 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"4611003": func() CardBehavior { return Card4611003Jieying{} },
 }
 
-// RegisterAllCardEffects registers lazy factories for currently supported
-// base-set card behavior. It does not instantiate every behavior object at
-// startup; a behavior is built only when its card number is queried by the
-// engine.
+// RegisterAllCardEffects registers lazy factories for implemented card
+// behaviors. It does not instantiate every behavior object at startup; a
+// behavior is built only when its card number is queried by the engine.
 func RegisterAllCardEffects() {
 	globalRegistry = NewEffectRegistry()
 	r := GetEffectRegistry()
@@ -308,7 +307,7 @@ func RegisterAllCardEffects() {
 	for _, id := range ids {
 		r.RegisterBehaviorFactory(id, baseSetBehaviorFactories[id])
 	}
-	log.Printf("[Effects] Registered %d lazy base-set card behavior factories", len(ids))
+	log.Printf("[Effects] Registered %d lazy card behavior factories", len(ids))
 }
 
 func hasSpellReactionNumber(number string) bool {

@@ -36,7 +36,7 @@ func setupBaseCardSmokeSuite(t *testing.T) {
 	})
 }
 
-func sortedBaseCards(t *testing.T) []*model.Card {
+func sortedSupportedCards(t *testing.T) []*model.Card {
 	t.Helper()
 	result := make([]*model.Card, 0, len(cards.PlayableCardDB))
 	for _, card := range cards.PlayableCardDB {
@@ -136,23 +136,23 @@ func isConsumableItem(card *model.Card) bool {
 	return cards.IsConsumable(card.Number)
 }
 
-func TestBaseCardPoolRejectsEveryNonBaseCard(t *testing.T) {
+func TestSupportedCardPoolRejectsUnsupportedVersions(t *testing.T) {
 	setupBaseCardSmokeSuite(t)
 
 	for id, card := range cards.CardDB {
-		if card.VersionName == cards.BaseVersionName {
+		if cards.IsSupportedVersion(card.VersionName) {
 			continue
 		}
 		if _, ok := cards.PlayableCardDB[id]; ok {
-			t.Fatalf("non-base card %s (%s/%s) is present in playable DB", id, card.VersionName, card.Name)
+			t.Fatalf("unsupported card %s (%s/%s) is present in playable DB", id, card.VersionName, card.Name)
 		}
 	}
 }
 
-func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
+func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 	setupBaseCardSmokeSuite(t)
 
-	for _, card := range sortedBaseCards(t) {
+	for _, card := range sortedSupportedCards(t) {
 		card := card
 		t.Run(card.Number+"_"+card.Name, func(t *testing.T) {
 			engine := baseSmokeEngine(t)
@@ -341,10 +341,10 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 	}
 }
 
-func TestEveryRegisteredBaseCardEffectHandlerRuns(t *testing.T) {
+func TestEveryRegisteredCardEffectHandlerRuns(t *testing.T) {
 	setupBaseCardSmokeSuite(t)
 
-	for _, card := range sortedBaseCards(t) {
+	for _, card := range sortedSupportedCards(t) {
 		effects := globalRegistry.GetAllEffects(card.Number)
 		if len(effects) == 0 {
 			continue

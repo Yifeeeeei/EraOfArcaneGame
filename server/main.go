@@ -11,12 +11,12 @@ import (
 )
 
 func main() {
-	// Load compiled base-set card definitions.
+	// Load compiled supported card definitions.
 	if err := cards.LoadCards(); err != nil {
 		log.Fatalf("Failed to load cards: %v", err)
 	}
 
-	// Set card DB reference for game engine. For now, only the base set is playable.
+	// Set card DB reference for game engine.
 	game.SetCardDB(cards.PlayableCardDB)
 
 	// Register explicit card effects. Runtime never parses card text for behavior.

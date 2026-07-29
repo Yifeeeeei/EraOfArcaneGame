@@ -1,5 +1,25 @@
 [
   {
+    "number": "1001101",
+    "type": "伙伴",
+    "name": "弃子",
+    "category": "无",
+    "tag": "衍生-造物",
+    "description": "遗言:对周围单位造成1点伤害,如果有单位因此死亡,在该位置召唤1个弃子",
+    "quote": "弃子非懦,舍得非怯",
+    "elements_cost": {},
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1001101.jpg"
+  },
+  {
     "number": "1011001",
     "type": "伙伴",
     "name": "魔龙 奥瑞",
@@ -80,6 +100,79 @@
       "3001002"
     ],
     "output_path": "output\\基础包\\伙伴\\无\\1011003.jpg"
+  },
+  {
+    "number": "1011101",
+    "type": "伙伴",
+    "name": "收藏家 珊瑚 芬洛",
+    "category": "无",
+    "tag": "传奇-人类",
+    "description": "诱发回合技:每当你装备1个道具,抽1张牌.诱发回合技:每当你打出1个消耗品,获得1\\无",
+    "quote": "\"没错啊,小岛上全是我的收藏品,不过这些东西加一起都比不上我的宝贝女儿\"",
+    "elements_cost": {
+      "无": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1011101.jpg"
+  },
+  {
+    "number": "1011102",
+    "type": "伙伴",
+    "name": "\"指挥家\" 洛斯",
+    "category": "无",
+    "tag": "传奇-人类",
+    "description": "引魔.诱发:每当场上4张卡牌被消耗,可以为你装备一个落幕提琴.主动:消耗此卡才能发动,重置你的所有落幕提琴",
+    "quote": "在曾经辉煌的大厅,一人继续排练着无人能听到的乐章",
+    "elements_cost": {
+      "无": 8
+    },
+    "elements_gain": {
+      "无": 3
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [
+      "2001101"
+    ],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1011102.jpg"
+  },
+  {
+    "number": "1011103",
+    "type": "伙伴",
+    "name": "\"弈者\"",
+    "category": "无",
+    "tag": "传奇-人类",
+    "description": "引魔.绑定技能:入局.主动绝技:对场上所有弃子造成1点伤害",
+    "quote": "世事如棋,步步谋局;权争似弈,胜负难明",
+    "elements_cost": {
+      "无": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [
+      "1001101",
+      "3001101"
+    ],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1011103.jpg"
   },
   {
     "number": "1021001",
@@ -513,6 +606,373 @@
     "output_path": "output\\基础包\\伙伴\\无\\1021018.jpg"
   },
   {
+    "number": "1021101",
+    "type": "伙伴",
+    "name": "私家教师",
+    "category": "无",
+    "tag": "巫师",
+    "description": "入场:学习1个学习花费小于4的法术,无需花费",
+    "quote": "",
+    "elements_cost": {
+      "无": 3,
+      "水": 1
+    },
+    "elements_gain": {
+      "无": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1021101.jpg"
+  },
+  {
+    "number": "1021102",
+    "type": "伙伴",
+    "name": "剑术师傅",
+    "category": "无",
+    "tag": "人类",
+    "description": "入场:使1个相邻友方伙伴获得+1\\攻",
+    "quote": "",
+    "elements_cost": {
+      "无": 2,
+      "火": 1
+    },
+    "elements_gain": {
+      "无": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1021102.jpg"
+  },
+  {
+    "number": "1021103",
+    "type": "伙伴",
+    "name": "皇城结界兽",
+    "category": "无",
+    "tag": "异兽",
+    "description": "入场:获得护盾2",
+    "quote": "",
+    "elements_cost": {
+      "无": 3
+    },
+    "elements_gain": {
+      "无": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1021103.jpg"
+  },
+  {
+    "number": "1021104",
+    "type": "伙伴",
+    "name": "次元撕裂兽",
+    "category": "无",
+    "tag": "异兽",
+    "description": "入场:将法力范围内的1个敌方伙伴移出游戏",
+    "quote": "",
+    "elements_cost": {
+      "光": 1,
+      "无": 5,
+      "暗": 1
+    },
+    "elements_gain": {
+      "光": 1,
+      "暗": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1021104.jpg"
+  },
+  {
+    "number": "1021105",
+    "type": "伙伴",
+    "name": "皇城征税员",
+    "category": "无",
+    "tag": "人类",
+    "description": "入场:直到对手的下个回合结束,对手每抽1张牌,你获得1\\无",
+    "quote": "内政大臣们正在考虑取消税负政策,具体做法是:将税金更名为\"义务奉献\"",
+    "elements_cost": {
+      "无": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1021105.jpg"
+  },
+  {
+    "number": "1021106",
+    "type": "伙伴",
+    "name": "云霄城富豪",
+    "category": "无",
+    "tag": "人类",
+    "description": "主动:消耗此卡才能发动,双方各抽1张牌(次序由你选择)",
+    "quote": "",
+    "elements_cost": {
+      "无": 1,
+      "气": 1
+    },
+    "elements_gain": {
+      "无": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1021106.jpg"
+  },
+  {
+    "number": "1021107",
+    "type": "伙伴",
+    "name": "天才少年",
+    "category": "无",
+    "tag": "人类",
+    "description": "精通2:此卡获得任意1点奥术元素以外的负载",
+    "quote": "",
+    "elements_cost": {
+      "无": 2
+    },
+    "elements_gain": {
+      "无": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1021107.jpg"
+  },
+  {
+    "number": "1021108",
+    "type": "伙伴",
+    "name": "炼金术学徒",
+    "category": "无",
+    "tag": "巫师",
+    "description": "主动:消耗此卡才能发动,将1\\无转化为任意2点奥术元素以外的元素",
+    "quote": "",
+    "elements_cost": {
+      "无": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1021108.jpg"
+  },
+  {
+    "number": "1021109",
+    "type": "伙伴",
+    "name": "教廷特使",
+    "category": "无",
+    "tag": "人类",
+    "description": "主动绝技:移除1张友方卡牌全部负面效果",
+    "quote": "",
+    "elements_cost": {
+      "光": 1,
+      "无": 1
+    },
+    "elements_gain": {
+      "无": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1021109.jpg"
+  },
+  {
+    "number": "1021110",
+    "type": "伙伴",
+    "name": "岩壁护卫军",
+    "category": "无",
+    "tag": "造物",
+    "description": "引魔.诱发绝技:当敌方法术命中且你没有护盾时,获得护盾2",
+    "quote": "",
+    "elements_cost": {
+      "地": 1,
+      "无": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1021110.jpg"
+  },
+  {
+    "number": "1021111",
+    "type": "伙伴",
+    "name": "孤星勇者",
+    "category": "无",
+    "tag": "人类",
+    "description": "你每有1张其他手牌,此卡的入场花费+1\\无",
+    "quote": "",
+    "elements_cost": {
+      "无": 3
+    },
+    "elements_gain": {
+      "无": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1021111.jpg"
+  },
+  {
+    "number": "1021112",
+    "type": "伙伴",
+    "name": "奥术纯净体",
+    "category": "无",
+    "tag": "造物",
+    "description": "此卡的入场花费必须严格为奥术元素",
+    "quote": "",
+    "elements_cost": {
+      "无": 4
+    },
+    "elements_gain": {
+      "无": 3
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1021112.jpg"
+  },
+  {
+    "number": "1021113",
+    "type": "伙伴",
+    "name": "魔法飞蛾",
+    "category": "无",
+    "tag": "野兽",
+    "description": "诱发:在你施放一个聚能技能后,可以从卡组抽取本卡",
+    "quote": "",
+    "elements_cost": {
+      "光": 1,
+      "地": 1,
+      "气": 1,
+      "水": 1,
+      "火": 1
+    },
+    "elements_gain": {
+      "无": 3
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1021113.jpg"
+  },
+  {
+    "number": "1021114",
+    "type": "伙伴",
+    "name": "蛰蛙",
+    "category": "无",
+    "tag": "野兽",
+    "description": "诱发:每当你使用一个驱动或聚能技能后,本回合你的法术+1\\威",
+    "quote": "",
+    "elements_cost": {
+      "无": 4,
+      "气": 1
+    },
+    "elements_gain": {
+      "无": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1021114.jpg"
+  },
+  {
+    "number": "1021115",
+    "type": "伙伴",
+    "name": "九霄刺客",
+    "category": "无",
+    "tag": "人类",
+    "description": "入场:将1张九霄印记加入对手手牌.遗言:将4张九霄印记洗入对手卡组",
+    "quote": "\"想看看云霄城的夜色吗,可能是最后一次了哦\"",
+    "elements_cost": {
+      "无": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [
+      "2001102"
+    ],
+    "output_path": "output\\王权纷争\\伙伴\\无\\1021115.jpg"
+  },
+  {
     "number": "1111001",
     "type": "伙伴",
     "name": "火龙 \"辉煌\"",
@@ -587,6 +1047,83 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\伙伴\\火\\1111003.jpg"
+  },
+  {
+    "number": "1111101",
+    "type": "伙伴",
+    "name": "无上女王 黛琳 凯尔特",
+    "category": "火",
+    "tag": "传奇-巫师",
+    "description": "入场:从手牌召唤任意数量火焰伙伴到此卡相邻位置,无需花费,直到下个回合结束此卡和此卡召唤的卡牌免疫所有伤害和负面效果",
+    "quote": "我心即是无上意志,我行即是万物准则",
+    "elements_cost": {
+      "无": 3,
+      "火": 9
+    },
+    "elements_gain": {
+      "无": 1,
+      "火": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1111101.jpg"
+  },
+  {
+    "number": "1111102",
+    "type": "伙伴",
+    "name": "\"流放者\" 索拓尔",
+    "category": "火",
+    "tag": "传奇-巫师",
+    "description": "光环:你的所有法术额外选择与原本目标相邻的所有单位为目标",
+    "quote": "传说凯尔特草原曾是繁茂的森林,直到索拓尔用漫天的火焰将其焚烧殆尽,尔后万物复苏,草原遂成",
+    "elements_cost": {
+      "无": 1,
+      "气": 2,
+      "火": 4
+    },
+    "elements_gain": {
+      "气": 1,
+      "火": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1111102.jpg"
+  },
+  {
+    "number": "1111103",
+    "type": "伙伴",
+    "name": "贪婪暴君 卡姆 弗卡莱诺",
+    "category": "火",
+    "tag": "传奇-人类",
+    "description": "引魔.光环:双方手牌里的卡牌入场花费+1\\无",
+    "quote": "至少,他境内的岩浆比谁都多",
+    "elements_cost": {
+      "火": 3
+    },
+    "elements_gain": {
+      "火": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1111103.jpg"
   },
   {
     "number": "1121001",
@@ -979,6 +1516,392 @@
     "output_path": "output\\基础包\\伙伴\\火\\1121016.jpg"
   },
   {
+    "number": "1121101",
+    "type": "伙伴",
+    "name": "火山蝾螈",
+    "category": "火",
+    "tag": "野兽",
+    "description": "精通2:献祭此卡并从手牌召唤1个入场费用小于8的火焰伙伴,无需花费.",
+    "quote": "",
+    "elements_cost": {
+      "火": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1121101.jpg"
+  },
+  {
+    "number": "1121102",
+    "type": "伙伴",
+    "name": "火山谷底巨兽",
+    "category": "火",
+    "tag": "异兽",
+    "description": "",
+    "quote": "",
+    "elements_cost": {
+      "火": 6
+    },
+    "elements_gain": {
+      "地": 1,
+      "火": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": 5,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1121102.jpg"
+  },
+  {
+    "number": "1121103",
+    "type": "伙伴",
+    "name": "烽火台守卫",
+    "category": "火",
+    "tag": "人类",
+    "description": "入场:如果你场上的单位数量少于敌方,获得护盾3",
+    "quote": "时刻保持警戒!",
+    "elements_cost": {
+      "无": 1,
+      "火": 1
+    },
+    "elements_gain": {
+      "火": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1121103.jpg"
+  },
+  {
+    "number": "1121104",
+    "type": "伙伴",
+    "name": "熔岩堡战车",
+    "category": "火",
+    "tag": "机械",
+    "description": "此卡攻击附加点燃1",
+    "quote": "",
+    "elements_cost": {
+      "火": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": 4,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1121104.jpg"
+  },
+  {
+    "number": "1121105",
+    "type": "伙伴",
+    "name": "弗卡莱诺近卫",
+    "category": "火",
+    "tag": "人类",
+    "description": "",
+    "quote": "",
+    "elements_cost": {
+      "火": 4
+    },
+    "elements_gain": {
+      "火": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1121105.jpg"
+  },
+  {
+    "number": "1121106",
+    "type": "伙伴",
+    "name": "弗卡莱诺皇家驯兽师",
+    "category": "火",
+    "tag": "人类",
+    "description": "入场:你的下一个野兽或异兽火焰伙伴花费-2",
+    "quote": "",
+    "elements_cost": {
+      "火": 2
+    },
+    "elements_gain": {
+      "火": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1121106.jpg"
+  },
+  {
+    "number": "1121107",
+    "type": "伙伴",
+    "name": "失控的神火兽",
+    "category": "火",
+    "tag": "异兽",
+    "description": "光环:双方法术在攻击时+2\\威",
+    "quote": "通常神火军团不会雨天出动,不是因为害怕雨水,而是害怕闪电让他们的坐骑彻底失控",
+    "elements_cost": {
+      "气": 1,
+      "火": 4
+    },
+    "elements_gain": {
+      "气": 1,
+      "火": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1121107.jpg"
+  },
+  {
+    "number": "1121108",
+    "type": "伙伴",
+    "name": "火蝴蝶",
+    "category": "火",
+    "tag": "野兽",
+    "description": "主动回合技:负载临时改为1\\气",
+    "quote": "想在熔岩堡这么恶劣的环境下生存,各种生灵也得有些自己的绝活",
+    "elements_cost": {
+      "火": 1
+    },
+    "elements_gain": {
+      "火": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1121108.jpg"
+  },
+  {
+    "number": "1121109",
+    "type": "伙伴",
+    "name": "神火兽骑手",
+    "category": "火",
+    "tag": "人类",
+    "description": "主动绝技:消耗1个友方其他火焰伙伴才能发动,下一次你的火焰法术\\威上升其入场花费元素的数值",
+    "quote": "",
+    "elements_cost": {
+      "火": 5
+    },
+    "elements_gain": {
+      "气": 1,
+      "火": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1121109.jpg"
+  },
+  {
+    "number": "1121110",
+    "type": "伙伴",
+    "name": "熔岩堡档案员",
+    "category": "火",
+    "tag": "巫师",
+    "description": "诱发绝技:在你使用1个创造法术后,翻取1个卷轴或符文",
+    "quote": "",
+    "elements_cost": {
+      "火": 2
+    },
+    "elements_gain": {
+      "火": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1121110.jpg"
+  },
+  {
+    "number": "1121111",
+    "type": "伙伴",
+    "name": "孤星火种",
+    "category": "火",
+    "tag": "精灵",
+    "description": "诱发绝技:在场上其他伙伴牌受到火焰伤害后,此卡获得负载+1\\火",
+    "quote": "",
+    "elements_cost": {
+      "火": 2
+    },
+    "elements_gain": {
+      "火": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1121111.jpg"
+  },
+  {
+    "number": "1121112",
+    "type": "伙伴",
+    "name": "火花飞蛾",
+    "category": "火",
+    "tag": "野兽",
+    "description": "诱发:在一个火焰法术命中后,可以展示手牌中的此卡并-1入场花费",
+    "quote": "",
+    "elements_cost": {
+      "火": 2
+    },
+    "elements_gain": {
+      "火": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1121112.jpg"
+  },
+  {
+    "number": "1121113",
+    "type": "伙伴",
+    "name": "熔岩堡地狱犬",
+    "category": "火",
+    "tag": "异兽",
+    "description": "诱发回合技:此卡被其他卡牌效果消耗后,必须选择法力范围内2个不同单位造成1点伤害",
+    "quote": "",
+    "elements_cost": {
+      "火": 5
+    },
+    "elements_gain": {
+      "火": 3
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1121113.jpg"
+  },
+  {
+    "number": "1121114",
+    "type": "伙伴",
+    "name": "军团将星",
+    "category": "火",
+    "tag": "人类",
+    "description": "引魔.祈咒:直到下个回合结束,你的所有火焰法术获得+2\\威或+1\\攻",
+    "quote": "",
+    "elements_cost": {
+      "地": 1,
+      "气": 1,
+      "火": 6
+    },
+    "elements_gain": {
+      "无": 1,
+      "火": 3
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 5,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1121114.jpg"
+  },
+  {
+    "number": "1121115",
+    "type": "伙伴",
+    "name": "军团参谋",
+    "category": "火",
+    "tag": "巫师",
+    "description": "诱发回合技:在你使用1个创造种类的技能后,可以翻取1个火焰属性消耗品道具但在回合结束时丢弃",
+    "quote": "",
+    "elements_cost": {
+      "火": 4
+    },
+    "elements_gain": {
+      "火": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\火\\1121115.jpg"
+  },
+  {
+    "number": "1201101",
+    "type": "伙伴",
+    "name": "凛冰之龙",
+    "category": "水",
+    "tag": "衍生-龙",
+    "description": "",
+    "quote": "",
+    "elements_cost": {},
+    "elements_gain": {
+      "水": 3
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1201101.jpg"
+  },
+  {
     "number": "1211001",
     "type": "伙伴",
     "name": "人鱼 菲尔",
@@ -1051,6 +1974,84 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\伙伴\\水\\1211003.jpg"
+  },
+  {
+    "number": "1211101",
+    "type": "伙伴",
+    "name": "雾之国主 那兰提",
+    "category": "水",
+    "tag": "传奇-巫师",
+    "description": "入场:所有友方没有隐蔽的单位获得隐蔽2",
+    "quote": "如果你妄想进犯我的国度,我的子民将会让你看到他们在迷雾中的另一面",
+    "elements_cost": {
+      "气": 2,
+      "水": 4
+    },
+    "elements_gain": {
+      "气": 1,
+      "水": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1211101.jpg"
+  },
+  {
+    "number": "1211102",
+    "type": "伙伴",
+    "name": "花海梦鲸",
+    "category": "水",
+    "tag": "传奇-野兽",
+    "description": "入场:将3种不同的衍生卡牌幻创之梦洗入你的卡组.诱发:当你累计使用2次创造法术后,检索1张幻创之梦",
+    "quote": "亦真亦幻,如痴如梦",
+    "elements_cost": {
+      "水": 5
+    },
+    "elements_gain": {
+      "水": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [
+      "2201101",
+      "2201102",
+      "2201103"
+    ],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1211102.jpg"
+  },
+  {
+    "number": "1211103",
+    "type": "伙伴",
+    "name": "海上巾帼 珊瑚 雯迪",
+    "category": "水",
+    "tag": "传奇-人类",
+    "description": "回合技2:在你使用1个使用花费小于3的法术后,可以花费2\\水将其重置",
+    "quote": "\"忘了那个老头吧,现在是年轻人的时代\"",
+    "elements_cost": {
+      "水": 6
+    },
+    "elements_gain": {
+      "水": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1211103.jpg"
   },
   {
     "number": "1221001",
@@ -1441,6 +2442,373 @@
     "output_path": "output\\基础包\\伙伴\\水\\1221016.jpg"
   },
   {
+    "number": "1221101",
+    "type": "伙伴",
+    "name": "掠夺者海盗船",
+    "category": "水",
+    "tag": "机械",
+    "description": "",
+    "quote": "追寻宝藏的海盗,永远无法见到海洋最珍贵的宝物",
+    "elements_cost": {
+      "暗": 1,
+      "水": 4
+    },
+    "elements_gain": {
+      "暗": 1,
+      "水": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1221101.jpg"
+  },
+  {
+    "number": "1221102",
+    "type": "伙伴",
+    "name": "雾之国法师",
+    "category": "水",
+    "tag": "巫师",
+    "description": "回合技:使1个没有隐蔽的其他友方单位隐蔽2",
+    "quote": "\"没错,我之前只是在保存实力\"",
+    "elements_cost": {
+      "气": 1,
+      "水": 4
+    },
+    "elements_gain": {
+      "气": 1,
+      "水": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1221102.jpg"
+  },
+  {
+    "number": "1221103",
+    "type": "伙伴",
+    "name": "凛冬城射手",
+    "category": "水",
+    "tag": "人类",
+    "description": "引魔.此卡不位于前排也能进行攻击",
+    "quote": "",
+    "elements_cost": {
+      "水": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1221103.jpg"
+  },
+  {
+    "number": "1221104",
+    "type": "伙伴",
+    "name": "冰原猛犸",
+    "category": "水",
+    "tag": "野兽",
+    "description": "",
+    "quote": "",
+    "elements_cost": {
+      "水": 5
+    },
+    "elements_gain": {
+      "水": 3
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1221104.jpg"
+  },
+  {
+    "number": "1221105",
+    "type": "伙伴",
+    "name": "雾之国舞女",
+    "category": "水",
+    "tag": "精灵",
+    "description": "入场:使法力范围内1个伙伴隐蔽2",
+    "quote": "",
+    "elements_cost": {
+      "无": 1,
+      "水": 2
+    },
+    "elements_gain": {
+      "气": 1,
+      "水": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1221105.jpg"
+  },
+  {
+    "number": "1221106",
+    "type": "伙伴",
+    "name": "镜花海之莲",
+    "category": "水",
+    "tag": "植物",
+    "description": "引魔.祈咒:获得负载+1\\水",
+    "quote": "",
+    "elements_cost": {
+      "水": 3
+    },
+    "elements_gain": {
+      "水": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1221106.jpg"
+  },
+  {
+    "number": "1221107",
+    "type": "伙伴",
+    "name": "心莲守护者",
+    "category": "水",
+    "tag": "巫师",
+    "description": "入场:获得护盾2",
+    "quote": "",
+    "elements_cost": {
+      "水": 4
+    },
+    "elements_gain": {
+      "水": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1221107.jpg"
+  },
+  {
+    "number": "1221108",
+    "type": "伙伴",
+    "name": "心莲镜魔师",
+    "category": "水",
+    "tag": "巫师",
+    "description": "引魔.回合技:在你使用1个创造种类的技能后,可以翻取1张水纹属性道具牌,如果是反制卡牌可以立刻盖放在场上并且入场费用变为0",
+    "quote": "",
+    "elements_cost": {
+      "水": 5
+    },
+    "elements_gain": {
+      "水": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1221108.jpg"
+  },
+  {
+    "number": "1221109",
+    "type": "伙伴",
+    "name": "雾霭幽魂",
+    "category": "水",
+    "tag": "造物",
+    "description": "入场:获得隐蔽3.光环:此卡具有隐蔽时获得负载+2\\水",
+    "quote": "",
+    "elements_cost": {
+      "水": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1221109.jpg"
+  },
+  {
+    "number": "1221110",
+    "type": "伙伴",
+    "name": "掠夺者幽灵船长",
+    "category": "水",
+    "tag": "人类",
+    "description": "光环:你的其他名字带有\"掠夺者\"的伙伴牌获得负载+1\\水",
+    "quote": "",
+    "elements_cost": {
+      "暗": 1,
+      "水": 3
+    },
+    "elements_gain": {
+      "暗": 1,
+      "水": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1221110.jpg"
+  },
+  {
+    "number": "1221111",
+    "type": "伙伴",
+    "name": "掠夺者炮手",
+    "category": "水",
+    "tag": "人类",
+    "description": "诱发绝技:在你的法术命中后,随机弃置敌方1张手牌",
+    "quote": "",
+    "elements_cost": {
+      "暗": 1,
+      "水": 1
+    },
+    "elements_gain": {
+      "暗": 1,
+      "水": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1221111.jpg"
+  },
+  {
+    "number": "1221112",
+    "type": "伙伴",
+    "name": "水魔导师",
+    "category": "水",
+    "tag": "巫师",
+    "description": "主动绝技:重置你的1个使用花费小于3的水纹法术",
+    "quote": "",
+    "elements_cost": {
+      "水": 3
+    },
+    "elements_gain": {
+      "水": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1221112.jpg"
+  },
+  {
+    "number": "1221113",
+    "type": "伙伴",
+    "name": "凛冬城象骑兵",
+    "category": "水",
+    "tag": "人类",
+    "description": "",
+    "quote": "",
+    "elements_cost": {
+      "无": 1,
+      "水": 5
+    },
+    "elements_gain": {
+      "水": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": 5,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1221113.jpg"
+  },
+  {
+    "number": "1221114",
+    "type": "伙伴",
+    "name": "玉面雪狐",
+    "category": "水",
+    "tag": "野兽",
+    "description": "诱发绝技:当敌方使用法术攻击时,你可以立刻移动此卡并获得2\\水,敌方需要重新选择目标",
+    "quote": "",
+    "elements_cost": {
+      "水": 2
+    },
+    "elements_gain": {
+      "水": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1221114.jpg"
+  },
+  {
+    "number": "1221115",
+    "type": "伙伴",
+    "name": "凛冬城御魔师",
+    "category": "水",
+    "tag": "巫师",
+    "description": "祈咒:使你已学习的所有技能下一次使用花费-1\\水",
+    "quote": "",
+    "elements_cost": {
+      "水": 7
+    },
+    "elements_gain": {
+      "水": 3
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 4,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\水\\1221115.jpg"
+  },
+  {
     "number": "1311001",
     "type": "伙伴",
     "name": "大鹏",
@@ -1515,6 +2883,78 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\伙伴\\气\\1311003.jpg"
+  },
+  {
+    "number": "1311101",
+    "type": "伙伴",
+    "name": "斯帕罗 银叶",
+    "category": "气",
+    "tag": "传奇-巫师",
+    "description": "入场:对法力范围内1名敌人造成等同于你本回合丢弃手牌数量的伤害,最高3点",
+    "quote": "\"好久不见,我的哥哥.上次还是...还是你把我送进这间牢房的时候\"",
+    "elements_cost": {
+      "无": 1,
+      "气": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1311101.jpg"
+  },
+  {
+    "number": "1311102",
+    "type": "伙伴",
+    "name": "云顶商行 克罗斯",
+    "category": "气",
+    "tag": "传奇-人类",
+    "description": "光环:如果你的卡组为空,你可以从对手的卡组抽牌,那些卡牌的入场花费和负载全部变为等量的\\无",
+    "quote": "\"我有的赚,大家都有的赚\"",
+    "elements_cost": {
+      "气": 3
+    },
+    "elements_gain": {
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1311102.jpg"
+  },
+  {
+    "number": "1311103",
+    "type": "伙伴",
+    "name": "九霄议庭言主 麦阿提",
+    "category": "气",
+    "tag": "传奇-人类",
+    "description": "光环:对方手牌上限-1,每当对方手牌超过上限必须立刻弃牌至手牌上限",
+    "quote": "\"我们会照顾所有人的需求,在有序的前提下\"",
+    "elements_cost": {
+      "气": 5
+    },
+    "elements_gain": {
+      "光": 1,
+      "气": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1311103.jpg"
   },
   {
     "number": "1321001",
@@ -1900,6 +3340,374 @@
     "output_path": "output\\基础包\\伙伴\\气\\1321016.jpg"
   },
   {
+    "number": "1321101",
+    "type": "伙伴",
+    "name": "翱翔者E2型运输舰",
+    "category": "气",
+    "tag": "机械",
+    "description": "祈咒:抽2张牌,或挑选弃牌堆的2张大气卡牌洗回牌组",
+    "quote": "西部重工负责制造以及保修期内的维修,商品使用期间造成的连带损害由使用者承担.",
+    "elements_cost": {
+      "气": 6
+    },
+    "elements_gain": {
+      "气": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1321101.jpg"
+  },
+  {
+    "number": "1321102",
+    "type": "伙伴",
+    "name": "花斑麻雀",
+    "category": "气",
+    "tag": "野兽",
+    "description": "诱发:如果本卡被从手牌弃掉,可以花费1\\气召唤本卡",
+    "quote": "",
+    "elements_cost": {
+      "气": 1
+    },
+    "elements_gain": {
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1321102.jpg"
+  },
+  {
+    "number": "1321103",
+    "type": "伙伴",
+    "name": "孤星塔守望者",
+    "category": "气",
+    "tag": "人类",
+    "description": "主动绝技:丢弃至多3张手牌并获得等量护盾",
+    "quote": "放下尘世因缘,方能成为守望者",
+    "elements_cost": {
+      "无": 1,
+      "气": 1
+    },
+    "elements_gain": {
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1321103.jpg"
+  },
+  {
+    "number": "1321104",
+    "type": "伙伴",
+    "name": "织雾者",
+    "category": "气",
+    "tag": "巫师",
+    "description": "入场:使任意1个敌方单位隐蔽2",
+    "quote": "",
+    "elements_cost": {
+      "气": 3
+    },
+    "elements_gain": {
+      "气": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1321104.jpg"
+  },
+  {
+    "number": "1321105",
+    "type": "伙伴",
+    "name": "幻术师",
+    "category": "气",
+    "tag": "巫师",
+    "description": "主动绝技:将你的1个入场花费小于6的伙伴移回手牌,并获得等同于其负载的元素费用",
+    "quote": "",
+    "elements_cost": {
+      "无": 1,
+      "气": 2
+    },
+    "elements_gain": {
+      "无": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1321105.jpg"
+  },
+  {
+    "number": "1321106",
+    "type": "伙伴",
+    "name": "银叶游侠",
+    "category": "气",
+    "tag": "人类",
+    "description": "主动:消耗此卡才能发动,你的下一次法术+1\\攻",
+    "quote": "",
+    "elements_cost": {
+      "气": 2
+    },
+    "elements_gain": {
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1321106.jpg"
+  },
+  {
+    "number": "1321107",
+    "type": "伙伴",
+    "name": "云霄城大盗",
+    "category": "气",
+    "tag": "人类",
+    "description": "入场:双方各自随机丢弃1张手牌",
+    "quote": "",
+    "elements_cost": {
+      "气": 1
+    },
+    "elements_gain": {
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1321107.jpg"
+  },
+  {
+    "number": "1321108",
+    "type": "伙伴",
+    "name": "翡翠蜂鸟",
+    "category": "气",
+    "tag": "野兽",
+    "description": "入场:如果你的手牌数量小于2张,抽2张牌",
+    "quote": "",
+    "elements_cost": {
+      "气": 2
+    },
+    "elements_gain": {
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1321108.jpg"
+  },
+  {
+    "number": "1321109",
+    "type": "伙伴",
+    "name": "风暴之角",
+    "category": "气",
+    "tag": "异兽",
+    "description": "绝技:丢弃1张手牌,翻取1张大气装备",
+    "quote": "",
+    "elements_cost": {
+      "气": 4
+    },
+    "elements_gain": {
+      "气": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1321109.jpg"
+  },
+  {
+    "number": "1321110",
+    "type": "伙伴",
+    "name": "银叶信使",
+    "category": "气",
+    "tag": "人类",
+    "description": "入场:检索1张失落的银叶花",
+    "quote": "",
+    "elements_cost": {
+      "气": 2
+    },
+    "elements_gain": {
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1321110.jpg"
+  },
+  {
+    "number": "1321111",
+    "type": "伙伴",
+    "name": "雷光战士",
+    "category": "气",
+    "tag": "人类",
+    "description": "入场:你每装备有1件雷光道具(同时具有\\气和\\光负载),此卡可以获得以下1项:+2\\血,+1\\攻,负载+1\\气,负载+1\\光",
+    "quote": "",
+    "elements_cost": {
+      "光": 1,
+      "气": 4
+    },
+    "elements_gain": {
+      "光": 1,
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1321111.jpg"
+  },
+  {
+    "number": "1321112",
+    "type": "伙伴",
+    "name": "九霄接头人",
+    "category": "气",
+    "tag": "人类",
+    "description": "引魔.祈咒:如果对方手牌未达上限,将1张九霄印记加入对手的手牌",
+    "quote": "",
+    "elements_cost": {
+      "气": 3
+    },
+    "elements_gain": {
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [
+      "2001102"
+    ],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1321112.jpg"
+  },
+  {
+    "number": "1321113",
+    "type": "伙伴",
+    "name": "议庭传信鸽",
+    "category": "气",
+    "tag": "野兽",
+    "description": "入场:将1张九霄印记加入对手手牌",
+    "quote": "",
+    "elements_cost": {
+      "气": 1
+    },
+    "elements_gain": {
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [
+      "2001102"
+    ],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1321113.jpg"
+  },
+  {
+    "number": "1321114",
+    "type": "伙伴",
+    "name": "议庭执行者",
+    "category": "气",
+    "tag": "巫师",
+    "description": "入场:随机丢弃敌方1张手牌,如果是九霄印记再随机丢弃1张",
+    "quote": "",
+    "elements_cost": {
+      "气": 5
+    },
+    "elements_gain": {
+      "气": 3
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1321114.jpg"
+  },
+  {
+    "number": "1321115",
+    "type": "伙伴",
+    "name": "苍穹描摹者",
+    "category": "气",
+    "tag": "巫师",
+    "description": "入场:复制你场上另一个使用花费小于6的大气卡牌的入场效果",
+    "quote": "",
+    "elements_cost": {
+      "气": 5
+    },
+    "elements_gain": {
+      "气": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\气\\1321115.jpg"
+  },
+  {
     "number": "1401001",
     "type": "伙伴",
     "name": "生命种子",
@@ -1943,6 +3751,30 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\伙伴\\地\\1401002.jpg"
+  },
+  {
+    "number": "1401101",
+    "type": "伙伴",
+    "name": "普通蜥蜴",
+    "category": "地",
+    "tag": "衍生-野兽",
+    "description": "",
+    "quote": "",
+    "elements_cost": {
+      "地": 1
+    },
+    "elements_gain": {
+      "地": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1401101.jpg"
   },
   {
     "number": "1411001",
@@ -2020,6 +3852,82 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\伙伴\\地\\1411003.jpg"
+  },
+  {
+    "number": "1411101",
+    "type": "伙伴",
+    "name": "苍老者 弗兰肯 拜利兰",
+    "category": "地",
+    "tag": "传奇-巫师",
+    "description": "祈咒:此卡失去1点负载.诱发:每当此卡失去1点负载,选择1个敌方法术永久减少2\\威",
+    "quote": "日月轮换,朽与不朽皆在一念间",
+    "elements_cost": {
+      "地": 7,
+      "无": 2
+    },
+    "elements_gain": {
+      "地": 3,
+      "无": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 4,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1411101.jpg"
+  },
+  {
+    "number": "1411102",
+    "type": "伙伴",
+    "name": "谧语精灵王 辛达瑞尔",
+    "category": "地",
+    "tag": "传奇-精灵",
+    "description": "入场:在上个回合里,敌方法术每满足以下一项(命中3次及以上,命中3个目标及以上,造成3点伤害及以上)可以选择任意1个不同的敌人,对那些敌人造成2点伤害",
+    "quote": "\"凡事不过三,否则我们必将以牙还牙,以眼还眼\"",
+    "elements_cost": {
+      "地": 4,
+      "无": 1
+    },
+    "elements_gain": {
+      "地": 1,
+      "暗": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1411102.jpg"
+  },
+  {
+    "number": "1411103",
+    "type": "伙伴",
+    "name": "百兽之王 莱恩克塞斯",
+    "category": "地",
+    "tag": "传奇-野兽",
+    "description": "入场:翻取1个伙伴,如果是地脉伙伴则将其召唤,无需花费",
+    "quote": "\"该死的杂种...不好,怎么还有这么多\"",
+    "elements_cost": {
+      "地": 8
+    },
+    "elements_gain": {
+      "地": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1411103.jpg"
   },
   {
     "number": "1421001",
@@ -2405,6 +4313,367 @@
     "output_path": "output\\基础包\\伙伴\\地\\1421016.jpg"
   },
   {
+    "number": "1421101",
+    "type": "伙伴",
+    "name": "岩壁刺球",
+    "category": "地",
+    "tag": "异兽",
+    "description": "",
+    "quote": "",
+    "elements_cost": {
+      "地": 3
+    },
+    "elements_gain": {
+      "地": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1421101.jpg"
+  },
+  {
+    "number": "1421102",
+    "type": "伙伴",
+    "name": "翡翠守卫",
+    "category": "地",
+    "tag": "造物",
+    "description": "入场:如果你没有护盾,获得护盾2",
+    "quote": "",
+    "elements_cost": {
+      "地": 2,
+      "无": 1
+    },
+    "elements_gain": {
+      "地": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1421102.jpg"
+  },
+  {
+    "number": "1421103",
+    "type": "伙伴",
+    "name": "寄生虫",
+    "category": "地",
+    "tag": "野兽",
+    "description": "",
+    "quote": "",
+    "elements_cost": {
+      "地": 2
+    },
+    "elements_gain": {
+      "地": 1,
+      "暗": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1421103.jpg"
+  },
+  {
+    "number": "1421104",
+    "type": "伙伴",
+    "name": "拜利兰森林熊",
+    "category": "地",
+    "tag": "野兽",
+    "description": "引魔.入场:获得护盾3",
+    "quote": "",
+    "elements_cost": {
+      "地": 6
+    },
+    "elements_gain": {
+      "地": 3
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1421104.jpg"
+  },
+  {
+    "number": "1421105",
+    "type": "伙伴",
+    "name": "失活的根须",
+    "category": "地",
+    "tag": "植物",
+    "description": "祈咒:若此卡没有负载,获得负载1\\地",
+    "quote": "",
+    "elements_cost": {
+      "地": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1421105.jpg"
+  },
+  {
+    "number": "1421106",
+    "type": "伙伴",
+    "name": "幻影蜥蜴",
+    "category": "地",
+    "tag": "野兽",
+    "description": "诱发绝技:在你使用一个灵媒技能后消耗此卡才能发动,此卡分裂为两个普通蜥蜴",
+    "quote": "",
+    "elements_cost": {
+      "地": 1
+    },
+    "elements_gain": {
+      "地": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [
+      "1401101"
+    ],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1421106.jpg"
+  },
+  {
+    "number": "1421107",
+    "type": "伙伴",
+    "name": "龙血树精",
+    "category": "地",
+    "tag": "精灵",
+    "description": "入场:使1个友方卡牌失去1点负载,此卡获得负载+1\\暗",
+    "quote": "",
+    "elements_cost": {
+      "地": 3
+    },
+    "elements_gain": {
+      "地": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1421107.jpg"
+  },
+  {
+    "number": "1421108",
+    "type": "伙伴",
+    "name": "凯尔特灵鹿",
+    "category": "地",
+    "tag": "野兽",
+    "description": "诱发回合技:在一个灵媒技能被使用后,重置本卡",
+    "quote": "",
+    "elements_cost": {
+      "地": 6
+    },
+    "elements_gain": {
+      "地": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1421108.jpg"
+  },
+  {
+    "number": "1421109",
+    "type": "伙伴",
+    "name": "地穴巨蝠",
+    "category": "地",
+    "tag": "野兽",
+    "description": "",
+    "quote": "",
+    "elements_cost": {
+      "地": 4
+    },
+    "elements_gain": {
+      "地": 2,
+      "暗": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1421109.jpg"
+  },
+  {
+    "number": "1421110",
+    "type": "伙伴",
+    "name": "岩壁巨像",
+    "category": "地",
+    "tag": "造物",
+    "description": "光环:如果你没有学习任何法术,你召唤的每个地脉伙伴+1\\血",
+    "quote": "",
+    "elements_cost": {
+      "地": 3
+    },
+    "elements_gain": {
+      "地": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1421110.jpg"
+  },
+  {
+    "number": "1421111",
+    "type": "伙伴",
+    "name": "岩壁魔怪",
+    "category": "地",
+    "tag": "造物",
+    "description": "光环:如果你没有学习任何法术,此卡每次最多受到1点伤害",
+    "quote": "",
+    "elements_cost": {
+      "地": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1421111.jpg"
+  },
+  {
+    "number": "1421112",
+    "type": "伙伴",
+    "name": "沙尘恶魔",
+    "category": "地",
+    "tag": "恶魔",
+    "description": "引魔.祈咒:使前排敌人石化1",
+    "quote": "",
+    "elements_cost": {
+      "地": 4
+    },
+    "elements_gain": {
+      "地": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1421112.jpg"
+  },
+  {
+    "number": "1421113",
+    "type": "伙伴",
+    "name": "岩壁修道士",
+    "category": "地",
+    "tag": "巫师",
+    "description": "光环:如果你没有学习任何法术,每回合命中的第一个敌方法术\\攻变为0",
+    "quote": "",
+    "elements_cost": {
+      "地": 4
+    },
+    "elements_gain": {
+      "地": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1421113.jpg"
+  },
+  {
+    "number": "1421114",
+    "type": "伙伴",
+    "name": "巨型沙虫",
+    "category": "地",
+    "tag": "野兽",
+    "description": "诱发:每当此卡受到伤害,获得隐蔽1",
+    "quote": "",
+    "elements_cost": {
+      "地": 6
+    },
+    "elements_gain": {
+      "地": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": 4,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1421114.jpg"
+  },
+  {
+    "number": "1421115",
+    "type": "伙伴",
+    "name": "地卜行者",
+    "category": "地",
+    "tag": "巫师",
+    "description": "入场:抽1张牌",
+    "quote": "",
+    "elements_cost": {
+      "地": 4
+    },
+    "elements_gain": {
+      "地": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\地\\1421115.jpg"
+  },
+  {
     "number": "1501001",
     "type": "伙伴",
     "name": "孪生天使",
@@ -2501,6 +4770,79 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\伙伴\\光\\1511003.jpg"
+  },
+  {
+    "number": "1511101",
+    "type": "伙伴",
+    "name": "末路的王子 灰烬 凯尔特",
+    "category": "光",
+    "tag": "传奇-人类",
+    "description": "诱发:当你的护盾被对方打破时,抽2张牌并获得2\\光.入场:获得护盾2",
+    "quote": "\"既然神无动于衷,那拯救只好由我代劳\"",
+    "elements_cost": {
+      "光": 3
+    },
+    "elements_gain": {
+      "光": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1511101.jpg"
+  },
+  {
+    "number": "1511102",
+    "type": "伙伴",
+    "name": "孤星之魂 凯拉莫将军",
+    "category": "光",
+    "tag": "传奇-人类",
+    "description": "诱发:每当此卡受到1次敌方伤害,如果此卡没有任何相邻伙伴,获得护盾1和+1\\攻",
+    "quote": "\"我从不介意与鼠辈为敌\"",
+    "elements_cost": {
+      "光": 6,
+      "无": 1
+    },
+    "elements_gain": {
+      "光": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 4,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1511102.jpg"
+  },
+  {
+    "number": "1511103",
+    "type": "伙伴",
+    "name": "\"玫瑰先知\" 洛莉",
+    "category": "光",
+    "tag": "传奇-巫师",
+    "description": "诱发:每当对方洗切卡组,观看敌方卡组顶3张牌,将其以任意顺序放回卡组顶或卡组底",
+    "quote": "我看到了玫瑰被鲜血侵染,却无法将这罪孽斩断",
+    "elements_cost": {
+      "光": 2
+    },
+    "elements_gain": {
+      "光": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1511103.jpg"
   },
   {
     "number": "1521001",
@@ -2888,6 +5230,396 @@
     "output_path": "output\\基础包\\伙伴\\光\\1521016.jpg"
   },
   {
+    "number": "1521101",
+    "type": "伙伴",
+    "name": "月霞之灵",
+    "category": "光",
+    "tag": "精灵",
+    "description": "引魔.光环:你的法术+2\\威,在你使用法术攻击后失去此光环效果",
+    "quote": "冷月孤光,夜灵幽守",
+    "elements_cost": {
+      "光": 5
+    },
+    "elements_gain": {
+      "光": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1521101.jpg"
+  },
+  {
+    "number": "1521102",
+    "type": "伙伴",
+    "name": "神圣之子",
+    "category": "光",
+    "tag": "造物",
+    "description": "诱发绝技:此卡获得生命或负载时,额外获得负载+1\\光或+1\\血",
+    "quote": "",
+    "elements_cost": {
+      "光": 2
+    },
+    "elements_gain": {
+      "光": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1521102.jpg"
+  },
+  {
+    "number": "1521103",
+    "type": "伙伴",
+    "name": "孤星城的守护灵",
+    "category": "光",
+    "tag": "造物",
+    "description": "入场:使1个友方伙伴+1\\血.遗言:使1个友方伙伴负载+1\\光",
+    "quote": "",
+    "elements_cost": {
+      "光": 2
+    },
+    "elements_gain": {
+      "光": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1521103.jpg"
+  },
+  {
+    "number": "1521104",
+    "type": "伙伴",
+    "name": "旭日之龙",
+    "category": "光",
+    "tag": "龙",
+    "description": "",
+    "quote": "",
+    "elements_cost": {
+      "光": 5
+    },
+    "elements_gain": {
+      "光": 3
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1521104.jpg"
+  },
+  {
+    "number": "1521105",
+    "type": "伙伴",
+    "name": "辉之都祭司",
+    "category": "光",
+    "tag": "巫师",
+    "description": "诱发绝技:敌方法术命中时可以发动,将该法术即将造成的伤害变为目标获得等量的点燃",
+    "quote": "",
+    "elements_cost": {
+      "光": 3,
+      "火": 1
+    },
+    "elements_gain": {
+      "光": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1521105.jpg"
+  },
+  {
+    "number": "1521106",
+    "type": "伙伴",
+    "name": "教廷驱魔师",
+    "category": "光",
+    "tag": "巫师",
+    "description": "入场:移除1张友方卡牌上的所有负面状态,每移除1层获得1\\光",
+    "quote": "",
+    "elements_cost": {
+      "光": 3
+    },
+    "elements_gain": {
+      "光": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1521106.jpg"
+  },
+  {
+    "number": "1521107",
+    "type": "伙伴",
+    "name": "辉之圣防军",
+    "category": "光",
+    "tag": "人类",
+    "description": "如果上个回合友方单位受到过伤害,此卡无需入场花费",
+    "quote": "",
+    "elements_cost": {
+      "光": 2
+    },
+    "elements_gain": {
+      "光": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1521107.jpg"
+  },
+  {
+    "number": "1521108",
+    "type": "伙伴",
+    "name": "矛盾的骑士",
+    "category": "光",
+    "tag": "人类",
+    "description": "遗言:为对手召唤本卡,本卡生命上限永久-1(由对手决定位置)",
+    "quote": "",
+    "elements_cost": {
+      "光": 1,
+      "无": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 4,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1521108.jpg"
+  },
+  {
+    "number": "1521109",
+    "type": "伙伴",
+    "name": "辉之天使",
+    "category": "光",
+    "tag": "精灵",
+    "description": "你可以把其他任意元素当做光辉元素使用",
+    "quote": "",
+    "elements_cost": {
+      "光": 2
+    },
+    "elements_gain": {
+      "光": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1521109.jpg"
+  },
+  {
+    "number": "1521110",
+    "type": "伙伴",
+    "name": "议庭言客",
+    "category": "光",
+    "tag": "人类",
+    "description": "入场:将4张九霄印记洗入对手的卡组.遗言:对方将卡组里1张九霄印记洗放在卡组顶端",
+    "quote": "",
+    "elements_cost": {
+      "光": 2
+    },
+    "elements_gain": {
+      "光": 1,
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [
+      "2001102"
+    ],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1521110.jpg"
+  },
+  {
+    "number": "1521111",
+    "type": "伙伴",
+    "name": "议庭执政官",
+    "category": "光",
+    "tag": "巫师",
+    "description": "诱发:每当敌方召唤1个伙伴,将3张九霄印记洗入对手卡组",
+    "quote": "",
+    "elements_cost": {
+      "光": 5
+    },
+    "elements_gain": {
+      "光": 2,
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [
+      "2001102"
+    ],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1521111.jpg"
+  },
+  {
+    "number": "1521112",
+    "type": "伙伴",
+    "name": "议庭护法",
+    "category": "光",
+    "tag": "巫师",
+    "description": "主动回合技:翻开对手卡组顶5张牌,如果其中有九霄印记则你可以调整这5张牌的顺序并放回卡组顶,否则对方洗混卡组",
+    "quote": "",
+    "elements_cost": {
+      "光": 3,
+      "气": 1
+    },
+    "elements_gain": {
+      "光": 1,
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [
+      "2001102"
+    ],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1521112.jpg"
+  },
+  {
+    "number": "1521113",
+    "type": "伙伴",
+    "name": "辉之都戒卫犬",
+    "category": "光",
+    "tag": "野兽",
+    "description": "遗言:如果此卡是被敌方杀死,翻取1个伙伴牌并使其入场花费-1\\光",
+    "quote": "",
+    "elements_cost": {
+      "光": 1
+    },
+    "elements_gain": {
+      "光": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1521113.jpg"
+  },
+  {
+    "number": "1521114",
+    "type": "伙伴",
+    "name": "辉之都祈祷者",
+    "category": "光",
+    "tag": "人类",
+    "description": "入场:每有1个受伤的友方单位,获得1\\光",
+    "quote": "",
+    "elements_cost": {
+      "光": 2
+    },
+    "elements_gain": {
+      "光": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1521114.jpg"
+  },
+  {
+    "number": "1521115",
+    "type": "伙伴",
+    "name": "孤星铁骑士",
+    "category": "光",
+    "tag": "人类",
+    "description": "入场:如果此卡处于前排且没有任何相邻伙伴,此卡获得负载+1\\光+1\\血",
+    "quote": "\"铁骑士誓为孤星战至生命的最后一刻!\"",
+    "elements_cost": {
+      "光": 5
+    },
+    "elements_gain": {
+      "光": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\光\\1521115.jpg"
+  },
+  {
+    "number": "1601101",
+    "type": "伙伴",
+    "name": "血影之躯",
+    "category": "暗",
+    "tag": "衍生-恶魔",
+    "description": "主动:取除1个红月标记物才能发动,使你的下一次法术可以额外选择1个无视范围的目标.红月结束后将此卡替换回红月魔巫 瑟薇安娜并将其重置",
+    "quote": "\"终于...开始吧,埋葬这孱弱的世界\"",
+    "elements_cost": {},
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1601101.jpg"
+  },
+  {
     "number": "1611001",
     "type": "伙伴",
     "name": "\"观察者\" 欧柯茹",
@@ -2960,6 +5692,80 @@
       "2601001"
     ],
     "output_path": "output\\基础包\\伙伴\\暗\\1611003.jpg"
+  },
+  {
+    "number": "1611101",
+    "type": "伙伴",
+    "name": "红月魔巫 瑟薇安娜",
+    "category": "暗",
+    "tag": "传奇-巫师",
+    "description": "入场,祈咒:在你的红月上放置一个红月标记物,这些标记物使红月生效时额外给其他法术+1\\威.红月生效期间,将此卡替换为血影之躯",
+    "quote": "\"如此执着,如此狡诈,如此野心...你让我回想起了,我选中你的时候\"——安迪斯",
+    "elements_cost": {
+      "暗": 7
+    },
+    "elements_gain": {
+      "暗": 3
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [
+      "1601101"
+    ],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1611101.jpg"
+  },
+  {
+    "number": "1611102",
+    "type": "伙伴",
+    "name": "蔷薇花园的血荆棘",
+    "category": "暗",
+    "tag": "传奇-植物",
+    "description": "遗言:因友方卡牌攻击或效果而死亡的场合,可以花费1\\暗重新召唤",
+    "quote": "\"伯爵,如果我没记错的话,好像它比昨天繁茂了不少\"",
+    "elements_cost": {
+      "暗": 2
+    },
+    "elements_gain": {
+      "暗": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1611102.jpg"
+  },
+  {
+    "number": "1611103",
+    "type": "伙伴",
+    "name": "鲜血贵公子 罗伯特 黑松",
+    "category": "暗",
+    "tag": "传奇-巫师",
+    "description": "诱发:每当1个友方单位受到友方伤害,放置1个标记物,每当友方单位因友方伤害或效果死亡,放置2个标记物.主动回合技:移除3个标记物,此卡获得+1\\血或负载+1\\暗或+1\\攻",
+    "quote": "\"这并不是我的爱好,这是我的生活\"",
+    "elements_cost": {
+      "暗": 3
+    },
+    "elements_gain": {
+      "暗": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1611103.jpg"
   },
   {
     "number": "1621001",
@@ -3339,6 +6145,413 @@
     "output_path": "output\\基础包\\伙伴\\暗\\1621016.jpg"
   },
   {
+    "number": "1621101",
+    "type": "伙伴",
+    "name": "苦痛之魂",
+    "category": "暗",
+    "tag": "造物",
+    "description": "诱发回合技:在此卡受到伤害后,获得负载+1\\暗",
+    "quote": "天知道这些贵族在城堡里饲养了些什么",
+    "elements_cost": {
+      "暗": 2
+    },
+    "elements_gain": {
+      "暗": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1621101.jpg"
+  },
+  {
+    "number": "1621102",
+    "type": "伙伴",
+    "name": "苦痛复仇者",
+    "category": "暗",
+    "tag": "造物",
+    "description": "诱发回合技:在此卡受到伤害后,获得+1\\攻",
+    "quote": "等你知道了,你就没命了",
+    "elements_cost": {
+      "暗": 6
+    },
+    "elements_gain": {
+      "暗": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 4,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1621102.jpg"
+  },
+  {
+    "number": "1621103",
+    "type": "伙伴",
+    "name": "鲜血傀儡",
+    "category": "暗",
+    "tag": "造物",
+    "description": "入场:对你的人物造成2点伤害",
+    "quote": "",
+    "elements_cost": {
+      "暗": 2
+    },
+    "elements_gain": {
+      "暗": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1621103.jpg"
+  },
+  {
+    "number": "1621104",
+    "type": "伙伴",
+    "name": "蔷薇花园园丁",
+    "category": "暗",
+    "tag": "人类",
+    "description": "诱发回合技:当1个单位死亡,使1个友方单位回复2\\血",
+    "quote": "黑魔法不仅能杀人,也能滋养人",
+    "elements_cost": {
+      "光": 1,
+      "暗": 4
+    },
+    "elements_gain": {
+      "光": 1,
+      "暗": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1621104.jpg"
+  },
+  {
+    "number": "1621105",
+    "type": "伙伴",
+    "name": "混沌胚胎",
+    "category": "暗",
+    "tag": "造物",
+    "description": "",
+    "quote": "",
+    "elements_cost": {
+      "无": 2,
+      "暗": 2
+    },
+    "elements_gain": {
+      "光": 1,
+      "暗": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1621105.jpg"
+  },
+  {
+    "number": "1621106",
+    "type": "伙伴",
+    "name": "猎魂者",
+    "category": "暗",
+    "tag": "恶魔",
+    "description": "诱发回合技:当你的法术命中后,在其上放置1个灵魂标记物,每个灵魂标记物使其永久+2\\威",
+    "quote": "",
+    "elements_cost": {
+      "暗": 6
+    },
+    "elements_gain": {
+      "暗": 3
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1621106.jpg"
+  },
+  {
+    "number": "1621107",
+    "type": "伙伴",
+    "name": "蔷薇死神",
+    "category": "暗",
+    "tag": "恶魔",
+    "description": "",
+    "quote": "",
+    "elements_cost": {
+      "暗": 6
+    },
+    "elements_gain": {
+      "暗": 3
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1621107.jpg"
+  },
+  {
+    "number": "1621108",
+    "type": "伙伴",
+    "name": "恶魔之子",
+    "category": "暗",
+    "tag": "人类",
+    "description": "吞噬:1个暗影伙伴",
+    "quote": "",
+    "elements_cost": {
+      "暗": 1
+    },
+    "elements_gain": {
+      "暗": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1621108.jpg"
+  },
+  {
+    "number": "1621109",
+    "type": "伙伴",
+    "name": "猩红之翼",
+    "category": "暗",
+    "tag": "恶魔",
+    "description": "诱发:每次红月生效后,对法力范围内1个单位造成1点伤害并使此卡+1\\血",
+    "quote": "",
+    "elements_cost": {
+      "暗": 3
+    },
+    "elements_gain": {
+      "暗": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1621109.jpg"
+  },
+  {
+    "number": "1621110",
+    "type": "伙伴",
+    "name": "猩红魔兽",
+    "category": "暗",
+    "tag": "野兽",
+    "description": "引魔.光环:红月生效期间,你的暗影法术+2\\威",
+    "quote": "",
+    "elements_cost": {
+      "暗": 4
+    },
+    "elements_gain": {
+      "暗": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1621110.jpg"
+  },
+  {
+    "number": "1621111",
+    "type": "伙伴",
+    "name": "红月先知",
+    "category": "暗",
+    "tag": "巫师",
+    "description": "入场,遗言:使你当前(如果红月已生效)或下一次红月的冷却层数-1",
+    "quote": "",
+    "elements_cost": {
+      "暗": 2
+    },
+    "elements_gain": {
+      "暗": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1621111.jpg"
+  },
+  {
+    "number": "1621112",
+    "type": "伙伴",
+    "name": "谧语精灵猎手",
+    "category": "暗",
+    "tag": "精灵",
+    "description": "遗言:对任意1个敌人造成1点伤害",
+    "quote": "",
+    "elements_cost": {
+      "暗": 2
+    },
+    "elements_gain": {
+      "暗": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1621112.jpg"
+  },
+  {
+    "number": "1621113",
+    "type": "伙伴",
+    "name": "谧语精灵祭司",
+    "category": "暗",
+    "tag": "精灵",
+    "description": "遗言:使1个友方伙伴负载+1\\暗",
+    "quote": "",
+    "elements_cost": {
+      "无": 1,
+      "暗": 1
+    },
+    "elements_gain": {
+      "暗": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 2,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1621113.jpg"
+  },
+  {
+    "number": "1621114",
+    "type": "伙伴",
+    "name": "灵魂共生体",
+    "category": "暗",
+    "tag": "造物",
+    "description": "遗言:给你的最多2个法术放置1个灵魂标记物,每个灵魂标记物使该法术+2\\威",
+    "quote": "",
+    "elements_cost": {
+      "暗": 5
+    },
+    "elements_gain": {
+      "暗": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 3,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1621114.jpg"
+  },
+  {
+    "number": "1621115",
+    "type": "伙伴",
+    "name": "灵魂吸食者",
+    "category": "暗",
+    "tag": "恶魔",
+    "description": "引魔.主动回合技:移除你场上的1个灵魂标记物,抽2张牌并获得2\\暗",
+    "quote": "",
+    "elements_cost": {
+      "暗": 6
+    },
+    "elements_gain": {
+      "暗": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 4,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\伙伴\\暗\\1621115.jpg"
+  },
+  {
+    "number": "2001101",
+    "type": "道具",
+    "name": "落幕提琴",
+    "category": "无",
+    "tag": "衍生-装备",
+    "description": "花费2\\无才能进行攻击",
+    "quote": "\"乐曲终会完结,你总要走出这里\"",
+    "elements_cost": {},
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2001101.jpg"
+  },
+  {
+    "number": "2001102",
+    "type": "道具",
+    "name": "九霄印记",
+    "category": "无",
+    "tag": "衍生-消耗品",
+    "description": "当你丢弃本卡时,对你的人物造成2点伤害",
+    "quote": "\"是的,我们是自愿退出原则\"",
+    "elements_cost": {
+      "无": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2001102.jpg"
+  },
+  {
     "number": "2011001",
     "type": "道具",
     "name": "大法师之杖",
@@ -3409,6 +6622,52 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\道具\\无\\2011003.jpg"
+  },
+  {
+    "number": "2011101",
+    "type": "道具",
+    "name": "奥术铠甲 天穹",
+    "category": "无",
+    "tag": "传奇-装备-防具",
+    "description": "光环:你的护盾在回合结束时不会减少.入场:获得护盾2,本局游戏中你不能再获得护盾",
+    "quote": "它最大的弱点是需要他人帮忙穿上,至于为什么它的主人死后总是侍从接手,你就别问了",
+    "elements_cost": {
+      "无": 6
+    },
+    "elements_gain": {
+      "无": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2011101.jpg"
+  },
+  {
+    "number": "2011102",
+    "type": "道具",
+    "name": "预知宝珠",
+    "category": "无",
+    "tag": "传奇-装备-神器",
+    "description": "光环:你可以随时查看你的卡组顶3张牌.主动:消耗此卡才能发动,将你的卡组顶3张牌以任意顺序放回卡组顶或卡组底",
+    "quote": "预知不远处的未来,或者尝试改变它",
+    "elements_cost": {
+      "无": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2011102.jpg"
   },
   {
     "number": "2021001",
@@ -3929,6 +7188,362 @@
     "output_path": "output\\基础包\\道具\\无\\2021023.jpg"
   },
   {
+    "number": "2021101",
+    "type": "道具",
+    "name": "失落的银叶花",
+    "category": "无",
+    "tag": "消耗品",
+    "description": "抽2张牌,弃1张牌",
+    "quote": "",
+    "elements_cost": {
+      "无": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2021101.jpg"
+  },
+  {
+    "number": "2021102",
+    "type": "道具",
+    "name": "破魔之刃",
+    "category": "无",
+    "tag": "装备-武器",
+    "description": "入场:使对方失去护盾3",
+    "quote": "",
+    "elements_cost": {
+      "无": 2
+    },
+    "elements_gain": {
+      "无": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2021102.jpg"
+  },
+  {
+    "number": "2021103",
+    "type": "道具",
+    "name": "幻雾药剂",
+    "category": "无",
+    "tag": "消耗品-药剂",
+    "description": "使法力范围内的1个伙伴隐蔽2",
+    "quote": "",
+    "elements_cost": {
+      "无": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2021103.jpg"
+  },
+  {
+    "number": "2021104",
+    "type": "道具",
+    "name": "五色珊瑚",
+    "category": "无",
+    "tag": "装备",
+    "description": "入场:此卡获得2点不同的奥术元素以外的负载",
+    "quote": "之所以人们称之为五色珊瑚,是因为人们从来没有发现过黑色的品种",
+    "elements_cost": {
+      "无": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2021104.jpg"
+  },
+  {
+    "number": "2021105",
+    "type": "道具",
+    "name": "珍宝柜",
+    "category": "无",
+    "tag": "装备",
+    "description": "光环:你的道具槽位+1,且可以同时装备任意数量的同种装备",
+    "quote": "",
+    "elements_cost": {
+      "无": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2021105.jpg"
+  },
+  {
+    "number": "2021106",
+    "type": "道具",
+    "name": "奥术容器",
+    "category": "无",
+    "tag": "装备",
+    "description": "此卡提供的奥术元素不能当作其他元素使用",
+    "quote": "",
+    "elements_cost": {
+      "无": 2
+    },
+    "elements_gain": {
+      "无": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2021106.jpg"
+  },
+  {
+    "number": "2021107",
+    "type": "道具",
+    "name": "重塑",
+    "category": "无",
+    "tag": "消耗品-卷轴",
+    "description": "弃掉你所有手牌,抽2张牌",
+    "quote": "",
+    "elements_cost": {},
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2021107.jpg"
+  },
+  {
+    "number": "2021108",
+    "type": "道具",
+    "name": "通灵盘",
+    "category": "无",
+    "tag": "装备",
+    "description": "光环:你的灵媒技能使用花费-1",
+    "quote": "",
+    "elements_cost": {
+      "无": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2021108.jpg"
+  },
+  {
+    "number": "2021109",
+    "type": "道具",
+    "name": "氏族战锤",
+    "category": "无",
+    "tag": "装备-武器",
+    "description": "",
+    "quote": "",
+    "elements_cost": {
+      "无": 6
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2021109.jpg"
+  },
+  {
+    "number": "2021110",
+    "type": "道具",
+    "name": "灵守护符",
+    "category": "无",
+    "tag": "装备",
+    "description": "光环:如果这是你唯一的装备,此卡负载+1\\无",
+    "quote": "",
+    "elements_cost": {
+      "无": 3
+    },
+    "elements_gain": {
+      "无": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2021110.jpg"
+  },
+  {
+    "number": "2021111",
+    "type": "道具",
+    "name": "注能符文A型",
+    "category": "无",
+    "tag": "消耗品-符文",
+    "description": "使你的1个法术永久+2\\威",
+    "quote": "",
+    "elements_cost": {
+      "无": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2021111.jpg"
+  },
+  {
+    "number": "2021112",
+    "type": "道具",
+    "name": "注能符文B型",
+    "category": "无",
+    "tag": "消耗品-符文",
+    "description": "使你的1个法术永久+1\\攻",
+    "quote": "",
+    "elements_cost": {
+      "无": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2021112.jpg"
+  },
+  {
+    "number": "2021113",
+    "type": "道具",
+    "name": "奥术结界卷轴",
+    "category": "无",
+    "tag": "消耗品-卷轴",
+    "description": "反制:当敌方法术命中时,获得护盾2",
+    "quote": "",
+    "elements_cost": {
+      "无": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2021113.jpg"
+  },
+  {
+    "number": "2021114",
+    "type": "道具",
+    "name": "神护符文",
+    "category": "无",
+    "tag": "消耗品-符文",
+    "description": "反制:当1个友方单位受到致命伤害时,防止该伤害",
+    "quote": "",
+    "elements_cost": {
+      "无": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2021114.jpg"
+  },
+  {
+    "number": "2021115",
+    "type": "道具",
+    "name": "注能符文E型",
+    "category": "无",
+    "tag": "消耗品-符文",
+    "description": "反制:在你使用法术进行防御或强化防御后,将那些法术重置",
+    "quote": "",
+    "elements_cost": {
+      "无": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2021115.jpg"
+  },
+  {
+    "number": "2021116",
+    "type": "道具",
+    "name": "奥能炸弹",
+    "category": "无",
+    "tag": "消耗品",
+    "description": "对法力范围内的1个伙伴造成2点伤害",
+    "quote": "",
+    "elements_cost": {
+      "无": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\无\\2021116.jpg"
+  },
+  {
     "number": "2111001",
     "type": "道具",
     "name": "火龙之心",
@@ -3973,6 +7588,56 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\道具\\火\\2111002.jpg"
+  },
+  {
+    "number": "2111101",
+    "type": "道具",
+    "name": "神火杖 赤空",
+    "category": "火",
+    "tag": "传奇-装备-武器",
+    "description": "诱发:当你的火焰法术命中后可以消耗此卡来发动,使该技能永久获得穿透和+1\\威",
+    "quote": "刹那间赤焰划过长空,热浪奔涌",
+    "elements_cost": {
+      "气": 1,
+      "火": 3
+    },
+    "elements_gain": {
+      "火": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\火\\2111101.jpg"
+  },
+  {
+    "number": "2111102",
+    "type": "道具",
+    "name": "熔岩魔甲 业炎",
+    "category": "火",
+    "tag": "传奇-装备-防具",
+    "description": "诱发:当敌方法术命中时,可以献祭此卡发动,获得护盾2.遗言:本回合如果你的护盾被打破,从手牌、卡组装备1个熔火战铠,无需花费",
+    "quote": "注意别穿反了",
+    "elements_cost": {
+      "火": 3
+    },
+    "elements_gain": {
+      "地": 1,
+      "火": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\火\\2111102.jpg"
   },
   {
     "number": "2121001",
@@ -4296,6 +7961,339 @@
     "output_path": "output\\基础包\\道具\\火\\2121014.jpg"
   },
   {
+    "number": "2121101",
+    "type": "道具",
+    "name": "熔岩堡的灰烬",
+    "category": "火",
+    "tag": "消耗品",
+    "description": "将你场上或技能池1个火焰技能移出游戏,翻取1个入场花费数量更高的火焰卡牌并使其入场花费-1\\火",
+    "quote": "一点点法力就能让它复燃",
+    "elements_cost": {
+      "火": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\火\\2121101.jpg"
+  },
+  {
+    "number": "2121102",
+    "type": "道具",
+    "name": "火云扇",
+    "category": "火",
+    "tag": "装备-武器",
+    "description": "光环:你的火焰和大气法术可以选择正前方没有单位的非前排敌人",
+    "quote": "",
+    "elements_cost": {
+      "无": 1,
+      "气": 1,
+      "火": 2
+    },
+    "elements_gain": {
+      "气": 1,
+      "火": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\火\\2121102.jpg"
+  },
+  {
+    "number": "2121103",
+    "type": "道具",
+    "name": "浴火之翼",
+    "category": "火",
+    "tag": "装备-神器",
+    "description": "",
+    "quote": "",
+    "elements_cost": {
+      "火": 3
+    },
+    "elements_gain": {
+      "火": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\火\\2121103.jpg"
+  },
+  {
+    "number": "2121104",
+    "type": "道具",
+    "name": "浴火重生卷轴",
+    "category": "火",
+    "tag": "消耗品-卷轴",
+    "description": "反制:敌方回合结束时,复活本回合死亡的友方火焰伙伴并将它们重置",
+    "quote": "",
+    "elements_cost": {
+      "火": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\火\\2121104.jpg"
+  },
+  {
+    "number": "2121105",
+    "type": "道具",
+    "name": "魔焰阵卷轴",
+    "category": "火",
+    "tag": "消耗品-法术卷轴-幻变",
+    "description": "范围:溅射.使用时必须消耗1个入场花费大于4的火焰伙伴,并使此卡\\威上升其入场花费的数值",
+    "quote": "",
+    "elements_cost": {
+      "火": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 2,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\火\\2121105.jpg"
+  },
+  {
+    "number": "2121106",
+    "type": "道具",
+    "name": "驯兽项圈",
+    "category": "火",
+    "tag": "装备",
+    "description": "入场:选择你的1个巫师以外的火焰伙伴.主动回合技:消耗该火焰伙伴并获得其入场花费的元素",
+    "quote": "",
+    "elements_cost": {
+      "火": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\火\\2121106.jpg"
+  },
+  {
+    "number": "2121107",
+    "type": "道具",
+    "name": "神火集结号",
+    "category": "火",
+    "tag": "装备",
+    "description": "入场:翻取2张火焰伙伴牌",
+    "quote": "",
+    "elements_cost": {
+      "火": 3
+    },
+    "elements_gain": {
+      "火": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\火\\2121107.jpg"
+  },
+  {
+    "number": "2121108",
+    "type": "道具",
+    "name": "燃烬卷轴",
+    "category": "火",
+    "tag": "消耗品-卷轴",
+    "description": "消耗1个友方火焰伙伴,获得其入场花费的元素",
+    "quote": "",
+    "elements_cost": {
+      "火": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\火\\2121108.jpg"
+  },
+  {
+    "number": "2121109",
+    "type": "道具",
+    "name": "唤灵术卷轴 烈焰犬",
+    "category": "火",
+    "tag": "消耗品-法术卷轴-创造",
+    "description": "若此卡防御成功,对法力范围内1个敌人造成2点伤害",
+    "quote": "",
+    "elements_cost": {
+      "火": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 6,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\火\\2121109.jpg"
+  },
+  {
+    "number": "2121110",
+    "type": "道具",
+    "name": "供奉之炬",
+    "category": "火",
+    "tag": "消耗品",
+    "description": "将你场上的1个火焰法术移出游戏,使你的另一个火焰法术永久增加该法术的\\威和\\攻",
+    "quote": "",
+    "elements_cost": {
+      "火": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\火\\2121110.jpg"
+  },
+  {
+    "number": "2121111",
+    "type": "道具",
+    "name": "洛普修斯之怒",
+    "category": "火",
+    "tag": "消耗品-法术卷轴-神秘",
+    "description": "此卡攻击时,直到完全结算完毕对方不能使用反制或诱发效果",
+    "quote": "",
+    "elements_cost": {
+      "火": 5
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 4,
+    "life": -1,
+    "duration": -1,
+    "power": 9,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\火\\2121111.jpg"
+  },
+  {
+    "number": "2121112",
+    "type": "道具",
+    "name": "炎流卷轴",
+    "category": "火",
+    "tag": "消耗品-法术卷轴-驱动",
+    "description": "范围:纵列.点燃1",
+    "quote": "",
+    "elements_cost": {
+      "火": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 0,
+    "life": -1,
+    "duration": -1,
+    "power": 3,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\火\\2121112.jpg"
+  },
+  {
+    "number": "2201101",
+    "type": "道具",
+    "name": "幻创之梦-绽放",
+    "category": "水",
+    "tag": "衍生-消耗品",
+    "description": "抽3张牌",
+    "quote": "",
+    "elements_cost": {},
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2201101.jpg"
+  },
+  {
+    "number": "2201102",
+    "type": "道具",
+    "name": "幻创之梦-幻能",
+    "category": "水",
+    "tag": "衍生-消耗品",
+    "description": "获得3\\无",
+    "quote": "",
+    "elements_cost": {},
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2201102.jpg"
+  },
+  {
+    "number": "2201103",
+    "type": "道具",
+    "name": "幻创之梦-波纹",
+    "category": "水",
+    "tag": "衍生-消耗品",
+    "description": "对前排任意敌人造成共计3点伤害",
+    "quote": "",
+    "elements_cost": {},
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2201103.jpg"
+  },
+  {
     "number": "2211001",
     "type": "道具",
     "name": "人鱼之泪",
@@ -4344,6 +8342,54 @@
       "3201002"
     ],
     "output_path": "output\\基础包\\道具\\水\\2211002.jpg"
+  },
+  {
+    "number": "2211101",
+    "type": "道具",
+    "name": "珊瑚秘宝 深邃之剑",
+    "category": "水",
+    "tag": "传奇-装备-武器",
+    "description": "此卡无法被任何卡牌检索或翻取.诱发:当你从卡组抽到这张牌时,如果当前敌方法术总威力比友方高,可以展示此卡并对法力范围内所有敌人造成2点伤害",
+    "quote": "\"我的孩子,我希望你永远都不会有使用它的一天,但假如那一天真的到来,它会给你足够的勇气去斩断一切\"",
+    "elements_cost": {
+      "水": 6
+    },
+    "elements_gain": {
+      "水": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2211101.jpg"
+  },
+  {
+    "number": "2211102",
+    "type": "道具",
+    "name": "玛涅斯之予夺",
+    "category": "水",
+    "tag": "传奇-装备-武器",
+    "description": "入场:从以下两张效果中选择1个直到本局游戏结束:此后你学习的所有水纹法术+2\\威;你的1个水纹法术+3\\威+1\\攻,你不能再学习任何水纹法术",
+    "quote": "\"看来这次,我必须亲力亲为\"",
+    "elements_cost": {
+      "水": 4
+    },
+    "elements_gain": {
+      "水": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2211102.jpg"
   },
   {
     "number": "2221001",
@@ -4665,6 +8711,275 @@
     "output_path": "output\\基础包\\道具\\水\\2221014.jpg"
   },
   {
+    "number": "2221101",
+    "type": "道具",
+    "name": "镜花海的天泉",
+    "category": "水",
+    "tag": "消耗品-药剂",
+    "description": "使你的1个法术使用花费永久减少1\\水",
+    "quote": "",
+    "elements_cost": {
+      "水": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2221101.jpg"
+  },
+  {
+    "number": "2221102",
+    "type": "道具",
+    "name": "海洋之盾卷轴",
+    "category": "水",
+    "tag": "消耗品-卷轴",
+    "description": "获得护盾2",
+    "quote": "",
+    "elements_cost": {
+      "水": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2221102.jpg"
+  },
+  {
+    "number": "2221103",
+    "type": "道具",
+    "name": "冰锁符文",
+    "category": "水",
+    "tag": "消耗品-符文",
+    "description": "反制:当对方学习1个技能时,使其直到下个回合结束不能使用",
+    "quote": "",
+    "elements_cost": {
+      "水": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2221103.jpg"
+  },
+  {
+    "number": "2221104",
+    "type": "道具",
+    "name": "水镜卷轴",
+    "category": "水",
+    "tag": "消耗品-法术卷轴-幻变",
+    "description": "复制你使用的上一个花费小于3的水纹法术(存在强化时,只复制主法术)",
+    "quote": "",
+    "elements_cost": {
+      "无": 1,
+      "水": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2221104.jpg"
+  },
+  {
+    "number": "2221105",
+    "type": "道具",
+    "name": "掠夺者黑帆",
+    "category": "水",
+    "tag": "消耗品",
+    "description": "检索1个掠夺者伙伴,如果你的场上已有掠夺者伙伴则使检索的卡牌入场花费减少1\\水或1\\暗",
+    "quote": "",
+    "elements_cost": {
+      "水": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2221105.jpg"
+  },
+  {
+    "number": "2221106",
+    "type": "道具",
+    "name": "凛冰法袍",
+    "category": "水",
+    "tag": "装备-防具",
+    "description": "诱发绝技:当友方水纹单位受到敌方法术伤害后,使法力范围内所有敌人冻结1",
+    "quote": "",
+    "elements_cost": {
+      "水": 4
+    },
+    "elements_gain": {
+      "水": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2221106.jpg"
+  },
+  {
+    "number": "2221107",
+    "type": "道具",
+    "name": "水纹之镜",
+    "category": "水",
+    "tag": "装备-神器",
+    "description": "入场:使你的1个水纹法术使用花费-1\\水",
+    "quote": "",
+    "elements_cost": {
+      "水": 3
+    },
+    "elements_gain": {
+      "水": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2221107.jpg"
+  },
+  {
+    "number": "2221108",
+    "type": "道具",
+    "name": "西境航海图",
+    "category": "水",
+    "tag": "装备",
+    "description": "入场:选择你的1个水纹法术.光环:使该法术获得穿透",
+    "quote": "",
+    "elements_cost": {
+      "水": 2
+    },
+    "elements_gain": {
+      "水": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2221108.jpg"
+  },
+  {
+    "number": "2221109",
+    "type": "道具",
+    "name": "速射冰弹",
+    "category": "水",
+    "tag": "消耗品",
+    "description": "本回合你的下一张消耗品道具或法术的打出或使用花费-3\\水",
+    "quote": "",
+    "elements_cost": {},
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2221109.jpg"
+  },
+  {
+    "number": "2221110",
+    "type": "道具",
+    "name": "残霜飞雪卷轴",
+    "category": "水",
+    "tag": "消耗品-法术卷轴-幻变",
+    "description": "范围:全场.本回合你每使用过1个水纹法术,此卡获得+3\\威",
+    "quote": "",
+    "elements_cost": {
+      "水": 6
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 0,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2221110.jpg"
+  },
+  {
+    "number": "2221111",
+    "type": "道具",
+    "name": "冰魄印 淬",
+    "category": "水",
+    "tag": "消耗品-符文",
+    "description": "反制:敌方使用的法术总威力大于10时才能发动,将其总威力减半(向上取整),敌方可以继续强化",
+    "quote": "",
+    "elements_cost": {
+      "水": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2221111.jpg"
+  },
+  {
+    "number": "2221112",
+    "type": "道具",
+    "name": "冰魄印 消",
+    "category": "水",
+    "tag": "消耗品-符文",
+    "description": "反制:敌方使用1个法术强化时,若威力小于5,将其无效,敌方可以继续强化",
+    "quote": "",
+    "elements_cost": {
+      "水": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\水\\2221112.jpg"
+  },
+  {
     "number": "2311001",
     "type": "道具",
     "name": "雷之源",
@@ -4707,6 +9022,54 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\道具\\气\\2311002.jpg"
+  },
+  {
+    "number": "2311101",
+    "type": "道具",
+    "name": "云霄城的天顶石",
+    "category": "气",
+    "tag": "传奇-装备-神器",
+    "description": "诱发:每当有玩家抽1张牌,在此卡上放置1个标记物.诱发:当此卡标记物达到5时必须移除所有标记物,此时抽卡的玩家前排单位受到1点伤害和晕眩1",
+    "quote": "这份杰作从第一天开始就驱动着云霄城,唯一的制造者早已埋没于历史",
+    "elements_cost": {
+      "光": 1,
+      "气": 4
+    },
+    "elements_gain": {
+      "无": 1,
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\气\\2311101.jpg"
+  },
+  {
+    "number": "2311102",
+    "type": "道具",
+    "name": "兰普斯之剑",
+    "category": "气",
+    "tag": "传奇-装备-武器",
+    "description": "主动:献祭此卡才能发动,丢弃任意数量大气手牌,下次对方回合结束时将那个数值的伤害分配给法力范围内的敌方伙伴",
+    "quote": "久远的记忆,浮现在被称作麻雀之人的眼前",
+    "elements_cost": {
+      "气": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\气\\2311102.jpg"
   },
   {
     "number": "2321001",
@@ -5023,6 +9386,288 @@
     "output_path": "output\\基础包\\道具\\气\\2321014.jpg"
   },
   {
+    "number": "2321101",
+    "type": "道具",
+    "name": "雷之链",
+    "category": "气",
+    "tag": "装备-武器",
+    "description": "主动:消耗此卡才能发动,你的下一次驱动法术可以额外选择1个无视范围的目标",
+    "quote": "",
+    "elements_cost": {
+      "光": 1,
+      "气": 2
+    },
+    "elements_gain": {
+      "光": 1,
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\气\\2321101.jpg"
+  },
+  {
+    "number": "2321102",
+    "type": "道具",
+    "name": "风之轮回",
+    "category": "气",
+    "tag": "装备-神器",
+    "description": "主动:消耗并献祭此卡才能发动,从弃牌堆将任意数量的大气卡牌洗回卡组",
+    "quote": "那些逝去的已经归来,我在风中看到了它们的身影",
+    "elements_cost": {
+      "气": 3
+    },
+    "elements_gain": {
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\气\\2321102.jpg"
+  },
+  {
+    "number": "2321103",
+    "type": "道具",
+    "name": "雷鸣之息",
+    "category": "气",
+    "tag": "消耗品-药剂",
+    "description": "此卡被使用或丢弃时获得1\\气",
+    "quote": "",
+    "elements_cost": {},
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\气\\2321103.jpg"
+  },
+  {
+    "number": "2321104",
+    "type": "道具",
+    "name": "雷光头冠",
+    "category": "气",
+    "tag": "装备-饰物",
+    "description": "祈咒:你的下一次聚能法术+1\\威",
+    "quote": "",
+    "elements_cost": {
+      "光": 1,
+      "气": 2
+    },
+    "elements_gain": {
+      "光": 1,
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\气\\2321104.jpg"
+  },
+  {
+    "number": "2321105",
+    "type": "道具",
+    "name": "雷光战铠",
+    "category": "气",
+    "tag": "装备-防具",
+    "description": "光环:如果你同时装备至少3张雷光道具(同时具有\\气和\\光负载),你的聚能和驱动法术+2\\威",
+    "quote": "",
+    "elements_cost": {
+      "光": 1,
+      "气": 4
+    },
+    "elements_gain": {
+      "光": 1,
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\气\\2321105.jpg"
+  },
+  {
+    "number": "2321106",
+    "type": "道具",
+    "name": "无尽风潮",
+    "category": "气",
+    "tag": "消耗品-法术卷轴-驱动",
+    "description": "命中:本卡不送去弃牌堆改为回到你的手牌,本卡永久获得+2\\威,入场费用+1\\气,但本回合不能再使用",
+    "quote": "",
+    "elements_cost": {
+      "气": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 2,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\气\\2321106.jpg"
+  },
+  {
+    "number": "2321107",
+    "type": "道具",
+    "name": "飞鸽拘捕令",
+    "category": "气",
+    "tag": "装备",
+    "description": "诱发回合技:当你的法术命中后,将1张九霄印记加入对手手牌",
+    "quote": "",
+    "elements_cost": {
+      "气": 2
+    },
+    "elements_gain": {
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [
+      "2001102"
+    ],
+    "output_path": "output\\王权纷争\\道具\\气\\2321107.jpg"
+  },
+  {
+    "number": "2321108",
+    "type": "道具",
+    "name": "散去",
+    "category": "气",
+    "tag": "消耗品-卷轴",
+    "description": "反制:在友方大气单位受到1次伤害后,直到你的回合开始,使其免疫所有伤害",
+    "quote": "",
+    "elements_cost": {
+      "气": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\气\\2321108.jpg"
+  },
+  {
+    "number": "2321109",
+    "type": "道具",
+    "name": "幻雾面罩",
+    "category": "气",
+    "tag": "装备-防具",
+    "description": "诱发绝技:敌方法术命中时,丢弃最多3张手牌,使该法术\\攻下降丢弃的数值",
+    "quote": "",
+    "elements_cost": {
+      "气": 3
+    },
+    "elements_gain": {
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\气\\2321109.jpg"
+  },
+  {
+    "number": "2321110",
+    "type": "道具",
+    "name": "飞鸽急袭令",
+    "category": "气",
+    "tag": "消耗品-卷轴",
+    "description": "选择你在本回合学习的速攻法术,使其下一次使用时+1\\攻+1\\威",
+    "quote": "",
+    "elements_cost": {
+      "气": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\气\\2321110.jpg"
+  },
+  {
+    "number": "2321111",
+    "type": "道具",
+    "name": "反击风洞卷轴",
+    "category": "气",
+    "tag": "消耗品-卷轴",
+    "description": "反制:在敌方1个范围效果以外的法术未命中或被无效后,视为对任意1个敌方单位使用该法术,包含所有强化效果.",
+    "quote": "",
+    "elements_cost": {
+      "气": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\气\\2321111.jpg"
+  },
+  {
+    "number": "2321112",
+    "type": "道具",
+    "name": "撕裂冲击卷轴",
+    "category": "气",
+    "tag": "消耗品-法术卷轴-聚能",
+    "description": "范围:纵列.命中:将共计3点伤害分配给目标范围内的单位.",
+    "quote": "",
+    "elements_cost": {
+      "气": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 0,
+    "life": -1,
+    "duration": -1,
+    "power": 6,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\气\\2321112.jpg"
+  },
+  {
     "number": "2411001",
     "type": "道具",
     "name": "古树之心",
@@ -5069,6 +9714,55 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\道具\\地\\2411002.jpg"
+  },
+  {
+    "number": "2411101",
+    "type": "道具",
+    "name": "翡翠永生",
+    "category": "地",
+    "tag": "传奇-装备-饰物",
+    "description": "光环:如果你拥有护盾,防止所有友方单位受到的伤害,也不会受负面状态影响(仍可处于负面状态).入场:获得护盾2",
+    "quote": "永远的守护,永生的束缚",
+    "elements_cost": {
+      "地": 4
+    },
+    "elements_gain": {
+      "地": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\地\\2411101.jpg"
+  },
+  {
+    "number": "2411102",
+    "type": "道具",
+    "name": "腐朽的古树之心",
+    "category": "地",
+    "tag": "传奇-装备-神器",
+    "description": "诱发:双方玩家每使用2个法术,该玩家必须移除自己场上1点负载.诱发:如果此卡失去所有负载,摧毁此卡",
+    "quote": "这还算是原来的那个古树之心吗?",
+    "elements_cost": {
+      "地": 5
+    },
+    "elements_gain": {
+      "地": 2,
+      "暗": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\地\\2411102.jpg"
   },
   {
     "number": "2421001",
@@ -5392,6 +10086,284 @@
     "output_path": "output\\基础包\\道具\\地\\2421014.jpg"
   },
   {
+    "number": "2421101",
+    "type": "道具",
+    "name": "秋暮耳环",
+    "category": "地",
+    "tag": "装备-饰物",
+    "description": "",
+    "quote": "",
+    "elements_cost": {
+      "地": 3
+    },
+    "elements_gain": {
+      "地": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\地\\2421101.jpg"
+  },
+  {
+    "number": "2421102",
+    "type": "道具",
+    "name": "蔷薇之鞭",
+    "category": "地",
+    "tag": "装备-武器",
+    "description": "回合技:每当友方卡牌负载数量减少后,此卡获得负载+1\\暗,最多2点",
+    "quote": "",
+    "elements_cost": {
+      "地": 2,
+      "无": 1
+    },
+    "elements_gain": {
+      "地": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\地\\2421102.jpg"
+  },
+  {
+    "number": "2421103",
+    "type": "道具",
+    "name": "捕梦网",
+    "category": "地",
+    "tag": "装备-武器",
+    "description": "入场:你已学习的灵媒法术永久+2\\威",
+    "quote": "",
+    "elements_cost": {
+      "地": 4
+    },
+    "elements_gain": {
+      "地": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\地\\2421103.jpg"
+  },
+  {
+    "number": "2421104",
+    "type": "道具",
+    "name": "血蔷薇契约",
+    "category": "地",
+    "tag": "消耗品-卷轴",
+    "description": "将你的一个法术变为你的一个地脉或暗影伙伴的绑定技能,并且上升该伙伴负载数量的\\威(在其死亡后将该绑定技能从游戏中移除)",
+    "quote": "",
+    "elements_cost": {
+      "地": 2,
+      "无": 1,
+      "暗": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\地\\2421104.jpg"
+  },
+  {
+    "number": "2421105",
+    "type": "道具",
+    "name": "自然交感",
+    "category": "地",
+    "tag": "消耗品-卷轴",
+    "description": "选择你场上2个地脉伙伴,重新分配他们的负载",
+    "quote": "",
+    "elements_cost": {
+      "地": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\地\\2421105.jpg"
+  },
+  {
+    "number": "2421106",
+    "type": "道具",
+    "name": "苍老药剂",
+    "category": "地",
+    "tag": "消耗品-药剂",
+    "description": "移除友方卡牌负载的1\\地,使其立刻达到下一次精通",
+    "quote": "",
+    "elements_cost": {},
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\地\\2421106.jpg"
+  },
+  {
+    "number": "2421107",
+    "type": "道具",
+    "name": "翡翠结界卷轴",
+    "category": "地",
+    "tag": "消耗品-卷轴",
+    "description": "当敌方法术数量比我方多时,每多1个获得护盾1",
+    "quote": "",
+    "elements_cost": {
+      "地": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\地\\2421107.jpg"
+  },
+  {
+    "number": "2421108",
+    "type": "道具",
+    "name": "翡翠果",
+    "category": "地",
+    "tag": "装备",
+    "description": "入场:使一个友方伙伴获得除\\地与\\无外的任意1点负载",
+    "quote": "",
+    "elements_cost": {
+      "地": 1,
+      "无": 2
+    },
+    "elements_gain": {
+      "地": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\地\\2421108.jpg"
+  },
+  {
+    "number": "2421109",
+    "type": "道具",
+    "name": "地穴精灵矿镐",
+    "category": "地",
+    "tag": "装备-武器",
+    "description": "消耗:选择1个种类(伙伴或道具),在5张牌之内翻取1张所选择种类的卡牌",
+    "quote": "",
+    "elements_cost": {
+      "地": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\地\\2421109.jpg"
+  },
+  {
+    "number": "2421110",
+    "type": "道具",
+    "name": "沙虫之饵",
+    "category": "地",
+    "tag": "消耗品",
+    "description": "翻取1个入场花费大于5的地脉伙伴,如果是巨型沙虫则使其入场花费-2",
+    "quote": "",
+    "elements_cost": {
+      "地": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\地\\2421110.jpg"
+  },
+  {
+    "number": "2421111",
+    "type": "道具",
+    "name": "沙漠护腿",
+    "category": "地",
+    "tag": "装备-防具",
+    "description": "绝技:当1个友方单位受到2点及以上伤害时,使该伤害-2",
+    "quote": "",
+    "elements_cost": {
+      "地": 2
+    },
+    "elements_gain": {
+      "地": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\地\\2421111.jpg"
+  },
+  {
+    "number": "2421112",
+    "type": "道具",
+    "name": "秋枫宝钻",
+    "category": "地",
+    "tag": "装备-神器",
+    "description": "入场:放置2个标记物.回合技:移除1个标记物,重置你的1个地脉伙伴",
+    "quote": "",
+    "elements_cost": {
+      "地": 4
+    },
+    "elements_gain": {
+      "地": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\地\\2421112.jpg"
+  },
+  {
     "number": "2501001",
     "type": "道具",
     "name": "桎梏",
@@ -5457,6 +10429,62 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\道具\\光\\2511002.jpg"
+  },
+  {
+    "number": "2511101",
+    "type": "道具",
+    "name": "九霄辉迹",
+    "category": "光",
+    "tag": "传奇-装备-武器",
+    "description": "绝技:双方将手牌全部丢弃,然后抽等量的牌",
+    "quote": "\"你看,我们也付出了巨大的牺牲\"",
+    "elements_cost": {
+      "光": 4,
+      "气": 2
+    },
+    "elements_gain": {
+      "光": 2,
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\光\\2511101.jpg"
+  },
+  {
+    "number": "2511102",
+    "type": "道具",
+    "name": "五虹之环",
+    "category": "光",
+    "tag": "传奇-装备-饰物",
+    "description": "回合技:花费1点\\火\\水\\地\\气\\光种类的元素,放置1个该种类的标记物.绑定技能:五虹之束",
+    "quote": "后来此环被遗落在某处遗迹的宝阁之内,又被某东方修士意外拾得,熠熠之辉不减当年",
+    "elements_cost": {
+      "光": 1,
+      "地": 1,
+      "气": 1,
+      "水": 1,
+      "火": 1
+    },
+    "elements_gain": {
+      "光": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [
+      "3501101"
+    ],
+    "output_path": "output\\王权纷争\\道具\\光\\2511102.jpg"
   },
   {
     "number": "2521001",
@@ -5774,6 +10802,283 @@
     "output_path": "output\\基础包\\道具\\光\\2521014.jpg"
   },
   {
+    "number": "2521101",
+    "type": "道具",
+    "name": "赐福之孤星",
+    "category": "光",
+    "tag": "消耗品",
+    "description": "使1个友方伙伴获得负载+1\\光和+1\\血",
+    "quote": "",
+    "elements_cost": {
+      "光": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\光\\2521101.jpg"
+  },
+  {
+    "number": "2521102",
+    "type": "道具",
+    "name": "月霞之尘",
+    "category": "光",
+    "tag": "消耗品-药剂",
+    "description": "摧毁敌方盖放的所有卡牌,或者使前排敌人失去隐蔽",
+    "quote": "",
+    "elements_cost": {
+      "光": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\光\\2521102.jpg"
+  },
+  {
+    "number": "2521103",
+    "type": "道具",
+    "name": "红玛瑙圣杯",
+    "category": "光",
+    "tag": "装备-神器",
+    "description": "光环:如果你的场上集齐绿玉权杖,蓝晶灯盏和红玛瑙圣杯,这些卡牌均获得负载+1\\光",
+    "quote": "",
+    "elements_cost": {
+      "光": 4
+    },
+    "elements_gain": {
+      "光": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\光\\2521103.jpg"
+  },
+  {
+    "number": "2521104",
+    "type": "道具",
+    "name": "黄金龙骨",
+    "category": "光",
+    "tag": "装备",
+    "description": "主动:献祭此卡才能发动,抽2张牌",
+    "quote": "",
+    "elements_cost": {
+      "光": 2
+    },
+    "elements_gain": {
+      "光": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\光\\2521104.jpg"
+  },
+  {
+    "number": "2521105",
+    "type": "道具",
+    "name": "孤星守护者",
+    "category": "光",
+    "tag": "装备-防具",
+    "description": "入场:获得护盾2",
+    "quote": "",
+    "elements_cost": {
+      "光": 3,
+      "无": 1
+    },
+    "elements_gain": {
+      "光": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\光\\2521105.jpg"
+  },
+  {
+    "number": "2521106",
+    "type": "道具",
+    "name": "沐光卷轴",
+    "category": "光",
+    "tag": "消耗品-卷轴",
+    "description": "为所有友方单位回复2\\血",
+    "quote": "",
+    "elements_cost": {
+      "光": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\光\\2521106.jpg"
+  },
+  {
+    "number": "2521107",
+    "type": "道具",
+    "name": "百灵药P型",
+    "category": "光",
+    "tag": "消耗品-药剂",
+    "description": "造成1点伤害,回复1\\血,抽1张牌",
+    "quote": "",
+    "elements_cost": {
+      "光": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\光\\2521107.jpg"
+  },
+  {
+    "number": "2521108",
+    "type": "道具",
+    "name": "议庭审判锤",
+    "category": "光",
+    "tag": "装备-武器",
+    "description": "诱发回合技:当敌方使用1个法术攻击,将3张九霄印记洗入对方卡组",
+    "quote": "",
+    "elements_cost": {
+      "光": 2,
+      "气": 1
+    },
+    "elements_gain": {
+      "光": 1,
+      "气": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [
+      "2001102"
+    ],
+    "output_path": "output\\王权纷争\\道具\\光\\2521108.jpg"
+  },
+  {
+    "number": "2521109",
+    "type": "道具",
+    "name": "惩戒符文",
+    "category": "光",
+    "tag": "消耗品-符文",
+    "description": "反制:当对方在一回合内进行超过2次法术攻击后,对任意一个敌方伙伴造成2点伤害",
+    "quote": "",
+    "elements_cost": {
+      "光": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\光\\2521109.jpg"
+  },
+  {
+    "number": "2521110",
+    "type": "道具",
+    "name": "天使之祈祷",
+    "category": "光",
+    "tag": "消耗品-卷轴",
+    "description": "翻取1个光辉属性的精灵.反制:对方使用法术攻击后使用此卡则无需花费并使该精灵入场花费-1\\光",
+    "quote": "",
+    "elements_cost": {
+      "光": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\光\\2521110.jpg"
+  },
+  {
+    "number": "2521111",
+    "type": "道具",
+    "name": "神谕卷轴 荣耀",
+    "category": "光",
+    "tag": "消耗品-法术卷轴-神秘",
+    "description": "穿透.使用时必须选择你的1个生命和负载总和大于5的伙伴,此卡威力上升该数值",
+    "quote": "",
+    "elements_cost": {
+      "光": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 3,
+    "life": -1,
+    "duration": -1,
+    "power": 0,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\光\\2521111.jpg"
+  },
+  {
+    "number": "2521112",
+    "type": "道具",
+    "name": "神谕卷轴 团结",
+    "category": "光",
+    "tag": "消耗品-法术卷轴-神秘",
+    "description": "范围:方阵.你场上每有1个光辉单位此卡花费-1\\光",
+    "quote": "",
+    "elements_cost": {
+      "光": 9
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 6,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\光\\2521112.jpg"
+  },
+  {
     "number": "2601001",
     "type": "道具",
     "name": "幻痛",
@@ -5864,6 +11169,52 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\道具\\暗\\2611002.jpg"
+  },
+  {
+    "number": "2611101",
+    "type": "道具",
+    "name": "厄瑞波斯的魂链",
+    "category": "暗",
+    "tag": "传奇-装备-神器",
+    "description": "诱发绝技:当敌方透支伙伴来使用法术时,标记那些伙伴和法术.诱发:每当那些标记的伙伴被消耗或透支,使那些标记的法术虚弱1",
+    "quote": "随着一次次挥舞,他的手臂愈发疲惫",
+    "elements_cost": {
+      "暗": 2
+    },
+    "elements_gain": {
+      "暗": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\暗\\2611101.jpg"
+  },
+  {
+    "number": "2611102",
+    "type": "道具",
+    "name": "渡灵之烛",
+    "category": "暗",
+    "tag": "传奇-装备-神器",
+    "description": "光环:获得2个只能放置灵媒和神秘技能的槽位,你的其他种类的法术\\威减半(向上取整)",
+    "quote": "相信我,所能看见的少是一种幸福",
+    "elements_cost": {
+      "暗": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\暗\\2611102.jpg"
   },
   {
     "number": "2621001",
@@ -6184,6 +11535,280 @@
     "output_path": "output\\基础包\\道具\\暗\\2621014.jpg"
   },
   {
+    "number": "2621101",
+    "type": "道具",
+    "name": "黑松木魔杖",
+    "category": "暗",
+    "tag": "装备-武器",
+    "description": "光环:你以友方单位为目标释放法术的花费-1",
+    "quote": "",
+    "elements_cost": {
+      "暗": 3
+    },
+    "elements_gain": {
+      "暗": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\暗\\2621101.jpg"
+  },
+  {
+    "number": "2621102",
+    "type": "道具",
+    "name": "血蔷薇诅咒",
+    "category": "暗",
+    "tag": "消耗品-卷轴",
+    "description": "将敌方的一个法术变为敌方的一个伙伴(由敌方选择)的绑定技能,在其死亡后将该法术从游戏中移除",
+    "quote": "",
+    "elements_cost": {
+      "暗": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\暗\\2621102.jpg"
+  },
+  {
+    "number": "2621103",
+    "type": "道具",
+    "name": "血蛊",
+    "category": "暗",
+    "tag": "装备",
+    "description": "诱发:每当你的人物受到1点伤害,在此卡上放置1个标记物,最多6个.主动:献祭此卡才能发动,此卡每有2个标记物,本回合你的法术+1\\威",
+    "quote": "",
+    "elements_cost": {
+      "暗": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\暗\\2621103.jpg"
+  },
+  {
+    "number": "2621104",
+    "type": "道具",
+    "name": "献身契约",
+    "category": "暗",
+    "tag": "装备",
+    "description": "诱发回合技:在你使用1个代赎法术后,必须对你的人物造成1点伤害并抽1张牌",
+    "quote": "很好,恶魔已经看上你了",
+    "elements_cost": {
+      "暗": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\暗\\2621104.jpg"
+  },
+  {
+    "number": "2621105",
+    "type": "道具",
+    "name": "红月吊坠",
+    "category": "暗",
+    "tag": "装备-饰物",
+    "description": "主动:献祭此卡才能发动,使你的下一次红月持续时间+1",
+    "quote": "",
+    "elements_cost": {
+      "暗": 2
+    },
+    "elements_gain": {
+      "暗": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\暗\\2621105.jpg"
+  },
+  {
+    "number": "2621106",
+    "type": "道具",
+    "name": "苦痛尖啸卷轴",
+    "category": "暗",
+    "tag": "消耗品-卷轴",
+    "description": "本回合友方单位每受到1点伤害就选择1个没有虚弱的敌方法术,使那些法术虚弱2",
+    "quote": "",
+    "elements_cost": {
+      "暗": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\暗\\2621106.jpg"
+  },
+  {
+    "number": "2621107",
+    "type": "道具",
+    "name": "诅咒魔盒",
+    "category": "暗",
+    "tag": "装备-神器",
+    "description": "诱发:每当1个单位死亡,在此卡上放置1个标记物.主动回合技:移除最多3个标记物,使那个数量的敌方法术虚弱1",
+    "quote": "",
+    "elements_cost": {
+      "暗": 2
+    },
+    "elements_gain": {
+      "暗": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\暗\\2621107.jpg"
+  },
+  {
+    "number": "2621108",
+    "type": "道具",
+    "name": "黑松棺木",
+    "category": "暗",
+    "tag": "装备",
+    "description": "入场:从手牌丢弃最多2张入场花费小于5的暗影伙伴,立刻结算它们的遗言效果",
+    "quote": "",
+    "elements_cost": {
+      "暗": 2
+    },
+    "elements_gain": {
+      "暗": 1
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\暗\\2621108.jpg"
+  },
+  {
+    "number": "2621109",
+    "type": "道具",
+    "name": "哀歌卷轴",
+    "category": "暗",
+    "tag": "消耗品-卷轴",
+    "description": "翻取1个具有遗言的暗影伙伴,如果你的弃牌堆已有暗影伙伴则使翻取的卡牌入场花费-1\\暗",
+    "quote": "",
+    "elements_cost": {
+      "暗": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\暗\\2621109.jpg"
+  },
+  {
+    "number": "2621110",
+    "type": "道具",
+    "name": "安迪斯的赠与",
+    "category": "暗",
+    "tag": "消耗品-药剂",
+    "description": "使1个友方单位获得负载+2\\暗,但会在回合结束时死亡",
+    "quote": "",
+    "elements_cost": {
+      "暗": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\暗\\2621110.jpg"
+  },
+  {
+    "number": "2621111",
+    "type": "道具",
+    "name": "暗黑爆发卷轴",
+    "category": "暗",
+    "tag": "消耗品-卷轴",
+    "description": "你的弃牌堆有5个及以上暗影伙伴时才能使用,将那些暗影伙伴全部移出游戏,每1个获得2\\暗",
+    "quote": "",
+    "elements_cost": {
+      "暗": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\暗\\2621111.jpg"
+  },
+  {
+    "number": "2621112",
+    "type": "道具",
+    "name": "灵魂法杖",
+    "category": "暗",
+    "tag": "装备-武器",
+    "description": "主动回合技:从你的弃牌堆将2张暗影伙伴移出游戏,给你的1个暗影法术放置1个灵魂标记物.每个灵魂标记物会使法术+2\\威",
+    "quote": "",
+    "elements_cost": {
+      "暗": 5
+    },
+    "elements_gain": {
+      "暗": 2
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\道具\\暗\\2621112.jpg"
+  },
+  {
     "number": "3001001",
     "type": "技能",
     "name": "破灭魔光",
@@ -6228,6 +11853,52 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\技能\\无\\3001002.jpg"
+  },
+  {
+    "number": "3001101",
+    "type": "技能",
+    "name": "入局",
+    "category": "无",
+    "tag": "衍生-咒术-驱动",
+    "description": "速攻.为任意玩家召唤1个弃子(由你决定位置)",
+    "quote": "棋至困局,破者得道,乱者失机",
+    "elements_cost": {},
+    "elements_gain": {},
+    "elements_expense": {
+      "无": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\无\\3001101.jpg"
+  },
+  {
+    "number": "3011101",
+    "type": "技能",
+    "name": "绝对纯净 奥能一心",
+    "category": "无",
+    "tag": "传奇-法术-聚能",
+    "description": "冷却2.范围:全场.此卡的学习和使用花费必须严格为奥术元素.使用时翻开你卡组最上方的卡牌直到出现非奥术卡牌,此卡\\威上升奥术卡牌的数量,然后洗混卡组",
+    "quote": "\"罗慕路斯,一个只会奥术的法师是走不远的\"",
+    "elements_cost": {
+      "无": 11
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "无": 7
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 0,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\无\\3011101.jpg"
   },
   {
     "number": "3021001",
@@ -6516,6 +12187,198 @@
     "output_path": "output\\基础包\\技能\\无\\3021012.jpg"
   },
   {
+    "number": "3021101",
+    "type": "技能",
+    "name": "奥术冲击",
+    "category": "无",
+    "tag": "法术-聚能",
+    "description": "如果此卡学习和使用花费的元素均为奥术元素,获得+1\\攻+1\\威",
+    "quote": "",
+    "elements_cost": {
+      "无": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "无": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\无\\3021101.jpg"
+  },
+  {
+    "number": "3021102",
+    "type": "技能",
+    "name": "奥术屏障",
+    "category": "无",
+    "tag": "法术-创造",
+    "description": "防御",
+    "quote": "",
+    "elements_cost": {
+      "无": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "无": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 0,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\无\\3021102.jpg"
+  },
+  {
+    "number": "3021103",
+    "type": "技能",
+    "name": "奥能汲取",
+    "category": "无",
+    "tag": "咒术-神秘",
+    "description": "冷却1.抽2张牌.此卡使用花费的元素属性必须各不相同",
+    "quote": "",
+    "elements_cost": {
+      "无": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "无": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\无\\3021103.jpg"
+  },
+  {
+    "number": "3021104",
+    "type": "技能",
+    "name": "七神加护",
+    "category": "无",
+    "tag": "咒术-神秘",
+    "description": "异能:如果你的所有技能属性各不相同,使它们使用花费-1,若为法术再+2\\威",
+    "quote": "",
+    "elements_cost": {
+      "无": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "无": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": 2,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\无\\3021104.jpg"
+  },
+  {
+    "number": "3021105",
+    "type": "技能",
+    "name": "奥能净化",
+    "category": "无",
+    "tag": "咒术-幻变",
+    "description": "速攻.冷却2.本回合友方卡牌不受负面状态影响(仍可处于负面状态)",
+    "quote": "",
+    "elements_cost": {
+      "无": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "无": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\无\\3021105.jpg"
+  },
+  {
+    "number": "3021106",
+    "type": "技能",
+    "name": "奥能流贯",
+    "category": "无",
+    "tag": "法术-聚能",
+    "description": "光环:如果你场上只有奥术卡牌,此卡\\威翻倍",
+    "quote": "",
+    "elements_cost": {
+      "无": 5
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "无": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\无\\3021106.jpg"
+  },
+  {
+    "number": "3021107",
+    "type": "技能",
+    "name": "奥能护盾",
+    "category": "无",
+    "tag": "咒术-创造",
+    "description": "速攻.在下个回合开始时获得护盾1",
+    "quote": "",
+    "elements_cost": {
+      "无": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "无": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\无\\3021107.jpg"
+  },
+  {
+    "number": "3021108",
+    "type": "技能",
+    "name": "奥术封印",
+    "category": "无",
+    "tag": "咒术-幻变",
+    "description": "速攻.冷却1.选择对方场上1个技能,对方在他的下个回合不能使用该技能,然后此卡的花费以后永久+2\\无",
+    "quote": "",
+    "elements_cost": {
+      "无": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "无": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\无\\3021108.jpg"
+  },
+  {
     "number": "3101001",
     "type": "技能",
     "name": "火焰吐息",
@@ -6560,6 +12423,56 @@
     "power": 5,
     "spawns": [],
     "output_path": "output\\基础包\\技能\\火\\3101002.jpg"
+  },
+  {
+    "number": "3111101",
+    "type": "技能",
+    "name": "火炎炼狱",
+    "category": "火",
+    "tag": "传奇-法术-幻变",
+    "description": "冷却1.范围:全场.每有8\\威获得点燃1.此卡被防御成功时,每1层点燃需额外4\\威进行防御,否则仍会生效",
+    "quote": "狄斯托德从地狱归来,手中是炽热的百炼战刃,胯下是嘶吼的千里炎驹,身后是无尽的万葬火海",
+    "elements_cost": {
+      "地": 2,
+      "火": 7
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "地": 2,
+      "火": 4
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 8,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\火\\3111101.jpg"
+  },
+  {
+    "number": "3111102",
+    "type": "技能",
+    "name": "原初神炎 洛普修斯",
+    "category": "火",
+    "tag": "传奇-法术-神秘",
+    "description": "光环:无法被强化,无法用于强化,不受其他卡牌效果影响,不受负面效果影响.主动回合技:将你学习的一个火焰技能移出游戏,此卡获得+1\\攻+2\\威",
+    "quote": "\"努尔已经被战争和毁灭蒙蔽双眼,而洛普修斯将引领我们向往更辉煌的终点!\"",
+    "elements_cost": {
+      "火": 5
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "火": 3
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 6,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\火\\3111102.jpg"
   },
   {
     "number": "3121001",
@@ -6926,6 +12839,250 @@
     "output_path": "output\\基础包\\技能\\火\\3121015.jpg"
   },
   {
+    "number": "3121101",
+    "type": "技能",
+    "name": "唤灵术 火蛇",
+    "category": "火",
+    "tag": "法术-创造",
+    "description": "若防御成功对法力范围内1个敌人造成1点伤害",
+    "quote": "",
+    "elements_cost": {
+      "火": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "火": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 5,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\火\\3121101.jpg"
+  },
+  {
+    "number": "3121102",
+    "type": "技能",
+    "name": "雄狮之守护",
+    "category": "火",
+    "tag": "法术-神秘",
+    "description": "防御.若防御成功使你的其他火焰法术永久+1\\威",
+    "quote": "",
+    "elements_cost": {
+      "火": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "火": 3
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 0,
+    "life": -1,
+    "duration": -1,
+    "power": 5,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\火\\3121102.jpg"
+  },
+  {
+    "number": "3121103",
+    "type": "技能",
+    "name": "祈祷之焰",
+    "category": "火",
+    "tag": "咒术-神秘",
+    "description": "在此卡上放置3个标记物,或者取除所有标记物并召唤1个入场花费小于等于标记物数量的火焰伙伴,无需花费",
+    "quote": "",
+    "elements_cost": {},
+    "elements_gain": {},
+    "elements_expense": {
+      "火": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\火\\3121103.jpg"
+  },
+  {
+    "number": "3121104",
+    "type": "技能",
+    "name": "炎狱怒吼",
+    "category": "火",
+    "tag": "法术-聚能",
+    "description": "范围:纵列.使用时可以额外消耗1个友方火焰伙伴,此次\\威上升其入场花费的数值",
+    "quote": "",
+    "elements_cost": {
+      "地": 2,
+      "火": 5
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "地": 1,
+      "火": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\火\\3121104.jpg"
+  },
+  {
+    "number": "3121105",
+    "type": "技能",
+    "name": "余火",
+    "category": "火",
+    "tag": "法术-创造",
+    "description": "不可用于防御.诱发:你的回合结束时,如果你没有剩余的\\火,可以立刻使用此卡且无需花费",
+    "quote": "",
+    "elements_cost": {
+      "火": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "火": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\火\\3121105.jpg"
+  },
+  {
+    "number": "3121106",
+    "type": "技能",
+    "name": "爆炎气焰",
+    "category": "火",
+    "tag": "法术-创造",
+    "description": "穿透",
+    "quote": "",
+    "elements_cost": {
+      "气": 1,
+      "火": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "气": 1,
+      "火": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 6,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\火\\3121106.jpg"
+  },
+  {
+    "number": "3121107",
+    "type": "技能",
+    "name": "战争践踏",
+    "category": "火",
+    "tag": "法术-驱动",
+    "description": "范围:前排.攻击时目标区域每有1个单位此法术-1\\攻",
+    "quote": "",
+    "elements_cost": {
+      "火": 5
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "火": 3
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 4,
+    "life": -1,
+    "duration": -1,
+    "power": 7,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\火\\3121107.jpg"
+  },
+  {
+    "number": "3121108",
+    "type": "技能",
+    "name": "熔岩障壁",
+    "category": "火",
+    "tag": "法术-创造",
+    "description": "防御",
+    "quote": "",
+    "elements_cost": {
+      "地": 1,
+      "火": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "地": 1,
+      "火": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 0,
+    "life": -1,
+    "duration": -1,
+    "power": 5,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\火\\3121108.jpg"
+  },
+  {
+    "number": "3121109",
+    "type": "技能",
+    "name": "烈焰闪",
+    "category": "火",
+    "tag": "法术-幻变",
+    "description": "命中:获得3\\火",
+    "quote": "",
+    "elements_cost": {
+      "火": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "火": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 5,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\火\\3121109.jpg"
+  },
+  {
+    "number": "3121110",
+    "type": "技能",
+    "name": "咒火",
+    "category": "火",
+    "tag": "咒术-创造",
+    "description": "冷却1.翻取1个花费小于4的火焰法术卷轴,你可以立刻使用它,无需花费",
+    "quote": "",
+    "elements_cost": {
+      "火": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "火": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\火\\3121110.jpg"
+  },
+  {
     "number": "3201001",
     "type": "技能",
     "name": "百川归海",
@@ -6970,6 +13127,56 @@
     "power": 8,
     "spawns": [],
     "output_path": "output\\基础包\\技能\\水\\3201002.jpg"
+  },
+  {
+    "number": "3211101",
+    "type": "技能",
+    "name": "心海迷离",
+    "category": "水",
+    "tag": "传奇-法术-灵媒",
+    "description": "晕眩1.诱发:你每次使用此技能后直到回合结束获得+1\\威并改为任意范围(前排,纵列,方阵,溅射)",
+    "quote": "层层幻梦,层层迷离",
+    "elements_cost": {
+      "水": 6
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "水": 3
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 6,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\水\\3211101.jpg"
+  },
+  {
+    "number": "3211102",
+    "type": "技能",
+    "name": "龙吟雪域",
+    "category": "水",
+    "tag": "传奇-咒术-幻变",
+    "description": "冷却2.异能:双方玩家的法术获得以下效果\"命中:选择法力范围内1个单位冻结1\".第5次触发这个效果后你可以召唤一个凛冰之龙",
+    "quote": "\"是的小姑娘,她知道你的一切,如果你真的能感动她,就尝试穿过这片无尽雪域吧\"",
+    "elements_cost": {
+      "水": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "水": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": 2,
+    "power": -1,
+    "spawns": [
+      "1201101"
+    ],
+    "output_path": "output\\王权纷争\\技能\\水\\3211102.jpg"
   },
   {
     "number": "3221001",
@@ -7338,6 +13545,252 @@
     "output_path": "output\\基础包\\技能\\水\\3221015.jpg"
   },
   {
+    "number": "3221101",
+    "type": "技能",
+    "name": "踏浪术",
+    "category": "水",
+    "tag": "咒术-驱动",
+    "description": "冷却2.异能:在你使用1个水纹法术后,重置你的另一个水纹法术,但使其下一次花费多X+1\\水,X为本回合触发此效果的次数",
+    "quote": "",
+    "elements_cost": {
+      "水": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "水": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": 1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\水\\3221101.jpg"
+  },
+  {
+    "number": "3221102",
+    "type": "技能",
+    "name": "唤灵术 蛟龙",
+    "category": "水",
+    "tag": "法术-创造",
+    "description": "若防御成功对法力范围内所有敌人造成1点伤害",
+    "quote": "",
+    "elements_cost": {
+      "水": 5
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "水": 3
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 6,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\水\\3221102.jpg"
+  },
+  {
+    "number": "3221103",
+    "type": "技能",
+    "name": "水镜壁",
+    "category": "水",
+    "tag": "法术-创造",
+    "description": "防御.若防御成功获得护盾1",
+    "quote": "",
+    "elements_cost": {
+      "水": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "水": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\水\\3221103.jpg"
+  },
+  {
+    "number": "3221104",
+    "type": "技能",
+    "name": "水遁术",
+    "category": "水",
+    "tag": "咒术-幻变",
+    "description": "冷却1.速攻.使1个没有隐蔽的单位获得隐蔽2",
+    "quote": "",
+    "elements_cost": {
+      "水": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "水": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\水\\3221104.jpg"
+  },
+  {
+    "number": "3221105",
+    "type": "技能",
+    "name": "腐蚀之流",
+    "category": "水",
+    "tag": "法术-幻变",
+    "description": "命中:随机弃置敌方1张手牌",
+    "quote": "",
+    "elements_cost": {
+      "暗": 1,
+      "水": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "暗": 1,
+      "水": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 3,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\水\\3221105.jpg"
+  },
+  {
+    "number": "3221106",
+    "type": "技能",
+    "name": "暗流涌动",
+    "category": "水",
+    "tag": "法术-驱动",
+    "description": "可以攻击隐蔽的单位(无论在哪),攻击隐蔽单位时+2\\威",
+    "quote": "",
+    "elements_cost": {
+      "水": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "水": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\水\\3221106.jpg"
+  },
+  {
+    "number": "3221107",
+    "type": "技能",
+    "name": "海龙卷",
+    "category": "水",
+    "tag": "法术-驱动",
+    "description": "范围:方阵.",
+    "quote": "",
+    "elements_cost": {
+      "气": 1,
+      "水": 5
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "气": 1,
+      "水": 3
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 6,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\水\\3221107.jpg"
+  },
+  {
+    "number": "3221108",
+    "type": "技能",
+    "name": "六瓣雪花",
+    "category": "水",
+    "tag": "法术-创造",
+    "description": "冻结1.速攻.此卡的冻结对人物无效",
+    "quote": "",
+    "elements_cost": {
+      "水": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "水": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 0,
+    "life": -1,
+    "duration": -1,
+    "power": 1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\水\\3221108.jpg"
+  },
+  {
+    "number": "3221109",
+    "type": "技能",
+    "name": "波纹斩",
+    "category": "水",
+    "tag": "法术-创造",
+    "description": "光环:如果本回合你已经使用过波纹斩,此卡获得+2\\威和范围:前排",
+    "quote": "",
+    "elements_cost": {
+      "水": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "水": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\水\\3221109.jpg"
+  },
+  {
+    "number": "3221110",
+    "type": "技能",
+    "name": "劫掠之潮",
+    "category": "水",
+    "tag": "法术-驱动",
+    "description": "范围:前排.命中:每命中1个单位随机弃置敌方1张手牌并且你抽1张牌",
+    "quote": "",
+    "elements_cost": {
+      "暗": 1,
+      "水": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "暗": 1,
+      "水": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 7,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\水\\3221110.jpg"
+  },
+  {
     "number": "3301001",
     "type": "技能",
     "name": "风暴之怒",
@@ -7358,6 +13811,56 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\技能\\气\\3301001.jpg"
+  },
+  {
+    "number": "3311101",
+    "type": "技能",
+    "name": "苍穹幻韵",
+    "category": "气",
+    "tag": "传奇-法术-幻变",
+    "description": "使用时等同于释放你学习的另一个驱动或聚能法术",
+    "quote": "无形之风为意,浮云之影成形",
+    "elements_cost": {
+      "光": 2,
+      "气": 5
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "光": 1,
+      "气": 3
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 0,
+    "life": -1,
+    "duration": -1,
+    "power": 0,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\气\\3311101.jpg"
+  },
+  {
+    "number": "3311102",
+    "type": "技能",
+    "name": "星落之银叶",
+    "category": "气",
+    "tag": "传奇-咒术-创造",
+    "description": "诱发:每当你弃牌时,从中选择1张放在此卡下方.使用时将此卡下方1张牌洗回卡组,然后抽1张牌",
+    "quote": "\"有人说,我们是坠落的神灵弃子,但我想,我们是受眷顾的苍茫众生\"",
+    "elements_cost": {
+      "气": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "气": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\气\\3311102.jpg"
   },
   {
     "number": "3321001",
@@ -7716,6 +14219,300 @@
     "power": 3,
     "spawns": [],
     "output_path": "output\\基础包\\技能\\气\\3321015.jpg"
+  },
+  {
+    "number": "3321101",
+    "type": "技能",
+    "name": "急速涡旋",
+    "category": "气",
+    "tag": "法术-驱动",
+    "description": "速攻",
+    "quote": "",
+    "elements_cost": {
+      "气": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "气": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 3,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\气\\3321101.jpg"
+  },
+  {
+    "number": "3321102",
+    "type": "技能",
+    "name": "肃杀之风",
+    "category": "气",
+    "tag": "法术-驱动",
+    "description": "范围:方阵.光环:此卡威力上升双方玩家手牌数量的差值",
+    "quote": "",
+    "elements_cost": {
+      "气": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "气": 3
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 3,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\气\\3321102.jpg"
+  },
+  {
+    "number": "3321103",
+    "type": "技能",
+    "name": "雷霆万钧",
+    "category": "气",
+    "tag": "法术-聚能",
+    "description": "范围:前排",
+    "quote": "",
+    "elements_cost": {
+      "光": 2,
+      "气": 6
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "光": 1,
+      "气": 4
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 3,
+    "life": -1,
+    "duration": -1,
+    "power": 9,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\气\\3321103.jpg"
+  },
+  {
+    "number": "3321104",
+    "type": "技能",
+    "name": "收势",
+    "category": "气",
+    "tag": "法术-聚能",
+    "description": "防御.若防御成功,你下一个用于攻击的法术+3\\威",
+    "quote": "",
+    "elements_cost": {
+      "气": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "气": 3
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 0,
+    "life": -1,
+    "duration": -1,
+    "power": 7,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\气\\3321104.jpg"
+  },
+  {
+    "number": "3321105",
+    "type": "技能",
+    "name": "风卷残云",
+    "category": "气",
+    "tag": "咒术-幻变",
+    "description": "速攻.冷却1.异能:每当有单位受到伤害,如果其生命为1,将其消灭",
+    "quote": "一不做,二不休",
+    "elements_cost": {
+      "气": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "气": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": 1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\气\\3321105.jpg"
+  },
+  {
+    "number": "3321106",
+    "type": "技能",
+    "name": "紫电穿空",
+    "category": "气",
+    "tag": "法术-聚能",
+    "description": "",
+    "quote": "",
+    "elements_cost": {
+      "气": 5
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "气": 3
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 7,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\气\\3321106.jpg"
+  },
+  {
+    "number": "3321107",
+    "type": "技能",
+    "name": "屏息凝神",
+    "category": "气",
+    "tag": "咒术-灵媒",
+    "description": "速攻.异能:如果本回合你除回合开始外没有抽牌,你的大气法术+1\\威",
+    "quote": "",
+    "elements_cost": {
+      "气": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "气": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": 1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\气\\3321107.jpg"
+  },
+  {
+    "number": "3321108",
+    "type": "技能",
+    "name": "唤灵术 苍鹰",
+    "category": "气",
+    "tag": "法术-创造",
+    "description": "入场:使1个友方大气法术下一次使用时+1\\攻+1\\威",
+    "quote": "",
+    "elements_cost": {
+      "气": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "气": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\气\\3321108.jpg"
+  },
+  {
+    "number": "3321109",
+    "type": "技能",
+    "name": "银叶旋风",
+    "category": "气",
+    "tag": "法术-驱动",
+    "description": "光环:如果当回合有卡被送去弃牌堆,此卡\\威变为6",
+    "quote": "",
+    "elements_cost": {
+      "气": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "气": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\气\\3321109.jpg"
+  },
+  {
+    "number": "3321110",
+    "type": "技能",
+    "name": "气蕴成流",
+    "category": "气",
+    "tag": "法术-幻变",
+    "description": "入场:你学习的下一个大气法术获得速攻",
+    "quote": "",
+    "elements_cost": {
+      "气": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "气": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\气\\3321110.jpg"
+  },
+  {
+    "number": "3411101",
+    "type": "技能",
+    "name": "时岁轮转",
+    "category": "地",
+    "tag": "传奇-咒术-幻变",
+    "description": "冷却2.异能:双方玩家不能打出、召唤任何卡牌,不能学习、使用任何法术,不能使用卡牌攻击.此卡的学习和使用花费必须严格为地脉和奥术元素",
+    "quote": "\"你看起来,还和我记忆中一样\"",
+    "elements_cost": {
+      "地": 1,
+      "无": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "地": 1,
+      "无": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": 2,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\地\\3411101.jpg"
+  },
+  {
+    "number": "3411102",
+    "type": "技能",
+    "name": "蔽天阵 血沙",
+    "category": "地",
+    "tag": "传奇-法术-创造",
+    "description": "冷却1.范围:全场.主动回合技:双方各自选择支付自己场上单位的最多3点负载或生命值(由你先进行),在此卡上放置差值数量的标记物.每一点标记物此卡获得+3\\威和+1\\攻",
+    "quote": "遮沙蔽风了",
+    "elements_cost": {
+      "地": 5,
+      "暗": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "地": 4,
+      "暗": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 0,
+    "life": -1,
+    "duration": -1,
+    "power": 1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\地\\3411102.jpg"
   },
   {
     "number": "3421001",
@@ -8083,6 +14880,252 @@
     "output_path": "output\\基础包\\技能\\地\\3421015.jpg"
   },
   {
+    "number": "3421101",
+    "type": "技能",
+    "name": "森之洞察",
+    "category": "地",
+    "tag": "咒术-灵媒",
+    "description": "冷却1.你场上每有1个地脉伙伴就抽1张牌(最多5张)然后将抽牌数量的手牌洗回卡组",
+    "quote": "",
+    "elements_cost": {
+      "地": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "地": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\地\\3421101.jpg"
+  },
+  {
+    "number": "3421102",
+    "type": "技能",
+    "name": "苍岚之刃",
+    "category": "地",
+    "tag": "法术-创造",
+    "description": "范围:前排",
+    "quote": "",
+    "elements_cost": {
+      "地": 4,
+      "气": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "地": 2,
+      "气": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 6,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\地\\3421102.jpg"
+  },
+  {
+    "number": "3421103",
+    "type": "技能",
+    "name": "巨岩崩落",
+    "category": "地",
+    "tag": "法术-驱动",
+    "description": "无法用于强化",
+    "quote": "",
+    "elements_cost": {
+      "地": 5
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "地": 3
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 8,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\地\\3421103.jpg"
+  },
+  {
+    "number": "3421104",
+    "type": "技能",
+    "name": "自然回响",
+    "category": "地",
+    "tag": "法术-灵媒",
+    "description": "主动回合技:移除友方卡牌负载的1\\地,重置此卡且下次施放+2\\威,可额外选择一个目标(可以相同)",
+    "quote": "",
+    "elements_cost": {
+      "地": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "地": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 3,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\地\\3421104.jpg"
+  },
+  {
+    "number": "3421105",
+    "type": "技能",
+    "name": "苍老之触",
+    "category": "地",
+    "tag": "法术-幻变",
+    "description": "命中:如果目标为伙伴,使其失去所有负载",
+    "quote": "",
+    "elements_cost": {
+      "地": 3,
+      "暗": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "地": 1,
+      "暗": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\地\\3421105.jpg"
+  },
+  {
+    "number": "3421106",
+    "type": "技能",
+    "name": "腐朽侵蚀",
+    "category": "地",
+    "tag": "法术-幻变",
+    "description": "范围:前排.精通3,6:获得+1\\攻和+1\\威.诱发:此法术命中敌人并结算后,对所有敌方法术造成此卡\\攻数量的虚弱然后立刻触发下一次精通.",
+    "quote": "",
+    "elements_cost": {
+      "地": 4,
+      "暗": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "地": 3,
+      "暗": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 6,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\地\\3421106.jpg"
+  },
+  {
+    "number": "3421107",
+    "type": "技能",
+    "name": "破土而出",
+    "category": "地",
+    "tag": "法术-驱动",
+    "description": "冷却1.范围:溅射.精通1,2:额外无视范围选择一个溅射目标.",
+    "quote": "",
+    "elements_cost": {
+      "地": 6
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "地": 4
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 7,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\地\\3421107.jpg"
+  },
+  {
+    "number": "3421108",
+    "type": "技能",
+    "name": "御守石阵",
+    "category": "地",
+    "tag": "法术-创造",
+    "description": "范围:方阵.用于防御时此卡使用花费-1",
+    "quote": "",
+    "elements_cost": {
+      "地": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "地": 3
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 5,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\地\\3421108.jpg"
+  },
+  {
+    "number": "3421109",
+    "type": "技能",
+    "name": "石化死光",
+    "category": "地",
+    "tag": "法术-聚能",
+    "description": "石化3",
+    "quote": "",
+    "elements_cost": {
+      "地": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "地": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 5,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\地\\3421109.jpg"
+  },
+  {
+    "number": "3421110",
+    "type": "技能",
+    "name": "粉碎石破",
+    "category": "地",
+    "tag": "法术-驱动",
+    "description": "如果目标\\血大于2,此卡本次+1\\威",
+    "quote": "",
+    "elements_cost": {
+      "地": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "地": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\地\\3421110.jpg"
+  },
+  {
     "number": "3501001",
     "type": "技能",
     "name": "团结的希望",
@@ -8103,6 +15146,28 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\技能\\光\\3501001.jpg"
+  },
+  {
+    "number": "3501101",
+    "type": "技能",
+    "name": "五虹之束",
+    "category": "光",
+    "tag": "衍生-法术-聚能",
+    "description": "使用时移除五虹之环上任意数量标记物,根据种类获得以下效果:\\火:+2\\攻;\\水:额外选择1个目标;\\地:+3\\威;\\气:获得穿透;\\光:使用花费-2;全部:额外使\\威翻倍",
+    "quote": "",
+    "elements_cost": {},
+    "elements_gain": {},
+    "elements_expense": {
+      "光": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\光\\3501101.jpg"
   },
   {
     "number": "3511010",
@@ -8127,6 +15192,56 @@
     "power": 1,
     "spawns": [],
     "output_path": "output\\基础包\\技能\\光\\3511010.jpg"
+  },
+  {
+    "number": "3511101",
+    "type": "技能",
+    "name": "神辉驭空",
+    "category": "光",
+    "tag": "传奇-法术-神秘",
+    "description": "范围:前排或纵列.光环:对方每有1张手牌,此卡+1\\威.命中:可以选择1个玩家将全部手牌丢弃然后抽牌至手牌上限.",
+    "quote": "金色的光芒散落在九霄议庭,仿佛他们真的是被选中的",
+    "elements_cost": {
+      "光": 4,
+      "气": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "光": 3,
+      "气": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\光\\3511101.jpg"
+  },
+  {
+    "number": "3511102",
+    "type": "技能",
+    "name": "绝境之光 孤星闪耀",
+    "category": "光",
+    "tag": "传奇-法术-聚能",
+    "description": "穿透.范围:溅射.仅在你场上单位比对方少时才能使用.光环:此卡\\威上升你场上光辉伙伴生命值和负载最高者的合计数值",
+    "quote": "这一次,再也没有值得信任的伙伴了",
+    "elements_cost": {
+      "光": 6
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "光": 4
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\光\\3511102.jpg"
   },
   {
     "number": "3521001",
@@ -8481,6 +15596,322 @@
     "power": 9,
     "spawns": [],
     "output_path": "output\\基础包\\技能\\光\\3521015.jpg"
+  },
+  {
+    "number": "3521101",
+    "type": "技能",
+    "name": "福音",
+    "category": "光",
+    "tag": "法术-神秘",
+    "description": "诱发:每当你的一个光辉伙伴被消耗,本卡使用费用-1\\光,直到你的回合结束",
+    "quote": "",
+    "elements_cost": {
+      "光": 6
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "光": 9
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 8,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\光\\3521101.jpg"
+  },
+  {
+    "number": "3521102",
+    "type": "技能",
+    "name": "神助",
+    "category": "光",
+    "tag": "法术-神秘",
+    "description": "光环:此卡用于强化神秘法术时+2\\威",
+    "quote": "",
+    "elements_cost": {
+      "光": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "光": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 5,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\光\\3521102.jpg"
+  },
+  {
+    "number": "3521103",
+    "type": "技能",
+    "name": "光铸飞弹",
+    "category": "光",
+    "tag": "法术-创造",
+    "description": "穿透",
+    "quote": "",
+    "elements_cost": {
+      "光": 5
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "光": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 6,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\光\\3521103.jpg"
+  },
+  {
+    "number": "3521104",
+    "type": "技能",
+    "name": "罪责",
+    "category": "光",
+    "tag": "法术-神秘",
+    "description": "入场:选择1个伙伴种类,此卡仅在攻击该种类伙伴时获得穿透和+2\\威",
+    "quote": "",
+    "elements_cost": {
+      "光": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "光": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\光\\3521104.jpg"
+  },
+  {
+    "number": "3521105",
+    "type": "技能",
+    "name": "流光之束",
+    "category": "光",
+    "tag": "法术-聚能",
+    "description": "",
+    "quote": "",
+    "elements_cost": {
+      "光": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "光": 1,
+      "气": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\光\\3521105.jpg"
+  },
+  {
+    "number": "3521106",
+    "type": "技能",
+    "name": "归心",
+    "category": "光",
+    "tag": "法术-神秘",
+    "description": "范围:方阵.光环:你的场上每有一个光属性生物获得+1\\威,每有一个其他属性生物-1\\威",
+    "quote": "",
+    "elements_cost": {
+      "光": 5
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "光": 4
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 2,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\光\\3521106.jpg"
+  },
+  {
+    "number": "3521107",
+    "type": "技能",
+    "name": "虹彩之壁",
+    "category": "光",
+    "tag": "法术-创造",
+    "description": "防御",
+    "quote": "",
+    "elements_cost": {
+      "地": 1,
+      "气": 1,
+      "水": 1,
+      "火": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "光": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 0,
+    "life": -1,
+    "duration": -1,
+    "power": 6,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\光\\3521107.jpg"
+  },
+  {
+    "number": "3521108",
+    "type": "技能",
+    "name": "恩典",
+    "category": "光",
+    "tag": "咒术-神秘",
+    "description": "冷却1.使1个受伤的友方伙伴回复2\\血,如果使生命值回满则使其+1\\血,负载+1\\光",
+    "quote": "",
+    "elements_cost": {
+      "光": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "光": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\光\\3521108.jpg"
+  },
+  {
+    "number": "3521109",
+    "type": "技能",
+    "name": "重整旗鼓",
+    "category": "光",
+    "tag": "咒术-幻变",
+    "description": "诱发:当敌方法术命中后才能使用此卡,使1个友方伙伴负载+1\\光+1\\血",
+    "quote": "",
+    "elements_cost": {
+      "光": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "光": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\光\\3521109.jpg"
+  },
+  {
+    "number": "3521110",
+    "type": "技能",
+    "name": "光灵汲取",
+    "category": "光",
+    "tag": "法术-灵媒",
+    "description": "命中:使1个友方光辉伙伴获得负载+1\\光",
+    "quote": "",
+    "elements_cost": {
+      "光": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "光": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\光\\3521110.jpg"
+  },
+  {
+    "number": "3601101",
+    "type": "技能",
+    "name": "鲜血盛宴",
+    "category": "暗",
+    "tag": "衍生-法术-代赎",
+    "description": "只能用于攻击友方单位.命中:获得2\\暗,或使你的人物回复1\\血.主动:你可以花费1\\暗将此卡变为人物的绑定技能",
+    "quote": "",
+    "elements_cost": {
+      "暗": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "暗": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\暗\\3601101.jpg"
+  },
+  {
+    "number": "3611101",
+    "type": "技能",
+    "name": "红月",
+    "category": "暗",
+    "tag": "传奇-咒术-神秘",
+    "description": "冷却2.异能:使你的暗影法术+2\\威",
+    "quote": "酒杯中的黑血平静如镜,倒映出这个诡谲的世界:低头的安迪斯与瑟薇安娜,花园的荆棘和松树,深邃的夜空,以及夜空中倒悬的红月",
+    "elements_cost": {
+      "暗": 1
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "暗": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": 1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\暗\\3611101.jpg"
+  },
+  {
+    "number": "3611102",
+    "type": "技能",
+    "name": "厄瑞波斯之爪",
+    "category": "暗",
+    "tag": "传奇-法术-神秘",
+    "description": "敌方有三个及以上虚弱法术才能学习.光环:敌方法术每有1层虚弱此卡+1\\威.诱发:每次使用此卡后使最多3个不同的敌方法术虚弱1",
+    "quote": "嘘...它已经来了",
+    "elements_cost": {
+      "暗": 6
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "暗": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\暗\\3611102.jpg"
   },
   {
     "number": "3621001",
@@ -8847,6 +16278,244 @@
     "output_path": "output\\基础包\\技能\\暗\\3621015.jpg"
   },
   {
+    "number": "3621101",
+    "type": "技能",
+    "name": "歃血",
+    "category": "暗",
+    "tag": "法术-代赎",
+    "description": "诱发:如果此法术对友方单位造成伤害,获得2\\暗并使下一次获得+2\\威和+1\\攻",
+    "quote": "",
+    "elements_cost": {
+      "暗": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "暗": 1
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 2,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\暗\\3621101.jpg"
+  },
+  {
+    "number": "3621102",
+    "type": "技能",
+    "name": "报应",
+    "category": "暗",
+    "tag": "法术-代赎",
+    "description": "光环:本回合以及上个回合你的人物每受到1点伤害,此技能本次+1\\攻",
+    "quote": "",
+    "elements_cost": {
+      "暗": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "暗": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\暗\\3621102.jpg"
+  },
+  {
+    "number": "3621103",
+    "type": "技能",
+    "name": "血魂斩",
+    "category": "暗",
+    "tag": "法术-代赎",
+    "description": "诱发:此卡用于攻击时,对你的人物造成1点伤害.命中:为你的人物回复2\\血",
+    "quote": "",
+    "elements_cost": {
+      "暗": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "暗": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 6,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\暗\\3621103.jpg"
+  },
+  {
+    "number": "3621104",
+    "type": "技能",
+    "name": "血蔷薇咒印",
+    "category": "暗",
+    "tag": "法术-灵媒",
+    "description": "入场:标记场上任意1个敌方单位.诱发:若该单位在你的下个回合结束前死亡,此卡变为你的人物绑定技能且使用花费-1",
+    "quote": "",
+    "elements_cost": {
+      "暗": 3
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "暗": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\暗\\3621104.jpg"
+  },
+  {
+    "number": "3621105",
+    "type": "技能",
+    "name": "恐吓",
+    "category": "暗",
+    "tag": "法术-灵媒",
+    "description": "光环:此卡\\威和\\攻+X,X为敌方具有虚弱的法术数量且最多为2",
+    "quote": "",
+    "elements_cost": {
+      "暗": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "暗": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 3,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\暗\\3621105.jpg"
+  },
+  {
+    "number": "3621106",
+    "type": "技能",
+    "name": "红月吞噬",
+    "category": "暗",
+    "tag": "法术-神秘",
+    "description": "命中:如果目标为伙伴则将其消灭,如果红月生效可以使1个友方暗影单位获得被消灭伙伴剩余生命值的\\血",
+    "quote": "",
+    "elements_cost": {
+      "暗": 5
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "暗": 3
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 7,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\暗\\3621106.jpg"
+  },
+  {
+    "number": "3621107",
+    "type": "技能",
+    "name": "意志侵蚀",
+    "category": "暗",
+    "tag": "法术-灵媒",
+    "description": "可额外选择1个目标(可以相同).光环:红月生效期间此卡获得穿透和+1\\威",
+    "quote": "",
+    "elements_cost": {
+      "暗": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "暗": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 5,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\暗\\3621107.jpg"
+  },
+  {
+    "number": "3621108",
+    "type": "技能",
+    "name": "月影",
+    "category": "暗",
+    "tag": "法术-神秘",
+    "description": "诱发回合技:当你的法术与虚弱法术或被虚弱法术强化的法术战斗后,可以重置此卡",
+    "quote": "",
+    "elements_cost": {
+      "暗": 4
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "暗": 2
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 2,
+    "life": -1,
+    "duration": -1,
+    "power": 4,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\暗\\3621108.jpg"
+  },
+  {
+    "number": "3621109",
+    "type": "技能",
+    "name": "裂魂尖啸",
+    "category": "暗",
+    "tag": "法术-灵媒",
+    "description": "晕眩1.范围:溅射.诱发:此卡作为主法术战斗后,使战斗的敌方法术(包括强化)获得虚弱1",
+    "quote": "",
+    "elements_cost": {
+      "暗": 6
+    },
+    "elements_gain": {},
+    "elements_expense": {
+      "暗": 3
+    },
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": 1,
+    "life": -1,
+    "duration": -1,
+    "power": 5,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\暗\\3621109.jpg"
+  },
+  {
+    "number": "3621110",
+    "type": "技能",
+    "name": "鲜血滋养",
+    "category": "暗",
+    "tag": "咒术-代赎",
+    "description": "将弃牌堆1张暗影卡牌移出游戏,获得2\\暗",
+    "quote": "",
+    "elements_cost": {
+      "暗": 2
+    },
+    "elements_gain": {},
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": -1,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\技能\\暗\\3621110.jpg"
+  },
+  {
     "number": "4011001",
     "type": "人物",
     "name": "\"南境百灵\" 斯卡尔蒂 罗佳",
@@ -8889,6 +16558,50 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\人物\\无\\4011002.jpg"
+  },
+  {
+    "number": "4011101",
+    "type": "人物",
+    "name": "纯净灵体 奥希斯",
+    "category": "无",
+    "tag": "",
+    "description": "诱发:当你使1张奥术以外的卡牌入场时,使你的所有法术获得虚弱2",
+    "quote": "\"你觉得你创造了我?我倒是觉得恰恰相反\"",
+    "elements_cost": {},
+    "elements_gain": {
+      "无": 4
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 6,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\人物\\无\\4011101.jpg"
+  },
+  {
+    "number": "4011102",
+    "type": "人物",
+    "name": "大法师 罗慕路斯",
+    "category": "无",
+    "tag": "",
+    "description": "此卡提供的元素只能严格当做\\无使用",
+    "quote": "\"看啊,多么完美而纯粹的造物!\"",
+    "elements_cost": {},
+    "elements_gain": {
+      "无": 4
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 6,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\人物\\无\\4011102.jpg"
   },
   {
     "number": "4111001",
@@ -8959,6 +16672,50 @@
     "output_path": "output\\基础包\\人物\\火\\4111003.jpg"
   },
   {
+    "number": "4111101",
+    "type": "人物",
+    "name": "首席顾问 费林",
+    "category": "火",
+    "tag": "",
+    "description": "主动绝技:献祭1个友方火焰伙伴才能发动,你的下1次入场的火焰卡牌入场花费减少献祭卡牌入场花费的元素",
+    "quote": "\"不用担心,我想师兄会认同我们的,毕竟,我们必须以王国的利益为重\"",
+    "elements_cost": {},
+    "elements_gain": {
+      "火": 4
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 6,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\人物\\火\\4111101.jpg"
+  },
+  {
+    "number": "4111102",
+    "type": "人物",
+    "name": "大将军 克兰",
+    "category": "火",
+    "tag": "",
+    "description": "诱发回合技:当双方法术成功防御时才能发动,翻取1张火焰卡牌,然后你丢弃1张手牌",
+    "quote": "\"我给你了一次又一次的机会,可惜你依然选择违抗我\"",
+    "elements_cost": {},
+    "elements_gain": {
+      "火": 4
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 6,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\人物\\火\\4111102.jpg"
+  },
+  {
     "number": "4211001",
     "type": "人物",
     "name": "\"浪之人\" 巴特尔",
@@ -9027,6 +16784,50 @@
     "output_path": "output\\基础包\\人物\\水\\4211003.jpg"
   },
   {
+    "number": "4211101",
+    "type": "人物",
+    "name": "海神之使 珊瑚 贝莉 ",
+    "category": "水",
+    "tag": "",
+    "description": "诱发:本局游戏你第一次使用法术攻击时,使该法术永久+3\\威",
+    "quote": "\"别忘了父亲的话,每个人出生便被赋予了属于自己和家族的责任\"",
+    "elements_cost": {},
+    "elements_gain": {
+      "水": 4
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 6,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\人物\\水\\4211101.jpg"
+  },
+  {
+    "number": "4211102",
+    "type": "人物",
+    "name": "凛冰魔巫 索菲娅",
+    "category": "水",
+    "tag": "",
+    "description": "光环:此卡不受冻结效果影响.绝技:移除场上任意1个单位的1层冻结,对其造成2点伤害",
+    "quote": "\"终于,你找到了我\"",
+    "elements_cost": {},
+    "elements_gain": {
+      "水": 4
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 6,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\人物\\水\\4211102.jpg"
+  },
+  {
     "number": "4311001",
     "type": "人物",
     "name": "雷术士 肃",
@@ -9091,6 +16892,50 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\人物\\气\\4311003.jpg"
+  },
+  {
+    "number": "4311101",
+    "type": "人物",
+    "name": "司天魔巫 索兰德",
+    "category": "气",
+    "tag": "",
+    "description": "光环:你的驱动和聚能法术永久+1\\威,你不能从技能池学习其他种类的法术",
+    "quote": "",
+    "elements_cost": {},
+    "elements_gain": {
+      "气": 4
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 6,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\人物\\气\\4311101.jpg"
+  },
+  {
+    "number": "4311102",
+    "type": "人物",
+    "name": "布雾者 弗格",
+    "category": "气",
+    "tag": "",
+    "description": "绝技:双方各自召唤的下1个伙伴入场时获得隐蔽2",
+    "quote": "你确定你战胜的是索兰德?还是一片很像他的云?",
+    "elements_cost": {},
+    "elements_gain": {
+      "气": 4
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 6,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\人物\\气\\4311102.jpg"
   },
   {
     "number": "4411001",
@@ -9159,6 +17004,50 @@
     "power": -1,
     "spawns": [],
     "output_path": "output\\基础包\\人物\\地\\4411003.jpg"
+  },
+  {
+    "number": "4411101",
+    "type": "人物",
+    "name": "翡翠男爵 杰德 拜利兰",
+    "category": "地",
+    "tag": "",
+    "description": "光环:当你的护盾小于3时不会在回合结束时减少",
+    "quote": "拜利兰家族可能多少对永生有着独特的渴望,杰德也一样,不过他选择了大家都能接受的方式",
+    "elements_cost": {},
+    "elements_gain": {
+      "地": 4
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 6,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\人物\\地\\4411101.jpg"
+  },
+  {
+    "number": "4411102",
+    "type": "人物",
+    "name": "秋枫领主 狄利克雷",
+    "category": "地",
+    "tag": "",
+    "description": "光环:当你的地脉卡牌透支时,你可以获得剩余的元素的2倍(当你透支超过所需费用时,你不能继续透支)",
+    "quote": "我与休伯特的意见并不相同,我认为人活着比死了更有价值",
+    "elements_cost": {},
+    "elements_gain": {
+      "地": 4
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 6,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\人物\\地\\4411102.jpg"
   },
   {
     "number": "4511001",
@@ -9231,6 +17120,50 @@
     "output_path": "output\\基础包\\人物\\光\\4511003.jpg"
   },
   {
+    "number": "4511101",
+    "type": "人物",
+    "name": "庇护者 西瓦尔",
+    "category": "光",
+    "tag": "",
+    "description": "诱发绝技:当友方单位在一个回合内受到3点及以上总伤害时才能发动,直到下个回合结束所有友方单位不会受到任何伤害",
+    "quote": "\"我不关心你们间的恩怨,但是在这里,没有人可以开战\"",
+    "elements_cost": {},
+    "elements_gain": {
+      "光": 4
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 6,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\人物\\光\\4511101.jpg"
+  },
+  {
+    "number": "4511102",
+    "type": "人物",
+    "name": "救赎者 伊芙 秋枫",
+    "category": "光",
+    "tag": "",
+    "description": "主动绝技:敌方场上单位数量比我方多时才能发动,选择1个受伤的友方伙伴,花费X\\光使该伙伴获得+X\\血和负载+X\\光,X为你场上受伤单位数量",
+    "quote": "只要你探寻,必得指引;只要你祈求,必得救赎",
+    "elements_cost": {},
+    "elements_gain": {
+      "光": 4
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 6,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\人物\\光\\4511102.jpg"
+  },
+  {
     "number": "4611001",
     "type": "人物",
     "name": "暗影学者 爱莉斯",
@@ -9297,5 +17230,51 @@
       "2601002"
     ],
     "output_path": "output\\基础包\\人物\\暗\\4611003.jpg"
+  },
+  {
+    "number": "4611101",
+    "type": "人物",
+    "name": "鲜血伯爵 休伯特 黑松",
+    "category": "暗",
+    "tag": "",
+    "description": "入场:将1张衍生卡牌鲜血盛宴加入你的技能池",
+    "quote": "只要鲜血和黑魔法还在滋养我的家族,黑松就会在这片土地上屹立不倒",
+    "elements_cost": {},
+    "elements_gain": {
+      "暗": 4
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 6,
+    "duration": -1,
+    "power": -1,
+    "spawns": [
+      "3601101"
+    ],
+    "output_path": "output\\王权纷争\\人物\\暗\\4611101.jpg"
+  },
+  {
+    "number": "4611102",
+    "type": "人物",
+    "name": "灾厄玫瑰 多姆",
+    "category": "暗",
+    "tag": "",
+    "description": "入场:从双方卡组上方将4张牌送去弃牌堆",
+    "quote": "\"我就是家里最年长的\",少年看着手中的花苞说道",
+    "elements_cost": {},
+    "elements_gain": {
+      "暗": 4
+    },
+    "elements_expense": {},
+    "version_number": "1",
+    "version_name": "王权纷争",
+    "attack": -1,
+    "life": 6,
+    "duration": -1,
+    "power": -1,
+    "spawns": [],
+    "output_path": "output\\王权纷争\\人物\\暗\\4611102.jpg"
   }
 ]
