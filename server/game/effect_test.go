@@ -998,6 +998,50 @@ func TestRoyalConflictRedMoonBasics(t *testing.T) {
 	}
 }
 
+func TestRoyalConflictRedMoonMarkersAndSevianaTransform(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	seviana := placeUnit(baseCard(t, "1611101"), 0, 0, 0, engine)
+	redMoon := readySkill(baseCard(t, "3611101"), 0)
+	willErosion := readySkill(baseCard(t, "3621107"), 0)
+	p0.Skills[0] = redMoon
+	p0.Skills[1] = willErosion
+
+	engine.triggerEffects(TriggerOnEnter, seviana, nil, nil)
+	if redMoon.Statuses[redMoonMarkerStatus] != 1 {
+		t.Fatalf("Seviana should place one red moon marker on enter, statuses=%v", redMoon.Statuses)
+	}
+	engine.triggerPrayerAbilities(0)
+	if redMoon.Statuses[redMoonMarkerStatus] != 2 {
+		t.Fatalf("Seviana prayer should place another red moon marker, statuses=%v", redMoon.Statuses)
+	}
+	if seviana.Card.Number != "1611101" {
+		t.Fatalf("Seviana should not transform before red moon is active, card=%s", seviana.Card.Number)
+	}
+
+	redMoon.Statuses[StatusAbilityDuration] = 1
+	engine.updateRedMoonTransformations(0)
+	if seviana.Card.Number != "1601101" {
+		t.Fatalf("Seviana should become blood shadow body during red moon, card=%s", seviana.Card.Number)
+	}
+	if got := engine.effectiveSpellPower(0, willErosion, nil); got != willErosion.Card.Power+5 {
+		t.Fatalf("two red moon markers should add +2 to other shadow spell during red moon, got %d", got)
+	}
+	if got := engine.effectiveSpellPower(0, redMoon, nil); got != 2 {
+		t.Fatalf("red moon markers should not buff red moon itself, got %d", got)
+	}
+
+	seviana.CurrentLife = 1
+	seviana.IsHorizontal = true
+	engine.processAbilityDurations(p0)
+	if seviana.Card.Number != "1611101" {
+		t.Fatalf("blood shadow body should revert to Seviana after red moon ends, card=%s", seviana.Card.Number)
+	}
+	if seviana.CurrentLife != seviana.Card.Life || seviana.IsHorizontal {
+		t.Fatalf("reverted Seviana should reset, life=%d horizontal=%v", seviana.CurrentLife, seviana.IsHorizontal)
+	}
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

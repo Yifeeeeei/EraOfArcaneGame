@@ -3618,14 +3618,22 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 }
 
 func (e *Engine) processAbilityDurations(ps *PlayerState) {
+	changedRedMoon := false
 	for _, card := range e.getAllFieldCards(ps) {
 		if card == nil || card.Statuses[StatusAbilityDuration] <= 0 {
 			continue
 		}
+		wasRedMoon := card.Card != nil && card.Card.Number == "3611101"
 		card.Statuses[StatusAbilityDuration]--
 		if card.Statuses[StatusAbilityDuration] <= 0 {
 			delete(card.Statuses, StatusAbilityDuration)
+			if wasRedMoon {
+				changedRedMoon = true
+			}
 		}
+	}
+	if changedRedMoon {
+		e.updateRedMoonTransformations(ps.PlayerID)
 	}
 }
 
