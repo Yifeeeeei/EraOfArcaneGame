@@ -121,6 +121,10 @@ func (e *Engine) updateRedMoonTransformations(playerID int) {
 	}
 }
 
+func (e *Engine) refreshRedMoonState(playerID int) {
+	e.updateRedMoonTransformations(playerID)
+}
+
 func (e *Engine) replaceUnitCard(unit *CardInstance, number string, reset bool) {
 	card := getCardDB()[number]
 	if unit == nil || card == nil {

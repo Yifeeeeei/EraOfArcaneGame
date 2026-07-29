@@ -1019,10 +1019,15 @@ func TestRoyalConflictRedMoonMarkersAndSevianaTransform(t *testing.T) {
 		t.Fatalf("Seviana should not transform before red moon is active, card=%s", seviana.Card.Number)
 	}
 
-	redMoon.Statuses[StatusAbilityDuration] = 1
-	engine.updateRedMoonTransformations(0)
+	p0.Elements[model.ElementShadow] = 1
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": redMoon.InstanceID,
+		"target_type": "none",
+	}}); err != nil {
+		t.Fatalf("cast red moon: %v", err)
+	}
 	if seviana.Card.Number != "1601101" {
-		t.Fatalf("Seviana should become blood shadow body during red moon, card=%s", seviana.Card.Number)
+		t.Fatalf("Seviana should become blood shadow body when red moon is cast, card=%s", seviana.Card.Number)
 	}
 	if got := engine.effectiveSpellPower(0, willErosion, nil); got != willErosion.Card.Power+5 {
 		t.Fatalf("two red moon markers should add +2 to other shadow spell during red moon, got %d", got)
@@ -1039,6 +1044,27 @@ func TestRoyalConflictRedMoonMarkersAndSevianaTransform(t *testing.T) {
 	}
 	if seviana.CurrentLife != seviana.Card.Life || seviana.IsHorizontal {
 		t.Fatalf("reverted Seviana should reset, life=%d horizontal=%v", seviana.CurrentLife, seviana.IsHorizontal)
+	}
+
+	redMoon.Statuses[StatusAbilityDuration] = 1
+	engine.refreshRedMoonState(0)
+	if seviana.Card.Number != "1601101" {
+		t.Fatalf("Seviana should transform again while red moon remains active, card=%s", seviana.Card.Number)
+	}
+	engine.addStatus(redMoon, StatusPetrify, 1)
+	if seviana.Card.Number != "1611101" {
+		t.Fatalf("petrified red moon should revert blood shadow body, card=%s", seviana.Card.Number)
+	}
+	engine.processEndOfTurnStatuses(p0)
+	if seviana.Card.Number != "1601101" {
+		t.Fatalf("red moon should transform Seviana again after petrify expires, card=%s", seviana.Card.Number)
+	}
+
+	if !engine.removeFieldCardFromGameByID(redMoon.InstanceID) {
+		t.Fatal("remove red moon from field")
+	}
+	if seviana.Card.Number != "1611101" {
+		t.Fatalf("removing red moon should revert blood shadow body, card=%s", seviana.Card.Number)
 	}
 }
 

@@ -1105,6 +1105,9 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	if !e.shouldSkipCooldown(ps, skill) {
 		e.ApplyKeywordOnSkillUse(skill)
 	}
+	if skill.Card.Number == "3611101" {
+		e.refreshRedMoonState(playerID)
+	}
 	e.applySkillUseCooldownModifiers(ps, append([]*CardInstance{skill}, boostSkills...)...)
 	e.consumeNextSkillUseModifiers(ps, skill)
 	e.advanceMasteryForUsedSkills(playerID, append([]*CardInstance{skill}, boostSkills...)...)
@@ -2830,6 +2833,9 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 		ps.Skills[slotIdx] = nil
 		returnSkillToPool(replacedSkill)
 		ps.SkillPool = append(ps.SkillPool, replacedSkill)
+		if replacedSkill.Card.Number == "3611101" {
+			e.refreshRedMoonState(playerID)
+		}
 	}
 	skill.IsHorizontal = true
 	skill.SlotIndex = slotIdx
@@ -3640,6 +3646,7 @@ func (e *Engine) processAbilityDurations(ps *PlayerState) {
 // processEndOfTurnStatuses processes status marks at end of turn
 func (e *Engine) processEndOfTurnStatuses(ps *PlayerState) {
 	allCards := e.getAllFieldCards(ps)
+	redMoonPetrifyChanged := false
 
 	for _, card := range allCards {
 		// 点燃: remove 1 stack, deal 1 fire damage
@@ -3660,7 +3667,11 @@ func (e *Engine) processEndOfTurnStatuses(ps *PlayerState) {
 		}
 		// 石化: remove 1 stack
 		if card.Statuses[StatusPetrify] > 0 {
+			wasRedMoon := card.Card != nil && card.Card.Number == "3611101"
 			card.Statuses[StatusPetrify]--
+			if wasRedMoon && card.Statuses[StatusPetrify] <= 0 {
+				redMoonPetrifyChanged = true
+			}
 		}
 		// 冷却: remove 1 stack
 		if card.Statuses[StatusCooldown] > 0 {
@@ -3676,6 +3687,9 @@ func (e *Engine) processEndOfTurnStatuses(ps *PlayerState) {
 		if ps.Skills[i] != nil && ps.Skills[i].Statuses[StatusSeal] > 0 {
 			ps.Skills[i].Statuses[StatusSeal]--
 		}
+	}
+	if redMoonPetrifyChanged {
+		e.refreshRedMoonState(ps.PlayerID)
 	}
 }
 

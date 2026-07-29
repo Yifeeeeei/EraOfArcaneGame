@@ -29,6 +29,9 @@ func (e *Engine) addStatus(card *CardInstance, status string, amount int) bool {
 		return false
 	}
 	card.Statuses[status] += amount
+	if status == StatusPetrify && card.Card != nil && card.Card.Number == "3611101" {
+		e.refreshRedMoonState(card.OwnerID)
+	}
 	return true
 }
 
