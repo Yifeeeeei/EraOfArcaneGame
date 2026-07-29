@@ -1873,6 +1873,36 @@ func TestRoyalConflictJiuxiaoMarkEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("discarding a mark to hand limit damages its owner hero", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		engine.State.CurrentTurn = 1
+		p1 := engine.State.Players[1]
+		p1.Hero = NewCardInstance(baseCard(t, "4311003"), 1, 1)
+		p1.Hero.Position = &Position{Col: 1, Row: 1}
+		p1.Units[1][1] = p1.Hero
+		mark := NewCardInstance(baseCard(t, "2001102"), 1, 1)
+		p1.Hand = []*CardInstance{
+			mark,
+			NewCardInstance(baseCard(t, "1021001"), 1, 1),
+			NewCardInstance(baseCard(t, "1021002"), 1, 1),
+			NewCardInstance(baseCard(t, "1021003"), 1, 1),
+			NewCardInstance(baseCard(t, "1021004"), 1, 1),
+			NewCardInstance(baseCard(t, "1021005"), 1, 1),
+		}
+		beforeLife := p1.Hero.CurrentLife
+		engine.endTurn()
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "discard" {
+			t.Fatalf("ending over hand limit should prompt discard, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 1, mark.InstanceID)
+		if p1.Hero.CurrentLife != beforeLife-2 {
+			t.Fatalf("discarding Jiuxiao Mark to hand limit should damage hero by 2, before=%d life=%d", beforeLife, p1.Hero.CurrentLife)
+		}
+		if len(p1.Graveyard) != 1 || p1.Graveyard[0] != mark {
+			t.Fatalf("discarded mark should be in graveyard, grave=%v", cardsToInfo(p1.Graveyard))
+		}
+	})
+
 	t.Run("council speaker shuffles marks and moves one to deck top on death", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		speaker := placeUnit(baseCard(t, "1521110"), 0, 0, 0, engine)

@@ -393,12 +393,7 @@ func DiscardRandom(n int) EffectHandler {
 		ps := ctx.Engine.State.Players[ctx.PlayerID]
 		for i := 0; i < n && len(ps.Hand) > 0; i++ {
 			idx := rand.Intn(len(ps.Hand))
-			card := ps.Hand[idx]
-			ps.Hand = append(ps.Hand[:idx], ps.Hand[idx+1:]...)
-			ctx.Engine.emit(GameEvent{
-				Type: "discard", Player: ctx.PlayerID,
-				Data: map[string]any{"card": cardToInfo(card)},
-			})
+			ctx.Engine.discardHandCardAt(ctx.PlayerID, idx)
 		}
 		return nil
 	}
@@ -414,11 +409,7 @@ func DiscardSelf() EffectHandler {
 		// 从手牌中移除
 		for i, c := range ps.Hand {
 			if c.InstanceID == ctx.Source.InstanceID {
-				ps.Hand = append(ps.Hand[:i], ps.Hand[i+1:]...)
-				ctx.Engine.emit(GameEvent{
-					Type: "discard", Player: ctx.PlayerID,
-					Data: map[string]any{"card": cardToInfo(c)},
-				})
+				ctx.Engine.discardHandCardAt(ctx.PlayerID, i)
 				return nil
 			}
 		}

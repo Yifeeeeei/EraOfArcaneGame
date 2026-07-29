@@ -99,10 +99,7 @@ func (Card1321016ThunderGolem) OnDeath(ctx *EffectContext) error {
 		return nil
 	}
 	idx := rand.Intn(len(ps.Hand))
-	card := ps.Hand[idx]
-	ps.Hand = append(ps.Hand[:idx], ps.Hand[idx+1:]...)
-	ps.Graveyard = append(ps.Graveyard, card)
-	ctx.Engine.emit(GameEvent{Type: "discard", Player: ctx.OpponentID, Data: map[string]any{"card": cardToInfo(card)}})
+	ctx.Engine.discardHandCardAt(ctx.OpponentID, idx)
 	return nil
 }
 

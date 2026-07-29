@@ -3543,12 +3543,7 @@ func (e *Engine) endTurn() {
 				remaining := make([]*CardInstance, 0, len(ps.Hand)-len(selected))
 				for _, c := range ps.Hand {
 					if toDiscard[c.InstanceID] {
-						ps.Graveyard = append(ps.Graveyard, c)
-						e.emit(GameEvent{
-							Type:   "discard",
-							Player: currentTurn,
-							Data:   map[string]any{"card": cardToInfo(c)},
-						})
+						e.discardHandCardToGraveyard(currentTurn, c)
 					} else {
 						remaining = append(remaining, c)
 					}

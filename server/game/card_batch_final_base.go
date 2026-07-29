@@ -134,14 +134,7 @@ func (Card2501001Shackle) OnSelfDraw(ctx *EffectContext) error {
 		if card == nil || card.InstanceID != ctx.Source.InstanceID {
 			continue
 		}
-		ps.Hand = append(ps.Hand[:i], ps.Hand[i+1:]...)
-		ps.Graveyard = append(ps.Graveyard, card)
-		delete(ps.RevealedHand, card.InstanceID)
-		ctx.Engine.emit(GameEvent{
-			Type:   "discard",
-			Player: ctx.PlayerID,
-			Data:   map[string]any{"card": cardToInfo(card)},
-		})
+		ctx.Engine.discardHandCardAt(ctx.PlayerID, i)
 		ctx.Engine.drawCards(ctx.PlayerID, 1)
 		return nil
 	}

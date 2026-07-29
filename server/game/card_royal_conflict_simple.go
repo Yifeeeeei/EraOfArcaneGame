@@ -269,9 +269,7 @@ func (Card2021107Reshape) OnUseItem(ctx *EffectContext) error {
 		if card == nil {
 			continue
 		}
-		delete(ps.RevealedHand, card.InstanceID)
-		ps.Graveyard = append(ps.Graveyard, card)
-		ctx.Engine.emit(GameEvent{Type: "discard", Player: ctx.PlayerID, Data: map[string]any{"card": cardToInfo(card)}})
+		ctx.Engine.discardHandCardToGraveyard(ctx.PlayerID, card)
 	}
 	ps.Hand = nil
 	ctx.Engine.drawCards(ctx.PlayerID, 2)
@@ -588,13 +586,7 @@ func (e *Engine) discardRandomHandCard(playerID int) *CardInstance {
 		return nil
 	}
 	idx := rand.Intn(len(ps.Hand))
-	card := ps.Hand[idx]
-	ps.Hand = append(ps.Hand[:idx], ps.Hand[idx+1:]...)
-	ps.Graveyard = append(ps.Graveyard, card)
-	delete(ps.RevealedHand, card.InstanceID)
-	e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
-	e.resolveDiscardedCardEffects(playerID, card)
-	return card
+	return e.discardHandCardAt(playerID, idx)
 }
 
 func (e *Engine) resolveDiscardedCardEffects(playerID int, card *CardInstance) {
