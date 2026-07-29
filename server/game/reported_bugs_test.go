@@ -10470,6 +10470,30 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 			t.Fatalf("Fuye should double attack/load and mark death after exert, attack=%d gain=%v statuses=%v", target.CurrentAttack, effectiveElementsGain(target), target.Statuses)
 		}
 	})
+
+	t.Run("4611002 芙雅 rejects forged enemy direct target", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		fuye := NewCardInstance(baseCard(t, "4611002"), 0, 1)
+		p0.Hero = fuye
+		target := placeUnit(baseCard(t, "1011002"), 1, 1, 0, engine)
+		setElementsGain(target, map[string]int{model.ElementArcane: 1, model.ElementFire: 2})
+		attack := target.CurrentAttack
+		load := effectiveElementsGain(target)
+
+		err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  fuye.InstanceID,
+			"ability_type": "ultimate",
+			"target_id":    target.InstanceID,
+		}})
+		if err == nil || !strings.Contains(err.Error(), "invalid Fuye target") {
+			t.Fatalf("forged enemy Fuye target should be rejected, err=%v", err)
+		}
+		gain := effectiveElementsGain(target)
+		if target.CurrentAttack != attack || gain[model.ElementArcane] != load[model.ElementArcane] || gain[model.ElementFire] != load[model.ElementFire] || target.Statuses[fuyeDeathAfterExertStatus] != 0 || fuye.UltimateUsed {
+			t.Fatalf("forged enemy target should remain unchanged, attack=%d gain=%v statuses=%v ultimate=%v", target.CurrentAttack, gain, target.Statuses, fuye.UltimateUsed)
+		}
+	})
 }
 
 func TestRemainingHighRiskBaseCardSemantics(t *testing.T) {

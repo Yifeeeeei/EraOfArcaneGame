@@ -1,5 +1,7 @@
 package game
 
+import "fmt"
+
 const fuyeDeathAfterExertStatus = "fuye_death_after_exert"
 
 type Card4611002Fuye struct{ AlwaysActive }
@@ -8,8 +10,8 @@ func (Card4611002Fuye) ID() string   { return "4611002" }
 func (Card4611002Fuye) Name() string { return "芙雅夫人" }
 func (Card4611002Fuye) OnUltimate(ctx *EffectContext) error {
 	if ctx.Target != nil {
-		if ctx.Target.IsHorizontal {
-			return nil
+		if !isValidFuyeUltimateTarget(ctx, ctx.Target) {
+			return fmt.Errorf("invalid Fuye target")
 		}
 		applyFuyeUltimate(ctx.Target)
 		return nil
@@ -27,12 +29,23 @@ func (Card4611002Fuye) OnUltimate(ctx *EffectContext) error {
 				return
 			}
 			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, selected[0])
-			if target == nil || zone != "unit" || target.Card == nil || !target.Card.IsCompanion() || target.IsHorizontal {
+			if zone != "unit" || !isValidFuyeUltimateTarget(ctx, target) {
 				return
 			}
 			applyFuyeUltimate(target)
 		})
 	return nil
+}
+
+func isValidFuyeUltimateTarget(ctx *EffectContext, target *CardInstance) bool {
+	if ctx == nil || ctx.Engine == nil || target == nil || target.Card == nil {
+		return false
+	}
+	if target.OwnerID != ctx.PlayerID || !target.Card.IsCompanion() || target.IsHorizontal {
+		return false
+	}
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	return ps != nil && ctx.Engine.findUnitOnGrid(ps, target.InstanceID) == target
 }
 
 func applyFuyeUltimate(target *CardInstance) {

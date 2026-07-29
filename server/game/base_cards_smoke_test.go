@@ -202,12 +202,20 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 							NewCardInstance(cards.PlayableCardDB["3321006"], 0, engine.State.TurnNumber),
 						)
 					}
+					targetID := engine.State.Players[1].Hero.InstanceID
+					if card.Number == "4611002" && trigger.typ == TriggerUltimate {
+						target := NewCardInstance(cards.PlayableCardDB["1011002"], 0, engine.State.TurnNumber)
+						target.IsHorizontal = false
+						target.Position = &Position{Col: 1, Row: 0}
+						ps.Units[1][0] = target
+						targetID = target.InstanceID
+					}
 					if err := engine.HandleAction(0, ActionMessage{
 						Action: "use_ability",
 						Data: map[string]any{
 							"instance_id":  hero.InstanceID,
 							"ability_type": trigger.name,
-							"target_id":    engine.State.Players[1].Hero.InstanceID,
+							"target_id":    targetID,
 						},
 					}); err != nil {
 						t.Fatalf("%s ability failed: %v", trigger.name, err)
@@ -358,6 +366,12 @@ func TestEveryRegisteredBaseCardEffectHandlerRuns(t *testing.T) {
 						engine.State.Players[0].Skills[0] = readySkill(cards.PlayableCardDB["3321005"], 0)
 					}
 					target := engine.State.Players[1].Hero
+					if card.Number == "4611002" && effect.Trigger == TriggerUltimate {
+						target = NewCardInstance(cards.PlayableCardDB["1011002"], 0, engine.State.TurnNumber)
+						target.IsHorizontal = false
+						target.Position = &Position{Col: 1, Row: 0}
+						engine.State.Players[0].Units[1][0] = target
+					}
 					ctx := &EffectContext{
 						Engine:       engine,
 						Source:       source,
