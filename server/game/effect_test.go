@@ -1390,6 +1390,72 @@ func TestRoyalConflictSimpleConsumableChoiceEffects(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictSimpleGeneratedAndPrayerEffects(t *testing.T) {
+	t.Run("dream consumables draw cards or gain arcane", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		bloom := NewCardInstance(baseCard(t, "2201101"), 0, 1)
+		drawA := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		drawB := NewCardInstance(baseCard(t, "1021002"), 0, 1)
+		drawC := NewCardInstance(baseCard(t, "1021003"), 0, 1)
+		p0.Hand = []*CardInstance{bloom}
+		p0.Deck = []*CardInstance{drawA, drawB, drawC}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": bloom.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use dream bloom: %v", err)
+		}
+		if len(p0.Hand) != 3 || p0.Hand[0] != drawA || p0.Hand[1] != drawB || p0.Hand[2] != drawC {
+			t.Fatalf("dream bloom should draw three cards, hand=%v", cardsToInfo(p0.Hand))
+		}
+
+		mana := NewCardInstance(baseCard(t, "2201102"), 0, 1)
+		p0.Hand = []*CardInstance{mana}
+		before := p0.Elements[model.ElementArcane]
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": mana.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use dream mana: %v", err)
+		}
+		if got := p0.Elements[model.ElementArcane] - before; got != 3 {
+			t.Fatalf("dream mana should gain 3 arcane, got %d elements=%v", got, p0.Elements)
+		}
+	})
+
+	t.Run("blood puppet damages own hero on enter", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		hero := placeUnit(baseCard(t, "4011001"), 0, 1, 1, engine)
+		p0.Hero = hero
+		puppet := placeUnit(baseCard(t, "1621103"), 0, 0, 0, engine)
+
+		engine.triggerEffects(TriggerOnEnter, puppet, nil, nil)
+		if hero.CurrentLife != hero.Card.Life-2 {
+			t.Fatalf("blood puppet should deal 2 damage to own hero, life=%d", hero.CurrentLife)
+		}
+	})
+
+	t.Run("prayer load effects", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		lotus := placeUnit(baseCard(t, "1221106"), 0, 0, 0, engine)
+		root := placeUnit(baseCard(t, "1421105"), 0, 1, 0, engine)
+
+		engine.triggerPrayerAbilities(0)
+		if got := effectiveElementsGain(lotus)[model.ElementWater]; got != lotus.Card.ElementsGain[model.ElementWater]+1 {
+			t.Fatalf("mirror lotus prayer should gain +1 water load, got %d load=%v", got, effectiveElementsGain(lotus))
+		}
+		if got := effectiveElementsGain(root)[model.ElementEarth]; got != 1 {
+			t.Fatalf("inactive root prayer should gain 1 earth load while loadless, got %d load=%v", got, effectiveElementsGain(root))
+		}
+
+		engine.triggerPrayerAbilities(0)
+		if got := effectiveElementsGain(root)[model.ElementEarth]; got != 1 {
+			t.Fatalf("inactive root prayer should not add more load once it has load, got %d load=%v", got, effectiveElementsGain(root))
+		}
+	})
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

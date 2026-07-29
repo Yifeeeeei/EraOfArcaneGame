@@ -300,6 +300,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"1211101": func() CardBehavior { return Card1211101MistKingNalanti{} },
 	"1221102": func() CardBehavior { return Card1221102MistMage{} },
 	"1221105": func() CardBehavior { return Card1221105MistDancer{} },
+	"1221106": func() CardBehavior { return Card1221106MirrorLotus{} },
 	"1221109": func() CardBehavior { return Card1221109MistPhantom{} },
 	"1321104": func() CardBehavior { return Card1321104MistWeaver{} },
 	"1321108": func() CardBehavior { return Card1321108EmeraldHummingbird{} },
@@ -307,6 +308,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"1421104": func() CardBehavior {
 		return royalShieldOnEnter{id: "1421104", name: "拜利兰森林熊", amount: 3}
 	},
+	"1421105": func() CardBehavior { return Card1421105InactiveRoot{} },
 	"1421114": func() CardBehavior { return Card1421114GiantSandworm{} },
 	"1421115": func() CardBehavior { return Card1421115Geomancer{} },
 	"1511101": func() CardBehavior {
@@ -314,6 +316,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	},
 	"1521114": func() CardBehavior { return Card1521114HuiPrayer{} },
 	"1611101": func() CardBehavior { return Card1611101RedMoonWitchSeviana{} },
+	"1621103": func() CardBehavior { return Card1621103BloodPuppet{} },
 	"1621110": func() CardBehavior { return Card1621110ScarletBeast{} },
 	"1621111": func() CardBehavior { return Card1621111RedMoonProphet{} },
 	"2011101": func() CardBehavior { return Card2011101ArcaneArmorSky{} },
@@ -323,6 +326,8 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"2021107": func() CardBehavior { return Card2021107Reshape{} },
 	"2021116": func() CardBehavior { return Card2021116ArcaneBomb{} },
 	"2121107": func() CardBehavior { return Card2121107SacredFireRally{} },
+	"2201101": func() CardBehavior { return Card2201101DreamBloom{} },
+	"2201102": func() CardBehavior { return Card2201102DreamMana{} },
 	"2221102": func() CardBehavior { return Card2221102OceanShieldScroll{} },
 	"2411101": func() CardBehavior { return Card2411101EmeraldImmortality{} },
 	"2421110": func() CardBehavior { return Card2421110SandwormBait{} },

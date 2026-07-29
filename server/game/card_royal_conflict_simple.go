@@ -17,12 +17,34 @@ func (Card1321108EmeraldHummingbird) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
+type Card1221106MirrorLotus struct{ AlwaysActive }
+
+func (Card1221106MirrorLotus) ID() string            { return "1221106" }
+func (Card1221106MirrorLotus) Name() string          { return "镜花海之莲" }
+func (Card1221106MirrorLotus) IsPrayerAbility() bool { return true }
+func (Card1221106MirrorLotus) OnPerTurn(ctx *EffectContext) error {
+	ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementWater, 1, ctx.Source)
+	return nil
+}
+
 type Card1421115Geomancer struct{ AlwaysActive }
 
 func (Card1421115Geomancer) ID() string   { return "1421115" }
 func (Card1421115Geomancer) Name() string { return "地卜行者" }
 func (Card1421115Geomancer) OnEnter(ctx *EffectContext) error {
 	ctx.Engine.drawCards(ctx.PlayerID, 1)
+	return nil
+}
+
+type Card1421105InactiveRoot struct{ AlwaysActive }
+
+func (Card1421105InactiveRoot) ID() string            { return "1421105" }
+func (Card1421105InactiveRoot) Name() string          { return "失活的根须" }
+func (Card1421105InactiveRoot) IsPrayerAbility() bool { return true }
+func (Card1421105InactiveRoot) OnPerTurn(ctx *EffectContext) error {
+	if totalLoad(ctx.Source) == 0 {
+		ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementEarth, 1, ctx.Source)
+	}
 	return nil
 }
 
@@ -79,6 +101,33 @@ func (Card2021101LostSilverleaf) OnUseItem(ctx *EffectContext) error {
 				ctx.Engine.discardFriendlyCandidate(ctx.PlayerID, selected[0])
 			}
 		})
+	return nil
+}
+
+type Card1621103BloodPuppet struct{ AlwaysActive }
+
+func (Card1621103BloodPuppet) ID() string   { return "1621103" }
+func (Card1621103BloodPuppet) Name() string { return "鲜血傀儡" }
+func (Card1621103BloodPuppet) OnEnter(ctx *EffectContext) error {
+	ctx.Engine.dealDamage(ctx.Engine.State.Players[ctx.PlayerID].Hero, 2, ctx.PlayerID)
+	return nil
+}
+
+type Card2201101DreamBloom struct{ AlwaysActive }
+
+func (Card2201101DreamBloom) ID() string   { return "2201101" }
+func (Card2201101DreamBloom) Name() string { return "幻创之梦-绽放" }
+func (Card2201101DreamBloom) OnUseItem(ctx *EffectContext) error {
+	ctx.Engine.drawCards(ctx.PlayerID, 3)
+	return nil
+}
+
+type Card2201102DreamMana struct{ AlwaysActive }
+
+func (Card2201102DreamMana) ID() string   { return "2201102" }
+func (Card2201102DreamMana) Name() string { return "幻创之梦-幻能" }
+func (Card2201102DreamMana) OnUseItem(ctx *EffectContext) error {
+	ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementArcane: 3})
 	return nil
 }
 
