@@ -240,9 +240,7 @@ func (e *Engine) destroyEnemyEquipment(playerID int, instanceID string) bool {
 		if card == nil || card.InstanceID != instanceID {
 			continue
 		}
-		ps.Graveyard = append(ps.Graveyard, card)
-		ps.Equipment[i] = nil
-		e.emit(GameEvent{Type: "discard", Player: 1 - playerID, Data: map[string]any{"card": cardToInfo(card)}})
+		e.moveEquipmentToGraveyard(1-playerID, i, card)
 		return true
 	}
 	return false

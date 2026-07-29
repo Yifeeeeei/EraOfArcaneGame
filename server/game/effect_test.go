@@ -929,6 +929,28 @@ func TestRoyalConflictPrintedBoundSkills(t *testing.T) {
 			t.Fatalf("new ring should bind its own skill after replacement, bound=%v", cardsToInfo(newRing.BoundSkills))
 		}
 	})
+
+	t.Run("enemy equipment destruction clears bound skills from old host", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p1 := engine.State.Players[1]
+		ring := NewCardInstance(baseCard(t, "2511102"), 1, 1)
+		p1.Equipment[0] = ring
+		ring.SlotIndex = 0
+		engine.triggerEffects(TriggerOnEnter, ring, nil, nil)
+		if len(ring.BoundSkills) != 1 {
+			t.Fatalf("ring should bind skill before destruction, bound=%v", cardsToInfo(ring.BoundSkills))
+		}
+
+		if !engine.destroyEnemyEquipment(0, ring.InstanceID) {
+			t.Fatal("destroyEnemyEquipment should destroy opponent ring")
+		}
+		if len(p1.Graveyard) != 1 || p1.Graveyard[0] != ring {
+			t.Fatalf("destroyed ring should move to opponent graveyard, grave=%v", cardsToInfo(p1.Graveyard))
+		}
+		if ring.SlotIndex != -1 || len(ring.BoundSkills) != 0 {
+			t.Fatalf("destroyed equipment should clear slot and bound skills, slot=%d bound=%v", ring.SlotIndex, cardsToInfo(ring.BoundSkills))
+		}
+	})
 }
 
 func TestChargeSystem(t *testing.T) {
