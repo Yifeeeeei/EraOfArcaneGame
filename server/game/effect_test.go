@@ -848,6 +848,54 @@ func containsCardInstance(cards []*CardInstance, target *CardInstance) bool {
 	return false
 }
 
+func TestRoyalConflictPrintedBoundSkills(t *testing.T) {
+	cases := []struct {
+		name        string
+		hostNumber  string
+		boundNumber string
+		equipment   bool
+	}{
+		{name: "1011103 弈者 binds 入局", hostNumber: "1011103", boundNumber: "3001101"},
+		{name: "2511102 五虹之环 binds 五虹之束", hostNumber: "2511102", boundNumber: "3501101", equipment: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := setupReportedBugEngine(t)
+			p0 := engine.State.Players[0]
+			host := NewCardInstance(baseCard(t, tc.hostNumber), 0, 1)
+			if tc.equipment {
+				p0.Equipment[0] = host
+				host.SlotIndex = 0
+			} else {
+				p0.Units[0][0] = host
+				host.Position = &Position{Col: 0, Row: 0}
+			}
+
+			engine.triggerEffects(TriggerOnEnter, host, nil, nil)
+
+			if len(p0.SkillPool) != 0 {
+				t.Fatalf("bound skill should not enter skill pool, pool=%v", cardsToInfo(p0.SkillPool))
+			}
+			for i, skill := range p0.Skills {
+				if skill != nil {
+					t.Fatalf("bound skill should not occupy skill slot %d: %v", i, cardToInfo(skill))
+				}
+			}
+			if len(host.BoundSkills) != 1 || host.BoundSkills[0].Card.Number != tc.boundNumber {
+				t.Fatalf("expected bound skill %s on host, bound=%v", tc.boundNumber, cardsToInfo(host.BoundSkills))
+			}
+			if host.BoundSkills[0].SlotIndex != -1 || !host.BoundSkills[0].IsHorizontal {
+				t.Fatalf("bound skill should enter horizontal without a slot, bound=%v", cardToInfo(host.BoundSkills[0]))
+			}
+			info := cardToInfo(host)
+			bound, ok := info["bound_skills"].([]map[string]any)
+			if !ok || len(bound) != 1 || bound[0]["number"] != tc.boundNumber {
+				t.Fatalf("card info should expose bound skill, info=%+v", info["bound_skills"])
+			}
+		})
+	}
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 
