@@ -1068,6 +1068,95 @@ func TestRoyalConflictRedMoonMarkersAndSevianaTransform(t *testing.T) {
 	}
 }
 
+func TestRoyalConflictRedMoonPendantExtendsNextRedMoon(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	pendant := NewCardInstance(baseCard(t, "2621105"), 0, 1)
+	p0.Equipment[0] = pendant
+	pendant.SlotIndex = 0
+	redMoon := readySkill(baseCard(t, "3611101"), 0)
+	p0.Skills[0] = redMoon
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+		"instance_id":  pendant.InstanceID,
+		"ability_type": "per_turn",
+	}}); err != nil {
+		t.Fatalf("use red moon pendant: %v", err)
+	}
+	if p0.Equipment[0] != nil || len(p0.Graveyard) != 1 || p0.Graveyard[0] != pendant {
+		t.Fatalf("pendant should be sacrificed to graveyard, equipment=%v grave=%v", p0.Equipment[0], cardsToInfo(p0.Graveyard))
+	}
+	if p0.NextRedMoonDuration != 1 {
+		t.Fatalf("pendant should arm next red moon duration +1, got %d", p0.NextRedMoonDuration)
+	}
+
+	p0.Elements[model.ElementShadow] = 1
+	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": redMoon.InstanceID,
+		"target_type": "none",
+	}}); err != nil {
+		t.Fatalf("cast red moon after pendant: %v", err)
+	}
+	if got := redMoon.Statuses[StatusAbilityDuration]; got != 2 {
+		t.Fatalf("pendant should extend next red moon duration to 2, got %d statuses=%v", got, redMoon.Statuses)
+	}
+	if p0.NextRedMoonDuration != 0 {
+		t.Fatalf("next red moon duration should be consumed, got %d", p0.NextRedMoonDuration)
+	}
+}
+
+func TestRoyalConflictRedMoonProphetReducesCurrentOrNextCooldown(t *testing.T) {
+	t.Run("next red moon", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		redMoon := readySkill(baseCard(t, "3611101"), 0)
+		p0.Skills[0] = redMoon
+		prophet := placeUnit(baseCard(t, "1621111"), 0, 0, 0, engine)
+
+		engine.triggerEffects(TriggerOnEnter, prophet, nil, nil)
+		if p0.NextRedMoonCooldown != 1 {
+			t.Fatalf("prophet should arm next red moon cooldown -1 while red moon is inactive, got %d", p0.NextRedMoonCooldown)
+		}
+
+		p0.Elements[model.ElementShadow] = 1
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": redMoon.InstanceID,
+			"target_type": "none",
+		}}); err != nil {
+			t.Fatalf("cast red moon after prophet: %v", err)
+		}
+		if got := redMoon.Statuses[StatusCooldown]; got != 1 {
+			t.Fatalf("prophet should reduce next red moon cooldown from 2 to 1, got %d statuses=%v", got, redMoon.Statuses)
+		}
+		if p0.NextRedMoonCooldown != 0 {
+			t.Fatalf("next red moon cooldown should be consumed, got %d", p0.NextRedMoonCooldown)
+		}
+	})
+
+	t.Run("current red moon", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		redMoon := readySkill(baseCard(t, "3611101"), 0)
+		redMoon.Statuses[StatusAbilityDuration] = 1
+		redMoon.Statuses[StatusCooldown] = 2
+		p0.Skills[0] = redMoon
+		prophet := placeUnit(baseCard(t, "1621111"), 0, 0, 0, engine)
+
+		engine.triggerEffects(TriggerOnEnter, prophet, nil, nil)
+		if got := redMoon.Statuses[StatusCooldown]; got != 1 {
+			t.Fatalf("prophet enter should reduce current red moon cooldown to 1, got %d statuses=%v", got, redMoon.Statuses)
+		}
+		if p0.NextRedMoonCooldown != 0 {
+			t.Fatalf("current red moon reduction should not arm next cooldown, got %d", p0.NextRedMoonCooldown)
+		}
+
+		engine.triggerEffects(TriggerOnDeath, prophet, nil, nil)
+		if got := redMoon.Statuses[StatusCooldown]; got != 0 {
+			t.Fatalf("prophet death should remove final cooldown layer, got %d statuses=%v", got, redMoon.Statuses)
+		}
+	})
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

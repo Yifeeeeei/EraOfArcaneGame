@@ -1106,6 +1106,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		e.ApplyKeywordOnSkillUse(skill)
 	}
 	if skill.Card.Number == "3611101" {
+		e.applyNextRedMoonModifiers(playerID, skill)
 		e.refreshRedMoonState(playerID)
 	}
 	e.applySkillUseCooldownModifiers(ps, append([]*CardInstance{skill}, boostSkills...)...)
@@ -4274,18 +4275,20 @@ func turnOrderLabel(playerID int, firstPlayer int) string {
 
 func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any {
 	info := map[string]any{
-		"player_id":          ps.PlayerID,
-		"player_name":        ps.PlayerName,
-		"hero":               e.cardToInfo(ps.Hero),
-		"elements":           ps.Elements,
-		"strict_arcane":      ps.StrictArcane,
-		"shield":             ps.Shield,
-		"cannot_gain_shield": ps.CannotGainShield,
-		"charge":             ps.Charge,
-		"temp_modifiers":     ps.TempModifiers,
-		"deck_count":         len(ps.Deck),
-		"graveyard":          e.cardsToInfo(ps.Graveyard),
-		"exile":              e.cardsToInfo(ps.Exile),
+		"player_id":              ps.PlayerID,
+		"player_name":            ps.PlayerName,
+		"hero":                   e.cardToInfo(ps.Hero),
+		"elements":               ps.Elements,
+		"strict_arcane":          ps.StrictArcane,
+		"shield":                 ps.Shield,
+		"cannot_gain_shield":     ps.CannotGainShield,
+		"next_red_moon_duration": ps.NextRedMoonDuration,
+		"next_red_moon_cooldown": ps.NextRedMoonCooldown,
+		"charge":                 ps.Charge,
+		"temp_modifiers":         ps.TempModifiers,
+		"deck_count":             len(ps.Deck),
+		"graveyard":              e.cardsToInfo(ps.Graveyard),
+		"exile":                  e.cardsToInfo(ps.Exile),
 	}
 
 	// Units grid

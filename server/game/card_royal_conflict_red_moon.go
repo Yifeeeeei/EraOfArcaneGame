@@ -1,6 +1,10 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"fmt"
+
+	"eraofarcane/model"
+)
 
 const redMoonMarkerStatus = "红月标记"
 
@@ -51,6 +55,34 @@ func (Card1621110ScarletBeast) ModifySpellStats(ctx *EffectContext, stats *Spell
 	stats.PowerBonus += 2
 }
 
+type Card1621111RedMoonProphet struct{ AlwaysActive }
+
+func (Card1621111RedMoonProphet) ID() string   { return "1621111" }
+func (Card1621111RedMoonProphet) Name() string { return "红月先知" }
+func (Card1621111RedMoonProphet) OnEnter(ctx *EffectContext) error {
+	ctx.Engine.reduceCurrentOrNextRedMoonCooldown(ctx.PlayerID, 1)
+	return nil
+}
+func (Card1621111RedMoonProphet) OnDeath(ctx *EffectContext) error {
+	ctx.Engine.reduceCurrentOrNextRedMoonCooldown(ctx.PlayerID, 1)
+	return nil
+}
+
+type Card2621105RedMoonPendant struct{ AlwaysActive }
+
+func (Card2621105RedMoonPendant) ID() string   { return "2621105" }
+func (Card2621105RedMoonPendant) Name() string { return "红月吊坠" }
+func (Card2621105RedMoonPendant) PerTurnLabel(*CardInstance) string {
+	return "主动"
+}
+func (Card2621105RedMoonPendant) OnPerTurn(ctx *EffectContext) error {
+	if !ctx.Engine.sacrificeEquipment(ctx.PlayerID, ctx.Source.InstanceID) {
+		return fmt.Errorf("red moon pendant must be sacrificed from equipment")
+	}
+	ctx.Engine.State.Players[ctx.PlayerID].NextRedMoonDuration++
+	return nil
+}
+
 type Card3621107WillErosion struct{ AlwaysActive }
 
 func (Card3621107WillErosion) ID() string   { return "3621107" }
@@ -96,6 +128,38 @@ func (e *Engine) addRedMoonMarker(playerID int, amount int) {
 	}
 	if redMoon := e.redMoonSkill(playerID); redMoon != nil {
 		redMoon.Statuses[redMoonMarkerStatus] += amount
+	}
+}
+
+func (e *Engine) reduceCurrentOrNextRedMoonCooldown(playerID int, amount int) {
+	if amount <= 0 || playerID < 0 || playerID >= len(e.State.Players) {
+		return
+	}
+	if redMoon := e.redMoonSkill(playerID); redMoon != nil && e.redMoonActive(playerID) {
+		redMoon.Statuses[StatusCooldown] = max(0, redMoon.Statuses[StatusCooldown]-amount)
+		if redMoon.Statuses[StatusCooldown] == 0 {
+			delete(redMoon.Statuses, StatusCooldown)
+		}
+		return
+	}
+	e.State.Players[playerID].NextRedMoonCooldown += amount
+}
+
+func (e *Engine) applyNextRedMoonModifiers(playerID int, redMoon *CardInstance) {
+	if redMoon == nil || redMoon.Card == nil || redMoon.Card.Number != "3611101" || playerID < 0 || playerID >= len(e.State.Players) {
+		return
+	}
+	ps := e.State.Players[playerID]
+	if ps.NextRedMoonDuration > 0 {
+		redMoon.Statuses[StatusAbilityDuration] += ps.NextRedMoonDuration
+		ps.NextRedMoonDuration = 0
+	}
+	if ps.NextRedMoonCooldown > 0 {
+		redMoon.Statuses[StatusCooldown] = max(0, redMoon.Statuses[StatusCooldown]-ps.NextRedMoonCooldown)
+		if redMoon.Statuses[StatusCooldown] == 0 {
+			delete(redMoon.Statuses, StatusCooldown)
+		}
+		ps.NextRedMoonCooldown = 0
 	}
 }
 

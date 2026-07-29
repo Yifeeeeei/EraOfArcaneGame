@@ -312,6 +312,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	},
 	"1611101": func() CardBehavior { return Card1611101RedMoonWitchSeviana{} },
 	"1621110": func() CardBehavior { return Card1621110ScarletBeast{} },
+	"1621111": func() CardBehavior { return Card1621111RedMoonProphet{} },
 	"2011101": func() CardBehavior { return Card2011101ArcaneArmorSky{} },
 	"2021102": func() CardBehavior { return Card2021102DemonBreakingBlade{} },
 	"2021103": func() CardBehavior { return Card2021103MistPotion{} },
@@ -324,6 +325,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"2521105": func() CardBehavior {
 		return royalShieldOnEnter{id: "2521105", name: "孤星守护者", amount: 2}
 	},
+	"2621105": func() CardBehavior { return Card2621105RedMoonPendant{} },
 	"3221104": func() CardBehavior { return Card3221104WaterEscape{} },
 	"3221106": func() CardBehavior { return Card3221106Undercurrent{} },
 	"3611101": func() CardBehavior { return Card3611101RedMoon{} },

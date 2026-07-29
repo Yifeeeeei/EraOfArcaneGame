@@ -135,6 +135,8 @@ type PlayerState struct {
 	Shield               int                       `json:"shield,omitempty"`
 	CannotGainShield     bool                      `json:"cannot_gain_shield,omitempty"`
 	NextCompanionStealth int                       `json:"next_companion_stealth,omitempty"`
+	NextRedMoonDuration  int                       `json:"next_red_moon_duration,omitempty"`
+	NextRedMoonCooldown  int                       `json:"next_red_moon_cooldown,omitempty"`
 	SkipNextDraw         bool                      `json:"skip_next_draw"`
 	TempModifiers        []TemporaryModifier       `json:"temp_modifiers"`
 	SpellsCastThisTurn   map[string]int            `json:"spells_cast_this_turn,omitempty"`
