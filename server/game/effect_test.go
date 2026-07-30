@@ -2712,6 +2712,41 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("pigeon raid order buffs a rush spell learned this turn", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		order := NewCardInstance(baseCard(t, "2321110"), 0, 1)
+		rushThisTurn := readySkill(baseCard(t, "3321101"), 0)
+		rushThisTurn.EnterTurn = engine.State.TurnNumber
+		oldRush := readySkill(baseCard(t, "3321101"), 0)
+		oldRush.EnterTurn = engine.State.TurnNumber - 1
+		nonRushThisTurn := readySkill(baseCard(t, "3521106"), 0)
+		nonRushThisTurn.EnterTurn = engine.State.TurnNumber
+		p0.Skills[0] = rushThisTurn
+		p0.Skills[1] = oldRush
+		p0.Skills[2] = nonRushThisTurn
+
+		if err := (Card2321110PigeonRaidOrder{}).OnUseItem(&EffectContext{Engine: engine, Source: order, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("pigeon raid order: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "pigeon_raid_order_skill" || len(engine.State.PendingAction.Candidates) != 1 {
+			t.Fatalf("2321110 should only offer rush spells learned this turn, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, rushThisTurn.InstanceID)
+		if len(p0.TempModifiers) != 2 {
+			t.Fatalf("2321110 should create one power and one attack modifier, modifiers=%v", p0.TempModifiers)
+		}
+		if got := engine.effectiveSpellPower(0, rushThisTurn, nil); got != rushThisTurn.Card.Power+1 {
+			t.Fatalf("2321110 should buff selected skill power, got=%d", got)
+		}
+		if got := engine.effectiveSpellDamage(0, rushThisTurn, rushThisTurn.Card.Attack, nil); got != rushThisTurn.Card.Attack+1 {
+			t.Fatalf("2321110 should buff selected skill attack, got=%d", got)
+		}
+		if got := engine.effectiveSpellPower(0, oldRush, nil); got != oldRush.Card.Power {
+			t.Fatalf("2321110 should not buff unselected rush skill, got=%d", got)
+		}
+	})
+
 	t.Run("church envoy removes negative statuses from friendly cards", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
