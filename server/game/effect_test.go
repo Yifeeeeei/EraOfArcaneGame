@@ -2932,6 +2932,28 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("guarding stone array reduces its main defense use cost only", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		stoneArray := readySkill(baseCard(t, "3421108"), 0)
+		otherDefense := readySkill(baseCard(t, "3221103"), 0)
+		p0.Skills[0] = stoneArray
+		p0.Skills[1] = otherDefense
+
+		if got := engine.effectiveSkillUseCostForPurpose(p0, stoneArray, skillPurposeAttack)[model.ElementEarth]; got != 3 {
+			t.Fatalf("3421108 should not reduce attack use cost, cost=%v", engine.effectiveSkillUseCostForPurpose(p0, stoneArray, skillPurposeAttack))
+		}
+		if got := engine.effectiveSkillUseCostForPurpose(p0, stoneArray, skillPurposeDefend)[model.ElementEarth]; got != 2 {
+			t.Fatalf("3421108 should reduce its main defense use cost by 1 earth, cost=%v", engine.effectiveSkillUseCostForPurpose(p0, stoneArray, skillPurposeDefend))
+		}
+		if got := engine.effectiveSkillUseCostForPurpose(p0, stoneArray, skillPurposeDefenseBoost)[model.ElementEarth]; got != 3 {
+			t.Fatalf("3421108 should not reduce defense boost cost, cost=%v", engine.effectiveSkillUseCostForPurpose(p0, stoneArray, skillPurposeDefenseBoost))
+		}
+		if got := engine.effectiveSkillUseCostForPurpose(p0, otherDefense, skillPurposeDefend)[model.ElementWater]; got != 2 {
+			t.Fatalf("3421108 should not reduce another defense skill cost, cost=%v", engine.effectiveSkillUseCostForPurpose(p0, otherDefense, skillPurposeDefend))
+		}
+	})
+
 	t.Run("church envoy removes negative statuses from friendly cards", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]

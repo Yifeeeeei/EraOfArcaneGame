@@ -84,6 +84,7 @@ func (e *Engine) effectiveSkillUseCostForPurpose(ps *PlayerState, skill *CardIns
 		Source:     skill,
 		PlayerID:   ps.PlayerID,
 		OpponentID: 1 - ps.PlayerID,
+		ExtraData:  map[string]any{"purpose": string(purpose)},
 	}
 	for _, fieldCard := range e.getAllFieldCards(ps) {
 		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
