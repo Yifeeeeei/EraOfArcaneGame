@@ -2688,6 +2688,15 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		if len(nonP0.TempModifiers) != 0 {
 			t.Fatalf("1021114 should ignore non-drive/non-charge skills, modifiers=%+v", nonP0.TempModifiers)
 		}
+
+		scrollEngine := setupReportedBugEngine(t)
+		scrollP0 := scrollEngine.State.Players[0]
+		placeUnit(baseCard(t, "1021114"), 0, 0, 0, scrollEngine)
+		scroll := NewCardInstance(baseCard(t, "2121003"), 0, 1)
+		scrollEngine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, scroll, map[string]any{"cast_player": 0})
+		if len(scrollP0.TempModifiers) != 0 {
+			t.Fatalf("1021114 should not trigger from drive/charge spell scroll items, modifiers=%+v", scrollP0.TempModifiers)
+		}
 	})
 
 	t.Run("greedy tyrant increases both players hand card entry costs", func(t *testing.T) {

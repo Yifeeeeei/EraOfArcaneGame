@@ -6,7 +6,7 @@ func (Card1021114StingFrog) ID() string   { return "1021114" }
 func (Card1021114StingFrog) Name() string { return "蛰蛙" }
 
 func (Card1021114StingFrog) OnSpellCast(ctx *EffectContext) error {
-	if ctx == nil || ctx.Engine == nil || ctx.Target == nil || ctx.Target.Card == nil || !isFriendlySpellCast(ctx) {
+	if ctx == nil || ctx.Engine == nil || ctx.Target == nil || ctx.Target.Card == nil || !ctx.Target.Card.IsSkill() || !isFriendlySpellCast(ctx) {
 		return nil
 	}
 	if !hasCardTag(ctx.Target.Card, "驱动") && !hasCardTag(ctx.Target.Card, "聚能") {
