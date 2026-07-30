@@ -2847,6 +2847,23 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("divine help gains power only when boosting mystery spells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		divineHelp := readySkill(baseCard(t, "3521102"), 0)
+		mysterySpell := readySkill(baseCard(t, "3521106"), 0)
+		nonMysterySpell := readySkill(baseCard(t, "3321101"), 0)
+
+		if got := engine.effectiveSkillPowerForPurposeWithData(0, divineHelp, mysterySpell, skillPurposeAttackBoost, nil); got != divineHelp.Card.Power+2 {
+			t.Fatalf("3521102 should gain power when boosting a mystery spell, got=%d", got)
+		}
+		if got := engine.effectiveSkillPowerForPurposeWithData(0, divineHelp, nonMysterySpell, skillPurposeAttackBoost, nil); got != divineHelp.Card.Power {
+			t.Fatalf("3521102 should not gain power when boosting non-mystery spells, got=%d", got)
+		}
+		if got := engine.effectiveSkillPowerForPurposeWithData(0, divineHelp, divineHelp, skillPurposeAttack, nil); got != divineHelp.Card.Power {
+			t.Fatalf("3521102 should not gain power when used as the main attack spell, got=%d", got)
+		}
+	})
+
 	t.Run("church envoy removes negative statuses from friendly cards", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
