@@ -552,6 +552,45 @@ func isLearnedRushSkillThisTurn(e *Engine, skill *CardInstance) bool {
 		cardHasRush(skill)
 }
 
+type Card3021107ArcaneShield struct{ AlwaysActive }
+
+func (Card3021107ArcaneShield) ID() string   { return "3021107" }
+func (Card3021107ArcaneShield) Name() string { return "奥能护盾" }
+func (Card3021107ArcaneShield) OnSpellCast(ctx *EffectContext) error {
+	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
+		Type:             TempModDelayedShieldGain,
+		SourceCardNumber: ctx.Source.Card.Number,
+		SourceName:       ctx.Source.Card.Name,
+		Amount:           1,
+	})
+	return nil
+}
+
+type Card3121109FlameFlash struct{ AlwaysActive }
+
+func (Card3121109FlameFlash) ID() string   { return "3121109" }
+func (Card3121109FlameFlash) Name() string { return "烈焰闪" }
+func (Card3121109FlameFlash) OnSpellHit(ctx *EffectContext) error {
+	ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementFire: 3})
+	return nil
+}
+
+type Card3221103WaterMirrorWall struct{ AlwaysActive }
+
+func (Card3221103WaterMirrorWall) ID() string   { return "3221103" }
+func (Card3221103WaterMirrorWall) Name() string { return "水镜壁" }
+func (Card3221103WaterMirrorWall) OnDefend(ctx *EffectContext) error {
+	if ctx.ExtraData == nil {
+		return nil
+	}
+	success, _ := ctx.ExtraData["defense_success"].(bool)
+	if !success {
+		return nil
+	}
+	ctx.Engine.gainPlayerShield(ctx.PlayerID, 1)
+	return nil
+}
+
 func findSkillSlotCard(ps *PlayerState, instanceID string) *CardInstance {
 	if ps == nil {
 		return nil

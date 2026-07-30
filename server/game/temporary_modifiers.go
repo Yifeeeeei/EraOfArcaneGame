@@ -23,6 +23,7 @@ const (
 	TempModCurrentTurnElementDamage     = "current_turn_element_damage"
 	TempModCurrentTurnElementHitStatus  = "current_turn_element_hit_status"
 	TempModDelayedElementGain           = "delayed_element_gain"
+	TempModDelayedShieldGain            = "delayed_shield_gain"
 	TempModResetSkillsOnOpponentTurnEnd = "reset_skills_on_opponent_turn_end"
 	TempModNextEarthSkillLearnCostMinus = "next_earth_skill_learn_cost_minus"
 	TempModAllSpellDamageZero           = "all_spell_attack_zero"

@@ -4766,6 +4766,59 @@ func TestChargeSystem(t *testing.T) {
 	}
 }
 
+func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
+	t.Run("arcane shield grants shield at next turn start", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		skill := readySkill(baseCard(t, "3021107"), 0)
+		behavior := Card3021107ArcaneShield{}
+
+		if err := behavior.OnSpellCast(&EffectContext{Engine: engine, Source: skill, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("3021107 cast: %v", err)
+		}
+		if engine.State.Players[0].Shield != 0 || len(engine.State.Players[0].TempModifiers) != 1 {
+			t.Fatalf("3021107 should defer shield gain, shield=%d modifiers=%+v", engine.State.Players[0].Shield, engine.State.Players[0].TempModifiers)
+		}
+
+		engine.applyTurnStartTemporaryModifiers(engine.State.Players[0])
+		if engine.State.Players[0].Shield != 1 || len(engine.State.Players[0].TempModifiers) != 0 {
+			t.Fatalf("3021107 should grant shield once at turn start, shield=%d modifiers=%+v", engine.State.Players[0].Shield, engine.State.Players[0].TempModifiers)
+		}
+	})
+
+	t.Run("flame flash gains fire on spell hit", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		skill := readySkill(baseCard(t, "3121109"), 0)
+		behavior := Card3121109FlameFlash{}
+
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+			t.Fatalf("3121109 hit: %v", err)
+		}
+		if got := engine.State.Players[0].Elements[model.ElementFire]; got != 3 {
+			t.Fatalf("3121109 should gain 3 fire, got %d elements=%v", got, engine.State.Players[0].Elements)
+		}
+	})
+
+	t.Run("water mirror wall gains shield only on successful defense", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		skill := readySkill(baseCard(t, "3221103"), 0)
+		behavior := Card3221103WaterMirrorWall{}
+
+		if err := behavior.OnDefend(&EffectContext{Engine: engine, Source: skill, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"defense_success": false}}); err != nil {
+			t.Fatalf("3221103 failed defense: %v", err)
+		}
+		if engine.State.Players[0].Shield != 0 {
+			t.Fatalf("3221103 should not shield failed defense, shield=%d", engine.State.Players[0].Shield)
+		}
+
+		if err := behavior.OnDefend(&EffectContext{Engine: engine, Source: skill, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"defense_success": true}}); err != nil {
+			t.Fatalf("3221103 successful defense: %v", err)
+		}
+		if engine.State.Players[0].Shield != 1 {
+			t.Fatalf("3221103 should gain 1 shield after successful defense, shield=%d", engine.State.Players[0].Shield)
+		}
+	})
+}
+
 func TestEffectSystemIntegration(t *testing.T) {
 	engine := setupEffectTest(t)
 	p0 := engine.State.Players[0]
