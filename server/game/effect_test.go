@@ -533,6 +533,37 @@ func TestRoyalConflictShieldCardBehaviors(t *testing.T) {
 	if p0.Shield != 2 {
 		t.Fatalf("2221102 should gain shield 2 on use, got %d", p0.Shield)
 	}
+
+	t.Run("rock wall guard gains shield only after enemy spell hits with no shield", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		guard := placeUnit(baseCard(t, "1021110"), 0, 0, 0, engine)
+		behavior := Card1021110RockWallGuard{}
+
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: guard, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 1}}); err != nil {
+			t.Fatalf("1021110 enemy spell hit: %v", err)
+		}
+		if p0.Shield != 2 {
+			t.Fatalf("1021110 should gain shield 2 after enemy spell hits while unshielded, shield=%d", p0.Shield)
+		}
+
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: guard, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 1}}); err != nil {
+			t.Fatalf("1021110 second enemy spell hit: %v", err)
+		}
+		if p0.Shield != 2 {
+			t.Fatalf("1021110 should not gain more shield while already shielded, shield=%d", p0.Shield)
+		}
+
+		friendlyEngine := setupReportedBugEngine(t)
+		friendlyP0 := friendlyEngine.State.Players[0]
+		friendlyGuard := placeUnit(baseCard(t, "1021110"), 0, 0, 0, friendlyEngine)
+		if err := behavior.OnSpellHit(&EffectContext{Engine: friendlyEngine, Source: friendlyGuard, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+			t.Fatalf("1021110 friendly spell hit: %v", err)
+		}
+		if friendlyP0.Shield != 0 {
+			t.Fatalf("1021110 should ignore friendly spell hits, shield=%d", friendlyP0.Shield)
+		}
+	})
 }
 
 func TestRoyalConflictEmeraldImmortalityProtectsWhileShielded(t *testing.T) {

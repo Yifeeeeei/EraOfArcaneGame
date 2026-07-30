@@ -25,6 +25,22 @@ func (Card1421102EmeraldGuard) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
+type Card1021110RockWallGuard struct{ AlwaysActive }
+
+func (Card1021110RockWallGuard) ID() string   { return "1021110" }
+func (Card1021110RockWallGuard) Name() string { return "岩壁护卫军" }
+func (Card1021110RockWallGuard) OnSpellHit(ctx *EffectContext) error {
+	if ctx == nil || ctx.Source == nil || isFriendlySpellHit(ctx) {
+		return nil
+	}
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	if ps == nil || ps.Shield > 0 {
+		return nil
+	}
+	ctx.Engine.gainPlayerShield(ctx.PlayerID, 2)
+	return nil
+}
+
 type Card2011101ArcaneArmorSky struct{ AlwaysActive }
 
 func (Card2011101ArcaneArmorSky) ID() string   { return "2011101" }
