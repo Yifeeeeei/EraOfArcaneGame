@@ -3212,13 +3212,14 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 			t.Fatalf("resolve first ripple slash: %v", err)
 		}
 
-		engine.State.CurrentTurn = 0
-		engine.startTurn()
+		if err := engine.HandleAction(0, ActionMessage{Action: "end_turn", Data: map[string]any{}}); err != nil {
+			t.Fatalf("end p0 turn: %v", err)
+		}
 		if spellCastByNumberThisTurn(p0, "3221109") != 0 {
-			t.Fatalf("3221109 cast count should reset at turn start, casts=%v", p0.SpellsCastByNumberThisTurn)
+			t.Fatalf("3221109 cast count should reset at turn end, casts=%v", p0.SpellsCastByNumberThisTurn)
 		}
 		if got := engine.effectiveSpellPower(0, second, nil); got != second.Card.Power {
-			t.Fatalf("3221109 bonus should not persist after turn reset, got=%d", got)
+			t.Fatalf("3221109 bonus should not persist after turn end, got=%d", got)
 		}
 	})
 

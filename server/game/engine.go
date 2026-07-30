@@ -370,8 +370,7 @@ func (e *Engine) startTurn() {
 	e.clearDamageTakenThisTurn()
 
 	ps := e.State.Players[e.State.CurrentTurn]
-	ps.SpellsCastThisTurn = make(map[string]int)
-	ps.SpellsCastByNumberThisTurn = make(map[string]int)
+	clearSpellCastTracking(ps)
 	ps.DrawCountThisTurn = 0
 
 	// Elements are cleared at the end of their owner's turn. Start turn should
@@ -3772,6 +3771,7 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 	for elem := range ps.Elements {
 		ps.Elements[elem] = 0
 	}
+	clearSpellCastTracking(ps)
 
 	e.emit(GameEvent{
 		Type:   "turn_end",

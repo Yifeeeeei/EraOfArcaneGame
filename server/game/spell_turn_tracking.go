@@ -18,6 +18,14 @@ func (e *Engine) recordSpellCast(playerID int, skill *CardInstance) {
 	ps.SpellsCastByNumberThisTurn[skill.Card.Number]++
 }
 
+func clearSpellCastTracking(ps *PlayerState) {
+	if ps == nil {
+		return
+	}
+	ps.SpellsCastThisTurn = make(map[string]int)
+	ps.SpellsCastByNumberThisTurn = make(map[string]int)
+}
+
 func spellCastByNumberThisTurn(ps *PlayerState, number string) int {
 	if ps == nil || ps.SpellsCastByNumberThisTurn == nil || number == "" {
 		return 0
