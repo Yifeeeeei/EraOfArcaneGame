@@ -4970,6 +4970,80 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("andis gift grants shadow load then kills the unit at turn end", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		item := NewCardInstance(baseCard(t, "2621110"), 0, engine.State.TurnNumber)
+		target := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		behavior := Card2621110AndisGift{}
+
+		if err := behavior.OnUseItem(&EffectContext{Engine: engine, Source: item, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("2621110 use: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "andis_gift_target" ||
+			!candidateContains(engine.State.PendingAction.Candidates, target.InstanceID) ||
+			!candidateContains(engine.State.PendingAction.Candidates, p0.Hero.InstanceID) {
+			t.Fatalf("2621110 should ask for a friendly unit including hero, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, target.InstanceID)
+		if effectiveElementsGain(target)[model.ElementShadow] != 2 || target.Statuses[andisGiftDoomedStatus] != engine.State.TurnNumber {
+			t.Fatalf("2621110 should grant +2 shadow load and mark target, load=%v statuses=%v", effectiveElementsGain(target), target.Statuses)
+		}
+
+		engine.finishEndTurn(p0)
+		if p0.Units[1][0] != nil || !containsCardInstance(p0.Graveyard, target) {
+			t.Fatalf("2621110 target should die at turn end, unit=%v grave=%v", p0.Units[1][0], cardsToInfo(p0.Graveyard))
+		}
+	})
+
+	t.Run("skycarrier e2 prayer draws or recycles two air graveyard cards", func(t *testing.T) {
+		drawEngine := setupEffectTest(t)
+		drawP0 := drawEngine.State.Players[0]
+		drawP0.Deck = []*CardInstance{
+			NewCardInstance(baseCard(t, "1321101"), 0, drawEngine.State.TurnNumber),
+			NewCardInstance(baseCard(t, "1321102"), 0, drawEngine.State.TurnNumber),
+		}
+		startHand := len(drawP0.Hand)
+		carrier := placeUnit(baseCard(t, "1321101"), 0, 0, 0, drawEngine)
+		behavior := Card1321101SkycarrierE2{}
+
+		if !cardHasActivePrayer(carrier) {
+			t.Fatal("1321101 should expose prayer ability")
+		}
+		if err := behavior.OnPerTurn(&EffectContext{Engine: drawEngine, Source: carrier, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1321101 draw prayer: %v", err)
+		}
+		if drawEngine.State.PendingAction == nil || drawEngine.State.PendingAction.Type != "skycarrier_e2_prayer" || !candidateContains(drawEngine.State.PendingAction.Candidates, "draw") {
+			t.Fatalf("1321101 should offer draw prayer, pending=%+v", drawEngine.State.PendingAction)
+		}
+		resolvePendingSelection(t, drawEngine, 0, "draw")
+		if len(drawP0.Hand) != startHand+2 || len(drawP0.Deck) != 0 {
+			t.Fatalf("1321101 draw prayer should draw two cards, hand=%v deck=%v", cardsToInfo(drawP0.Hand), cardsToInfo(drawP0.Deck))
+		}
+
+		recycleEngine := setupEffectTest(t)
+		recycleP0 := recycleEngine.State.Players[0]
+		recycleCarrier := placeUnit(baseCard(t, "1321101"), 0, 0, 0, recycleEngine)
+		airA := NewCardInstance(baseCard(t, "1321101"), 0, recycleEngine.State.TurnNumber)
+		airB := NewCardInstance(baseCard(t, "1321102"), 0, recycleEngine.State.TurnNumber)
+		nonAir := NewCardInstance(baseCard(t, "1021001"), 0, recycleEngine.State.TurnNumber)
+		recycleP0.Graveyard = []*CardInstance{airA, nonAir, airB}
+		if err := behavior.OnPerTurn(&EffectContext{Engine: recycleEngine, Source: recycleCarrier, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1321101 recycle prayer: %v", err)
+		}
+		if !candidateContains(recycleEngine.State.PendingAction.Candidates, "recycle") {
+			t.Fatalf("1321101 should offer recycle when two air graveyard cards exist, pending=%+v", recycleEngine.State.PendingAction)
+		}
+		resolvePendingSelection(t, recycleEngine, 0, "recycle")
+		if recycleEngine.State.PendingAction == nil || recycleEngine.State.PendingAction.Type != "skycarrier_e2_recycle" {
+			t.Fatalf("1321101 should ask which air graveyard cards to recycle, pending=%+v", recycleEngine.State.PendingAction)
+		}
+		resolvePendingSelection(t, recycleEngine, 0, airA.InstanceID, airB.InstanceID)
+		if len(recycleP0.Graveyard) != 1 || recycleP0.Graveyard[0] != nonAir || !containsCardInstance(recycleP0.Deck, airA) || !containsCardInstance(recycleP0.Deck, airB) {
+			t.Fatalf("1321101 should move selected air graveyard cards to deck, grave=%v deck=%v", cardsToInfo(recycleP0.Graveyard), cardsToInfo(recycleP0.Deck))
+		}
+	})
+
 	t.Run("arcane shield grants shield at next turn start", func(t *testing.T) {
 		engine := setupEffectTest(t)
 		skill := readySkill(baseCard(t, "3021107"), 0)

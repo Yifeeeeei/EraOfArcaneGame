@@ -3784,6 +3784,7 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 	e.processAbilityDurations(ps)
 
 	// Remove 临时 (temporary) units before the cleanup/reset steps.
+	e.destroyAndisGiftDoomedUnits(ps)
 	e.HandleTemporaryUnits(ps)
 
 	// Discard phase has already happened above. The cleanup order is:
