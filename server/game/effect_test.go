@@ -4388,6 +4388,88 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("rock wall monk zeros the first enemy spell hit while no skills are learned", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		monk := placeUnit(baseCard(t, "1421113"), 0, 0, 0, engine)
+		enemySkill := readySkill(baseCard(t, "3021005"), 1)
+		behavior := Card1421113RockWallMonk{}
+
+		damage := 3
+		if err := behavior.OnSpellHitBeforeDamage(&EffectContext{
+			Engine:     engine,
+			Source:     monk,
+			Target:     monk,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"attacker": 1, "spell_source": enemySkill, "damage_ptr": &damage, "damage": damage},
+		}); err != nil {
+			t.Fatalf("1421113 enemy spell hit: %v", err)
+		}
+		if damage != 0 || monk.UsedThisTurn != 1 {
+			t.Fatalf("1421113 should zero the first enemy spell hit and spend trigger, damage=%d used=%d", damage, monk.UsedThisTurn)
+		}
+
+		secondDamage := 4
+		if err := behavior.OnSpellHitBeforeDamage(&EffectContext{
+			Engine:     engine,
+			Source:     monk,
+			Target:     monk,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"attacker": 1, "spell_source": enemySkill, "damage_ptr": &secondDamage, "damage": secondDamage},
+		}); err != nil {
+			t.Fatalf("1421113 second enemy spell hit: %v", err)
+		}
+		if secondDamage != 4 || monk.UsedThisTurn != 1 {
+			t.Fatalf("1421113 should trigger at most once per turn, damage=%d used=%d", secondDamage, monk.UsedThisTurn)
+		}
+
+		friendlyEngine := setupReportedBugEngine(t)
+		friendlyMonk := placeUnit(baseCard(t, "1421113"), 0, 0, 0, friendlyEngine)
+		friendlyDamage := 3
+		if err := behavior.OnSpellHitBeforeDamage(&EffectContext{
+			Engine:     friendlyEngine,
+			Source:     friendlyMonk,
+			Target:     friendlyMonk,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"attacker": 0, "spell_source": readySkill(baseCard(t, "3021005"), 0), "damage_ptr": &friendlyDamage, "damage": friendlyDamage},
+		}); err != nil {
+			t.Fatalf("1421113 friendly spell hit: %v", err)
+		}
+		if friendlyDamage != 3 || friendlyMonk.UsedThisTurn != 0 {
+			t.Fatalf("1421113 should ignore friendly spell hits, damage=%d used=%d", friendlyDamage, friendlyMonk.UsedThisTurn)
+		}
+
+		learnedEngine := setupReportedBugEngine(t)
+		learnedMonk := placeUnit(baseCard(t, "1421113"), 0, 0, 0, learnedEngine)
+		learnedEngine.State.Players[0].Skills[0] = readySkill(baseCard(t, "3021005"), 0)
+		learnedDamage := 3
+		if err := behavior.OnSpellHitBeforeDamage(&EffectContext{
+			Engine:     learnedEngine,
+			Source:     learnedMonk,
+			Target:     learnedMonk,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"attacker": 1, "spell_source": enemySkill, "damage_ptr": &learnedDamage, "damage": learnedDamage},
+		}); err != nil {
+			t.Fatalf("1421113 learned skill enemy spell hit: %v", err)
+		}
+		if learnedDamage != 3 || learnedMonk.UsedThisTurn != 0 {
+			t.Fatalf("1421113 should not trigger after learning a skill, damage=%d used=%d", learnedDamage, learnedMonk.UsedThisTurn)
+		}
+
+		fieldEngine := setupReportedBugEngine(t)
+		fieldMonk := placeUnit(baseCard(t, "1421113"), 0, 0, 0, fieldEngine)
+		fieldDamage := 5
+		fieldEngine.triggerFieldEffectsWithData(TriggerOnSpellHitBeforeDamage, 0, enemySkill, map[string]any{
+			"attacker": 1, "spell_source": enemySkill, "damage_ptr": &fieldDamage, "damage": fieldDamage,
+		})
+		if fieldDamage != 0 || fieldMonk.UsedThisTurn != 1 {
+			t.Fatalf("1421113 should trigger through field before-damage plumbing, damage=%d used=%d", fieldDamage, fieldMonk.UsedThisTurn)
+		}
+	})
+
 	t.Run("celtic deer resets once after any medium skill is used", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		deer := placeUnit(baseCard(t, "1421108"), 0, 1, 1, engine)
