@@ -4253,6 +4253,17 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 		if err := behavior.OnPerTurn(&EffectContext{Engine: engine, Source: emptyBox, PlayerID: 0, OpponentID: 1}); err == nil {
 			t.Fatal("2621107 should reject active ability with no markers")
 		}
+
+		deathEngine := setupReportedBugEngine(t)
+		deathBox := NewCardInstance(baseCard(t, "2621107"), 0, 1)
+		deathEngine.State.Players[0].Equipment[0] = deathBox
+		friendlyDead := placeUnit(baseCard(t, "1021001"), 0, 0, 0, deathEngine)
+		enemyDead := placeUnit(baseCard(t, "1021001"), 1, 0, 0, deathEngine)
+		deathEngine.destroyUnit(friendlyDead, 0)
+		deathEngine.destroyUnit(enemyDead, 1)
+		if deathBox.Statuses[curseBoxMarkerStatus] != 2 {
+			t.Fatalf("2621107 should mark real friendly and enemy unit deaths once each, statuses=%v", deathBox.Statuses)
+		}
 	})
 
 	t.Run("soul hunter marks friendly spell once after it hits", func(t *testing.T) {
