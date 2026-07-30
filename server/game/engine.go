@@ -1911,6 +1911,7 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 			e.triggerEffects(TriggerOnSpellHit, skill, resolvedTargetUnit, hitData)
 			e.triggerFieldEffectsWithData(TriggerOnSpellHit, attackerID, skill, hitData)
 			e.triggerFieldEffectsWithData(TriggerOnSpellHit, defenderID, skill, hitData)
+			e.triggerSparkMothAfterSpellHit(skill)
 			if skill.Statuses[StatusNextFrontRowRange] > 0 {
 				skill.Statuses[StatusNextFrontRowRange]--
 			}

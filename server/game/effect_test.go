@@ -4470,6 +4470,68 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("spark moth reveals from hand after fire spell hits for entry discount", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		mothA := NewCardInstance(baseCard(t, "1121112"), 0, 1)
+		mothB := NewCardInstance(baseCard(t, "1121112"), 0, 1)
+		otherFire := NewCardInstance(baseCard(t, "1121101"), 0, 1)
+		enemyMoth := NewCardInstance(baseCard(t, "1121112"), 1, 1)
+		p0.Hand = []*CardInstance{mothA, mothB, otherFire}
+		p1.Hand = []*CardInstance{enemyMoth}
+
+		engine.triggerSparkMothAfterSpellHit(readySkill(baseCard(t, "3021005"), 0))
+		if engine.State.PendingAction != nil {
+			t.Fatalf("1121112 should ignore non-fire spell hits, pending=%+v", engine.State.PendingAction)
+		}
+
+		engine.triggerSparkMothAfterSpellHit(readySkill(baseCard(t, "3121001"), 0))
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "spark_moth_reveal" || engine.State.PendingAction.PlayerID != 0 || engine.State.PendingAction.MaxSelect != 2 {
+			t.Fatalf("1121112 should prompt the first player with moths in hand, pending=%+v", engine.State.PendingAction)
+		}
+		if len(engine.State.PendingActionQueue) != 1 || engine.State.PendingActionQueue[0].PlayerID != 1 {
+			t.Fatalf("1121112 should queue the other player's reveal prompt, queue=%+v", engine.State.PendingActionQueue)
+		}
+
+		resolvePendingSelection(t, engine, 0)
+		if p0.RevealedHand[mothA.InstanceID] || p0.RevealedHand[mothB.InstanceID] || mothA.Statuses["入场费用"+model.ElementFire+"-1"] != 0 || mothB.Statuses["入场费用"+model.ElementFire+"-1"] != 0 {
+			t.Fatalf("1121112 skipped reveal should not discount or reveal, revealed=%v statuses=%v/%v", p0.RevealedHand, mothA.Statuses, mothB.Statuses)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.PlayerID != 1 {
+			t.Fatalf("1121112 should advance to queued enemy reveal prompt, pending=%+v", engine.State.PendingAction)
+		}
+
+		resolvePendingSelection(t, engine, 1, enemyMoth.InstanceID)
+		if !p1.RevealedHand[enemyMoth.InstanceID] || enemyMoth.Statuses["入场费用"+model.ElementFire+"-1"] != 1 {
+			t.Fatalf("1121112 selected enemy moth should reveal and discount, revealed=%v statuses=%v", p1.RevealedHand, enemyMoth.Statuses)
+		}
+
+		engine.triggerSparkMothAfterSpellHit(readySkill(baseCard(t, "3121001"), 0))
+		if engine.State.PendingAction == nil || engine.State.PendingAction.PlayerID != 0 {
+			t.Fatalf("1121112 should prompt again on later fire spell hits, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, mothA.InstanceID, mothB.InstanceID)
+		if !p0.RevealedHand[mothA.InstanceID] || !p0.RevealedHand[mothB.InstanceID] || mothA.Statuses["入场费用"+model.ElementFire+"-1"] != 1 || mothB.Statuses["入场费用"+model.ElementFire+"-1"] != 1 {
+			t.Fatalf("1121112 selected moths should reveal and discount, revealed=%v statuses=%v/%v", p0.RevealedHand, mothA.Statuses, mothB.Statuses)
+		}
+		resolvePendingSelection(t, engine, 1)
+		if enemyMoth.Statuses["入场费用"+model.ElementFire+"-1"] != 1 {
+			t.Fatalf("1121112 skipped later reveal should not add another discount, statuses=%v", enemyMoth.Statuses)
+		}
+
+		hitEngine := setupReportedBugEngine(t)
+		hitP0 := hitEngine.State.Players[0]
+		hitMoth := NewCardInstance(baseCard(t, "1121112"), 0, 1)
+		hitP0.Hand = []*CardInstance{hitMoth}
+		target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, hitEngine)
+		fireSpell := readySkill(baseCard(t, "3121001"), 0)
+		hitEngine.resolveSpellHit(0, fireSpell, SpellTarget{Type: "unit", Position: *target.Position}, nil, nil)
+		if hitEngine.State.PendingAction == nil || hitEngine.State.PendingAction.Type != "spark_moth_reveal" || hitEngine.State.PendingAction.PlayerID != 0 {
+			t.Fatalf("1121112 should trigger through real fire spell hit resolution, pending=%+v", hitEngine.State.PendingAction)
+		}
+	})
+
 	t.Run("celtic deer resets once after any medium skill is used", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		deer := placeUnit(baseCard(t, "1421108"), 0, 1, 1, engine)
