@@ -4506,6 +4506,9 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 		if !p1.RevealedHand[enemyMoth.InstanceID] || enemyMoth.Statuses["入场费用"+model.ElementFire+"-1"] != 1 {
 			t.Fatalf("1121112 selected enemy moth should reveal and discount, revealed=%v statuses=%v", p1.RevealedHand, enemyMoth.Statuses)
 		}
+		if cost := engine.effectiveCardPlayCost(p1, enemyMoth); cost[model.ElementFire] != enemyMoth.Card.ElementsCost[model.ElementFire]-1 {
+			t.Fatalf("1121112 discount should reduce effective entry fire cost, cost=%v", cost)
+		}
 
 		engine.triggerSparkMothAfterSpellHit(readySkill(baseCard(t, "3121001"), 0))
 		if engine.State.PendingAction == nil || engine.State.PendingAction.PlayerID != 0 {
@@ -4514,6 +4517,9 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 		resolvePendingSelection(t, engine, 0, mothA.InstanceID, mothB.InstanceID)
 		if !p0.RevealedHand[mothA.InstanceID] || !p0.RevealedHand[mothB.InstanceID] || mothA.Statuses["入场费用"+model.ElementFire+"-1"] != 1 || mothB.Statuses["入场费用"+model.ElementFire+"-1"] != 1 {
 			t.Fatalf("1121112 selected moths should reveal and discount, revealed=%v statuses=%v/%v", p0.RevealedHand, mothA.Statuses, mothB.Statuses)
+		}
+		if cost := engine.effectiveCardPlayCost(p0, mothA); cost[model.ElementFire] != mothA.Card.ElementsCost[model.ElementFire]-1 {
+			t.Fatalf("1121112 discount should apply to selected own moth, cost=%v", cost)
 		}
 		resolvePendingSelection(t, engine, 1)
 		if enemyMoth.Statuses["入场费用"+model.ElementFire+"-1"] != 1 {
