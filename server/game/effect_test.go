@@ -4116,6 +4116,50 @@ func TestRoyalConflictSimpleActiveAbilityEffects(t *testing.T) {
 }
 
 func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
+	t.Run("celtic deer resets once after any medium skill is used", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		deer := placeUnit(baseCard(t, "1421108"), 0, 1, 1, engine)
+		deer.IsHorizontal = true
+		medium := readySkill(baseCard(t, "3421104"), 0)
+		nonMedium := readySkill(baseCard(t, "3121001"), 0)
+		behavior := Card1421108CelticDeer{}
+
+		if err := behavior.OnSpellCast(&EffectContext{Engine: engine, Source: deer, Target: medium, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"cast_player": 0}}); err != nil {
+			t.Fatalf("1421108 friendly medium spell cast: %v", err)
+		}
+		if deer.IsHorizontal || deer.UsedThisTurn != 1 {
+			t.Fatalf("1421108 should reset once after a medium skill is used, horizontal=%v used=%d", deer.IsHorizontal, deer.UsedThisTurn)
+		}
+
+		deer.IsHorizontal = true
+		if err := behavior.OnSpellCast(&EffectContext{Engine: engine, Source: deer, Target: medium, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"cast_player": 1}}); err != nil {
+			t.Fatalf("1421108 second medium spell cast: %v", err)
+		}
+		if !deer.IsHorizontal || deer.UsedThisTurn != 1 {
+			t.Fatalf("1421108 should trigger at most once per turn, horizontal=%v used=%d", deer.IsHorizontal, deer.UsedThisTurn)
+		}
+
+		nextEngine := setupReportedBugEngine(t)
+		nextDeer := placeUnit(baseCard(t, "1421108"), 0, 1, 1, nextEngine)
+		nextDeer.IsHorizontal = true
+		if err := behavior.OnSpellCast(&EffectContext{Engine: nextEngine, Source: nextDeer, Target: medium, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"cast_player": 1}}); err != nil {
+			t.Fatalf("1421108 enemy medium spell cast: %v", err)
+		}
+		if nextDeer.IsHorizontal || nextDeer.UsedThisTurn != 1 {
+			t.Fatalf("1421108 should reset after an enemy medium skill is used, horizontal=%v used=%d", nextDeer.IsHorizontal, nextDeer.UsedThisTurn)
+		}
+
+		failEngine := setupReportedBugEngine(t)
+		failDeer := placeUnit(baseCard(t, "1421108"), 0, 1, 1, failEngine)
+		failDeer.IsHorizontal = true
+		if err := behavior.OnSpellCast(&EffectContext{Engine: failEngine, Source: failDeer, Target: nonMedium, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"cast_player": 0}}); err != nil {
+			t.Fatalf("1421108 non-medium spell cast: %v", err)
+		}
+		if !failDeer.IsHorizontal || failDeer.UsedThisTurn != 0 {
+			t.Fatalf("1421108 should ignore non-medium skills, horizontal=%v used=%d", failDeer.IsHorizontal, failDeer.UsedThisTurn)
+		}
+	})
+
 	t.Run("lone star fire seed gains fire load after other companions take fire damage", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		seed := placeUnit(baseCard(t, "1121111"), 0, 0, 0, engine)

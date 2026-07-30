@@ -733,6 +733,22 @@ func (Card1421105InactiveRoot) OnPerTurn(ctx *EffectContext) error {
 	return nil
 }
 
+type Card1421108CelticDeer struct{ AlwaysActive }
+
+func (Card1421108CelticDeer) ID() string   { return "1421108" }
+func (Card1421108CelticDeer) Name() string { return "凯尔特灵鹿" }
+func (Card1421108CelticDeer) OnSpellCast(ctx *EffectContext) error {
+	if ctx == nil || ctx.Source == nil || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) || ctx.Target == nil || ctx.Target.Card == nil {
+		return nil
+	}
+	if !ctx.Target.Card.IsSkill() || !hasCardTag(ctx.Target.Card, "灵媒") {
+		return nil
+	}
+	resetCard(ctx.Source)
+	ctx.Source.UsedThisTurn++
+	return nil
+}
+
 type Card1521114HuiPrayer struct{ AlwaysActive }
 
 func (Card1521114HuiPrayer) ID() string   { return "1521114" }
