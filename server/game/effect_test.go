@@ -3175,6 +3175,53 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("ripple slash improves after one copy was cast this turn", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		first := readySkill(baseCard(t, "3221109"), 0)
+		second := readySkill(baseCard(t, "3221109"), 0)
+		p0.Skills[0] = first
+		p0.Skills[1] = second
+		p0.Elements[model.ElementWater] = 2
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		if got := engine.effectiveSpellPower(0, second, nil); got != second.Card.Power {
+			t.Fatalf("3221109 should start at printed power before any copy is cast, got=%d", got)
+		}
+		if got := engine.effectiveSpellArea(second); got != SpellAreaSingle {
+			t.Fatalf("3221109 should start as single target, got=%s", got)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": first.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(target.Position.Col),
+			"target_row":  float64(target.Position.Row),
+		}}); err != nil {
+			t.Fatalf("cast first ripple slash: %v", err)
+		}
+		if spellCastByNumberThisTurn(p0, "3221109") != 1 {
+			t.Fatalf("first 3221109 cast should be recorded by number, casts=%v", p0.SpellsCastByNumberThisTurn)
+		}
+		if got := engine.effectiveSpellPower(0, second, nil); got != second.Card.Power+2 {
+			t.Fatalf("3221109 should gain +2 power after a copy was cast, got=%d", got)
+		}
+		if got := engine.effectiveSpellArea(second); got != SpellAreaFrontRow {
+			t.Fatalf("3221109 should become front-row area after a copy was cast, got=%s", got)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve first ripple slash: %v", err)
+		}
+
+		engine.State.CurrentTurn = 0
+		engine.startTurn()
+		if spellCastByNumberThisTurn(p0, "3221109") != 0 {
+			t.Fatalf("3221109 cast count should reset at turn start, casts=%v", p0.SpellsCastByNumberThisTurn)
+		}
+		if got := engine.effectiveSpellPower(0, second, nil); got != second.Card.Power {
+			t.Fatalf("3221109 bonus should not persist after turn reset, got=%d", got)
+		}
+	})
+
 	t.Run("rock wall monster limits damage while its owner has no learned spells", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		monster := placeUnit(baseCard(t, "1421111"), 0, 0, 0, engine)

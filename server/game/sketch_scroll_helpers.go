@@ -96,6 +96,7 @@ func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, ta
 		"is_sorcery":  isSorcery,
 		"via":         "sketch_scroll",
 	}
+	e.recordSpellCast(playerID, skill)
 	e.emit(GameEvent{Type: "spell_cast", Player: -1, Data: spellCastData})
 	e.triggerEffects(TriggerOnSpellCast, skill, nil, spellCastData)
 	if isSorcery {

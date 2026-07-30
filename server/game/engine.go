@@ -371,6 +371,7 @@ func (e *Engine) startTurn() {
 
 	ps := e.State.Players[e.State.CurrentTurn]
 	ps.SpellsCastThisTurn = make(map[string]int)
+	ps.SpellsCastByNumberThisTurn = make(map[string]int)
 	ps.DrawCountThisTurn = 0
 
 	// Elements are cleared at the end of their owner's turn. Start turn should
@@ -1140,10 +1141,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 
 	// Check if it's a 咒术 (sorcery - unblockable)
 	isSorcery := isSorcerySkill(skill.Card)
-	if ps.SpellsCastThisTurn == nil {
-		ps.SpellsCastThisTurn = make(map[string]int)
-	}
-	ps.SpellsCastThisTurn[skill.Card.Category]++
+	e.recordSpellCast(playerID, skill)
 	spellCastData := map[string]any{
 		"cast_player": playerID,
 		"attacker":    playerID,
@@ -3225,10 +3223,7 @@ func (e *Engine) startSpellScrollCast(playerID int, scroll *CardInstance, target
 	powerSources := e.spellPowerSources(playerID, scroll, boostSkills, totalPower, target)
 	e.consumeNextSpellPowerBonuses(ps, scroll)
 
-	if ps.SpellsCastThisTurn == nil {
-		ps.SpellsCastThisTurn = make(map[string]int)
-	}
-	ps.SpellsCastThisTurn[scroll.Card.Category]++
+	e.recordSpellCast(playerID, scroll)
 	spellCastData := map[string]any{
 		"cast_player":  playerID,
 		"attacker":     playerID,
