@@ -4767,6 +4767,39 @@ func TestChargeSystem(t *testing.T) {
 }
 
 func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
+	t.Run("dragon blood treant removes a friendly load and gains shadow load", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		setElementsGain(engine.State.Players[0].Hero, map[string]int{})
+		treant := placeUnit(baseCard(t, "1421107"), 0, 0, 0, engine)
+		target := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		setElementsGain(target, map[string]int{model.ElementFire: 1})
+		behavior := Card1421107DragonBloodTreant{}
+
+		if err := behavior.OnEnter(&EffectContext{Engine: engine, Source: treant, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1421107 single load enter: %v", err)
+		}
+		if effectiveElementsGain(target)[model.ElementFire] != 0 || effectiveElementsGain(treant)[model.ElementShadow] != 1 {
+			t.Fatalf("1421107 should auto-remove the sole friendly load and gain shadow, target=%v treant=%v", effectiveElementsGain(target), effectiveElementsGain(treant))
+		}
+
+		multiEngine := setupEffectTest(t)
+		setElementsGain(multiEngine.State.Players[0].Hero, map[string]int{})
+		multiTreant := placeUnit(baseCard(t, "1421107"), 0, 0, 0, multiEngine)
+		multiTarget := placeUnit(baseCard(t, "1021001"), 0, 1, 0, multiEngine)
+		setElementsGain(multiTarget, map[string]int{model.ElementFire: 1, model.ElementWater: 1})
+		if err := behavior.OnEnter(&EffectContext{Engine: multiEngine, Source: multiTreant, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1421107 multi load enter: %v", err)
+		}
+		if multiEngine.State.PendingAction == nil || multiEngine.State.PendingAction.Type != "dragon_blood_treant_remove_load" || len(multiEngine.State.PendingAction.Candidates) != 2 {
+			t.Fatalf("1421107 should ask which load to remove, pending=%+v", multiEngine.State.PendingAction)
+		}
+		resolvePendingSelection(t, multiEngine, 0, multiTarget.InstanceID+"|"+model.ElementWater)
+		load := effectiveElementsGain(multiTarget)
+		if load[model.ElementFire] != 1 || load[model.ElementWater] != 0 || effectiveElementsGain(multiTreant)[model.ElementShadow] != 1 {
+			t.Fatalf("1421107 should remove selected load only and gain shadow, target=%v treant=%v", load, effectiveElementsGain(multiTreant))
+		}
+	})
+
 	t.Run("arcane shield grants shield at next turn start", func(t *testing.T) {
 		engine := setupEffectTest(t)
 		skill := readySkill(baseCard(t, "3021107"), 0)
