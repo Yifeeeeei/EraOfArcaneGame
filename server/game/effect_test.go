@@ -3241,6 +3241,52 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("moonlit spirit boosts the next spell attack then loses its aura", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		spirit := placeUnit(baseCard(t, "1521101"), 0, 0, 0, engine)
+		firstSpell := readySkill(baseCard(t, "3021008"), 0)
+		secondSpell := readySkill(baseCard(t, "3021008"), 0)
+		p0.Skills[0] = firstSpell
+		p0.Skills[1] = secondSpell
+		p0.Elements[model.ElementArcane] = 2
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		if got := engine.effectiveSpellPower(0, firstSpell, nil); got != firstSpell.Card.Power+2 {
+			t.Fatalf("1521101 should boost friendly spells before its aura is spent, got=%d", got)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": firstSpell.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(target.Position.Col),
+			"target_row":  float64(target.Position.Row),
+		}}); err != nil {
+			t.Fatalf("cast boosted spell with moonlit spirit: %v", err)
+		}
+		if engine.State.PendingSpell == nil || engine.State.PendingSpell.TotalPower != firstSpell.Card.Power+2 {
+			t.Fatalf("1521101 should boost the spell attack that spends it, pending=%+v", engine.State.PendingSpell)
+		}
+		if spirit.Statuses[moonlitSpiritAuraSpentStatus] != 1 {
+			t.Fatalf("1521101 should lose aura after friendly spell attack, statuses=%v", spirit.Statuses)
+		}
+		if got := engine.effectiveSpellPower(0, secondSpell, nil); got != secondSpell.Card.Power {
+			t.Fatalf("1521101 should not boost later spells after aura is spent, got=%d", got)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve moonlit boosted spell: %v", err)
+		}
+
+		enemyEngine := setupReportedBugEngine(t)
+		enemyP1 := enemyEngine.State.Players[1]
+		enemySpirit := placeUnit(baseCard(t, "1521101"), 0, 0, 0, enemyEngine)
+		enemySpell := readySkill(baseCard(t, "3021008"), 1)
+		enemyP1.Skills[0] = enemySpell
+		enemyEngine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, enemySpell, map[string]any{"cast_player": 1, "attacker": 1})
+		if enemySpirit.Statuses[moonlitSpiritAuraSpentStatus] != 0 {
+			t.Fatalf("1521101 should not lose aura from enemy spell attacks, statuses=%v", enemySpirit.Statuses)
+		}
+	})
+
 	t.Run("ripple slash improves after one copy was cast this turn", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
