@@ -3098,6 +3098,10 @@ func (e *Engine) validateConsumableItemUse(playerID int, card *CardInstance) err
 		})) == 0 {
 			return fmt.Errorf("Mirrorsea Spring requires a friendly spell")
 		}
+	case "2221105":
+		if len(e.friendlyDeckCards(playerID, isRaiderCompanion)) == 0 {
+			return fmt.Errorf("Black Sail Raider requires a searchable raider companion")
+		}
 	case "2121108":
 		if len(e.friendlyUnits(playerID, false, func(unit *CardInstance) bool {
 			return isFireCompanion(unit) && e.canConsumeCard(unit)

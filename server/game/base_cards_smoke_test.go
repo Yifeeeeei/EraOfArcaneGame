@@ -317,6 +317,9 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 					if card.Number == "2221101" {
 						ps.Skills[0] = readySkill(cards.PlayableCardDB["3221103"], 0)
 					}
+					if card.Number == "2221105" {
+						ps.Deck = append(ps.Deck, NewCardInstance(cards.PlayableCardDB["1221101"], 0, engine.State.TurnNumber))
+					}
 					if card.Number == "2121108" {
 						target := NewCardInstance(cards.PlayableCardDB["1121101"], 0, engine.State.TurnNumber)
 						target.Position = &Position{Col: 0, Row: 0}

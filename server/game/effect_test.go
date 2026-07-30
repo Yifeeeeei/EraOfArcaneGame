@@ -2200,6 +2200,86 @@ func TestRoyalConflictPermanentSkillCostAndGraveyardBurstEffects(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictRaiderSearchItemEffects(t *testing.T) {
+	t.Run("black sail raider requires a searchable raider companion", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		scroll := NewCardInstance(baseCard(t, "2221105"), 0, 1)
+		p0.Hand = []*CardInstance{scroll}
+		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1)}
+		p0.Elements[model.ElementWater] = 1
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": scroll.InstanceID,
+		}}); err == nil {
+			t.Fatal("2221105 should require a searchable raider companion")
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != scroll || len(p0.Graveyard) != 0 || p0.Elements[model.ElementWater] != 1 {
+			t.Fatalf("failed 2221105 should leave zones/elements unchanged, hand=%v grave=%v elements=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard), p0.Elements)
+		}
+	})
+
+	t.Run("black sail raider searches without discount when no raider is on field", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		scroll := NewCardInstance(baseCard(t, "2221105"), 0, 1)
+		target := NewCardInstance(baseCard(t, "1221101"), 0, 1)
+		p0.Hand = []*CardInstance{scroll}
+		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1), target}
+		p0.Elements[model.ElementWater] = 1
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": scroll.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use 2221105: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "black_sail_raider_search" || len(engine.State.PendingAction.Candidates) != 1 {
+			t.Fatalf("2221105 should ask which raider companion to search, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, target.InstanceID)
+		if engine.State.PendingAction != nil {
+			t.Fatalf("2221105 should not ask for a discount without a raider on field, pending=%+v", engine.State.PendingAction)
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != target || len(p0.Graveyard) != 1 || p0.Graveyard[0] != scroll {
+			t.Fatalf("2221105 should search target to hand and move itself to graveyard, hand=%v grave=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
+		}
+		if target.Statuses["入场费用"+model.ElementWater+"-1"] != 0 || target.Statuses["入场费用"+model.ElementShadow+"-1"] != 0 {
+			t.Fatalf("2221105 should not discount without a raider on field, statuses=%v", target.Statuses)
+		}
+	})
+
+	t.Run("black sail raider discounts searched raider when a raider is on field", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		scroll := NewCardInstance(baseCard(t, "2221105"), 0, 1)
+		target := NewCardInstance(baseCard(t, "1221101"), 0, 1)
+		p0.Hand = []*CardInstance{scroll}
+		p0.Deck = []*CardInstance{target}
+		p0.Elements[model.ElementWater] = 2
+		placeUnit(baseCard(t, "1221003"), 0, 0, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": scroll.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use 2221105 with raider on field: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "black_sail_raider_search" || len(engine.State.PendingAction.Candidates) != 1 {
+			t.Fatalf("2221105 should ask which raider companion to search, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, target.InstanceID)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "black_sail_raider_discount" || len(engine.State.PendingAction.Candidates) != 2 {
+			t.Fatalf("2221105 should ask which entry cost element to reduce, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, model.ElementShadow)
+		if target.Statuses["入场费用"+model.ElementShadow+"-1"] != 1 || target.Statuses["入场费用"+model.ElementWater+"-1"] != 0 {
+			t.Fatalf("2221105 should apply selected shadow discount only, statuses=%v", target.Statuses)
+		}
+		if cost := engine.effectiveCardPlayCost(p0, target); cost[model.ElementShadow] != 0 || cost[model.ElementWater] != 4 {
+			t.Fatalf("2221105 discount should reduce target shadow entry cost only, cost=%v", cost)
+		}
+	})
+}
+
 func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
 	t.Run("burnout scroll consumes a ready fire companion for its entry cost", func(t *testing.T) {
 		failEngine := setupReportedBugEngine(t)

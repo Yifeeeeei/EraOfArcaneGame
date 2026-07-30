@@ -371,6 +371,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"2221101": func() CardBehavior {
 		return royalWaterUseCostReduction{id: "2221101", name: "镜花海的天泉"}
 	},
+	"2221105": func() CardBehavior { return Card2221105BlackSailRaider{} },
 	"2221107": func() CardBehavior {
 		return royalWaterUseCostReduction{id: "2221107", name: "水纹之镜", requireWater: true, triggerOnEnter: true}
 	},
