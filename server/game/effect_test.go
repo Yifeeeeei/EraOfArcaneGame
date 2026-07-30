@@ -2932,6 +2932,29 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("giant rock collapse cannot be used as a boost but can be boosted", func(t *testing.T) {
+		setupReportedBugEngine(t)
+		collapse := readySkill(baseCard(t, "3421103"), 0)
+
+		if canUseSkillForPurpose(collapse.Card, skillPurposeAttackBoost) {
+			t.Fatalf("3421103 should not be usable as an attack boost")
+		}
+		if canUseSkillForPurpose(collapse.Card, skillPurposeDefenseBoost) {
+			t.Fatalf("3421103 should not be usable as a defense boost")
+		}
+		if !canUseSkillForPurpose(collapse.Card, skillPurposeAttack) {
+			t.Fatalf("3421103 should still be usable as a main attack spell")
+		}
+		if !canSkillBeBoosted(collapse) {
+			t.Fatalf("3421103 should still be boostable as a main spell")
+		}
+
+		info := CardRuleInfo(collapse.Card)
+		if info["can_attack_boost"] != false || info["can_defense_boost"] != false || info["can_be_boosted"] != true {
+			t.Fatalf("3421103 should expose no-boost but boostable rule info, info=%v", info)
+		}
+	})
+
 	t.Run("guarding stone array reduces its main defense use cost only", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
