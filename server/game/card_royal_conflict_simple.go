@@ -1695,6 +1695,16 @@ func (e *Engine) destroyAndisGiftDoomedUnits(ps *PlayerState) {
 			continue
 		}
 		delete(card.Statuses, andisGiftDoomedStatus)
+		if card.Card.IsHero() {
+			card.CurrentLife = 0
+			e.emit(GameEvent{Type: "unit_destroyed", Player: -1, Data: map[string]any{
+				"player": ps.PlayerID,
+				"card":   cardToInfo(card),
+				"reason": "andis_gift",
+			}})
+			e.checkWinCondition()
+			continue
+		}
 		e.destroyUnitWithCause(card, ps.PlayerID, "andis_gift")
 	}
 }

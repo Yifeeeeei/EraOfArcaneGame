@@ -4994,6 +4994,18 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		if p0.Units[1][0] != nil || !containsCardInstance(p0.Graveyard, target) {
 			t.Fatalf("2621110 target should die at turn end, unit=%v grave=%v", p0.Units[1][0], cardsToInfo(p0.Graveyard))
 		}
+
+		heroEngine := setupEffectTest(t)
+		heroP0 := heroEngine.State.Players[0]
+		heroItem := NewCardInstance(baseCard(t, "2621110"), 0, heroEngine.State.TurnNumber)
+		if err := behavior.OnUseItem(&EffectContext{Engine: heroEngine, Source: heroItem, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("2621110 hero use: %v", err)
+		}
+		resolvePendingSelection(t, heroEngine, 0, heroP0.Hero.InstanceID)
+		heroEngine.finishEndTurn(heroP0)
+		if heroP0.Hero.CurrentLife > 0 || heroEngine.State.Phase != PhaseGameOver || heroEngine.State.Winner != 1 {
+			t.Fatalf("2621110 should kill selected hero and end the game, life=%d phase=%s winner=%d", heroP0.Hero.CurrentLife, heroEngine.State.Phase, heroEngine.State.Winner)
+		}
 	})
 
 	t.Run("skycarrier e2 prayer draws or recycles two air graveyard cards", func(t *testing.T) {
