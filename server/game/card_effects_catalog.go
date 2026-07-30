@@ -385,6 +385,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"2021112": func() CardBehavior {
 		return royalInfusionRune{id: "2021112", name: "注能符文B型", attackBonus: 1}
 	},
+	"2021113": func() CardBehavior { return Card2021113ArcaneBarrierScroll{} },
 	"2021116": func() CardBehavior { return Card2021116ArcaneBomb{} },
 	"2121107": func() CardBehavior { return Card2121107SacredFireRally{} },
 	"2121108": func() CardBehavior { return Card2121108BurnoutScroll{} },

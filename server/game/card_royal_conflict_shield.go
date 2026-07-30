@@ -60,6 +60,15 @@ func (Card2021102DemonBreakingBlade) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
+type Card2021113ArcaneBarrierScroll struct{ AlwaysActive }
+
+func (Card2021113ArcaneBarrierScroll) ID() string   { return "2021113" }
+func (Card2021113ArcaneBarrierScroll) Name() string { return "奥术结界卷轴" }
+func (Card2021113ArcaneBarrierScroll) OnSpellHitBeforeDamage(ctx *EffectContext) error {
+	ctx.Engine.gainPlayerShield(ctx.PlayerID, 2)
+	return nil
+}
+
 type Card2221102OceanShieldScroll struct{ AlwaysActive }
 
 func (Card2221102OceanShieldScroll) ID() string   { return "2221102" }

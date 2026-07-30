@@ -520,6 +520,29 @@ func TestRoyalConflictShieldCardBehaviors(t *testing.T) {
 		t.Fatalf("2021102 should remove opponent shield 3, got %d", p1.Shield)
 	}
 
+	barrierEngine := setupReportedBugEngine(t)
+	barrierP0 := barrierEngine.State.Players[0]
+	barrier := NewCardInstance(baseCard(t, "2021113"), 0, 1)
+	barrier.IsSetCounter = true
+	barrierP0.Equipment[0] = barrier
+	enemySpell := readySkill(baseCard(t, "3021005"), 1)
+	if candidates := barrierEngine.eligibleCounterTraps(0, TriggerOnSpellHitBeforeDamage, enemySpell, map[string]any{"attacker": 1}); len(candidates) != 1 || candidates[0] != barrier {
+		t.Fatalf("2021113 should be eligible when an enemy spell hits, candidates=%v", candidates)
+	}
+	barrierEngine.executeCounterTrap(barrier, TriggerOnSpellHitBeforeDamage, enemySpell, map[string]any{"attacker": 1})
+	if barrierP0.Shield != 2 || barrierP0.Equipment[0] != nil || len(barrierP0.Graveyard) != 1 || barrierP0.Graveyard[0] != barrier {
+		t.Fatalf("2021113 should gain shield 2 then be discarded, shield=%d equipment=%v grave=%v", barrierP0.Shield, barrierP0.Equipment, cardsToInfo(barrierP0.Graveyard))
+	}
+
+	friendlyBarrierEngine := setupReportedBugEngine(t)
+	friendlyBarrier := NewCardInstance(baseCard(t, "2021113"), 0, 1)
+	friendlyBarrier.IsSetCounter = true
+	friendlyBarrierEngine.State.Players[0].Equipment[0] = friendlyBarrier
+	friendlySpell := readySkill(baseCard(t, "3021005"), 0)
+	if candidates := friendlyBarrierEngine.eligibleCounterTraps(0, TriggerOnSpellHitBeforeDamage, friendlySpell, map[string]any{"attacker": 0}); len(candidates) != 0 {
+		t.Fatalf("2021113 should not be eligible for friendly spell hits, candidates=%v", candidates)
+	}
+
 	p0.CannotGainShield = false
 	p0.Shield = 0
 	oceanShield := NewCardInstance(baseCard(t, "2221102"), 0, 1)

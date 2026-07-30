@@ -5,6 +5,7 @@ import "fmt"
 var counterTrapTriggers = map[string][]EffectTrigger{
 	"2021018": {TriggerOnSpellCast},
 	"2021022": {TriggerOnUseItem},
+	"2021113": {TriggerOnSpellHitBeforeDamage},
 	"2121002": {TriggerOnConsume},
 	"2121012": {TriggerOnUnitEnter},
 	"2221002": {TriggerOnConsume},
@@ -310,6 +311,8 @@ func (e *Engine) counterTrapConditionMet(counter *CardInstance, trigger EffectTr
 		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && len(e.friendlySkillsIncludingBound(ownerID, nil)) > 0
 	case "2021022":
 		return trigger == TriggerOnUseItem && sourceOwner != ownerID && eventSource != nil && counterRuneCanCancel(eventSource.Card.Number)
+	case "2021113":
+		return trigger == TriggerOnSpellHitBeforeDamage && sourceOwner != ownerID && eventSource != nil && isSpellLikeCard(eventSource.Card)
 	case "2121002":
 		return trigger == TriggerOnConsume && eventSource != nil && (eventSource.Card.IsHero() || eventSource.Card.IsCompanion())
 	case "2121012", "2621003":
