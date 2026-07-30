@@ -5021,6 +5021,56 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("summon defense spells damage enemies only after successful defense", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		fireSnake := readySkill(baseCard(t, "3121101"), 0)
+		target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		startLife := target.CurrentLife
+		behavior := Card3121101SummonFireSnake{}
+
+		if err := behavior.OnDefend(&EffectContext{Engine: engine, Source: fireSnake, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"defense_success": false}}); err != nil {
+			t.Fatalf("3121101 failed defense: %v", err)
+		}
+		if engine.State.PendingAction != nil || target.CurrentLife != startLife {
+			t.Fatalf("3121101 should do nothing on failed defense, pending=%+v life=%d", engine.State.PendingAction, target.CurrentLife)
+		}
+		if err := behavior.OnDefend(&EffectContext{Engine: engine, Source: fireSnake, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"defense_success": true}}); err != nil {
+			t.Fatalf("3121101 successful defense: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "summon_fire_snake_defense_damage" || !candidateContains(engine.State.PendingAction.Candidates, target.InstanceID) {
+			t.Fatalf("3121101 should ask for an in-range enemy target, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, target.InstanceID)
+		if target.CurrentLife != startLife-1 {
+			t.Fatalf("3121101 should deal 1 damage to selected target, life=%d start=%d", target.CurrentLife, startLife)
+		}
+
+		houndEngine := setupEffectTest(t)
+		hound := NewCardInstance(baseCard(t, "2121109"), 0, houndEngine.State.TurnNumber)
+		houndTarget := placeUnit(baseCard(t, "1021002"), 1, 0, 0, houndEngine)
+		houndStart := houndTarget.CurrentLife
+		if err := (Card2121109SummonBlazingHoundScroll{}).OnDefend(&EffectContext{Engine: houndEngine, Source: hound, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"defense_success": true}}); err != nil {
+			t.Fatalf("2121109 successful defense: %v", err)
+		}
+		resolvePendingSelection(t, houndEngine, 0, houndTarget.InstanceID)
+		if houndTarget.CurrentLife != houndStart-2 {
+			t.Fatalf("2121109 should deal 2 damage to selected target, life=%d start=%d", houndTarget.CurrentLife, houndStart)
+		}
+
+		dragonEngine := setupEffectTest(t)
+		dragon := readySkill(baseCard(t, "3221102"), 0)
+		first := placeUnit(baseCard(t, "1021001"), 1, 0, 0, dragonEngine)
+		second := placeUnit(baseCard(t, "1021002"), 1, 1, 0, dragonEngine)
+		firstStart := first.CurrentLife
+		secondStart := second.CurrentLife
+		if err := (Card3221102SummonFloodDragon{}).OnDefend(&EffectContext{Engine: dragonEngine, Source: dragon, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"defense_success": true}}); err != nil {
+			t.Fatalf("3221102 successful defense: %v", err)
+		}
+		if first.CurrentLife != firstStart-1 || second.CurrentLife != secondStart-1 {
+			t.Fatalf("3221102 should deal 1 damage to each in-range enemy, first=%d/%d second=%d/%d", first.CurrentLife, firstStart, second.CurrentLife, secondStart)
+		}
+	})
+
 	t.Run("lion guardian permanently buffs other fire spells after successful defense", func(t *testing.T) {
 		engine := setupEffectTest(t)
 		p0 := engine.State.Players[0]
