@@ -2882,6 +2882,38 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("intimidation gains power and attack from weakened enemy spells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p1 := engine.State.Players[1]
+		intimidation := readySkill(baseCard(t, "3621105"), 0)
+		enemyA := readySkill(baseCard(t, "3121001"), 1)
+		enemyB := readySkill(baseCard(t, "3121002"), 1)
+		enemyC := readySkill(baseCard(t, "3221003"), 1)
+		p1.Skills[0] = enemyA
+		p1.Skills[1] = enemyB
+		p1.Skills[2] = enemyC
+
+		if got := engine.effectiveSpellPower(0, intimidation, nil); got != intimidation.Card.Power {
+			t.Fatalf("3621105 should not gain power without weakened enemy spells, got=%d", got)
+		}
+		enemyA.Statuses[StatusWeaken] = 1
+		if got := engine.effectiveSpellPower(0, intimidation, nil); got != intimidation.Card.Power+1 {
+			t.Fatalf("3621105 should gain +1 power from one weakened enemy spell, got=%d", got)
+		}
+		if got := engine.effectiveSpellDamage(0, intimidation, intimidation.Card.Attack, nil); got != intimidation.Card.Attack+1 {
+			t.Fatalf("3621105 should gain +1 attack from one weakened enemy spell, got=%d", got)
+		}
+
+		enemyB.Statuses[StatusWeaken] = 2
+		enemyC.Statuses[StatusWeaken] = 1
+		if got := engine.effectiveSpellPower(0, intimidation, nil); got != intimidation.Card.Power+2 {
+			t.Fatalf("3621105 should cap power bonus at 2, got=%d", got)
+		}
+		if got := engine.effectiveSpellDamage(0, intimidation, intimidation.Card.Attack, nil); got != intimidation.Card.Attack+2 {
+			t.Fatalf("3621105 should cap attack bonus at 2, got=%d", got)
+		}
+	})
+
 	t.Run("church envoy removes negative statuses from friendly cards", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
