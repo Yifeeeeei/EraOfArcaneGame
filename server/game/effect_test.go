@@ -2788,6 +2788,44 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("killing wind gains power from absolute hand size difference", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		killingWind := readySkill(baseCard(t, "3321102"), 0)
+
+		p0.Hand = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1)}
+		p1.Hand = []*CardInstance{
+			NewCardInstance(baseCard(t, "1021001"), 1, 1),
+			NewCardInstance(baseCard(t, "1021002"), 1, 2),
+			NewCardInstance(baseCard(t, "1021004"), 1, 3),
+			NewCardInstance(baseCard(t, "1021005"), 1, 4),
+		}
+		if got := engine.effectiveSpellPower(0, killingWind, nil); got != killingWind.Card.Power+3 {
+			t.Fatalf("3321102 should gain power from opponent's larger hand difference, got=%d", got)
+		}
+
+		p0.Hand = []*CardInstance{
+			NewCardInstance(baseCard(t, "1021001"), 0, 1),
+			NewCardInstance(baseCard(t, "1021002"), 0, 2),
+			NewCardInstance(baseCard(t, "1021004"), 0, 3),
+			NewCardInstance(baseCard(t, "1021005"), 0, 4),
+			NewCardInstance(baseCard(t, "1021006"), 0, 5),
+		}
+		p1.Hand = []*CardInstance{
+			NewCardInstance(baseCard(t, "1021001"), 1, 1),
+			NewCardInstance(baseCard(t, "1021002"), 1, 2),
+		}
+		if got := engine.effectiveSpellPower(0, killingWind, nil); got != killingWind.Card.Power+3 {
+			t.Fatalf("3321102 should gain power from caster's larger hand difference, got=%d", got)
+		}
+
+		p0.Hand = p0.Hand[:2]
+		if got := engine.effectiveSpellPower(0, killingWind, nil); got != killingWind.Card.Power {
+			t.Fatalf("3321102 should not gain power when hand sizes are equal, got=%d", got)
+		}
+	})
+
 	t.Run("church envoy removes negative statuses from friendly cards", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
