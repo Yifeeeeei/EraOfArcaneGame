@@ -2830,6 +2830,14 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 		if effectiveElementsGain(soul)[model.ElementShadow] != soul.Card.ElementsGain[model.ElementShadow]+1 {
 			t.Fatalf("pain soul should trigger at most once per turn, load=%v used=%d", effectiveElementsGain(soul), soul.UsedThisTurn)
 		}
+
+		watchEngine := setupReportedBugEngine(t)
+		watcher := placeUnit(baseCard(t, "1621101"), 0, 0, 0, watchEngine)
+		other := placeUnit(baseCard(t, "1021001"), 0, 1, 0, watchEngine)
+		watchEngine.dealDamageWithExtra(other, 1, 0, map[string]any{"attacker": 1})
+		if effectiveElementsGain(watcher)[model.ElementShadow] != watcher.Card.ElementsGain[model.ElementShadow] || watcher.UsedThisTurn != 0 {
+			t.Fatalf("pain soul should not trigger when another unit is damaged, load=%v used=%d", effectiveElementsGain(watcher), watcher.UsedThisTurn)
+		}
 	})
 
 	t.Run("pain avenger gains attack once after being damaged", func(t *testing.T) {
@@ -2843,6 +2851,14 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 		if avenger.CurrentAttack != avenger.Card.Attack+1 {
 			t.Fatalf("pain avenger should trigger at most once per turn, attack=%d used=%d", avenger.CurrentAttack, avenger.UsedThisTurn)
 		}
+
+		watchEngine := setupReportedBugEngine(t)
+		watcher := placeUnit(baseCard(t, "1621102"), 0, 0, 0, watchEngine)
+		other := placeUnit(baseCard(t, "1021001"), 0, 1, 0, watchEngine)
+		watchEngine.dealDamageWithExtra(other, 1, 0, map[string]any{"attacker": 1})
+		if watcher.CurrentAttack != watcher.Card.Attack || watcher.UsedThisTurn != 0 {
+			t.Fatalf("pain avenger should not trigger when another unit is damaged, attack=%d used=%d", watcher.CurrentAttack, watcher.UsedThisTurn)
+		}
 	})
 
 	t.Run("rose garden gardener heals a friendly unit once after a unit dies", func(t *testing.T) {
@@ -2852,18 +2868,30 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 		wounded.CurrentLife = maxLife(wounded) - 2
 		dead := placeUnit(baseCard(t, "1021001"), 0, 2, 0, engine)
 		engine.destroyUnitWithData(dead, 0, map[string]any{"attacker": 1})
-		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "rose_garden_gardener_heal" || gardener.UsedThisTurn != 1 {
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "rose_garden_gardener_heal" || gardener.UsedThisTurn != 0 {
 			t.Fatalf("gardener should prompt once after friendly death, pending=%+v used=%d", engine.State.PendingAction, gardener.UsedThisTurn)
 		}
 		resolvePendingSelection(t, engine, 0, wounded.InstanceID)
-		if wounded.CurrentLife != maxLife(wounded) {
-			t.Fatalf("gardener should heal selected friendly unit up to max, life=%d max=%d", wounded.CurrentLife, maxLife(wounded))
+		if wounded.CurrentLife != maxLife(wounded) || gardener.UsedThisTurn != 1 {
+			t.Fatalf("gardener should heal selected friendly unit up to max and spend trigger, life=%d max=%d used=%d", wounded.CurrentLife, maxLife(wounded), gardener.UsedThisTurn)
 		}
 
 		anotherDead := placeUnit(baseCard(t, "1021001"), 0, 2, 1, engine)
 		engine.destroyUnitWithData(anotherDead, 0, map[string]any{"attacker": 1})
 		if engine.State.PendingAction != nil {
 			t.Fatalf("gardener should trigger at most once per turn, pending=%+v used=%d", engine.State.PendingAction, gardener.UsedThisTurn)
+		}
+
+		staleEngine := setupReportedBugEngine(t)
+		staleGardener := placeUnit(baseCard(t, "1621104"), 0, 0, 0, staleEngine)
+		staleWounded := placeUnit(baseCard(t, "1021002"), 0, 1, 0, staleEngine)
+		staleWounded.CurrentLife = maxLife(staleWounded) - 1
+		staleDead := placeUnit(baseCard(t, "1021001"), 0, 2, 0, staleEngine)
+		staleEngine.destroyUnitWithData(staleDead, 0, map[string]any{"attacker": 1})
+		healUnit(staleWounded, 99)
+		resolvePendingSelection(t, staleEngine, 0, staleWounded.InstanceID)
+		if staleGardener.UsedThisTurn != 0 || staleWounded.CurrentLife != maxLife(staleWounded) {
+			t.Fatalf("gardener should not spend trigger on stale full-health target, used=%d life=%d", staleGardener.UsedThisTurn, staleWounded.CurrentLife)
 		}
 	})
 }
