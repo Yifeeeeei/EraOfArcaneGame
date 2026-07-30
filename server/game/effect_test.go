@@ -4863,10 +4863,13 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		if err := behavior.OnDefend(&EffectContext{Engine: engine, Source: defense, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"defense_success": true}}); err != nil {
 			t.Fatalf("3321104 successful defense: %v", err)
 		}
-		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != TempModSkillPowerBonus || p0.TempModifiers[0].Amount != 3 || p0.TempModifiers[0].RemainingUses != 1 {
+		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != TempModNextAttackSpellPowerBonus || p0.TempModifiers[0].Amount != 3 || p0.TempModifiers[0].RemainingUses != 1 {
 			t.Fatalf("3321104 should add one +3 power next-use modifier, modifiers=%+v", p0.TempModifiers)
 		}
-		if got := engine.temporarySpellPowerBonus(0, attackSpell); got != 3 {
+		if got := engine.temporarySpellPowerBonusForPurpose(0, attackSpell, skillPurposeDefend); got != 0 {
+			t.Fatalf("3321104 temporary power bonus should not apply to defense, got %d", got)
+		}
+		if got := engine.temporarySpellPowerBonusForPurpose(0, attackSpell, skillPurposeAttack); got != 3 {
 			t.Fatalf("3321104 temporary power bonus = %d, want 3", got)
 		}
 		engine.consumeNextSpellPowerBonuses(p0, attackSpell)
@@ -4990,6 +4993,39 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		}
 		if totalLoad(hero) != 2 {
 			t.Fatalf("3421105 should not remove hero load, load=%v", effectiveElementsGain(hero))
+		}
+	})
+
+	t.Run("light spirit drain grants light load to a friendly light companion on hit", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		lightA := placeUnit(baseCard(t, "1521104"), 0, 0, 0, engine)
+		skill := readySkill(baseCard(t, "3521110"), 0)
+		behavior := Card3521110LightSpiritDrain{}
+
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, Target: engine.State.Players[1].Hero, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+			t.Fatalf("3521110 single target hit: %v", err)
+		}
+		if effectiveElementsGain(lightA)[model.ElementLight] != lightA.Card.ElementsGain[model.ElementLight]+1 {
+			t.Fatalf("3521110 should auto-load sole friendly light companion, load=%v", effectiveElementsGain(lightA))
+		}
+
+		multiEngine := setupEffectTest(t)
+		lightB := placeUnit(baseCard(t, "1521104"), 0, 0, 0, multiEngine)
+		lightC := placeUnit(baseCard(t, "1521104"), 0, 1, 0, multiEngine)
+		nonLight := placeUnit(baseCard(t, "1021001"), 0, 2, 0, multiEngine)
+		multiSkill := readySkill(baseCard(t, "3521110"), 0)
+		if err := behavior.OnSpellHit(&EffectContext{Engine: multiEngine, Source: multiSkill, Target: multiEngine.State.Players[1].Hero, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+			t.Fatalf("3521110 multi target hit: %v", err)
+		}
+		if multiEngine.State.PendingAction == nil || multiEngine.State.PendingAction.Type != "light_spirit_drain_load" || len(multiEngine.State.PendingAction.Candidates) != 2 {
+			t.Fatalf("3521110 should ask between light companion targets, pending=%+v", multiEngine.State.PendingAction)
+		}
+		resolvePendingSelection(t, multiEngine, 0, lightC.InstanceID)
+		if effectiveElementsGain(lightC)[model.ElementLight] != lightC.Card.ElementsGain[model.ElementLight]+1 {
+			t.Fatalf("3521110 should load selected light companion, load=%v", effectiveElementsGain(lightC))
+		}
+		if effectiveElementsGain(lightB)[model.ElementLight] != lightB.Card.ElementsGain[model.ElementLight] || effectiveElementsGain(nonLight)[model.ElementLight] != nonLight.Card.ElementsGain[model.ElementLight] {
+			t.Fatalf("3521110 should not load unselected or non-light companions, lightB=%v nonLight=%v", effectiveElementsGain(lightB), effectiveElementsGain(nonLight))
 		}
 	})
 

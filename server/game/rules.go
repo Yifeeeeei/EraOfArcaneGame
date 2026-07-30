@@ -520,7 +520,7 @@ func (e *Engine) effectiveSkillPowerForPurposeWithData(playerID int, skill *Card
 	power := e.skillContributionStatsWithData(playerID, skill, target, purpose, extra).PowerBonus
 	power += e.spellStatBonusesWithData(playerID, skill, purpose, extra).PowerBonus
 	power += e.genericSpellBonus(playerID, skill, "威")
-	power += e.temporarySpellPowerBonus(playerID, skill)
+	power += e.temporarySpellPowerBonusForPurpose(playerID, skill, purpose)
 	if weak := skill.Statuses[StatusWeaken]; weak > 0 && e.hasEffectiveStatus(skill, StatusWeaken) {
 		power -= weak
 	}

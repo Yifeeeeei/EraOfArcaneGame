@@ -97,7 +97,7 @@ func (Card3321104GatherMomentum) OnDefend(ctx *EffectContext) error {
 		return nil
 	}
 	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
-		Type:             TempModSkillPowerBonus,
+		Type:             TempModNextAttackSpellPowerBonus,
 		SourceCardNumber: ctx.Source.Card.Number,
 		SourceName:       ctx.Source.Card.Name,
 		Amount:           3,

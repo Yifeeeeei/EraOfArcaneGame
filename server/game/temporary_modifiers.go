@@ -13,6 +13,7 @@ const (
 	TempModCurrentTurnSkillCostZero     = "current_turn_skill_cost_zero"
 	TempModNextLearnedSkillHaste        = "next_learned_skill_haste"
 	TempModSkillPowerBonus              = "skill_power_bonus"
+	TempModNextAttackSpellPowerBonus    = "next_attack_spell_power_bonus"
 	TempModSkillAttackBonus             = "skill_attack_bonus"
 	TempModNextSkillUseAttackBonus      = "next_skill_use_attack_bonus"
 	TempModNextNoCooldown               = "next_skill_no_cooldown"
@@ -155,11 +156,19 @@ func (e *Engine) shouldSkipCooldown(ps *PlayerState, skill *CardInstance) bool {
 }
 
 func (e *Engine) temporarySpellPowerBonus(playerID int, skill *CardInstance) int {
+	return e.temporarySpellPowerBonusForPurpose(playerID, skill, skillPurposeAttack)
+}
+
+func (e *Engine) temporarySpellPowerBonusForPurpose(playerID int, skill *CardInstance, purpose skillPurpose) int {
 	total := 0
 	for _, modifier := range e.State.Players[playerID].TempModifiers {
 		switch modifier.Type {
 		case TempModSkillPowerBonus:
 			if modifier.TargetInstanceID == "" || modifier.TargetInstanceID == skill.InstanceID {
+				total += modifier.Amount
+			}
+		case TempModNextAttackSpellPowerBonus:
+			if purpose == skillPurposeAttack && modifier.RemainingUses != 0 && (modifier.TargetInstanceID == "" || modifier.TargetInstanceID == skill.InstanceID) {
 				total += modifier.Amount
 			}
 		case TempModNextElementSpellPowerBonus:
@@ -179,6 +188,13 @@ func (e *Engine) consumeNextSpellPowerBonuses(ps *PlayerState, skill *CardInstan
 	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
 		switch modifier.Type {
 		case TempModSkillPowerBonus:
+			if modifier.RemainingUses == 0 {
+				continue
+			}
+			if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != skill.InstanceID {
+				continue
+			}
+		case TempModNextAttackSpellPowerBonus:
 			if modifier.RemainingUses == 0 {
 				continue
 			}
