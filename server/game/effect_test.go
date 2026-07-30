@@ -2649,6 +2649,36 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("thunderlight armor buffs drive and focus spells with three thunderlight items", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p0.Equipment[0] = NewCardInstance(baseCard(t, "2321101"), 0, 1)
+		p0.Equipment[1] = NewCardInstance(baseCard(t, "2321104"), 0, 1)
+		p0.Equipment[2] = NewCardInstance(baseCard(t, "2321105"), 0, 1)
+		drive := readySkill(baseCard(t, "3321101"), 0)
+		focus := readySkill(baseCard(t, "3321103"), 0)
+		mystery := readySkill(baseCard(t, "3521106"), 0)
+
+		if got := engine.effectiveSpellPower(0, drive, nil); got != drive.Card.Power+2 {
+			t.Fatalf("2321105 should buff drive spells by 2, got=%d", got)
+		}
+		if got := engine.effectiveSpellPower(0, focus, nil); got != focus.Card.Power+2 {
+			t.Fatalf("2321105 should buff focus spells by 2, got=%d", got)
+		}
+		if got := engine.effectiveSpellPower(0, mystery, nil); got != mystery.Card.Power {
+			t.Fatalf("2321105 should not buff mystery spells, got=%d", got)
+		}
+
+		shortEngine := setupReportedBugEngine(t)
+		shortP0 := shortEngine.State.Players[0]
+		shortP0.Equipment[0] = NewCardInstance(baseCard(t, "2321104"), 0, 1)
+		shortP0.Equipment[1] = NewCardInstance(baseCard(t, "2321105"), 0, 1)
+		shortP0.Equipment[2] = NewCardInstance(baseCard(t, "2321107"), 0, 1)
+		if got := shortEngine.effectiveSpellPower(0, readySkill(baseCard(t, "3321101"), 0), nil); got != baseCard(t, "3321101").Power {
+			t.Fatalf("2321105 should require three thunderlight items, got=%d", got)
+		}
+	})
+
 	t.Run("church envoy removes negative statuses from friendly cards", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
