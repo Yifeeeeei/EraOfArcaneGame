@@ -39,6 +39,7 @@ func setElementsGain(card *CardInstance, gains map[string]int) {
 	if card == nil {
 		return
 	}
+	clearFireButterflyStoredLoad(card)
 	card.ElementsGainSet = make(map[string]int)
 	for elem, amount := range gains {
 		if amount != 0 {
@@ -51,6 +52,7 @@ func clearElementsGainSet(card *CardInstance) {
 	if card == nil {
 		return
 	}
+	clearFireButterflyStoredLoad(card)
 	card.ElementsGainSet = nil
 }
 

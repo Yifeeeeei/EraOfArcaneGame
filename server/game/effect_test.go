@@ -2490,6 +2490,20 @@ func TestRoyalConflictResetAndTemporaryAbilityEffects(t *testing.T) {
 		if overriddenLoad[model.ElementFire] != 2 || overriddenLoad[model.ElementAir] != 0 {
 			t.Fatalf("fire butterfly should not overwrite a later load override, load=%v", overriddenLoad)
 		}
+
+		sameValueOverride := NewCardInstance(baseCard(t, "1121108"), 0, 1)
+		setElementsGain(sameValueOverride, map[string]int{model.ElementFire: 2})
+		if err := (Card1121108FireButterfly{}).OnPerTurn(&EffectContext{Engine: engine, Source: sameValueOverride, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("fire butterfly same-value ability: %v", err)
+		}
+		setElementsGain(sameValueOverride, map[string]int{model.ElementAir: 1})
+		if err := (Card1121108FireButterfly{}).OnTurnEnd(&EffectContext{Engine: engine, Source: sameValueOverride, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("fire butterfly same-value turn end: %v", err)
+		}
+		sameValueLoad := effectiveElementsGain(sameValueOverride)
+		if sameValueLoad[model.ElementAir] != 1 || sameValueLoad[model.ElementFire] != 0 {
+			t.Fatalf("fire butterfly should not restore over a later equal-value load override, load=%v", sameValueLoad)
+		}
 	})
 
 	t.Run("water mage resets a low-cost water spell", func(t *testing.T) {
@@ -2521,6 +2535,24 @@ func TestRoyalConflictResetAndTemporaryAbilityEffects(t *testing.T) {
 		}})
 		if err == nil || failMage.UltimateUsed {
 			t.Fatalf("water mage action should fail without burning ultimate, err=%v ultimateUsed=%v", err, failMage.UltimateUsed)
+		}
+
+		boundEngine := setupReportedBugEngine(t)
+		boundMage := placeUnit(baseCard(t, "1221112"), 0, 0, 0, boundEngine)
+		host := placeUnit(baseCard(t, "1021001"), 0, 1, 0, boundEngine)
+		boundWaterSkill := readySkill(baseCard(t, "3221103"), 0)
+		boundWaterSkill.IsHorizontal = true
+		boundWaterSkill.SlotIndex = -1
+		host.BoundSkills = []*CardInstance{boundWaterSkill}
+		if err := boundEngine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  boundMage.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("water mage should accept bound water spell target: %v", err)
+		}
+		resolvePendingSelection(t, boundEngine, 0, boundWaterSkill.InstanceID)
+		if boundWaterSkill.IsHorizontal {
+			t.Fatalf("water mage should reset selected bound water skill")
 		}
 	})
 
