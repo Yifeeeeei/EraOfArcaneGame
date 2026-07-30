@@ -756,11 +756,15 @@ type Card3621101BloodPledge struct{ AlwaysActive }
 func (Card3621101BloodPledge) ID() string   { return "3621101" }
 func (Card3621101BloodPledge) Name() string { return "歃血" }
 func (Card3621101BloodPledge) OnSpellHit(ctx *EffectContext) error {
-	if ctx.Source == nil || ctx.Target == nil || ctx.Target.OwnerID != ctx.PlayerID {
+	if ctx.Source == nil || ctx.ExtraData == nil {
 		return nil
 	}
-	damage, _ := ctx.ExtraData["damage"].(int)
-	if damage <= 0 {
+	friendlyDamage, _ := ctx.ExtraData["actual_friendly_damage_by_instance"].(map[string]int)
+	totalDamage := 0
+	for _, amount := range friendlyDamage {
+		totalDamage += amount
+	}
+	if totalDamage <= 0 {
 		return nil
 	}
 	ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementShadow: 2})

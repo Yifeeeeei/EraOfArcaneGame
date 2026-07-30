@@ -1877,13 +1877,17 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 			}
 			e.consumeNextSpellAttackBonuses(e.State.Players[attackerID], skill)
 
+			actualSpellDamageByInstance := map[string]int{}
+			actualFriendlySpellDamageByInstance := map[string]int{}
 			if dmg > 0 {
 				spellDamageData := map[string]any{
-					"damage_source":  "spell",
-					"damage_element": skill.Card.Category,
-					"skill":          skill.Card.Number,
-					"attacker":       attackerID,
-					"boost_count":    len(boostSkills),
+					"damage_source":                      "spell",
+					"damage_element":                     skill.Card.Category,
+					"skill":                              skill.Card.Number,
+					"attacker":                           attackerID,
+					"boost_count":                        len(boostSkills),
+					"actual_damage_by_instance":          actualSpellDamageByInstance,
+					"actual_friendly_damage_by_instance": actualFriendlySpellDamageByInstance,
 				}
 				spellDamage := dmg
 				if len(affectedUnits) > 1 {
@@ -1898,6 +1902,8 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 					e.dealDamageWithExtra(unit, spellDamage, defenderID, spellDamageData)
 				}
 			}
+			hitData["actual_damage_by_instance"] = actualSpellDamageByInstance
+			hitData["actual_friendly_damage_by_instance"] = actualFriendlySpellDamageByInstance
 			resolvedUnits := e.unitsStillOnField(affectedUnits)
 			resolvedTargetUnit := targetUnit
 			if target.Type != "hero" && !e.unitStillOnField(resolvedTargetUnit) {
@@ -2506,6 +2512,14 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 
 	target.CurrentLife -= amount
 	target.DamageTakenThisTurn += amount
+	if actualDamage, ok := damageData["actual_damage_by_instance"].(map[string]int); ok && target.InstanceID != "" {
+		actualDamage[target.InstanceID] += amount
+	}
+	if actualFriendlyDamage, ok := damageData["actual_friendly_damage_by_instance"].(map[string]int); ok && target.InstanceID != "" {
+		if attacker, ok := damageData["attacker"].(int); ok && attacker == ownerID {
+			actualFriendlyDamage[target.InstanceID] += amount
+		}
+	}
 	if target.Card != nil && target.Card.IsCompanion() && ownerID >= 0 && ownerID < len(e.State.Players) {
 		e.State.Players[ownerID].FriendlyUnitDamagedThisTurn = true
 	}

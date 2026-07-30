@@ -5096,7 +5096,7 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 			Target:     enemy,
 			PlayerID:   0,
 			OpponentID: 1,
-			ExtraData:  map[string]any{"damage": 1, "attacker": 0, "spell_source": skill},
+			ExtraData:  map[string]any{"actual_friendly_damage_by_instance": map[string]int{}, "attacker": 0, "spell_source": skill},
 		}); err != nil {
 			t.Fatalf("3621101 enemy hit: %v", err)
 		}
@@ -5110,7 +5110,7 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 			Target:     friend,
 			PlayerID:   0,
 			OpponentID: 1,
-			ExtraData:  map[string]any{"damage": 1, "attacker": 0, "spell_source": skill},
+			ExtraData:  map[string]any{"actual_friendly_damage_by_instance": map[string]int{friend.InstanceID: 1}, "attacker": 0, "spell_source": skill},
 		}); err != nil {
 			t.Fatalf("3621101 friendly hit: %v", err)
 		}
@@ -5122,6 +5122,23 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		}
 		if p0.TempModifiers[0].Type != TempModSkillPowerBonus || p0.TempModifiers[0].Amount != 2 || p0.TempModifiers[1].Type != TempModNextSkillUseAttackBonus || p0.TempModifiers[1].Amount != 1 {
 			t.Fatalf("3621101 should grant +2 power and +1 attack next use, modifiers=%+v", p0.TempModifiers)
+		}
+
+		killedEngine := setupEffectTest(t)
+		killedP0 := killedEngine.State.Players[0]
+		killedSkill := readySkill(baseCard(t, "3621101"), 0)
+		deadFriendlyID := "dead-friendly-unit"
+		if err := behavior.OnSpellHit(&EffectContext{
+			Engine:     killedEngine,
+			Source:     killedSkill,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"actual_friendly_damage_by_instance": map[string]int{deadFriendlyID: 1}, "attacker": 0, "spell_source": killedSkill},
+		}); err != nil {
+			t.Fatalf("3621101 lethal friendly hit: %v", err)
+		}
+		if killedP0.Elements[model.ElementShadow] != 2 || len(killedP0.TempModifiers) != 2 {
+			t.Fatalf("3621101 should reward actual friendly damage even after target leaves, elements=%v modifiers=%+v", killedP0.Elements, killedP0.TempModifiers)
 		}
 	})
 }
