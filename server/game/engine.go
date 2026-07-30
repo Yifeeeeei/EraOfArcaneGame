@@ -2470,6 +2470,10 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 	if amount <= 0 {
 		return
 	}
+	amount = e.modifyDamageAmount(target, amount, ownerID, damageData)
+	if amount <= 0 {
+		return
+	}
 	if target.Statuses["防止致命"] > 0 && target.CurrentLife-amount <= 0 {
 		target.Statuses["防止致命"]--
 		if target.Statuses["防止致命"] <= 0 {
@@ -2535,6 +2539,29 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 			e.resolvePendingDeaths()
 		}
 	}
+}
+
+func (e *Engine) modifyDamageAmount(target *CardInstance, amount int, ownerID int, damageData map[string]any) int {
+	if target == nil || target.Card == nil || amount <= 0 {
+		return amount
+	}
+	behavior, ok := globalRegistry.GetBehavior(target.Card.Number).(DamageAmountModifier)
+	if !ok || !behavior.HasActiveDamageAmountModifier(target) {
+		return amount
+	}
+	ctx := &EffectContext{
+		Engine:     e,
+		Source:     target,
+		Target:     target,
+		PlayerID:   ownerID,
+		OpponentID: 1 - ownerID,
+		ExtraData:  damageData,
+	}
+	modified := behavior.ModifyDamageAmount(ctx, amount)
+	if modified < 0 {
+		return 0
+	}
+	return modified
 }
 
 func (e *Engine) promptDolphinPartnerPrevention(target *CardInstance, amount int, ownerID int, damageData map[string]any) bool {

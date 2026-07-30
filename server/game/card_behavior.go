@@ -84,6 +84,9 @@ func (AlwaysActive) HasActiveEnemySpellStatModifier(*CardInstance) bool {
 	return true
 }
 func (AlwaysActive) HasActiveDamagePrevention(*CardInstance) bool { return true }
+func (AlwaysActive) HasActiveDamageAmountModifier(*CardInstance) bool {
+	return true
+}
 func (AlwaysActive) HasActiveFieldDamagePrevention(*CardInstance) bool {
 	return true
 }
@@ -415,6 +418,11 @@ type EnemySpellStatModifier interface {
 type DamagePreventionBehavior interface {
 	HasActiveDamagePrevention(*CardInstance) bool
 	PreventsDamage(*EffectContext) bool
+}
+
+type DamageAmountModifier interface {
+	HasActiveDamageAmountModifier(*CardInstance) bool
+	ModifyDamageAmount(*EffectContext, int) int
 }
 
 type FieldDamagePreventionBehavior interface {

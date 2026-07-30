@@ -3091,6 +3091,37 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("rock wall monster limits damage while its owner has no learned spells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		monster := placeUnit(baseCard(t, "1421111"), 0, 0, 0, engine)
+		before := monster.CurrentLife
+
+		engine.dealDamageWithExtra(monster, 3, 0, map[string]any{"damage_source": "test"})
+		if monster.CurrentLife != before-1 {
+			t.Fatalf("1421111 should take at most 1 damage with no learned spells, life=%d want=%d", monster.CurrentLife, before-1)
+		}
+
+		sorceryEngine := setupReportedBugEngine(t)
+		sorceryP0 := sorceryEngine.State.Players[0]
+		sorceryP0.Skills[0] = readySkill(baseCard(t, "3221007"), 0)
+		sorceryMonster := placeUnit(baseCard(t, "1421111"), 0, 0, 0, sorceryEngine)
+		sorceryBefore := sorceryMonster.CurrentLife
+		sorceryEngine.dealDamageWithExtra(sorceryMonster, 3, 0, map[string]any{"damage_source": "test"})
+		if sorceryMonster.CurrentLife != sorceryBefore-1 {
+			t.Fatalf("1421111 should still limit damage when owner learned only sorceries, life=%d want=%d", sorceryMonster.CurrentLife, sorceryBefore-1)
+		}
+
+		spellEngine := setupReportedBugEngine(t)
+		spellP0 := spellEngine.State.Players[0]
+		spellP0.Skills[0] = readySkill(baseCard(t, "3121001"), 0)
+		spellMonster := placeUnit(baseCard(t, "1421111"), 0, 0, 0, spellEngine)
+		spellBefore := spellMonster.CurrentLife
+		spellEngine.dealDamageWithExtra(spellMonster, 3, 0, map[string]any{"damage_source": "test"})
+		if spellMonster.CurrentLife != spellBefore-3 {
+			t.Fatalf("1421111 should take full damage after owner learns a spell, life=%d want=%d", spellMonster.CurrentLife, spellBefore-3)
+		}
+	})
+
 	t.Run("church envoy removes negative statuses from friendly cards", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
