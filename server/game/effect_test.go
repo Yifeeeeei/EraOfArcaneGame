@@ -2324,6 +2324,142 @@ func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
+	t.Run("private teacher learns cheap skills for free and can replace a vertical skill", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		teacher := NewCardInstance(baseCard(t, "1021101"), 0, 1)
+		cheap := NewCardInstance(baseCard(t, "3021005"), 0, 1)
+		p0.SkillPool = []*CardInstance{cheap}
+		p0.Elements = map[string]int{}
+
+		if err := (Card1021101PrivateTeacher{}).OnEnter(&EffectContext{Engine: engine, Source: teacher, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("private teacher enter: %v", err)
+		}
+		resolvePendingSelection(t, engine, 0, cheap.InstanceID)
+		if len(p0.SkillPool) != 0 || p0.Skills[0] != cheap || !cheap.IsHorizontal {
+			t.Fatalf("private teacher should learn cheap skill without cost, pool=%v skills=%v horizontal=%v", cardsToInfo(p0.SkillPool), cardsToInfo(p0.Skills[:]), cheap.IsHorizontal)
+		}
+		if len(p0.Elements) != 0 {
+			t.Fatalf("private teacher should not spend elements, elements=%v", p0.Elements)
+		}
+
+		fullEngine := setupReportedBugEngine(t)
+		fullP0 := fullEngine.State.Players[0]
+		replacement := NewCardInstance(baseCard(t, "3021005"), 0, 1)
+		fullP0.SkillPool = []*CardInstance{replacement}
+		oldSkill := readySkill(baseCard(t, "3021102"), 0)
+		for i := 0; i < skillSlotCapacity(fullP0); i++ {
+			fullP0.Skills[i] = readySkill(baseCard(t, "3021005"), 0)
+		}
+		fullP0.Skills[2] = oldSkill
+		if err := (Card1021101PrivateTeacher{}).OnEnter(&EffectContext{Engine: fullEngine, Source: teacher, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("private teacher full enter: %v", err)
+		}
+		if fullEngine.State.PendingAction == nil || len(fullEngine.State.PendingAction.Candidates) == 0 {
+			t.Fatalf("private teacher should offer replacement choices, pending=%+v", fullEngine.State.PendingAction)
+		}
+		choice := ""
+		for _, candidate := range fullEngine.State.PendingAction.Candidates {
+			if replaceID, _ := candidate["replace_id"].(string); replaceID == oldSkill.InstanceID {
+				choice, _ = candidate["instance_id"].(string)
+				break
+			}
+		}
+		if choice == "" {
+			t.Fatalf("private teacher should offer a choice replacing the selected old skill, pending=%+v", fullEngine.State.PendingAction)
+		}
+		resolvePendingSelection(t, fullEngine, 0, choice)
+		if replacement.SlotIndex < 0 || fullP0.Skills[replacement.SlotIndex] != replacement {
+			t.Fatalf("private teacher should place replacement in a skill slot, slot=%d skills=%v", replacement.SlotIndex, cardsToInfo(fullP0.Skills[:]))
+		}
+		if !containsCardInstance(fullP0.SkillPool, oldSkill) {
+			t.Fatalf("private teacher should return replaced skill to pool, pool=%v", cardsToInfo(fullP0.SkillPool))
+		}
+	})
+
+	t.Run("alchemy apprentice converts one arcane into two non-arcane elements", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		apprentice := NewCardInstance(baseCard(t, "1021108"), 0, 1)
+		apprentice.IsHorizontal = false
+		p0.Elements[model.ElementArcane] = 1
+
+		if err := (Card1021108AlchemyApprentice{}).OnPerTurn(&EffectContext{Engine: engine, Source: apprentice, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("alchemy apprentice ability: %v", err)
+		}
+		if !apprentice.IsHorizontal || p0.Elements[model.ElementArcane] != 0 {
+			t.Fatalf("alchemy apprentice should consume itself and spend one arcane, horizontal=%v elements=%v", apprentice.IsHorizontal, p0.Elements)
+		}
+		resolvePendingSelection(t, engine, 0, model.ElementFire+"#1", model.ElementFire+"#2")
+		if p0.Elements[model.ElementFire] != 2 {
+			t.Fatalf("alchemy apprentice should allow choosing the same non-arcane element twice, elements=%v", p0.Elements)
+		}
+
+		failEngine := setupReportedBugEngine(t)
+		failP0 := failEngine.State.Players[0]
+		failApprentice := NewCardInstance(baseCard(t, "1021108"), 0, 1)
+		failApprentice.IsHorizontal = false
+		if err := (Card1021108AlchemyApprentice{}).OnPerTurn(&EffectContext{Engine: failEngine, Source: failApprentice, PlayerID: 0, OpponentID: 1}); err == nil {
+			t.Fatal("alchemy apprentice should require one arcane element")
+		}
+		if failApprentice.IsHorizontal || failP0.Elements[model.ElementArcane] != 0 {
+			t.Fatalf("failed alchemy apprentice should not mutate state, horizontal=%v elements=%v", failApprentice.IsHorizontal, failP0.Elements)
+		}
+	})
+
+	t.Run("church envoy removes negative statuses from friendly cards", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		envoy := NewCardInstance(baseCard(t, "1021109"), 0, 1)
+		target := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		target.Statuses[StatusBurn] = 2
+		target.Statuses[StatusFreeze] = 1
+		target.Statuses["mastery"] = 1
+		p0.Units[0][0] = target
+
+		if err := (Card1021109ChurchEnvoy{}).OnUltimate(&EffectContext{Engine: engine, Source: envoy, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("church envoy ultimate: %v", err)
+		}
+		resolvePendingSelection(t, engine, 0, target.InstanceID)
+		if target.Statuses[StatusBurn] != 0 || target.Statuses[StatusFreeze] != 0 || target.Statuses["mastery"] != 1 {
+			t.Fatalf("church envoy should clear only negative statuses, statuses=%v", target.Statuses)
+		}
+	})
+
+	t.Run("shadow heroes add blood feast or mill both decks", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		hubert := NewCardInstance(baseCard(t, "4611101"), 0, 1)
+		if err := (Card4611101BloodCountHubert{}).OnEnter(&EffectContext{Engine: engine, Source: hubert, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("hubert enter: %v", err)
+		}
+		if len(p0.SkillPool) != 1 || p0.SkillPool[0].Card.Number != "3601101" {
+			t.Fatalf("hubert should add blood feast to skill pool, pool=%v", cardsToInfo(p0.SkillPool))
+		}
+
+		millEngine := setupReportedBugEngine(t)
+		millP0 := millEngine.State.Players[0]
+		millP1 := millEngine.State.Players[1]
+		for i := 0; i < 5; i++ {
+			millP0.Deck = append(millP0.Deck, NewCardInstance(baseCard(t, "1021001"), 0, 1))
+			millP1.Deck = append(millP1.Deck, NewCardInstance(baseCard(t, "1021002"), 1, 1))
+		}
+		firstP0 := millP0.Deck[0]
+		firstP1 := millP1.Deck[0]
+		dom := NewCardInstance(baseCard(t, "4611102"), 0, 1)
+		if err := (Card4611102CalamityRoseDom{}).OnEnter(&EffectContext{Engine: millEngine, Source: dom, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("dom enter: %v", err)
+		}
+		if len(millP0.Deck) != 1 || len(millP1.Deck) != 1 || len(millP0.Graveyard) != 4 || len(millP1.Graveyard) != 4 {
+			t.Fatalf("dom should mill top four from both decks, p0 deck/grave=%d/%d p1 deck/grave=%d/%d", len(millP0.Deck), len(millP0.Graveyard), len(millP1.Deck), len(millP1.Graveyard))
+		}
+		if millP0.Graveyard[0] != firstP0 || millP1.Graveyard[0] != firstP1 {
+			t.Fatalf("dom should preserve top-deck mill order, p0 grave=%v p1 grave=%v", cardsToInfo(millP0.Graveyard), cardsToInfo(millP1.Graveyard))
+		}
+	})
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

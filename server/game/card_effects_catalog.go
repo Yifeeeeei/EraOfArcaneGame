@@ -291,9 +291,12 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"4611003": func() CardBehavior { return Card4611003Jieying{} },
 
 	"1011103": func() CardBehavior { return Card1011103Gambler{} },
+	"1021101": func() CardBehavior { return Card1021101PrivateTeacher{} },
 	"1021102": func() CardBehavior { return Card1021102SwordsmanshipTeacher{} },
 	"1021104": func() CardBehavior { return Card1021104DimensionalRiftBeast{} },
 	"1021106": func() CardBehavior { return Card1021106SkyCityTycoon{} },
+	"1021108": func() CardBehavior { return Card1021108AlchemyApprentice{} },
+	"1021109": func() CardBehavior { return Card1021109ChurchEnvoy{} },
 	"1021115": func() CardBehavior { return Card1021115JiuxiaoAssassin{} },
 	"1021103": func() CardBehavior {
 		return royalShieldOnEnter{id: "1021103", name: "皇城结界兽", amount: 2}
@@ -381,6 +384,8 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"3621107": func() CardBehavior { return Card3621107WillErosion{} },
 	"3621110": func() CardBehavior { return Card3621110BloodNourish{} },
 	"4311102": func() CardBehavior { return Card4311102MistmakerFug{} },
+	"4611101": func() CardBehavior { return Card4611101BloodCountHubert{} },
+	"4611102": func() CardBehavior { return Card4611102CalamityRoseDom{} },
 }
 
 // RegisterAllCardEffects registers lazy factories for implemented card

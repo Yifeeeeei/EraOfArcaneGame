@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 	"math/rand"
+	"strings"
 
 	"eraofarcane/model"
 )
@@ -44,6 +45,64 @@ func (Card1021102SwordsmanshipTeacher) OnEnter(ctx *EffectContext) error {
 			if target != nil && target.Card != nil && target.Card.IsCompanion() {
 				target.AttackBonus++
 			}
+		})
+	return nil
+}
+
+type Card1021101PrivateTeacher struct{ AlwaysActive }
+
+func (Card1021101PrivateTeacher) ID() string   { return "1021101" }
+func (Card1021101PrivateTeacher) Name() string { return "私家教师" }
+func (Card1021101PrivateTeacher) OnEnter(ctx *EffectContext) error {
+	candidates := make([]map[string]any, 0)
+	allowed := make(map[string]bool)
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	hasEmptySlot := false
+	for i := 0; i < skillSlotCapacity(ps); i++ {
+		if ps.Skills[i] == nil {
+			hasEmptySlot = true
+			break
+		}
+	}
+	for _, skill := range ps.SkillPool {
+		if skill == nil || skill.Card == nil || !skill.Card.IsSkill() || totalElementCost(skill.Card.ElementsCost) >= 4 {
+			continue
+		}
+		if hasEmptySlot {
+			candidates = append(candidates, candidateInfo(skill, "skill_pool", "own"))
+			allowed[skill.InstanceID] = true
+			continue
+		}
+		for _, learned := range ps.Skills {
+			if learned == nil || learned.IsHorizontal {
+				continue
+			}
+			id := skill.InstanceID + "|" + learned.InstanceID
+			candidate := candidateInfo(skill, "skill_pool", "own")
+			candidate["instance_id"] = id
+			candidate["name"] = fmt.Sprintf("学习%s，替换%s", skill.Card.Name, learned.Card.Name)
+			candidate["replace_id"] = learned.InstanceID
+			allowed[id] = true
+			candidates = append(candidates, candidate)
+		}
+	}
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "private_teacher_learn_skill",
+		"私家教师:选择1个学习花费小于4的法术免费学习", candidates, 1, 1,
+		func(selected []string) {
+			id := firstSelected(selected)
+			if !allowed[id] {
+				return
+			}
+			skillID := id
+			replaceID := ""
+			if before, after, ok := strings.Cut(id, "|"); ok {
+				skillID = before
+				replaceID = after
+			}
+			ctx.Engine.learnSkillFromPoolWithoutCost(ctx.PlayerID, skillID, replaceID)
 		})
 	return nil
 }
@@ -100,6 +159,80 @@ func (Card1021106SkyCityTycoon) OnPerTurn(ctx *EffectContext) error {
 			}
 			ctx.Engine.drawCards(ctx.PlayerID, 1)
 			ctx.Engine.drawCards(ctx.OpponentID, 1)
+		})
+	return nil
+}
+
+type Card1021108AlchemyApprentice struct{ AlwaysActive }
+
+func (Card1021108AlchemyApprentice) ID() string   { return "1021108" }
+func (Card1021108AlchemyApprentice) Name() string { return "炼金术学徒" }
+func (Card1021108AlchemyApprentice) PerTurnLabel(*CardInstance) string {
+	return "主动"
+}
+func (Card1021108AlchemyApprentice) OnPerTurn(ctx *EffectContext) error {
+	if !ctx.Engine.canConsumeCard(ctx.Source) {
+		return fmt.Errorf("炼金术学徒不能被消耗")
+	}
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	if ps.Elements[model.ElementArcane] < 1 {
+		return fmt.Errorf("炼金术学徒需要1点奥术元素")
+	}
+	choices := make([]map[string]any, 0, 12)
+	for _, elem := range []string{model.ElementFire, model.ElementWater, model.ElementEarth, model.ElementAir, model.ElementLight, model.ElementShadow} {
+		for i := 1; i <= 2; i++ {
+			choices = append(choices, map[string]any{"instance_id": fmt.Sprintf("%s#%d", elem, i), "number": "1021108", "name": elem, "type": "选择", "zone": "choice", "side": "own", "element": elem})
+		}
+	}
+	ctx.Source.IsHorizontal = true
+	ps.Elements[model.ElementArcane]--
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "alchemy_apprentice_elements",
+		"炼金术学徒:选择2点非奥术元素", choices, 2, 2,
+		func(selected []string) {
+			gain := make(map[string]int)
+			seen := make(map[string]bool, len(selected))
+			for _, id := range selected {
+				if seen[id] {
+					continue
+				}
+				seen[id] = true
+				elem, _, ok := strings.Cut(id, "#")
+				if ok && isNonArcaneElement(elem) {
+					gain[elem]++
+				}
+			}
+			if len(gain) > 0 {
+				ps.GainElements(gain)
+			}
+		})
+	return nil
+}
+
+type Card1021109ChurchEnvoy struct{ AlwaysActive }
+
+func (Card1021109ChurchEnvoy) ID() string   { return "1021109" }
+func (Card1021109ChurchEnvoy) Name() string { return "教廷特使" }
+func (Card1021109ChurchEnvoy) OnUltimate(ctx *EffectContext) error {
+	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, true, hasAnyNegativeStatus)
+	candidates = append(candidates, ctx.Engine.friendlyEquipment(ctx.PlayerID, hasAnyNegativeStatus)...)
+	candidates = append(candidates, ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, hasAnyNegativeStatus)...)
+	if len(candidates) == 0 {
+		return nil
+	}
+	allowed := make(map[string]bool, len(candidates))
+	for _, candidate := range candidates {
+		if id, _ := candidate["instance_id"].(string); id != "" {
+			allowed[id] = true
+		}
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "church_envoy_purify",
+		"教廷特使:选择1张友方卡牌移除全部负面效果", candidates, 1, 1,
+		func(selected []string) {
+			id := firstSelected(selected)
+			if !allowed[id] {
+				return
+			}
+			clearNegativeStatuses(ctx.Engine.findFriendlyCardIncludingBound(ctx.PlayerID, id))
 		})
 	return nil
 }
@@ -556,6 +689,25 @@ func (Card2521102MoonlightDust) OnUseItem(ctx *EffectContext) error {
 				ctx.Engine.removeEnemyFrontStealth(ctx.PlayerID)
 			}
 		})
+	return nil
+}
+
+type Card4611101BloodCountHubert struct{ AlwaysActive }
+
+func (Card4611101BloodCountHubert) ID() string   { return "4611101" }
+func (Card4611101BloodCountHubert) Name() string { return "鲜血伯爵 休伯特 黑松" }
+func (Card4611101BloodCountHubert) OnEnter(ctx *EffectContext) error {
+	addSkillToPool(ctx, "3601101")
+	return nil
+}
+
+type Card4611102CalamityRoseDom struct{ AlwaysActive }
+
+func (Card4611102CalamityRoseDom) ID() string   { return "4611102" }
+func (Card4611102CalamityRoseDom) Name() string { return "灾厄玫瑰 多姆" }
+func (Card4611102CalamityRoseDom) OnEnter(ctx *EffectContext) error {
+	ctx.Engine.millTopDeckCards(ctx.PlayerID, 4)
+	ctx.Engine.millTopDeckCards(ctx.OpponentID, 4)
 	return nil
 }
 

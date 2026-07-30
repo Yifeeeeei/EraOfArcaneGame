@@ -638,6 +638,26 @@ func (e *Engine) drawCards(playerID int, n int) []*CardInstance {
 	return drawn
 }
 
+func (e *Engine) millTopDeckCards(playerID int, n int) []*CardInstance {
+	if n <= 0 {
+		return nil
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return nil
+	}
+	count := min(n, len(ps.Deck))
+	milled := make([]*CardInstance, 0, count)
+	for i := 0; i < count; i++ {
+		card := ps.Deck[0]
+		ps.Deck = ps.Deck[1:]
+		ps.Graveyard = append(ps.Graveyard, card)
+		milled = append(milled, card)
+		e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
+	}
+	return milled
+}
+
 func (e *Engine) notifyCardDrawn(playerID int, card *CardInstance) {
 	if card == nil {
 		return
@@ -2863,6 +2883,81 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 	})
 
 	return nil
+}
+
+func (e *Engine) learnSkillFromPoolWithoutCost(playerID int, instanceID string, replaceID string) bool {
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return false
+	}
+	var skill *CardInstance
+	poolIdx := -1
+	for i, s := range ps.SkillPool {
+		if s != nil && s.InstanceID == instanceID {
+			skill = s
+			poolIdx = i
+			break
+		}
+	}
+	if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
+		return false
+	}
+
+	slotIdx := -1
+	var replacedSkill *CardInstance
+	if replaceID != "" {
+		for i := 0; i < skillSlotCapacity(ps); i++ {
+			if ps.Skills[i] != nil && ps.Skills[i].InstanceID == replaceID && !ps.Skills[i].IsHorizontal {
+				replacedSkill = ps.Skills[i]
+				slotIdx = i
+				break
+			}
+		}
+	} else {
+		for i := 0; i < skillSlotCapacity(ps); i++ {
+			if ps.Skills[i] == nil {
+				slotIdx = i
+				break
+			}
+		}
+	}
+	if slotIdx == -1 {
+		return false
+	}
+
+	ps.SkillPool = append(ps.SkillPool[:poolIdx], ps.SkillPool[poolIdx+1:]...)
+	if replacedSkill != nil {
+		ps.Skills[slotIdx] = nil
+		returnSkillToPool(replacedSkill)
+		ps.SkillPool = append(ps.SkillPool, replacedSkill)
+		if replacedSkill.Card.Number == "3611101" {
+			e.refreshRedMoonState(playerID)
+		}
+	}
+	skill.IsHorizontal = true
+	skill.SlotIndex = slotIdx
+	skill.EnterTurn = e.State.TurnNumber
+	e.ApplyKeywordOnEnter(skill)
+	ps.Skills[slotIdx] = skill
+	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
+		if modifier.Type == TempModNextLearnedSkillHaste && modifier.RemainingUses != 0 {
+			skill.IsHorizontal = false
+			e.removeTemporaryModifier(playerID, modifier.ID)
+			break
+		}
+	}
+
+	e.emit(GameEvent{
+		Type:   "learn_skill",
+		Player: -1,
+		Data: map[string]any{
+			"player":   playerID,
+			"card":     cardToInfo(skill),
+			"slot":     slotIdx,
+			"elements": ps.Elements,
+		},
+	})
+	return true
 }
 
 func returnSkillToPool(skill *CardInstance) {
