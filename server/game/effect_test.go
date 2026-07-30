@@ -4910,6 +4910,52 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 			t.Fatalf("3321110 should haste next learned air skill once, horizontal=%v modifiers=%+v", airSkill.IsHorizontal, p0.TempModifiers)
 		}
 	})
+
+	t.Run("aging touch removes all companion load on hit", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		setElementsGain(target, map[string]int{model.ElementFire: 2, model.ElementEarth: 1})
+		target.ElementsGainBonus = map[string]int{model.ElementWater: 1}
+		skill := readySkill(baseCard(t, "3421105"), 0)
+		behavior := Card3421105AgingTouch{}
+
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, Target: target, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+			t.Fatalf("3421105 hit: %v", err)
+		}
+		if totalLoad(target) != 0 {
+			t.Fatalf("3421105 should remove all target load, load=%v bonus=%v", effectiveElementsGain(target), target.ElementsGainBonus)
+		}
+
+		hero := engine.State.Players[1].Hero
+		setElementsGain(hero, map[string]int{model.ElementFire: 2})
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, Target: hero, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+			t.Fatalf("3421105 hero hit: %v", err)
+		}
+		if totalLoad(hero) != 2 {
+			t.Fatalf("3421105 should not remove hero load, load=%v", effectiveElementsGain(hero))
+		}
+	})
+
+	t.Run("blood soul slash hurts and heals own hero", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		hero := engine.State.Players[0].Hero
+		hero.CurrentLife = maxLife(hero) - 1
+		skill := readySkill(baseCard(t, "3621103"), 0)
+		behavior := Card3621103BloodSoulSlash{}
+
+		if err := behavior.OnSpellCast(&EffectContext{Engine: engine, Source: skill, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"cast_player": 0}}); err != nil {
+			t.Fatalf("3621103 cast: %v", err)
+		}
+		if hero.CurrentLife != maxLife(hero)-2 {
+			t.Fatalf("3621103 should deal 1 damage to own hero on attack cast, life=%d max=%d", hero.CurrentLife, maxLife(hero))
+		}
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, Target: engine.State.Players[1].Hero, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+			t.Fatalf("3621103 hit: %v", err)
+		}
+		if hero.CurrentLife != maxLife(hero) {
+			t.Fatalf("3621103 should heal own hero by 2 on hit, life=%d max=%d", hero.CurrentLife, maxLife(hero))
+		}
+	})
 }
 
 func TestEffectSystemIntegration(t *testing.T) {

@@ -660,6 +660,41 @@ func (Card3321110AirFlow) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
+type Card3421105AgingTouch struct{ AlwaysActive }
+
+func (Card3421105AgingTouch) ID() string   { return "3421105" }
+func (Card3421105AgingTouch) Name() string { return "苍老之触" }
+func (Card3421105AgingTouch) OnSpellHit(ctx *EffectContext) error {
+	if ctx.Target == nil || ctx.Target.Card == nil || !ctx.Target.Card.IsCompanion() {
+		return nil
+	}
+	setElementsGain(ctx.Target, map[string]int{})
+	ctx.Target.ElementsGainBonus = make(map[string]int)
+	return nil
+}
+
+type Card3621103BloodSoulSlash struct{ AlwaysActive }
+
+func (Card3621103BloodSoulSlash) ID() string   { return "3621103" }
+func (Card3621103BloodSoulSlash) Name() string { return "血魂斩" }
+func (Card3621103BloodSoulSlash) OnSpellCast(ctx *EffectContext) error {
+	hero := ctx.Engine.State.Players[ctx.PlayerID].Hero
+	if hero != nil {
+		ctx.Engine.dealDamageWithExtra(hero, 1, ctx.PlayerID, map[string]any{
+			"damage_source": "blood_soul_slash",
+			"attacker":      ctx.PlayerID,
+		})
+	}
+	return nil
+}
+func (Card3621103BloodSoulSlash) OnSpellHit(ctx *EffectContext) error {
+	hero := ctx.Engine.State.Players[ctx.PlayerID].Hero
+	if hero != nil {
+		healUnit(hero, 2)
+	}
+	return nil
+}
+
 func findSkillSlotCard(ps *PlayerState, instanceID string) *CardInstance {
 	if ps == nil {
 		return nil

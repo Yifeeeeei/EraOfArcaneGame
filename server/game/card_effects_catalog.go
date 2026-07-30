@@ -269,6 +269,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"3421013": func() CardBehavior { return Card3421013EarthResonance{} },
 	"3421014": func() CardBehavior { return Card3421014ThousandMileQuicksand{} },
 	"3421015": func() CardBehavior { return Card3421015RapidSandstorm{} },
+	"3421105": func() CardBehavior { return Card3421105AgingTouch{} },
 	"3501001": func() CardBehavior { return Card3501001UnitedHope{} },
 	"3521001": func() CardBehavior { return Card3521001Healing{} },
 	"3521002": func() CardBehavior { return Card3521002HolyFire{} },
@@ -286,6 +287,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"3621012": func() CardBehavior { return Card3621012SoulRecall{} },
 	"3621013": func() CardBehavior { return Card3621013UndeadWall{} },
 	"3621014": func() CardBehavior { return Card3621014Karma{} },
+	"3621103": func() CardBehavior { return Card3621103BloodSoulSlash{} },
 	"3621015": func() CardBehavior { return Card3621015Siphon{} },
 
 	"4011001": func() CardBehavior { return Card4011001Skadi{} },
