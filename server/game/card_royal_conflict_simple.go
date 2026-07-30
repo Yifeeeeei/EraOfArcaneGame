@@ -626,6 +626,53 @@ func (Card2021104FiveColorCoral) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
+type Card2121108BurnoutScroll struct{ AlwaysActive }
+
+func (Card2121108BurnoutScroll) ID() string   { return "2121108" }
+func (Card2121108BurnoutScroll) Name() string { return "燃烬卷轴" }
+func (Card2121108BurnoutScroll) OnUseItem(ctx *EffectContext) error {
+	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
+		return isFireCompanion(card) && ctx.Engine.canConsumeCard(card)
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "burnout_scroll_consume_fire_companion",
+		"燃烬卷轴:消耗1个友方火焰伙伴并获得其入场花费的元素", candidates, 1, 1,
+		func(selected []string) {
+			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, firstSelected(selected))
+			if target == nil || zone != "unit" || !isFireCompanion(target) || !ctx.Engine.canConsumeCard(target) {
+				return
+			}
+			gains := copyElementCost(target.Card.ElementsCost)
+			target.IsHorizontal = true
+			if len(gains) > 0 {
+				ctx.Engine.State.Players[ctx.PlayerID].GainElements(gains)
+			}
+			ctx.Engine.emit(GameEvent{
+				Type:   "consume",
+				Player: -1,
+				Data: map[string]any{
+					"player":      ctx.PlayerID,
+					"instance_id": target.InstanceID,
+					"elements":    ctx.Engine.State.Players[ctx.PlayerID].Elements,
+					"gained":      gains,
+				},
+			})
+			consumeData := map[string]any{
+				"consumed_player": ctx.PlayerID,
+				"consume_source":  "2121108",
+				"gained":          gains,
+			}
+			ctx.Engine.triggerEffects(TriggerOnConsume, target, nil, consumeData)
+			ctx.Engine.triggerFieldEffectsWithData(TriggerOnConsume, ctx.PlayerID, target, consumeData)
+			ctx.Engine.triggerFieldEffectsWithData(TriggerOnConsume, ctx.OpponentID, target, consumeData)
+			ctx.Engine.advanceMastery(target, ctx.PlayerID, 1)
+			ctx.Engine.destroyFuyeDoomedCardAfterExert(target)
+		})
+	return nil
+}
+
 type royalInfusionRune struct {
 	AlwaysActive
 	id          string
@@ -759,6 +806,24 @@ func (Card2621111DarkBurstScroll) OnUseItem(ctx *EffectContext) error {
 	if exiled > 0 {
 		ps.GainElements(map[string]int{model.ElementShadow: exiled * 2})
 	}
+	return nil
+}
+
+type Card2621109ElegyScroll struct{ AlwaysActive }
+
+func (Card2621109ElegyScroll) ID() string   { return "2621109" }
+func (Card2621109ElegyScroll) Name() string { return "哀歌卷轴" }
+func (Card2621109ElegyScroll) OnUseItem(ctx *EffectContext) error {
+	hasShadowGrave := countShadowCompanionsInGraveyard(ctx.Engine.State.Players[ctx.PlayerID]) > 0
+	searchDeckToHandByPredicateWithResult(ctx,
+		"elegy_scroll_search_shadow_deathrattle",
+		"哀歌卷轴:翻取1个具有遗言的暗影伙伴",
+		isShadowCompanionWithDeathrattle,
+		func(card *CardInstance) {
+			if hasShadowGrave && card != nil {
+				card.Statuses["入场费用"+model.ElementShadow+"-1"]++
+			}
+		})
 	return nil
 }
 

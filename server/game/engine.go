@@ -3098,9 +3098,19 @@ func (e *Engine) validateConsumableItemUse(playerID int, card *CardInstance) err
 		})) == 0 {
 			return fmt.Errorf("Mirrorsea Spring requires a friendly spell")
 		}
+	case "2121108":
+		if len(e.friendlyUnits(playerID, false, func(unit *CardInstance) bool {
+			return isFireCompanion(unit) && e.canConsumeCard(unit)
+		})) == 0 {
+			return fmt.Errorf("Burnout Scroll requires a ready friendly fire companion")
+		}
 	case "2521102":
 		if !e.hasEnemySetCounter(playerID) && !e.hasEnemyFrontStealth(playerID) {
 			return fmt.Errorf("Moonlight Dust requires enemy set counters or stealthy front enemies")
+		}
+	case "2621109":
+		if len(e.friendlyDeckCards(playerID, isShadowCompanionWithDeathrattle)) == 0 {
+			return fmt.Errorf("Elegy Scroll requires a searchable shadow companion with deathrattle")
 		}
 	case "2621111":
 		if countShadowCompanionsInGraveyard(e.State.Players[playerID]) < 5 {

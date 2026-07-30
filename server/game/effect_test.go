@@ -2201,6 +2201,94 @@ func TestRoyalConflictPermanentSkillCostAndGraveyardBurstEffects(t *testing.T) {
 }
 
 func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
+	t.Run("burnout scroll consumes a ready fire companion for its entry cost", func(t *testing.T) {
+		failEngine := setupReportedBugEngine(t)
+		failP0 := failEngine.State.Players[0]
+		failScroll := NewCardInstance(baseCard(t, "2121108"), 0, 1)
+		failP0.Hand = []*CardInstance{failScroll}
+		failP0.Elements[model.ElementFire] = 3
+		tappedFire := placeUnit(baseCard(t, "1121101"), 0, 0, 0, failEngine)
+		tappedFire.IsHorizontal = true
+		if err := failEngine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": failScroll.InstanceID,
+		}}); err == nil {
+			t.Fatal("2121108 should require a ready friendly fire companion")
+		}
+		if len(failP0.Hand) != 1 || failP0.Hand[0] != failScroll || len(failP0.Graveyard) != 0 || failP0.Elements[model.ElementFire] != 3 {
+			t.Fatalf("failed 2121108 should leave hand/grave/elements unchanged, hand=%v grave=%v elements=%v", cardsToInfo(failP0.Hand), cardsToInfo(failP0.Graveyard), failP0.Elements)
+		}
+
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		scroll := NewCardInstance(baseCard(t, "2121108"), 0, 1)
+		p0.Hand = []*CardInstance{scroll}
+		p0.Elements[model.ElementFire] = 5
+		target := placeUnit(baseCard(t, "1121101"), 0, 0, 0, engine)
+		target.IsHorizontal = false
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": scroll.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use 2121108: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "burnout_scroll_consume_fire_companion" || len(engine.State.PendingAction.Candidates) != 1 {
+			t.Fatalf("2121108 should prompt with ready fire companions only, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, target.InstanceID)
+		if !target.IsHorizontal {
+			t.Fatal("2121108 should consume the selected fire companion")
+		}
+		if p0.Elements[model.ElementFire] != 6 {
+			t.Fatalf("2121108 should spend 1 fire then gain target entry cost 2 fire, elements=%v", p0.Elements)
+		}
+		if len(p0.Hand) != 0 || len(p0.Graveyard) != 1 || p0.Graveyard[0] != scroll {
+			t.Fatalf("2121108 should move itself from hand to graveyard, hand=%v grave=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
+		}
+	})
+
+	t.Run("elegy scroll searches a shadow deathrattle companion and discounts it from shadow graveyard", func(t *testing.T) {
+		failEngine := setupReportedBugEngine(t)
+		failP0 := failEngine.State.Players[0]
+		failScroll := NewCardInstance(baseCard(t, "2621109"), 0, 1)
+		failP0.Hand = []*CardInstance{failScroll}
+		failP0.Elements[model.ElementShadow] = 2
+		failP0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1)}
+		if err := failEngine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": failScroll.InstanceID,
+		}}); err == nil {
+			t.Fatal("2621109 should require a searchable shadow companion with deathrattle")
+		}
+		if len(failP0.Hand) != 1 || failP0.Hand[0] != failScroll || len(failP0.Graveyard) != 0 || failP0.Elements[model.ElementShadow] != 2 {
+			t.Fatalf("failed 2621109 should leave hand/grave/elements unchanged, hand=%v grave=%v elements=%v", cardsToInfo(failP0.Hand), cardsToInfo(failP0.Graveyard), failP0.Elements)
+		}
+
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		scroll := NewCardInstance(baseCard(t, "2621109"), 0, 1)
+		target := NewCardInstance(baseCard(t, "1621112"), 0, 1)
+		p0.Hand = []*CardInstance{scroll}
+		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1), target}
+		p0.Graveyard = []*CardInstance{NewCardInstance(baseCard(t, "1621103"), 0, 1)}
+		p0.Elements[model.ElementShadow] = 2
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": scroll.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use 2621109: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "elegy_scroll_search_shadow_deathrattle" || len(engine.State.PendingAction.Candidates) != 1 {
+			t.Fatalf("2621109 should prompt with shadow deathrattle deck companions only, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, target.InstanceID)
+		if len(p0.Hand) != 1 || p0.Hand[0] != target {
+			t.Fatalf("2621109 should search selected companion to hand, hand=%v", cardsToInfo(p0.Hand))
+		}
+		if target.Statuses["入场费用"+model.ElementShadow+"-1"] != 1 {
+			t.Fatalf("2621109 should discount searched card when graveyard has shadow companion, statuses=%v", target.Statuses)
+		}
+		if len(p0.Graveyard) != 2 || p0.Graveyard[1] != scroll || p0.Elements[model.ElementShadow] != 1 {
+			t.Fatalf("2621109 should spend 1 shadow and move itself to graveyard, grave=%v elements=%v", cardsToInfo(p0.Graveyard), p0.Elements)
+		}
+	})
+
 	t.Run("wind cycle consumes and sacrifices itself to shuffle selected air graveyard cards", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]

@@ -317,6 +317,12 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 					if card.Number == "2221101" {
 						ps.Skills[0] = readySkill(cards.PlayableCardDB["3221103"], 0)
 					}
+					if card.Number == "2121108" {
+						target := NewCardInstance(cards.PlayableCardDB["1121101"], 0, engine.State.TurnNumber)
+						target.Position = &Position{Col: 0, Row: 0}
+						target.IsHorizontal = false
+						ps.Units[0][0] = target
+					}
 					if card.Number == "2521102" {
 						counter := NewCardInstance(cards.PlayableCardDB["2021113"], 1, engine.State.TurnNumber)
 						counter.IsSetCounter = true
@@ -334,6 +340,9 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 						for i := 0; i < 5; i++ {
 							ps.Graveyard = append(ps.Graveyard, NewCardInstance(cards.PlayableCardDB["1621103"], 0, engine.State.TurnNumber))
 						}
+					}
+					if card.Number == "2621109" {
+						ps.Deck = append(ps.Deck, NewCardInstance(cards.PlayableCardDB["1621112"], 0, engine.State.TurnNumber))
 					}
 					if isSpellScrollCard(card) && skillNeedsTargetCard(card) {
 						data["target_type"] = "unit"
