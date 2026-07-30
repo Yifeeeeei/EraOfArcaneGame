@@ -270,6 +270,9 @@ func TestRoyalConflictAttackPositionEffects(t *testing.T) {
 		if !engine.IsInAttackRange(0, archer, frontEnemy.Position.Col, frontEnemy.Position.Row) {
 			t.Fatalf("1221103 should attack enemy front row from a non-front row")
 		}
+		if info := engine.cardToInfo(archer); info["can_attack_from_non_front"] != true {
+			t.Fatalf("1221103 should serialize effective non-front attack ability, info=%v", info)
+		}
 		if engine.IsInAttackRange(0, archer, backEnemy.Position.Col, backEnemy.Position.Row) {
 			t.Fatalf("1221103 should still require an enemy front-row target")
 		}
@@ -296,12 +299,38 @@ func TestRoyalConflictAttackPositionEffects(t *testing.T) {
 		if engine.IsInAttackRange(0, archer, frontEnemy.Position.Col, frontEnemy.Position.Row) {
 			t.Fatalf("petrified 1221103 should not attack from a non-front row")
 		}
+		if info := engine.cardToInfo(archer); info["can_attack_from_non_front"] != false {
+			t.Fatalf("petrified 1221103 should serialize inactive non-front attack ability, info=%v", info)
+		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "attack", Data: map[string]any{
 			"attacker_id": archer.InstanceID,
 			"target_col":  float64(frontEnemy.Position.Col),
 			"target_row":  float64(frontEnemy.Position.Row),
 		}}); err == nil {
 			t.Fatal("petrified 1221103 should fail the non-front attack action")
+		}
+	})
+
+	t.Run("ordinary units still cannot attack from non-front rows", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		ordinary := placeUnit(baseCard(t, "1021002"), 0, 1, 1, engine)
+		ordinary.CurrentAttack = 1
+		ordinary.IsHorizontal = false
+		frontEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		if engine.IsInAttackRange(0, ordinary, frontEnemy.Position.Col, frontEnemy.Position.Row) {
+			t.Fatalf("ordinary units should not attack from a non-front row")
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "attack", Data: map[string]any{
+			"attacker_id": ordinary.InstanceID,
+			"target_col":  float64(frontEnemy.Position.Col),
+			"target_row":  float64(frontEnemy.Position.Row),
+		}}); err == nil {
+			t.Fatal("ordinary units should fail non-front attack actions")
+		}
+		if info := engine.cardToInfo(ordinary); info["can_attack_from_non_front"] != false {
+			t.Fatalf("ordinary units should not serialize non-front attack ability, info=%v", info)
 		}
 	})
 }

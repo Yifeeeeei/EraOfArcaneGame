@@ -2106,7 +2106,7 @@
                 if (!isMyTurn.value || gameState.value.phase !== 'main') return false;
                 if (!unit || unit.is_horizontal) return false;
                 if ((unit.current_attack ?? unit.attack) <= 0) return false;
-                if (unit.position && unit.position.row !== myFrontRow.value) return false;
+                if (unit.position && unit.position.row !== myFrontRow.value && !unit.can_attack_from_non_front) return false;
                 return true;
             }
             function selectAttacker(unit) {
