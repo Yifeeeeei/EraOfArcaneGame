@@ -2616,6 +2616,23 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("lone star hero entry cost increases with other hand cards", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		hero := NewCardInstance(baseCard(t, "1021111"), 0, 1)
+		otherA := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		otherB := NewCardInstance(baseCard(t, "3021002"), 0, 1)
+		p0.Hand = []*CardInstance{hero, otherA, otherB}
+
+		if got := engine.effectiveCardPlayCost(p0, hero)[model.ElementArcane]; got != 5 {
+			t.Fatalf("1021111 should cost base 3 plus 2 other hand cards, cost=%v", engine.effectiveCardPlayCost(p0, hero))
+		}
+		p0.Hand = []*CardInstance{hero}
+		if got := engine.effectiveCardPlayCost(p0, hero)[model.ElementArcane]; got != 3 {
+			t.Fatalf("1021111 should use base cost with no other hand cards, cost=%v", engine.effectiveCardPlayCost(p0, hero))
+		}
+	})
+
 	t.Run("alchemy apprentice converts one arcane into two non-arcane elements", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]

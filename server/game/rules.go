@@ -124,6 +124,10 @@ func (e *Engine) effectiveCardPlayCost(ps *PlayerState, card *CardInstance) map[
 		PlayerID:   ps.PlayerID,
 		OpponentID: 1 - ps.PlayerID,
 	}
+	if modifier, ok := globalRegistry.GetBehavior(card.Card.Number).(SelfCardPlayCostModifier); ok && modifier.HasActiveSelfCardPlayCostModifier(card) {
+		ctx.Source = card
+		modifier.ModifySelfCardPlayCost(ctx, cost)
+	}
 	for _, fieldCard := range e.getAllFieldCards(ps) {
 		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
 			continue
