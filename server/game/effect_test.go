@@ -2629,6 +2629,94 @@ func TestRoyalConflictResetAndTemporaryAbilityEffects(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictDeathrattleEffects(t *testing.T) {
+	t.Run("abandoned pawn damages adjacent units and replaces killed companions", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		pawn := NewCardInstance(baseCard(t, "1001101"), 0, 1)
+		pawn.Position = &Position{Col: 1, Row: 1}
+		killed := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		killed.CurrentLife = 1
+		survivor := placeUnit(baseCard(t, "1021001"), 0, 0, 1, engine)
+		survivor.CurrentLife = 3
+		if err := (Card1001101AbandonedPawn{}).OnDeath(&EffectContext{Engine: engine, Source: pawn, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("abandoned pawn deathrattle: %v", err)
+		}
+		if engine.State.Players[1].Units[1][0] == nil || engine.State.Players[1].Units[1][0].Card.Number != "1001101" {
+			t.Fatalf("abandoned pawn should replace killed adjacent companion, unit=%v", cardToInfo(engine.State.Players[1].Units[1][0]))
+		}
+		if len(engine.State.Players[1].Graveyard) != 1 || engine.State.Players[1].Graveyard[0] != killed {
+			t.Fatalf("killed adjacent companion should enter graveyard, grave=%v", cardsToInfo(engine.State.Players[1].Graveyard))
+		}
+		if survivor.CurrentLife != 2 || engine.State.Players[0].Units[0][1] != survivor {
+			t.Fatalf("surviving adjacent unit should only take damage, life=%d", survivor.CurrentLife)
+		}
+	})
+
+	t.Run("contradictory knight is summoned for opponent with reduced max life", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		knight := NewCardInstance(baseCard(t, "1521108"), 0, 1)
+		engine.State.Players[0].Graveyard = append(engine.State.Players[0].Graveyard, knight)
+		if err := (Card1521108ContradictoryKnight{}).OnDeath(&EffectContext{Engine: engine, Source: knight, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("contradictory knight deathrattle: %v", err)
+		}
+		posID := positionSelectionID(Position{Col: 0, Row: 0})
+		resolvePendingSelection(t, engine, 1, posID)
+		if len(engine.State.Players[0].Graveyard) != 0 {
+			t.Fatalf("contradictory knight should leave original graveyard, grave=%v", cardsToInfo(engine.State.Players[0].Graveyard))
+		}
+		summoned := engine.State.Players[1].Units[0][0]
+		if summoned != knight || summoned.OwnerID != 1 || summoned.Card.Life != 3 || summoned.CurrentLife != 3 {
+			t.Fatalf("contradictory knight should switch sides with max life -1, summoned=%+v", cardToInfo(summoned))
+		}
+	})
+
+	t.Run("radiant watchdog searches a discounted companion only when enemy killed it", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		watchdog := NewCardInstance(baseCard(t, "1521113"), 0, 1)
+		target := NewCardInstance(baseCard(t, "1521101"), 0, 1)
+		p0.Deck = []*CardInstance{target}
+		if err := (Card1521113RadiantWatchdog{}).OnDeath(&EffectContext{Engine: engine, Source: watchdog, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 1}}); err != nil {
+			t.Fatalf("radiant watchdog deathrattle: %v", err)
+		}
+		resolvePendingSelection(t, engine, 0, target.InstanceID)
+		if len(p0.Hand) != 1 || p0.Hand[0] != target {
+			t.Fatalf("radiant watchdog should search companion to hand, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
+		}
+		if cost := engine.effectiveCardPlayCost(p0, target); cost[model.ElementLight] != max(target.Card.ElementsCost[model.ElementLight]-1, 0) {
+			t.Fatalf("searched companion should have -1 light entry cost, cost=%v base=%v", cost, target.Card.ElementsCost)
+		}
+
+		friendlyEngine := setupReportedBugEngine(t)
+		friendlyEngine.State.Players[0].Deck = []*CardInstance{NewCardInstance(baseCard(t, "1521101"), 0, 1)}
+		if err := (Card1521113RadiantWatchdog{}).OnDeath(&EffectContext{Engine: friendlyEngine, Source: watchdog, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+			t.Fatalf("friendly killed watchdog deathrattle: %v", err)
+		}
+		if friendlyEngine.State.PendingAction != nil {
+			t.Fatalf("radiant watchdog should not trigger when killed by friendly source, pending=%+v", friendlyEngine.State.PendingAction)
+		}
+	})
+
+	t.Run("soul symbiote marks up to two friendly spells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		skill := readySkill(baseCard(t, "3021005"), 0)
+		p0.Skills[0] = skill
+		host := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		bound := readySkill(baseCard(t, "3221103"), 0)
+		bound.SlotIndex = -1
+		host.BoundSkills = []*CardInstance{bound}
+		symbiote := NewCardInstance(baseCard(t, "1621114"), 0, 1)
+		if err := (Card1621114SoulSymbiote{}).OnDeath(&EffectContext{Engine: engine, Source: symbiote, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("soul symbiote deathrattle: %v", err)
+		}
+		resolvePendingSelection(t, engine, 0, skill.InstanceID, bound.InstanceID)
+		if skill.Statuses[soulMarkerStatus] != 1 || skill.PowerBonus != 2 || bound.Statuses[soulMarkerStatus] != 1 || bound.PowerBonus != 2 {
+			t.Fatalf("soul symbiote should mark selected spells, skill status/power=%v/%d bound=%v/%d", skill.Statuses, skill.PowerBonus, bound.Statuses, bound.PowerBonus)
+		}
+	})
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

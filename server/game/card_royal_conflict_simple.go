@@ -19,6 +19,45 @@ func (Card1321108EmeraldHummingbird) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
+type Card1001101AbandonedPawn struct{ AlwaysActive }
+
+func (Card1001101AbandonedPawn) ID() string   { return "1001101" }
+func (Card1001101AbandonedPawn) Name() string { return "弃子" }
+func (Card1001101AbandonedPawn) OnDeath(ctx *EffectContext) error {
+	if ctx.Source == nil || ctx.Source.Position == nil {
+		return nil
+	}
+	pos := *ctx.Source.Position
+	damaged := adjacentUnits(ctx.Engine.State.Players[ctx.PlayerID], &pos)
+	damaged = append(damaged, adjacentUnits(ctx.Engine.State.Players[ctx.OpponentID], &pos)...)
+	for _, target := range damaged {
+		if target == nil || target.CurrentLife <= 0 {
+			continue
+		}
+		targetPos := Position{}
+		if target.Position != nil {
+			targetPos = *target.Position
+		}
+		ctx.Engine.dealDamageWithExtra(target, 1, target.OwnerID, map[string]any{
+			"damage_source": "effect",
+			"attacker":      ctx.PlayerID,
+		})
+		if target.CurrentLife <= 0 && !target.Card.IsHero() {
+			ownerID := target.OwnerID
+			if ctx.Engine.unitInOwnerGrid(target, ownerID) {
+				ctx.Engine.destroyUnitWithData(target, ownerID, map[string]any{
+					"death_cause": "abandoned_pawn",
+					"attacker":    ctx.PlayerID,
+				})
+			}
+			if ctx.Engine.State.Players[ownerID].Units[targetPos.Col][targetPos.Row] == nil {
+				ctx.Engine.summonFreshCardAtPosition(ownerID, "1001101", targetPos, true)
+			}
+		}
+	}
+	return nil
+}
+
 type Card1221106MirrorLotus struct{ AlwaysActive }
 
 func (Card1221106MirrorLotus) ID() string            { return "1221106" }
@@ -873,6 +912,81 @@ func (Card1521103LoneStarGuardianSpirit) OnDeath(ctx *EffectContext) error {
 	return nil
 }
 
+type Card1521108ContradictoryKnight struct{ AlwaysActive }
+
+func (Card1521108ContradictoryKnight) ID() string   { return "1521108" }
+func (Card1521108ContradictoryKnight) Name() string { return "矛盾的骑士" }
+func (Card1521108ContradictoryKnight) OnDeath(ctx *EffectContext) error {
+	opponentID := ctx.OpponentID
+	candidates := ctx.Engine.friendlyEmptyUnitPositions(opponentID)
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(opponentID, "contradictory_knight_summon",
+		"矛盾的骑士:选择位置为你召唤此卡", candidates, 1, 1,
+		func(selected []string) {
+			pos, ok := positionFromSelectionID(firstSelected(selected))
+			if !ok {
+				return
+			}
+			if !ctx.Engine.removeCardFromGraveyard(ctx.PlayerID, ctx.Source) {
+				return
+			}
+			if ctx.Source.Card.Life > 1 {
+				cardCopy := *ctx.Source.Card
+				cardCopy.Life--
+				ctx.Source.Card = &cardCopy
+			}
+			ctx.Source.OwnerID = opponentID
+			ctx.Source.CurrentLife = ctx.Source.Card.Life
+			ctx.Source.CurrentAttack = ctx.Source.Card.Attack
+			ctx.Source.DamageTakenThisTurn = 0
+			ctx.Source.IsHorizontal = true
+			ctx.Source.Position = nil
+			ctx.Source.Statuses = make(map[string]int)
+			ctx.Source.ElementsGainBonus = make(map[string]int)
+			ctx.Source.ElementsGainSet = nil
+			ctx.Source.PowerBonus = 0
+			ctx.Source.AttackBonus = 0
+			ctx.Source.UsedThisTurn = 0
+			ctx.Source.UltimateUsed = false
+			ctx.Source.BoundSkills = nil
+			ctx.Source.UnderCards = nil
+			ctx.Source.AttachedBehaviors = nil
+			ctx.Engine.placeExistingCompanionAtPosition(opponentID, ctx.Source, pos, true)
+		})
+	return nil
+}
+
+type Card1521113RadiantWatchdog struct{ AlwaysActive }
+
+func (Card1521113RadiantWatchdog) ID() string   { return "1521113" }
+func (Card1521113RadiantWatchdog) Name() string { return "辉之都戒卫犬" }
+func (Card1521113RadiantWatchdog) OnDeath(ctx *EffectContext) error {
+	if ctx.ExtraData == nil {
+		return nil
+	}
+	attacker, ok := ctx.ExtraData["attacker"].(int)
+	if !ok || attacker == ctx.PlayerID {
+		return nil
+	}
+	candidates := ctx.Engine.friendlyDeckCards(ctx.PlayerID, func(card *CardInstance) bool {
+		return card != nil && card.Card != nil && card.Card.IsCompanion()
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "radiant_watchdog_search",
+		"辉之都戒卫犬:翻取1个伙伴牌并使其入场花费-1光", candidates, 1, 1,
+		func(selected []string) {
+			card := ctx.Engine.searchDeckCardToHand(ctx.PlayerID, firstSelected(selected))
+			if card != nil {
+				card.Statuses["入场费用"+model.ElementLight+"-1"]++
+			}
+		})
+	return nil
+}
+
 type Card1621112WhisperElfHunter struct{ AlwaysActive }
 
 func (Card1621112WhisperElfHunter) ID() string   { return "1621112" }
@@ -910,6 +1024,39 @@ func (Card1621113WhisperElfPriest) OnDeath(ctx *EffectContext) error {
 			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, firstSelected(selected))
 			if target != nil && zone == "unit" && target.Card != nil && target.Card.IsCompanion() {
 				ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementShadow, 1, ctx.Source)
+			}
+		})
+	return nil
+}
+
+type Card1621114SoulSymbiote struct{ AlwaysActive }
+
+const soulMarkerStatus = "灵魂标记物"
+
+func (Card1621114SoulSymbiote) ID() string   { return "1621114" }
+func (Card1621114SoulSymbiote) Name() string { return "灵魂共生体" }
+func (Card1621114SoulSymbiote) OnDeath(ctx *EffectContext) error {
+	candidates := ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, func(skill *CardInstance) bool {
+		return skill != nil && skill.Card != nil && skill.Card.IsSkill()
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "soul_symbiote_mark_skills",
+		"灵魂共生体:选择最多2个法术放置灵魂标记物", candidates, 0, 2,
+		func(selected []string) {
+			seen := map[string]bool{}
+			for _, id := range selected {
+				if seen[id] {
+					continue
+				}
+				seen[id] = true
+				skill := ctx.Engine.findSkill(ctx.Engine.State.Players[ctx.PlayerID], id)
+				if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
+					continue
+				}
+				skill.Statuses[soulMarkerStatus]++
+				skill.PowerBonus += 2
 			}
 		})
 	return nil
@@ -1407,6 +1554,53 @@ func (e *Engine) hasResettableEarthCompanion(playerID int) bool {
 			card.Card.Category == model.ElementEarth &&
 			card.IsHorizontal
 	})) > 0
+}
+
+func (e *Engine) removeCardFromGraveyard(playerID int, card *CardInstance) bool {
+	if card == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return false
+	}
+	ps := e.State.Players[playerID]
+	for i, candidate := range ps.Graveyard {
+		if candidate == card {
+			ps.Graveyard = append(ps.Graveyard[:i], ps.Graveyard[i+1:]...)
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Engine) placeExistingCompanionAtPosition(playerID int, card *CardInstance, pos Position, triggerEnter bool) bool {
+	if card == nil || card.Card == nil || !card.Card.IsCompanion() || !pos.Valid() || playerID < 0 || playerID >= len(e.State.Players) {
+		return false
+	}
+	ps := e.State.Players[playerID]
+	if ps.Units[pos.Col][pos.Row] != nil {
+		return false
+	}
+	card.OwnerID = playerID
+	card.Position = &Position{Col: pos.Col, Row: pos.Row}
+	card.EnterTurn = e.State.TurnNumber
+	ps.Units[pos.Col][pos.Row] = card
+	e.ApplySummonModifiersOnEnter(card)
+	if triggerEnter {
+		e.triggerEffects(TriggerOnEnter, card, nil, nil)
+		e.triggerFieldEffectsWithData(TriggerOnUnitEnter, playerID, card, map[string]any{"entered_player": playerID})
+		e.triggerFieldEffectsWithData(TriggerOnUnitEnter, 1-playerID, card, map[string]any{"entered_player": playerID})
+	}
+	return true
+}
+
+func (e *Engine) summonFreshCardAtPosition(playerID int, cardNumber string, pos Position, triggerEnter bool) *CardInstance {
+	cardDef := getCardDB()[cardNumber]
+	if cardDef == nil {
+		return nil
+	}
+	instance := NewCardInstance(cardDef, playerID, e.State.TurnNumber)
+	if !e.placeExistingCompanionAtPosition(playerID, instance, pos, triggerEnter) {
+		return nil
+	}
+	return instance
 }
 
 func adjacentFriendlyCompanions(ctx *EffectContext) []map[string]any {
