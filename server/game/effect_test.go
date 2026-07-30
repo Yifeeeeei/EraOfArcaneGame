@@ -2477,6 +2477,19 @@ func TestRoyalConflictResetAndTemporaryAbilityEffects(t *testing.T) {
 		if effectiveElementsGain(butterfly)[model.ElementAir] != butterfly.Card.ElementsGain[model.ElementAir] || butterfly.Statuses[fireButterflyTemporaryLoadStatus] != 0 {
 			t.Fatalf("fire butterfly temporary load should expire, load=%v statuses=%v", effectiveElementsGain(butterfly), butterfly.Statuses)
 		}
+
+		overridden := NewCardInstance(baseCard(t, "1121108"), 0, 1)
+		if err := (Card1121108FireButterfly{}).OnPerTurn(&EffectContext{Engine: engine, Source: overridden, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("fire butterfly second ability: %v", err)
+		}
+		setElementsGain(overridden, map[string]int{model.ElementFire: 2})
+		if err := (Card1121108FireButterfly{}).OnTurnEnd(&EffectContext{Engine: engine, Source: overridden, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("fire butterfly overridden turn end: %v", err)
+		}
+		overriddenLoad := effectiveElementsGain(overridden)
+		if overriddenLoad[model.ElementFire] != 2 || overriddenLoad[model.ElementAir] != 0 {
+			t.Fatalf("fire butterfly should not overwrite a later load override, load=%v", overriddenLoad)
+		}
 	})
 
 	t.Run("water mage resets a low-cost water spell", func(t *testing.T) {
@@ -2495,12 +2508,19 @@ func TestRoyalConflictResetAndTemporaryAbilityEffects(t *testing.T) {
 		}
 
 		failEngine := setupReportedBugEngine(t)
-		failMage := NewCardInstance(baseCard(t, "1221112"), 0, 1)
+		failMage := placeUnit(baseCard(t, "1221112"), 0, 0, 0, failEngine)
 		if err := (Card1221112WaterMage{}).OnUltimate(&EffectContext{Engine: failEngine, Source: failMage, PlayerID: 0, OpponentID: 1}); err != nil {
 			t.Fatalf("water mage should no-op without a resettable water spell: %v", err)
 		}
 		if failEngine.State.PendingAction != nil {
 			t.Fatalf("water mage should not open a prompt without legal targets, pending=%+v", failEngine.State.PendingAction)
+		}
+		err := failEngine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  failMage.InstanceID,
+			"ability_type": "ultimate",
+		}})
+		if err == nil || failMage.UltimateUsed {
+			t.Fatalf("water mage action should fail without burning ultimate, err=%v ultimateUsed=%v", err, failMage.UltimateUsed)
 		}
 	})
 
@@ -2547,11 +2567,19 @@ func TestRoyalConflictResetAndTemporaryAbilityEffects(t *testing.T) {
 
 		failEngine := setupReportedBugEngine(t)
 		failGem := NewCardInstance(baseCard(t, "2421112"), 0, 1)
+		failEngine.State.Players[0].Equipment[0] = failGem
 		if err := (Card2421112AutumnMapleGem{}).OnPerTurn(&EffectContext{Engine: failEngine, Source: failGem, PlayerID: 0, OpponentID: 1}); err != nil {
 			t.Fatalf("autumn maple gem should no-op without counters: %v", err)
 		}
 		if failEngine.State.PendingAction != nil {
 			t.Fatalf("autumn maple gem should not open a prompt without counters, pending=%+v", failEngine.State.PendingAction)
+		}
+		err := failEngine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  failGem.InstanceID,
+			"ability_type": "per_turn",
+		}})
+		if err == nil || failGem.UsedThisTurn != 0 {
+			t.Fatalf("autumn maple gem action should fail without burning use, err=%v used=%d", err, failGem.UsedThisTurn)
 		}
 	})
 }

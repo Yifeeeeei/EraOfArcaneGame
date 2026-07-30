@@ -1822,7 +1822,6 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 		dmg = max(override, 0)
 	}
 	dmg = e.effectiveSpellDamage(attackerID, skill, dmg, boostSkills)
-	e.consumeNextSpellAttackBonuses(e.State.Players[attackerID], skill)
 	e.consumeNextElementSpellDamageBonus(e.State.Players[attackerID], skill)
 	e.consumeAllSpellDamageZero(e.State.Players[attackerID], skill)
 	e.consumeAllSpellDamageZero(e.State.Players[defenderID], skill)
@@ -1868,6 +1867,7 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 			if hitCancelled {
 				return
 			}
+			e.consumeNextSpellAttackBonuses(e.State.Players[attackerID], skill)
 
 			if dmg > 0 {
 				spellDamageData := map[string]any{
@@ -3356,6 +3356,9 @@ func (e *Engine) handleUseAbility(playerID int, action ActionMessage) error {
 		if card.UsedThisTurn >= maxUses {
 			return fmt.Errorf("ability already used this turn")
 		}
+		if err := e.validatePerTurnPreconditions(card); err != nil {
+			return err
+		}
 	}
 
 	// Find target if specified
@@ -3433,6 +3436,26 @@ func (e *Engine) validateUltimatePreconditions(card *CardInstance) error {
 		}
 		if len(e.enemyUnits(card.OwnerID, true, nil)) == 0 {
 			return fmt.Errorf("Su ultimate requires an enemy target")
+		}
+	case "1221112":
+		if !e.hasResettableWaterSpell(card.OwnerID) {
+			return fmt.Errorf("水魔导师需要1个已横置且使用花费小于3的水纹法术")
+		}
+	}
+	return nil
+}
+
+func (e *Engine) validatePerTurnPreconditions(card *CardInstance) error {
+	if card == nil || card.Card == nil {
+		return nil
+	}
+	switch card.Card.Number {
+	case "2421112":
+		if card.Statuses[autumnMapleGemCounter] <= 0 {
+			return fmt.Errorf("秋枫宝钻没有标记物")
+		}
+		if !e.hasResettableEarthCompanion(card.OwnerID) {
+			return fmt.Errorf("秋枫宝钻需要1个已横置的地脉伙伴")
 		}
 	}
 	return nil

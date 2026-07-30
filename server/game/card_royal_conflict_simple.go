@@ -250,7 +250,11 @@ func (Card1121103BeaconGuard) OnEnter(ctx *EffectContext) error {
 
 type Card1121108FireButterfly struct{ AlwaysActive }
 
-const fireButterflyTemporaryLoadStatus = "火蝴蝶临时负载"
+const (
+	fireButterflyTemporaryLoadStatus     = "火蝴蝶临时负载"
+	fireButterflyPreviousLoadSetStatus   = "火蝴蝶原负载覆盖"
+	fireButterflyPreviousLoadValuePrefix = "火蝴蝶原负载:"
+)
 
 func (Card1121108FireButterfly) ID() string   { return "1121108" }
 func (Card1121108FireButterfly) Name() string { return "火蝴蝶" }
@@ -258,6 +262,15 @@ func (Card1121108FireButterfly) PerTurnLabel(*CardInstance) string {
 	return "主动"
 }
 func (Card1121108FireButterfly) OnPerTurn(ctx *EffectContext) error {
+	clearFireButterflyStoredLoad(ctx.Source)
+	if ctx.Source.ElementsGainSet != nil {
+		ctx.Source.Statuses[fireButterflyPreviousLoadSetStatus] = 1
+		for _, elem := range model.AllElements {
+			if amount := ctx.Source.ElementsGainSet[elem]; amount != 0 {
+				ctx.Source.Statuses[fireButterflyPreviousLoadValuePrefix+elem] = amount
+			}
+		}
+	}
 	setElementsGain(ctx.Source, map[string]int{model.ElementAir: 1})
 	ctx.Source.Statuses[fireButterflyTemporaryLoadStatus] = 1
 	return nil
@@ -266,8 +279,20 @@ func (Card1121108FireButterfly) OnTurnEnd(ctx *EffectContext) error {
 	if ctx.Source.Statuses[fireButterflyTemporaryLoadStatus] <= 0 {
 		return nil
 	}
-	clearElementsGainSet(ctx.Source)
-	delete(ctx.Source.Statuses, fireButterflyTemporaryLoadStatus)
+	if fireButterflyTemporaryLoadStillCurrent(ctx.Source) {
+		if ctx.Source.Statuses[fireButterflyPreviousLoadSetStatus] > 0 {
+			previous := make(map[string]int)
+			for _, elem := range model.AllElements {
+				if amount := ctx.Source.Statuses[fireButterflyPreviousLoadValuePrefix+elem]; amount != 0 {
+					previous[elem] = amount
+				}
+			}
+			setElementsGain(ctx.Source, previous)
+		} else {
+			clearElementsGainSet(ctx.Source)
+		}
+	}
+	clearFireButterflyStoredLoad(ctx.Source)
 	return nil
 }
 
@@ -1336,6 +1361,52 @@ func elementChoiceCandidates(sourceNumber string, elements ...string) []map[stri
 
 func isNonArcaneElement(elem string) bool {
 	return elem == model.ElementFire || elem == model.ElementWater || elem == model.ElementEarth || elem == model.ElementAir || elem == model.ElementLight || elem == model.ElementShadow
+}
+
+func fireButterflyTemporaryLoadStillCurrent(card *CardInstance) bool {
+	if card == nil || card.ElementsGainSet == nil {
+		return false
+	}
+	if card.ElementsGainSet[model.ElementAir] != 1 {
+		return false
+	}
+	for _, elem := range model.AllElements {
+		if elem == model.ElementAir {
+			continue
+		}
+		if card.ElementsGainSet[elem] != 0 {
+			return false
+		}
+	}
+	return true
+}
+
+func clearFireButterflyStoredLoad(card *CardInstance) {
+	if card == nil {
+		return
+	}
+	delete(card.Statuses, fireButterflyTemporaryLoadStatus)
+	delete(card.Statuses, fireButterflyPreviousLoadSetStatus)
+	for _, elem := range model.AllElements {
+		delete(card.Statuses, fireButterflyPreviousLoadValuePrefix+elem)
+	}
+}
+
+func (e *Engine) hasResettableWaterSpell(playerID int) bool {
+	return len(e.friendlySkillsIncludingBound(playerID, func(skill *CardInstance) bool {
+		return skill != nil && skill.Card != nil && skill.Card.IsSkill() &&
+			skill.Card.Category == model.ElementWater &&
+			totalElementCost(skill.Card.ElementsExpense) < 3 &&
+			skill.IsHorizontal
+	})) > 0
+}
+
+func (e *Engine) hasResettableEarthCompanion(playerID int) bool {
+	return len(e.friendlyUnits(playerID, false, func(card *CardInstance) bool {
+		return card != nil && card.Card != nil && card.Card.IsCompanion() &&
+			card.Card.Category == model.ElementEarth &&
+			card.IsHorizontal
+	})) > 0
 }
 
 func adjacentFriendlyCompanions(ctx *EffectContext) []map[string]any {
