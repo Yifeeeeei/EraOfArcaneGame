@@ -353,6 +353,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"1511101": func() CardBehavior {
 		return royalShieldOnEnter{id: "1511101", name: "末路的王子 灰烬 凯尔特", amount: 2}
 	},
+	"1511102": func() CardBehavior { return Card1511102LoneStarSoul{} },
 	"1521103": func() CardBehavior { return Card1521103LoneStarGuardianSpirit{} },
 	"1521106": func() CardBehavior { return Card1521106ChurchExorcist{} },
 	"1521108": func() CardBehavior { return Card1521108ContradictoryKnight{} },

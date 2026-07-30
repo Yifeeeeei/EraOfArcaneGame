@@ -701,6 +701,26 @@ func (Card1521115LoneStarIronKnight) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
+type Card1511102LoneStarSoul struct{ AlwaysActive }
+
+func (Card1511102LoneStarSoul) ID() string   { return "1511102" }
+func (Card1511102LoneStarSoul) Name() string { return "孤星之魂 凯拉莫将军" }
+func (Card1511102LoneStarSoul) OnDamaged(ctx *EffectContext) error {
+	if ctx == nil || ctx.Source == nil || ctx.Target != nil || ctx.ExtraData == nil {
+		return nil
+	}
+	attacker, hasAttacker := ctx.ExtraData["attacker"].(int)
+	if !hasAttacker || attacker == ctx.PlayerID {
+		return nil
+	}
+	if len(adjacentFriendlyCompanions(ctx)) > 0 {
+		return nil
+	}
+	ctx.Engine.gainPlayerShield(ctx.PlayerID, 1)
+	ctx.Source.CurrentAttack++
+	return nil
+}
+
 type Card1421105InactiveRoot struct{ AlwaysActive }
 
 func (Card1421105InactiveRoot) ID() string            { return "1421105" }

@@ -2215,6 +2215,32 @@ func TestRoyalConflictLoadChoiceEffects(t *testing.T) {
 			t.Fatalf("1521115 should not buff behind the current front row, life=%d load=%v", back.CurrentLife, effectiveElementsGain(back))
 		}
 	})
+
+	t.Run("lone star soul gains shield and attack after enemy damage only while isolated", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		soul := placeUnit(baseCard(t, "1511102"), 0, 1, 1, engine)
+
+		engine.dealDamageWithExtra(soul, 1, 0, map[string]any{"attacker": 1})
+		if p0.Shield != 1 || soul.CurrentAttack != soul.Card.Attack+1 {
+			t.Fatalf("1511102 should gain shield and attack after enemy damage while isolated, shield=%d attack=%d", p0.Shield, soul.CurrentAttack)
+		}
+
+		p0.Shield = 0
+		engine.dealDamageWithExtra(soul, 1, 0, map[string]any{"attacker": 0})
+		if p0.Shield != 0 || soul.CurrentAttack != soul.Card.Attack+1 {
+			t.Fatalf("1511102 should ignore friendly-source damage, shield=%d attack=%d", p0.Shield, soul.CurrentAttack)
+		}
+
+		blockedEngine := setupReportedBugEngine(t)
+		blockedP0 := blockedEngine.State.Players[0]
+		blockedSoul := placeUnit(baseCard(t, "1511102"), 0, 1, 1, blockedEngine)
+		placeUnit(baseCard(t, "1021001"), 0, 1, 0, blockedEngine)
+		blockedEngine.dealDamageWithExtra(blockedSoul, 1, 0, map[string]any{"attacker": 1})
+		if blockedP0.Shield != 0 || blockedSoul.CurrentAttack != blockedSoul.Card.Attack {
+			t.Fatalf("1511102 should not trigger with adjacent friendly companions, shield=%d attack=%d", blockedP0.Shield, blockedSoul.CurrentAttack)
+		}
+	})
 }
 
 func TestRoyalConflictRuneAndDiscardEffects(t *testing.T) {
