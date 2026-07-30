@@ -4817,6 +4817,38 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 			t.Fatalf("3221103 should gain 1 shield after successful defense, shield=%d", engine.State.Players[0].Shield)
 		}
 	})
+
+	t.Run("corrosive flow discards a random enemy hand card on hit", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p1 := engine.State.Players[1]
+		p1.Hand = []*CardInstance{
+			NewCardInstance(baseCard(t, "1021001"), 1, engine.State.TurnNumber),
+			NewCardInstance(baseCard(t, "1021002"), 1, engine.State.TurnNumber),
+		}
+		skill := readySkill(baseCard(t, "3221105"), 0)
+		behavior := Card3221105CorrosiveFlow{}
+
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+			t.Fatalf("3221105 hit: %v", err)
+		}
+		if len(p1.Hand) != 1 || len(p1.Graveyard) != 1 {
+			t.Fatalf("3221105 should discard one enemy hand card, hand=%d grave=%d", len(p1.Hand), len(p1.Graveyard))
+		}
+	})
+
+	t.Run("petrifying death ray applies petrify three", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		skill := readySkill(baseCard(t, "3421109"), 0)
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		if !skillNeedsTargetInstance(skill) || traitsForCardNumber("3421109").statuses[StatusPetrify] != 3 {
+			t.Fatalf("3421109 should target and carry petrify 3 traits")
+		}
+		engine.applyExplicitSpellHitStatuses(skill, target)
+		if target.Statuses[StatusPetrify] != 3 {
+			t.Fatalf("3421109 should apply petrify 3, statuses=%v", target.Statuses)
+		}
+	})
 }
 
 func TestEffectSystemIntegration(t *testing.T) {

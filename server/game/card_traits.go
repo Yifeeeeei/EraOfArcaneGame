@@ -180,6 +180,8 @@ func traitsForCardNumber(number string) cardTraits {
 		t.needsTarget = truePtr()
 	case "2121109", "2121112", "2221110", "2521112", "3011101", "3021102", "3111101", "3121101", "3121102", "3121104", "3121105", "3121106", "3121107", "3121108", "3211101", "3221102", "3221103", "3221104", "3221107", "3221108", "3221110", "3321101", "3321102", "3321103", "3321104", "3411102", "3421102", "3421106", "3421107", "3421108", "3511102", "3521103", "3521106", "3521107", "3621107", "3621109":
 		t.needsTarget = truePtr()
+	case "3421109":
+		t.needsTarget = truePtr()
 	}
 
 	switch number {
@@ -205,6 +207,8 @@ func traitsForCardNumber(number string) cardTraits {
 		t.statuses = map[string]int{StatusPetrify: 1}
 	case "2421005", "3421009":
 		t.statuses = map[string]int{StatusPetrify: 2}
+	case "3421109":
+		t.statuses = map[string]int{StatusPetrify: 3}
 	case "2621001", "3621009", "3621014":
 		t.statuses = map[string]int{StatusWeaken: 2}
 	}
