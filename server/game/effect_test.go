@@ -5140,6 +5140,39 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		if killedP0.Elements[model.ElementShadow] != 2 || len(killedP0.TempModifiers) != 2 {
 			t.Fatalf("3621101 should reward actual friendly damage even after target leaves, elements=%v modifiers=%+v", killedP0.Elements, killedP0.TempModifiers)
 		}
+
+		lethalEngine := setupEffectTest(t)
+		lethalP0 := lethalEngine.State.Players[0]
+		for i := range lethalP0.Skills {
+			lethalP0.Skills[i] = nil
+		}
+		lethalSkill := readySkill(baseCard(t, "3621101"), 0)
+		lethalP0.Skills[0] = lethalSkill
+		lethalFriend := placeUnit(baseCard(t, "1021001"), 0, 0, 0, lethalEngine)
+		lethalFriend.CurrentLife = 1
+		ownerID := 0
+		lethalEngine.resolveSpellHit(0, lethalSkill, SpellTarget{Type: "unit", Position: *lethalFriend.Position, OwnerID: &ownerID}, nil, nil)
+		if lethalP0.Elements[model.ElementShadow] != 2 || len(lethalP0.TempModifiers) != 2 {
+			t.Fatalf("3621101 should reward real lethal friendly spell damage, elements=%v modifiers=%+v", lethalP0.Elements, lethalP0.TempModifiers)
+		}
+		if lethalEngine.State.Players[0].Units[0][0] != nil {
+			t.Fatalf("3621101 test target should have died from real spell damage")
+		}
+
+		preventEngine := setupEffectTest(t)
+		preventP0 := preventEngine.State.Players[0]
+		for i := range preventP0.Skills {
+			preventP0.Skills[i] = nil
+		}
+		preventSkill := readySkill(baseCard(t, "3621101"), 0)
+		preventP0.Skills[0] = preventSkill
+		preventFriend := placeUnit(baseCard(t, "1021001"), 0, 0, 0, preventEngine)
+		preventFriend.Statuses[sturdyScrollShieldStatus] = 1
+		preventFriend.Statuses[sturdyScrollShieldUntilStatus] = preventEngine.State.TurnNumber
+		preventEngine.resolveSpellHit(0, preventSkill, SpellTarget{Type: "unit", Position: *preventFriend.Position, OwnerID: &ownerID}, nil, nil)
+		if preventP0.Elements[model.ElementShadow] != 0 || len(preventP0.TempModifiers) != 0 {
+			t.Fatalf("3621101 should not reward prevented friendly spell damage, elements=%v modifiers=%+v", preventP0.Elements, preventP0.TempModifiers)
+		}
 	})
 }
 
