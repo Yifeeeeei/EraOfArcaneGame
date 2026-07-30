@@ -815,15 +815,10 @@ func (Card2621109ElegyScroll) ID() string   { return "2621109" }
 func (Card2621109ElegyScroll) Name() string { return "哀歌卷轴" }
 func (Card2621109ElegyScroll) OnUseItem(ctx *EffectContext) error {
 	hasShadowGrave := countShadowCompanionsInGraveyard(ctx.Engine.State.Players[ctx.PlayerID]) > 0
-	searchDeckToHandByPredicateWithResult(ctx,
-		"elegy_scroll_search_shadow_deathrattle",
-		"哀歌卷轴:翻取1个具有遗言的暗影伙伴",
-		isShadowCompanionWithDeathrattle,
-		func(card *CardInstance) {
-			if hasShadowGrave && card != nil {
-				card.Statuses["入场费用"+model.ElementShadow+"-1"]++
-			}
-		})
+	drawn := ctx.Engine.flipDeckMatchesToHand(ctx.PlayerID, 1, 0, isShadowCompanionWithDeathrattle)
+	if hasShadowGrave && len(drawn) > 0 {
+		drawn[0].Statuses["入场费用"+model.ElementShadow+"-1"]++
+	}
 	return nil
 }
 
