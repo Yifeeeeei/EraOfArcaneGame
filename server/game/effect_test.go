@@ -3061,6 +3061,36 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("seven gods blessing rewards distinct skill elements", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		blessing := readySkill(baseCard(t, "3021104"), 0)
+		fireSpell := readySkill(baseCard(t, "3121001"), 0)
+		waterSorcery := readySkill(baseCard(t, "3221007"), 0)
+		p0.Skills[0] = blessing
+		p0.Skills[1] = fireSpell
+		p0.Skills[2] = waterSorcery
+
+		if got := engine.effectiveSkillUseCost(p0, fireSpell)[model.ElementFire]; got != max(fireSpell.Card.ElementsExpense[model.ElementFire]-1, 0) {
+			t.Fatalf("3021104 should reduce distinct fire skill use cost, cost=%v", engine.effectiveSkillUseCost(p0, fireSpell))
+		}
+		if got := engine.effectiveSkillUseCost(p0, waterSorcery)[model.ElementWater]; got != max(waterSorcery.Card.ElementsExpense[model.ElementWater]-1, 0) {
+			t.Fatalf("3021104 should reduce distinct water skill use cost, cost=%v", engine.effectiveSkillUseCost(p0, waterSorcery))
+		}
+		if got := engine.effectiveSpellPower(0, fireSpell, nil); got != fireSpell.Card.Power+2 {
+			t.Fatalf("3021104 should give spell skills +2 power when elements are distinct, got=%d", got)
+		}
+
+		duplicateFire := readySkill(baseCard(t, "3121002"), 0)
+		p0.Skills[3] = duplicateFire
+		if got := engine.effectiveSkillUseCost(p0, fireSpell)[model.ElementFire]; got != fireSpell.Card.ElementsExpense[model.ElementFire] {
+			t.Fatalf("3021104 should not reduce costs when skill elements repeat, cost=%v", engine.effectiveSkillUseCost(p0, fireSpell))
+		}
+		if got := engine.effectiveSpellPower(0, fireSpell, nil); got != fireSpell.Card.Power {
+			t.Fatalf("3021104 should not add power when skill elements repeat, got=%d", got)
+		}
+	})
+
 	t.Run("church envoy removes negative statuses from friendly cards", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
