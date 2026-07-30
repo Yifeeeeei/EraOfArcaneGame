@@ -3909,6 +3909,52 @@ func TestRoyalConflictResetAndTemporaryAbilityEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("winterfell anti mage discounts each learned skill's next use by one water", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		mage := placeUnit(baseCard(t, "1221115"), 0, 0, 0, engine)
+		first := readySkill(baseCard(t, "3221106"), 0)
+		second := readySkill(baseCard(t, "3221107"), 0)
+		p0.Skills[0] = first
+		p0.Skills[1] = second
+		p0.Elements = map[string]int{model.ElementWater: 10, model.ElementAir: 10}
+
+		if err := (Card1221115WinterfellAntiMage{}).OnPrayer(&EffectContext{Engine: engine, Source: mage, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1221115 prayer: %v", err)
+		}
+		if len(p0.TempModifiers) != 2 {
+			t.Fatalf("1221115 should add one next-use cost modifier per learned skill, modifiers=%+v", p0.TempModifiers)
+		}
+		if got := engine.effectiveSkillUseCost(p0, first)[model.ElementWater]; got != 1 {
+			t.Fatalf("1221115 should reduce first skill water use cost by 1, cost=%v", engine.effectiveSkillUseCost(p0, first))
+		}
+		secondCost := engine.effectiveSkillUseCost(p0, second)
+		if secondCost[model.ElementWater] != 2 || secondCost[model.ElementAir] != 1 {
+			t.Fatalf("1221115 should reduce only water component of second skill, cost=%v", secondCost)
+		}
+
+		target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id":  first.InstanceID,
+			"target_type":  "unit",
+			"target_col":   float64(target.Position.Col),
+			"target_row":   float64(target.Position.Row),
+			"target_owner": float64(1),
+		}})
+		if err != nil {
+			t.Fatalf("use discounted first skill: %v", err)
+		}
+		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].TargetInstanceID != second.InstanceID {
+			t.Fatalf("using first skill should consume only its next-use modifier, modifiers=%+v", p0.TempModifiers)
+		}
+		if got := engine.effectiveSkillUseCost(p0, first)[model.ElementWater]; got != 2 {
+			t.Fatalf("first skill discount should be gone after use, cost=%v", engine.effectiveSkillUseCost(p0, first))
+		}
+		if got := engine.effectiveSkillUseCost(p0, second)[model.ElementWater]; got != 2 {
+			t.Fatalf("second skill discount should remain after first skill use, cost=%v", engine.effectiveSkillUseCost(p0, second))
+		}
+	})
+
 	t.Run("silverleaf ranger consumes for the next spell attack bonus", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]

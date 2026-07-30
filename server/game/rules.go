@@ -104,6 +104,9 @@ func (e *Engine) effectiveSkillUseCostForPurpose(ps *PlayerState, skill *CardIns
 			}
 			reduceCost(cost, elem, parsePositiveInt(status[len(key):])*amount)
 		}
+		if reduction := e.temporaryNextSkillUseCostMinus(ps, skill, elem); reduction > 0 {
+			reduceCost(cost, elem, reduction)
+		}
 	}
 	if !isBoostPurpose(purpose) && e.nextSkillCostZeroModifier(ps, skill) != nil {
 		for elem := range cost {

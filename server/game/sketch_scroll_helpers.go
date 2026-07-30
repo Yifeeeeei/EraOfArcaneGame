@@ -83,6 +83,7 @@ func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, ta
 		return fmt.Errorf("not enough elements")
 	}
 	e.applySkillUseCooldownModifiers(ps, skill)
+	e.consumeNextSkillUseModifiers(ps, skill)
 	e.advanceMasteryForUsedSkills(playerID, skill)
 	totalPower := e.effectiveSpellPower(playerID, skill, nil, target)
 	isSorcery := isSorcerySkill(skill.Card)

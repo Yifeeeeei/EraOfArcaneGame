@@ -1296,6 +1296,9 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		e.moveHandConsumablesToGraveyard(ps, append(defenseScrolls, boostScrolls...))
 		usedSkills := append([]*CardInstance{}, defenseSkills...)
 		usedSkills = append(usedSkills, boostSkills...)
+		for _, usedSkill := range usedSkills {
+			e.consumeNextSkillUseModifiers(ps, usedSkill)
+		}
 		e.advanceMasteryForUsedSkills(playerID, usedSkills...)
 	}
 
