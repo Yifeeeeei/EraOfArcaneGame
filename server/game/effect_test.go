@@ -3145,6 +3145,36 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("arcane flow doubles only itself while friendly field is all arcane", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		hero := NewCardInstance(baseCard(t, "4011102"), 0, 1)
+		arcaneFlow := readySkill(baseCard(t, "3021106"), 0)
+		otherSpell := readySkill(baseCard(t, "3021008"), 0)
+		p0.Hero = hero
+		p0.Units[1][1] = hero
+		p0.Skills[0] = arcaneFlow
+		p0.Skills[1] = otherSpell
+
+		if got := engine.effectiveSpellPower(0, arcaneFlow, nil); got != arcaneFlow.Card.Power*2 {
+			t.Fatalf("3021106 should double its own power on all-arcane field, got=%d", got)
+		}
+		if got := engine.effectiveSpellPower(0, otherSpell, nil); got != otherSpell.Card.Power {
+			t.Fatalf("3021106 should not double other spells, got=%d", got)
+		}
+
+		p0.Units[1][0] = NewCardInstance(baseCard(t, "1121001"), 0, 1)
+		if got := engine.effectiveSpellPower(0, arcaneFlow, nil); got != arcaneFlow.Card.Power {
+			t.Fatalf("3021106 should not double with a non-arcane friendly field card, got=%d", got)
+		}
+
+		p0.Units[1][0] = nil
+		arcaneFlow.Statuses[StatusPetrify] = 1
+		if got := engine.effectiveSpellPower(0, arcaneFlow, nil); got != arcaneFlow.Card.Power {
+			t.Fatalf("3021106 aura should be inactive while petrified, got=%d statuses=%v", got, arcaneFlow.Statuses)
+		}
+	})
+
 	t.Run("rock wall monster limits damage while its owner has no learned spells", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		monster := placeUnit(baseCard(t, "1421111"), 0, 0, 0, engine)
