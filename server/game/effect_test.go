@@ -2478,6 +2478,19 @@ func TestRoyalConflictResetAndTemporaryAbilityEffects(t *testing.T) {
 			t.Fatalf("fire butterfly temporary load should expire, load=%v statuses=%v", effectiveElementsGain(butterfly), butterfly.Statuses)
 		}
 
+		preset := NewCardInstance(baseCard(t, "1121108"), 0, 1)
+		setElementsGain(preset, map[string]int{model.ElementFire: 2})
+		if err := (Card1121108FireButterfly{}).OnPerTurn(&EffectContext{Engine: engine, Source: preset, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("fire butterfly preset ability: %v", err)
+		}
+		if err := (Card1121108FireButterfly{}).OnTurnEnd(&EffectContext{Engine: engine, Source: preset, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("fire butterfly preset turn end: %v", err)
+		}
+		presetLoad := effectiveElementsGain(preset)
+		if presetLoad[model.ElementFire] != 2 || presetLoad[model.ElementAir] != 0 {
+			t.Fatalf("fire butterfly should restore an earlier load override, load=%v", presetLoad)
+		}
+
 		overridden := NewCardInstance(baseCard(t, "1121108"), 0, 1)
 		if err := (Card1121108FireButterfly{}).OnPerTurn(&EffectContext{Engine: engine, Source: overridden, PlayerID: 0, OpponentID: 1}); err != nil {
 			t.Fatalf("fire butterfly second ability: %v", err)

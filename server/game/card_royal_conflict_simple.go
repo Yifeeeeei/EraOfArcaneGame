@@ -271,7 +271,7 @@ func (Card1121108FireButterfly) OnPerTurn(ctx *EffectContext) error {
 			}
 		}
 	}
-	setElementsGain(ctx.Source, map[string]int{model.ElementAir: 1})
+	ctx.Source.ElementsGainSet = map[string]int{model.ElementAir: 1}
 	ctx.Source.Statuses[fireButterflyTemporaryLoadStatus] = 1
 	return nil
 }
