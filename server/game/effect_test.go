@@ -4139,6 +4139,63 @@ func TestRoyalConflictSimpleActiveAbilityEffects(t *testing.T) {
 }
 
 func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
+	t.Run("lava fort hellhound damages two units after effect consume", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		hellhound := placeUnit(baseCard(t, "1121113"), 0, 0, 0, engine)
+		ally := placeUnit(baseCard(t, "1121101"), 0, 1, 0, engine)
+		enemy := placeUnit(baseCard(t, "1121101"), 1, 0, 0, engine)
+		outOfRangeEnemy := placeUnit(baseCard(t, "1121101"), 1, 1, 1, engine)
+		behavior := Card1121113LavaFortHellhound{}
+
+		if err := behavior.OnConsume(&EffectContext{
+			Engine:     engine,
+			Source:     hellhound,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"consumed_player": 0, "gained": map[string]int{model.ElementFire: 3}},
+		}); err != nil {
+			t.Fatalf("1121113 normal consume: %v", err)
+		}
+		if engine.State.PendingAction != nil || hellhound.UsedThisTurn != 0 {
+			t.Fatalf("1121113 should ignore ordinary consumes, pending=%+v used=%d", engine.State.PendingAction, hellhound.UsedThisTurn)
+		}
+
+		if err := behavior.OnConsume(&EffectContext{
+			Engine:     engine,
+			Source:     hellhound,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"consumed_player": 0, "consume_source": "2121108", "gained": map[string]int{model.ElementFire: 3}},
+		}); err != nil {
+			t.Fatalf("1121113 effect consume: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "lava_fort_hellhound_damage" || hellhound.UsedThisTurn != 1 {
+			t.Fatalf("1121113 should ask for two damage targets after effect consume, pending=%+v used=%d", engine.State.PendingAction, hellhound.UsedThisTurn)
+		}
+		for _, candidate := range engine.State.PendingAction.Candidates {
+			if candidate["instance_id"] == outOfRangeEnemy.InstanceID {
+				t.Fatalf("1121113 should not offer out-of-range enemy units, candidates=%+v", engine.State.PendingAction.Candidates)
+			}
+		}
+		resolvePendingSelection(t, engine, 0, ally.InstanceID, enemy.InstanceID)
+		if ally.CurrentLife != ally.Card.Life-1 || enemy.CurrentLife != enemy.Card.Life-1 || outOfRangeEnemy.CurrentLife != outOfRangeEnemy.Card.Life {
+			t.Fatalf("1121113 should damage selected units only, ally=%d enemy=%d out=%d", ally.CurrentLife, enemy.CurrentLife, outOfRangeEnemy.CurrentLife)
+		}
+
+		if err := behavior.OnConsume(&EffectContext{
+			Engine:     engine,
+			Source:     hellhound,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"consumed_player": 0, "consume_source": "2121108"},
+		}); err != nil {
+			t.Fatalf("1121113 second effect consume: %v", err)
+		}
+		if engine.State.PendingAction != nil || hellhound.UsedThisTurn != 1 {
+			t.Fatalf("1121113 should trigger at most once per turn, pending=%+v used=%d", engine.State.PendingAction, hellhound.UsedThisTurn)
+		}
+	})
+
 	t.Run("soul hunter marks friendly spell once after it hits", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		hunter := placeUnit(baseCard(t, "1621106"), 0, 0, 0, engine)
