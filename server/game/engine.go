@@ -3002,6 +3002,10 @@ func (e *Engine) validateConsumableItemUse(playerID int, card *CardInstance) err
 		})) == 0 {
 			return fmt.Errorf("Mirrorsea Spring requires a friendly spell")
 		}
+	case "2521102":
+		if !e.hasEnemySetCounter(playerID) && !e.hasEnemyFrontStealth(playerID) {
+			return fmt.Errorf("Moonlight Dust requires enemy set counters or stealthy front enemies")
+		}
 	case "2621111":
 		if countShadowCompanionsInGraveyard(e.State.Players[playerID]) < 5 {
 			return fmt.Errorf("Dark Burst Scroll requires at least five shadow companions in graveyard")

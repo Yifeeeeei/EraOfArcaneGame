@@ -2200,6 +2200,130 @@ func TestRoyalConflictPermanentSkillCostAndGraveyardBurstEffects(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
+	t.Run("wind cycle consumes and sacrifices itself to shuffle selected air graveyard cards", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		cycle := NewCardInstance(baseCard(t, "2321102"), 0, 1)
+		cycle.SlotIndex = 0
+		cycle.IsHorizontal = false
+		p0.Equipment[0] = cycle
+		airA := NewCardInstance(baseCard(t, "1321108"), 0, 1)
+		airB := NewCardInstance(baseCard(t, "2321103"), 0, 1)
+		nonAir := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Graveyard = []*CardInstance{airA, nonAir, airB}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  cycle.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use 2321102: %v", err)
+		}
+		if p0.Equipment[0] != nil || len(p0.Graveyard) != 4 || p0.Graveyard[3] != cycle {
+			t.Fatalf("2321102 should sacrifice itself before selection, equipment=%v grave=%v", p0.Equipment[0], cardsToInfo(p0.Graveyard))
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "wind_cycle_shuffle_air" || len(engine.State.PendingAction.Candidates) != 2 {
+			t.Fatalf("2321102 should prompt with air graveyard cards only, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, airA.InstanceID, airB.InstanceID)
+		if countCardsByNumber(p0.Deck, airA.Card.Number) != 1 || countCardsByNumber(p0.Deck, airB.Card.Number) != 1 {
+			t.Fatalf("2321102 should shuffle selected air cards into deck, deck=%v", cardsToInfo(p0.Deck))
+		}
+		if len(p0.Graveyard) != 2 || p0.Graveyard[0] != nonAir || p0.Graveyard[1] != cycle {
+			t.Fatalf("2321102 should leave non-selected/non-air cards and itself in graveyard, grave=%v", cardsToInfo(p0.Graveyard))
+		}
+	})
+
+	t.Run("thunder breath gains air when used or discarded", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		used := NewCardInstance(baseCard(t, "2321103"), 0, 1)
+		p0.Hand = []*CardInstance{used}
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": used.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use 2321103: %v", err)
+		}
+		if p0.Elements[model.ElementAir] != 1 || len(p0.Graveyard) != 1 || p0.Graveyard[0] != used {
+			t.Fatalf("used 2321103 should gain 1 air and enter graveyard, elements=%v grave=%v", p0.Elements, cardsToInfo(p0.Graveyard))
+		}
+
+		discarded := NewCardInstance(baseCard(t, "2321103"), 0, 1)
+		p0.Hand = []*CardInstance{discarded}
+		before := p0.Elements[model.ElementAir]
+		engine.discardHandCardAt(0, 0)
+		if p0.Elements[model.ElementAir] != before+1 || len(p0.Hand) != 0 || p0.Graveyard[len(p0.Graveyard)-1] != discarded {
+			t.Fatalf("discarded 2321103 should gain 1 air and enter graveyard, elements=%v hand=%v grave=%v", p0.Elements, cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
+		}
+	})
+
+	t.Run("moonlight dust destroys set counters or removes front stealth", func(t *testing.T) {
+		failEngine := setupReportedBugEngine(t)
+		failP0 := failEngine.State.Players[0]
+		failDust := NewCardInstance(baseCard(t, "2521102"), 0, 1)
+		failP0.Hand = []*CardInstance{failDust}
+		failP0.Elements[model.ElementLight] = 1
+		if err := failEngine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": failDust.InstanceID,
+		}}); err == nil {
+			t.Fatal("2521102 should require enemy set counters or stealthy front enemies")
+		}
+		if len(failP0.Hand) != 1 || len(failP0.Graveyard) != 0 || failP0.Elements[model.ElementLight] != 1 {
+			t.Fatalf("failed 2521102 should leave zones and elements unchanged, hand=%v grave=%v elements=%v", cardsToInfo(failP0.Hand), cardsToInfo(failP0.Graveyard), failP0.Elements)
+		}
+
+		counterEngine := setupReportedBugEngine(t)
+		counterP0 := counterEngine.State.Players[0]
+		counterP1 := counterEngine.State.Players[1]
+		dust := NewCardInstance(baseCard(t, "2521102"), 0, 1)
+		counterP0.Hand = []*CardInstance{dust}
+		counterP0.Elements[model.ElementLight] = 1
+		firstCounter := NewCardInstance(baseCard(t, "2021113"), 1, 1)
+		secondCounter := NewCardInstance(baseCard(t, "2021114"), 1, 1)
+		firstCounter.IsSetCounter = true
+		secondCounter.IsSetCounter = true
+		counterP1.Equipment[0] = firstCounter
+		counterP1.Equipment[1] = secondCounter
+		if err := counterEngine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": dust.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use 2521102 counters: %v", err)
+		}
+		resolvePendingSelection(t, counterEngine, 0, "destroy_counters")
+		if counterP1.Equipment[0] != nil || counterP1.Equipment[1] != nil || len(counterP1.Graveyard) != 2 {
+			t.Fatalf("2521102 should destroy all enemy set counters, equipment=%v grave=%v", counterP1.Equipment, cardsToInfo(counterP1.Graveyard))
+		}
+
+		stealthEngine := setupReportedBugEngine(t)
+		stealthP0 := stealthEngine.State.Players[0]
+		stealthP1 := stealthEngine.State.Players[1]
+		stealthDust := NewCardInstance(baseCard(t, "2521102"), 0, 1)
+		stealthP0.Hand = []*CardInstance{stealthDust}
+		stealthP0.Elements[model.ElementLight] = 1
+		frontRow := 0
+		front := placeUnit(baseCard(t, "1021001"), 1, 0, frontRow, stealthEngine)
+		front.Statuses[StatusStealth] = 2
+		backRow := 1
+		if backRow == stealthP1.GetFrontRow() {
+			backRow = 0
+		}
+		back := placeUnit(baseCard(t, "1021002"), 1, 1, backRow, stealthEngine)
+		back.Statuses[StatusStealth] = 2
+		if err := stealthEngine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": stealthDust.InstanceID,
+		}}); err != nil {
+			t.Fatalf("use 2521102 stealth: %v", err)
+		}
+		resolvePendingSelection(t, stealthEngine, 0, "remove_front_stealth")
+		if front.Statuses[StatusStealth] != 0 {
+			t.Fatalf("2521102 should remove stealth from front enemy, statuses=%v", front.Statuses)
+		}
+		if back.Statuses[StatusStealth] != 2 {
+			t.Fatalf("2521102 should not remove stealth from non-front enemy, statuses=%v", back.Statuses)
+		}
+	})
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

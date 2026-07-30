@@ -358,12 +358,15 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"2221107": func() CardBehavior {
 		return royalWaterUseCostReduction{id: "2221107", name: "水纹之镜", requireWater: true, triggerOnEnter: true}
 	},
+	"2321102": func() CardBehavior { return Card2321102WindCycle{} },
+	"2321103": func() CardBehavior { return Card2321103ThunderBreath{} },
 	"2411101": func() CardBehavior { return Card2411101EmeraldImmortality{} },
 	"2421103": func() CardBehavior { return Card2421103Dreamcatcher{} },
 	"2421108": func() CardBehavior { return Card2421108EmeraldFruit{} },
 	"2421110": func() CardBehavior { return Card2421110SandwormBait{} },
 	"2511102": func() CardBehavior { return Card2511102FiveRainbowRing{} },
 	"2521101": func() CardBehavior { return Card2521101BlessedLoneStar{} },
+	"2521102": func() CardBehavior { return Card2521102MoonlightDust{} },
 	"2521110": func() CardBehavior { return Card2521110AngelPrayer{} },
 	"2521105": func() CardBehavior {
 		return royalShieldOnEnter{id: "2521105", name: "孤星守护者", amount: 2}

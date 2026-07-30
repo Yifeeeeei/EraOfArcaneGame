@@ -459,6 +459,106 @@ func countShadowCompanionsInGraveyard(ps *PlayerState) int {
 	return count
 }
 
+type Card2321102WindCycle struct{ AlwaysActive }
+
+func (Card2321102WindCycle) ID() string   { return "2321102" }
+func (Card2321102WindCycle) Name() string { return "风之轮回" }
+func (Card2321102WindCycle) PerTurnLabel(*CardInstance) string {
+	return "主动"
+}
+func (Card2321102WindCycle) OnPerTurn(ctx *EffectContext) error {
+	if !ctx.Engine.canConsumeCard(ctx.Source) {
+		return fmt.Errorf("风之轮回不能被消耗")
+	}
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	inEquipment := false
+	for _, card := range ps.Equipment {
+		if card == ctx.Source {
+			inEquipment = true
+			break
+		}
+	}
+	if !inEquipment {
+		return fmt.Errorf("风之轮回必须从装备区献祭")
+	}
+	candidates := make([]map[string]any, 0)
+	allowed := make(map[string]bool)
+	for _, card := range ps.Graveyard {
+		if card != nil && card.Card != nil && card.Card.Category == model.ElementAir {
+			candidates = append(candidates, candidateInfo(card, "graveyard", "own"))
+			allowed[card.InstanceID] = true
+		}
+	}
+	ctx.Source.IsHorizontal = true
+	if !ctx.Engine.sacrificeEquipment(ctx.PlayerID, ctx.Source.InstanceID) {
+		return fmt.Errorf("风之轮回必须从装备区献祭")
+	}
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "wind_cycle_shuffle_air",
+		"风之轮回:选择任意数量的大气弃牌洗回卡组", candidates, 0, len(candidates),
+		func(selected []string) {
+			selectedSet := make(map[string]bool, len(selected))
+			for _, id := range selected {
+				if allowed[id] {
+					selectedSet[id] = true
+				}
+			}
+			if len(selectedSet) == 0 {
+				return
+			}
+			for i := 0; i < len(ps.Graveyard); {
+				card := ps.Graveyard[i]
+				if card != nil && selectedSet[card.InstanceID] && card.Card != nil && card.Card.Category == model.ElementAir {
+					ps.Graveyard = append(ps.Graveyard[:i], ps.Graveyard[i+1:]...)
+					ps.Deck = append(ps.Deck, card)
+					continue
+				}
+				i++
+			}
+			ctx.Engine.shuffleDeck(ctx.PlayerID)
+		})
+	return nil
+}
+
+type Card2321103ThunderBreath struct{ AlwaysActive }
+
+func (Card2321103ThunderBreath) ID() string   { return "2321103" }
+func (Card2321103ThunderBreath) Name() string { return "雷鸣之息" }
+func (Card2321103ThunderBreath) OnUseItem(ctx *EffectContext) error {
+	ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementAir: 1})
+	return nil
+}
+
+type Card2521102MoonlightDust struct{ AlwaysActive }
+
+func (Card2521102MoonlightDust) ID() string   { return "2521102" }
+func (Card2521102MoonlightDust) Name() string { return "月霞之尘" }
+func (Card2521102MoonlightDust) OnUseItem(ctx *EffectContext) error {
+	choices := make([]map[string]any, 0, 2)
+	if ctx.Engine.hasEnemySetCounter(ctx.PlayerID) {
+		choices = append(choices, map[string]any{"instance_id": "destroy_counters", "name": "摧毁敌方盖放的所有卡牌", "zone": "choice", "side": "own"})
+	}
+	if ctx.Engine.hasEnemyFrontStealth(ctx.PlayerID) {
+		choices = append(choices, map[string]any{"instance_id": "remove_front_stealth", "name": "使前排敌人失去隐蔽", "zone": "choice", "side": "own"})
+	}
+	if len(choices) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "moonlight_dust_mode",
+		"月霞之尘:选择1项效果", choices, 1, 1,
+		func(selected []string) {
+			switch firstSelected(selected) {
+			case "destroy_counters":
+				ctx.Engine.destroyEnemySetCounters(ctx.PlayerID)
+			case "remove_front_stealth":
+				ctx.Engine.removeEnemyFrontStealth(ctx.PlayerID)
+			}
+		})
+	return nil
+}
+
 type Card1321107SkyCityThief struct{ AlwaysActive }
 
 func (Card1321107SkyCityThief) ID() string   { return "1321107" }
@@ -802,6 +902,9 @@ func (e *Engine) resolveDiscardedCardEffects(playerID int, card *CardInstance) {
 			e.dealDamage(hero, 2, playerID)
 		}
 	}
+	if card.Card.Number == "2321103" {
+		e.State.Players[playerID].GainElements(map[string]int{model.ElementAir: 1})
+	}
 }
 
 func (e *Engine) playerHeroCard(playerID int) *CardInstance {
@@ -841,6 +944,68 @@ func (e *Engine) moveDeckCardToTop(playerID int, predicate func(*CardInstance) b
 		return card
 	}
 	return nil
+}
+
+func (e *Engine) hasEnemySetCounter(playerID int) bool {
+	opponent := e.State.Players[1-playerID]
+	if opponent == nil {
+		return false
+	}
+	for _, card := range opponent.Equipment {
+		if card != nil && card.IsSetCounter {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Engine) destroyEnemySetCounters(playerID int) {
+	opponentID := 1 - playerID
+	opponent := e.State.Players[opponentID]
+	if opponent == nil {
+		return
+	}
+	for i := range opponent.Equipment {
+		card := opponent.Equipment[i]
+		if card != nil && card.IsSetCounter {
+			e.moveEquipmentToGraveyard(opponentID, i, card)
+		}
+	}
+}
+
+func (e *Engine) hasEnemyFrontStealth(playerID int) bool {
+	opponent := e.State.Players[1-playerID]
+	if opponent == nil {
+		return false
+	}
+	frontRow := opponent.GetFrontRow()
+	if frontRow < 0 || frontRow >= 3 {
+		return false
+	}
+	for col := 0; col < 3; col++ {
+		unit := opponent.Units[col][frontRow]
+		if unit != nil && unit.Statuses[StatusStealth] > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Engine) removeEnemyFrontStealth(playerID int) {
+	opponent := e.State.Players[1-playerID]
+	if opponent == nil {
+		return
+	}
+	frontRow := opponent.GetFrontRow()
+	if frontRow < 0 || frontRow >= 3 {
+		return
+	}
+	for col := 0; col < 3; col++ {
+		unit := opponent.Units[col][frontRow]
+		if unit != nil {
+			delete(unit.Statuses, StatusStealth)
+		}
+	}
 }
 
 func countNegativeStatusLayers(card *CardInstance) int {
