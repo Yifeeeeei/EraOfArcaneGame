@@ -893,6 +893,61 @@ func TestRoyalConflictStrictPaymentCards(t *testing.T) {
 	}
 }
 
+func TestRoyalConflictArcaneDrainRequiresDistinctUseElements(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	arcaneDrain := readySkill(baseCard(t, "3021103"), 0)
+	useCost := engine.effectiveSkillUseCost(p0, arcaneDrain)
+
+	p0.Elements = cloneElements(map[string]int{model.ElementFire: 2})
+	if engine.canPayCostForCardAction(p0, arcaneDrain, useCost, useCost, paymentPurposeUse, ActionMessage{}) {
+		t.Fatal("3021103 should reject auto payment from only one element type")
+	}
+	if engine.canPayCostForCardAction(p0, arcaneDrain, useCost, useCost, paymentPurposeUse, ActionMessage{Data: map[string]any{
+		"payment": map[string]any{model.ElementFire: float64(2)},
+	}}) {
+		t.Fatal("3021103 should reject explicit payment using the same element twice")
+	}
+
+	p0.Elements = cloneElements(map[string]int{model.ElementFire: 1, model.ElementWater: 1})
+	if !engine.canPayCostForCardAction(p0, arcaneDrain, useCost, useCost, paymentPurposeUse, ActionMessage{}) {
+		t.Fatal("3021103 should allow auto payment from two distinct element types")
+	}
+	if !engine.payCostForCardAction(p0, arcaneDrain, useCost, useCost, paymentPurposeUse, ActionMessage{}) {
+		t.Fatal("3021103 should pay its use cost from distinct element types")
+	}
+	if p0.Elements[model.ElementFire] != 0 || p0.Elements[model.ElementWater] != 0 {
+		t.Fatalf("3021103 should spend one of each distinct element, elements=%v", p0.Elements)
+	}
+
+	boostCost := map[string]int{model.ElementFire: 1}
+	totalCost := mergeElementCosts(useCost, boostCost)
+	p0.Elements = cloneElements(map[string]int{model.ElementFire: 2, model.ElementWater: 1})
+	if !engine.canPayCostForCardAction(p0, arcaneDrain, useCost, totalCost, paymentPurposeUse, ActionMessage{Data: map[string]any{
+		"payment": map[string]any{model.ElementFire: float64(2), model.ElementWater: float64(1)},
+	}}) {
+		t.Fatal("3021103 should allow duplicated elements when the duplicate pays a separate boost cost")
+	}
+}
+
+func TestRoyalConflictArcaneDrainDrawsTwoOnCast(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	arcaneDrain := readySkill(baseCard(t, "3021103"), 0)
+	drawA := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+	drawB := NewCardInstance(baseCard(t, "1021002"), 0, 1)
+	p0.Deck = []*CardInstance{drawA, drawB}
+	p0.Hand = nil
+
+	behavior := Card3021103ArcaneDrain{}
+	if err := behavior.OnSpellCast(&EffectContext{Engine: engine, Source: arcaneDrain, PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("3021103 spell cast: %v", err)
+	}
+	if len(p0.Hand) != 2 || p0.Hand[0] != drawA || p0.Hand[1] != drawB || len(p0.Deck) != 0 {
+		t.Fatalf("3021103 should draw two cards, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
+	}
+}
+
 func TestRoyalConflictFlipMechanicAndCards(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]

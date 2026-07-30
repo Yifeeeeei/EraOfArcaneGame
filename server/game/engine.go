@@ -3963,11 +3963,11 @@ func (e *Engine) payCostForCardAction(ps *PlayerState, card *CardInstance, stric
 	payment := paymentFromAction(action)
 	if payment == nil {
 		var ok bool
-		payment, ok = calculateElementPaymentWithOptions(ps.Elements, totalCost, e.playerHasLightWildcard(ps))
+		payment, ok = calculateCardActionPaymentWithOptions(ps.Elements, card, strictCost, totalCost, purpose, e.playerHasLightWildcard(ps))
 		if !ok {
 			return false
 		}
-	} else if !validateElementPaymentWithOptions(ps.Elements, totalCost, payment, e.playerHasLightWildcard(ps)) {
+	} else if !validateCardActionPaymentWithOptions(ps.Elements, card, strictCost, totalCost, purpose, payment, e.playerHasLightWildcard(ps)) {
 		return false
 	}
 	if !strictPaymentSatisfied(card, purpose, strictCost, payment) {
@@ -3990,11 +3990,11 @@ func (e *Engine) canPayCostForCardAction(ps *PlayerState, card *CardInstance, st
 	payment := paymentFromAction(action)
 	if payment == nil {
 		var ok bool
-		payment, ok = calculateElementPaymentWithOptions(ps.Elements, totalCost, e.playerHasLightWildcard(ps))
+		payment, ok = calculateCardActionPaymentWithOptions(ps.Elements, card, strictCost, totalCost, purpose, e.playerHasLightWildcard(ps))
 		if !ok {
 			return false
 		}
-	} else if !validateElementPaymentWithOptions(ps.Elements, totalCost, payment, e.playerHasLightWildcard(ps)) {
+	} else if !validateCardActionPaymentWithOptions(ps.Elements, card, strictCost, totalCost, purpose, payment, e.playerHasLightWildcard(ps)) {
 		return false
 	}
 	return strictPaymentSatisfied(card, purpose, strictCost, payment)
