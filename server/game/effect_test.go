@@ -1870,6 +1870,58 @@ func TestRoyalConflictJiuxiaoMarkEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("raider gunner discards an enemy hand card after a friendly spell hits once per turn", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		gunner := placeUnit(baseCard(t, "1221111"), 0, 0, 0, engine)
+		first := NewCardInstance(baseCard(t, "1021001"), 1, 1)
+		second := NewCardInstance(baseCard(t, "1021002"), 1, 1)
+		p1.Hand = []*CardInstance{first, second}
+		behavior := Card1221111RaiderGunner{}
+
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: gunner, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+			t.Fatalf("raider gunner friendly hit: %v", err)
+		}
+		if len(p1.Hand) != 1 || len(p1.Graveyard) != 1 || gunner.UsedThisTurn != 1 {
+			t.Fatalf("1221111 should discard one enemy hand card and spend trigger, hand=%v grave=%v used=%d", cardsToInfo(p1.Hand), cardsToInfo(p1.Graveyard), gunner.UsedThisTurn)
+		}
+		if containsCardInstance(p1.Hand, p1.Graveyard[0]) {
+			t.Fatalf("discarded card should leave enemy hand, hand=%v grave=%v", cardsToInfo(p1.Hand), cardsToInfo(p1.Graveyard))
+		}
+
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: gunner, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+			t.Fatalf("raider gunner second friendly hit: %v", err)
+		}
+		if len(p1.Hand) != 1 || len(p1.Graveyard) != 1 || gunner.UsedThisTurn != 1 {
+			t.Fatalf("1221111 should trigger at most once per turn, hand=%v grave=%v used=%d", cardsToInfo(p1.Hand), cardsToInfo(p1.Graveyard), gunner.UsedThisTurn)
+		}
+
+		enemyEngine := setupReportedBugEngine(t)
+		enemyP1 := enemyEngine.State.Players[1]
+		enemyGunner := placeUnit(baseCard(t, "1221111"), 0, 0, 0, enemyEngine)
+		enemyP1.Hand = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 1, 1)}
+		if err := behavior.OnSpellHit(&EffectContext{Engine: enemyEngine, Source: enemyGunner, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 1}}); err != nil {
+			t.Fatalf("raider gunner enemy hit: %v", err)
+		}
+		if len(enemyP1.Hand) != 1 || len(enemyP1.Graveyard) != 0 || enemyGunner.UsedThisTurn != 0 {
+			t.Fatalf("1221111 should ignore enemy spell hits, hand=%v grave=%v used=%d", cardsToInfo(enemyP1.Hand), cardsToInfo(enemyP1.Graveyard), enemyGunner.UsedThisTurn)
+		}
+
+		emptyEngine := setupReportedBugEngine(t)
+		emptyGunner := placeUnit(baseCard(t, "1221111"), 0, 0, 0, emptyEngine)
+		if err := behavior.OnSpellHit(&EffectContext{Engine: emptyEngine, Source: emptyGunner, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+			t.Fatalf("raider gunner empty hand hit: %v", err)
+		}
+		if emptyGunner.UsedThisTurn != 0 {
+			t.Fatalf("1221111 should not spend trigger when opponent has no hand cards, used=%d", emptyGunner.UsedThisTurn)
+		}
+
+		if len(p0.Hand) != 0 {
+			t.Fatalf("1221111 should not touch caster hand, hand=%v", cardsToInfo(p0.Hand))
+		}
+	})
+
 	t.Run("council executor discards an extra card when it hits a mark", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p1 := engine.State.Players[1]
