@@ -364,6 +364,16 @@ func cardHasActiveGlobalSpellRange(card *CardInstance) bool {
 	return false
 }
 
+func cardCanAttackFromNonFront(card *CardInstance) bool {
+	if card == nil || card.Card == nil {
+		return false
+	}
+	if h, ok := behaviorForNumber(card.Card.Number).(AttackPositionBehavior); ok && h.HasActiveAttackPosition(card) {
+		return h.CanAttackFromNonFront()
+	}
+	return false
+}
+
 func cardStealthLayers(card *CardInstance) int {
 	if card == nil || card.Card == nil {
 		return 0

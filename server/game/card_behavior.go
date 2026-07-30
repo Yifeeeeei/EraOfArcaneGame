@@ -50,6 +50,7 @@ func (AlwaysActive) HasActiveStealth(*CardInstance) bool                   { ret
 func (AlwaysActive) HasActiveShield(*CardInstance) bool                    { return true }
 func (AlwaysActive) HasActiveShielding(*CardInstance) bool                 { return true }
 func (AlwaysActive) HasActiveGlobalSpellRange(*CardInstance) bool          { return true }
+func (AlwaysActive) HasActiveAttackPosition(*CardInstance) bool            { return true }
 func (AlwaysActive) HasActiveCooldown(*CardInstance) bool                  { return true }
 func (AlwaysActive) HasActivePerTurnLimit(*CardInstance) bool              { return true }
 func (AlwaysActive) HasActiveOverload(*CardInstance) bool                  { return true }
@@ -240,6 +241,11 @@ type ShieldingBehavior interface {
 type GlobalSpellRangeBehavior interface {
 	HasActiveGlobalSpellRange(*CardInstance) bool
 	HasGlobalSpellRange() bool
+}
+
+type AttackPositionBehavior interface {
+	HasActiveAttackPosition(*CardInstance) bool
+	CanAttackFromNonFront() bool
 }
 
 type CooldownBehavior interface {

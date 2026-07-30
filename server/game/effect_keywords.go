@@ -107,9 +107,9 @@ func (e *Engine) IsInAttackRange(attackerID int, attacker *CardInstance, targetC
 	ps := e.State.Players[attackerID]
 	opponent := e.State.Players[1-attackerID]
 
-	// Attacker must be in front row
+	// Attacker must be in front row unless its own rule says otherwise.
 	frontRow := ps.GetFrontRow()
-	if attacker.Position == nil || attacker.Position.Row != frontRow {
+	if attacker.Position == nil || (attacker.Position.Row != frontRow && (e.hasEffectiveStatus(attacker, StatusPetrify) || !cardCanAttackFromNonFront(attacker))) {
 		return false
 	}
 

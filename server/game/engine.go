@@ -2228,9 +2228,9 @@ func (e *Engine) handleAttack(playerID int, action ActionMessage) error {
 	}
 
 	if !attackerIsEquipment {
-		// Check attacker is in front row
+		// Check attacker is in front row unless its own rule says otherwise.
 		frontRow := ps.GetFrontRow()
-		if attacker.Position == nil || attacker.Position.Row != frontRow {
+		if attacker.Position == nil || (attacker.Position.Row != frontRow && (e.hasEffectiveStatus(attacker, StatusPetrify) || !cardCanAttackFromNonFront(attacker))) {
 			return fmt.Errorf("attacker is not in front row")
 		}
 	}

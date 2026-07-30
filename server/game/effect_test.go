@@ -257,6 +257,55 @@ func TestRoyalConflictAreaSpellShieldAppliesOnce(t *testing.T) {
 	}
 }
 
+func TestRoyalConflictAttackPositionEffects(t *testing.T) {
+	t.Run("winterfell archer can attack from non-front rows while active", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		frontAlly := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		frontAlly.CurrentAttack = 0
+		archer := placeUnit(baseCard(t, "1221103"), 0, 1, 1, engine)
+		archer.IsHorizontal = false
+		frontEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		backEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
+
+		if !engine.IsInAttackRange(0, archer, frontEnemy.Position.Col, frontEnemy.Position.Row) {
+			t.Fatalf("1221103 should attack enemy front row from a non-front row")
+		}
+		if engine.IsInAttackRange(0, archer, backEnemy.Position.Col, backEnemy.Position.Row) {
+			t.Fatalf("1221103 should still require an enemy front-row target")
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "attack", Data: map[string]any{
+			"attacker_id": archer.InstanceID,
+			"target_col":  float64(frontEnemy.Position.Col),
+			"target_row":  float64(frontEnemy.Position.Row),
+		}}); err != nil {
+			t.Fatalf("1221103 should attack from non-front row: %v", err)
+		}
+		if !archer.IsHorizontal || frontEnemy.CurrentLife != frontEnemy.Card.Life-archer.CurrentAttack {
+			t.Fatalf("1221103 attack should resolve normally, horizontal=%v enemy_life=%d", archer.IsHorizontal, frontEnemy.CurrentLife)
+		}
+	})
+
+	t.Run("petrified winterfell archer cannot attack from non-front rows", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		archer := placeUnit(baseCard(t, "1221103"), 0, 1, 1, engine)
+		archer.IsHorizontal = false
+		archer.Statuses[StatusPetrify] = 1
+		frontEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		if engine.IsInAttackRange(0, archer, frontEnemy.Position.Col, frontEnemy.Position.Row) {
+			t.Fatalf("petrified 1221103 should not attack from a non-front row")
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "attack", Data: map[string]any{
+			"attacker_id": archer.InstanceID,
+			"target_col":  float64(frontEnemy.Position.Col),
+			"target_row":  float64(frontEnemy.Position.Row),
+		}}); err == nil {
+			t.Fatal("petrified 1221103 should fail the non-front attack action")
+		}
+	})
+}
+
 func TestRoyalConflictPublicSpecialZones(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
