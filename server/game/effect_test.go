@@ -2914,6 +2914,24 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("crushing stone gains power against high life targets", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		crushingStone := readySkill(baseCard(t, "3421110"), 0)
+		lowLifeTarget := placeUnit(baseCard(t, "1021002"), 1, 0, 0, engine)
+		highLifeTarget := placeUnit(baseCard(t, "1121104"), 1, 1, 0, engine)
+
+		if got := engine.effectiveSpellPower(0, crushingStone, nil); got != crushingStone.Card.Power {
+			t.Fatalf("3421110 should not gain power without a target, got=%d", got)
+		}
+		if got := engine.effectiveSpellPower(0, crushingStone, nil, SpellTarget{Type: "unit", Position: *lowLifeTarget.Position}); got != crushingStone.Card.Power {
+			t.Fatalf("3421110 should not gain power against targets with life 2, got=%d", got)
+		}
+		highLifeTarget.CurrentLife = 3
+		if got := engine.effectiveSpellPower(0, crushingStone, nil, SpellTarget{Type: "unit", Position: *highLifeTarget.Position}); got != crushingStone.Card.Power+1 {
+			t.Fatalf("3421110 should gain power against targets with life above 2, got=%d", got)
+		}
+	})
+
 	t.Run("church envoy removes negative statuses from friendly cards", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
