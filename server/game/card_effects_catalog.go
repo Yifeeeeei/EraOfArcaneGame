@@ -335,6 +335,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 		return royalShieldOnEnter{id: "1421104", name: "拜利兰森林熊", amount: 3}
 	},
 	"1421105": func() CardBehavior { return Card1421105InactiveRoot{} },
+	"1421110": func() CardBehavior { return Card1421110RockWallColossus{} },
 	"1421111": func() CardBehavior { return Card1421111RockWallMonster{} },
 	"1421114": func() CardBehavior { return Card1421114GiantSandworm{} },
 	"1421115": func() CardBehavior { return Card1421115Geomancer{} },

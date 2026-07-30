@@ -3122,6 +3122,44 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("rock wall colossus gives summoned earth companions life before learned spells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		placeUnit(baseCard(t, "1421110"), 0, 0, 0, engine)
+		p0.Elements[model.ElementEarth] = 10
+
+		earthCompanion := NewCardInstance(baseCard(t, "1421001"), 0, 1)
+		p0.Hand = []*CardInstance{earthCompanion}
+		if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+			"instance_id": earthCompanion.InstanceID,
+			"col":         float64(1),
+			"row":         float64(0),
+		}}); err != nil {
+			t.Fatalf("summon earth companion: %v", err)
+		}
+		if maxLife(earthCompanion) != earthCompanion.Card.Life+1 || earthCompanion.CurrentLife != earthCompanion.Card.Life+1 {
+			t.Fatalf("1421110 should buff later earth companions, max=%d current=%d", maxLife(earthCompanion), earthCompanion.CurrentLife)
+		}
+
+		spellEngine := setupReportedBugEngine(t)
+		spellP0 := spellEngine.State.Players[0]
+		placeUnit(baseCard(t, "1421110"), 0, 0, 0, spellEngine)
+		spellP0.Skills[0] = readySkill(baseCard(t, "3121001"), 0)
+		blockedEarth := NewCardInstance(baseCard(t, "1421001"), 0, 1)
+		spellP0.Hand = []*CardInstance{blockedEarth}
+		spellP0.Elements[model.ElementEarth] = 10
+		if err := spellEngine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+			"instance_id": blockedEarth.InstanceID,
+			"col":         float64(1),
+			"row":         float64(0),
+		}}); err != nil {
+			t.Fatalf("summon earth companion after learned spell: %v", err)
+		}
+		if maxLife(blockedEarth) != blockedEarth.Card.Life || blockedEarth.CurrentLife != blockedEarth.Card.Life {
+			t.Fatalf("1421110 should not buff earth companions after owner learns a spell, max=%d current=%d", maxLife(blockedEarth), blockedEarth.CurrentLife)
+		}
+	})
+
 	t.Run("church envoy removes negative statuses from friendly cards", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
