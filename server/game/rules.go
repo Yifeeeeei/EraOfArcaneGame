@@ -755,10 +755,26 @@ func (e *Engine) spellHasPierceWithBoosts(playerID int, skill *CardInstance, boo
 }
 
 func (e *Engine) skillHasPierce(playerID int, skill *CardInstance) bool {
-	if cardHasPierce(skill) || e.windBladeGrantsPierce(playerID, skill) {
+	if cardHasPierce(skill) || e.windBladeGrantsPierce(playerID, skill) || e.westernChartGrantsPierce(playerID, skill) {
 		return true
 	}
 	return skill != nil && skill.Card != nil && skill.Card.Number == "3621107" && e.redMoonActive(playerID)
+}
+
+func (e *Engine) westernChartGrantsPierce(playerID int, skill *CardInstance) bool {
+	if skill == nil || skill.Card == nil || skill.InstanceID == "" || playerID < 0 || playerID >= len(e.State.Players) {
+		return false
+	}
+	key := westernChartPierceTargetPrefix + skill.InstanceID
+	for _, equipment := range e.State.Players[playerID].Equipment {
+		if equipment == nil || equipment.Card == nil || equipment.Card.Number != "2221108" || e.hasEffectiveStatus(equipment, StatusPetrify) {
+			continue
+		}
+		if equipment.Statuses[key] > 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Engine) redMoonActive(playerID int) bool {

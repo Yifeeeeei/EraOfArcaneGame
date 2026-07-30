@@ -3953,6 +3953,32 @@ func TestRoyalConflictResetAndTemporaryAbilityEffects(t *testing.T) {
 		if got := engine.effectiveSkillUseCost(p0, second)[model.ElementWater]; got != 2 {
 			t.Fatalf("second skill discount should remain after first skill use, cost=%v", engine.effectiveSkillUseCost(p0, second))
 		}
+
+		boostEngine := setupEffectTest(t)
+		boostP0 := boostEngine.State.Players[0]
+		boostMage := placeUnit(baseCard(t, "1221115"), 0, 0, 0, boostEngine)
+		mainSkill := readySkill(baseCard(t, "3221106"), 0)
+		boostSkill := readySkill(baseCard(t, "3221003"), 0)
+		boostP0.Skills[0] = mainSkill
+		boostP0.Skills[1] = boostSkill
+		boostP0.Elements = map[string]int{model.ElementWater: 10}
+		if err := (Card1221115WinterfellAntiMage{}).OnPrayer(&EffectContext{Engine: boostEngine, Source: boostMage, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1221115 boost prayer: %v", err)
+		}
+		boostTarget := placeUnit(baseCard(t, "1021001"), 1, 0, 0, boostEngine)
+		if err := boostEngine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id":  mainSkill.InstanceID,
+			"target_type":  "unit",
+			"target_col":   float64(boostTarget.Position.Col),
+			"target_row":   float64(boostTarget.Position.Row),
+			"target_owner": float64(1),
+			"boost_ids":    []any{boostSkill.InstanceID},
+		}}); err != nil {
+			t.Fatalf("use discounted boost skill: %v", err)
+		}
+		if len(boostP0.TempModifiers) != 0 {
+			t.Fatalf("main attack should consume next-use modifiers for both main and boost skills, modifiers=%+v", boostP0.TempModifiers)
+		}
 	})
 
 	t.Run("silverleaf ranger consumes for the next spell attack bonus", func(t *testing.T) {
@@ -5051,6 +5077,43 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		heroEngine.finishEndTurn(heroP0)
 		if heroP0.Hero.CurrentLife > 0 || heroEngine.State.Phase != PhaseGameOver || heroEngine.State.Winner != 1 {
 			t.Fatalf("2621110 should kill selected hero and end the game, life=%d phase=%s winner=%d", heroP0.Hero.CurrentLife, heroEngine.State.Phase, heroEngine.State.Winner)
+		}
+	})
+
+	t.Run("western chart grants pierce to the selected water spell while equipped", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		chart := NewCardInstance(baseCard(t, "2221108"), 0, engine.State.TurnNumber)
+		waterSkill := readySkill(baseCard(t, "3221106"), 0)
+		fireSkill := readySkill(baseCard(t, "3121109"), 0)
+		p0.Equipment[0] = chart
+		p0.Skills[0] = waterSkill
+		p0.Skills[1] = fireSkill
+		placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		backEnemy := placeUnit(baseCard(t, "1021002"), 1, 0, 2, engine)
+
+		if err := (Card2221108WesternChart{}).OnEnter(&EffectContext{Engine: engine, Source: chart, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("2221108 enter: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "western_chart_pierce_target" ||
+			!candidateContains(engine.State.PendingAction.Candidates, waterSkill.InstanceID) ||
+			candidateContains(engine.State.PendingAction.Candidates, fireSkill.InstanceID) {
+			t.Fatalf("2221108 should ask for a water spell only, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, waterSkill.InstanceID)
+		if !engine.skillHasPierce(0, waterSkill) {
+			t.Fatalf("2221108 should grant pierce to selected water spell")
+		}
+		if info := engine.cardToInfoForPlayer(p0, waterSkill); info["has_pierce"] != true {
+			t.Fatalf("2221108-granted pierce should be serialized, info=%v", info)
+		}
+		if err := engine.validateSpellTarget(0, waterSkill, SpellTarget{Type: "unit", Position: *backEnemy.Position}); err != nil {
+			t.Fatalf("2221108 should let selected water spell target back row: %v", err)
+		}
+
+		p0.Equipment[0] = nil
+		if engine.skillHasPierce(0, waterSkill) {
+			t.Fatalf("2221108 pierce should stop when the chart leaves equipment")
 		}
 	})
 

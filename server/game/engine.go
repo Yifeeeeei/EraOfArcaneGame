@@ -1142,7 +1142,10 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		e.applyNextRedMoonModifiers(playerID, skill)
 		e.refreshRedMoonState(playerID)
 	}
-	e.consumeNextSkillUseModifiers(ps, skill)
+	usedSkills := append([]*CardInstance{skill}, boostSkills...)
+	for _, usedSkill := range usedSkills {
+		e.consumeNextSkillUseModifiers(ps, usedSkill)
+	}
 	e.advanceMasteryForUsedSkills(playerID, append([]*CardInstance{skill}, boostSkills...)...)
 
 	powerTargets := append([]SpellTarget{target}, extraTargets...)
