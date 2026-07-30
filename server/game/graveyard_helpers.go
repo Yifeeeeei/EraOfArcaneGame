@@ -298,9 +298,8 @@ func (e *Engine) releaseUnderCardsToGraveyard(ownerID int, host *CardInstance) {
 		if graveyardOwner < 0 || graveyardOwner >= len(e.State.Players) || e.State.Players[graveyardOwner] == nil {
 			graveyardOwner = ownerID
 		}
-		ps := e.State.Players[graveyardOwner]
 		resetCardForPublicSpecialZone(card)
-		ps.Graveyard = append(ps.Graveyard, card)
+		e.addToGraveyard(graveyardOwner, card)
 		e.emit(GameEvent{Type: "discard", Player: graveyardOwner, Data: map[string]any{
 			"card":   cardToInfo(card),
 			"reason": "under_card_released",

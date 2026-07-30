@@ -389,15 +389,16 @@ type PendingAction struct {
 
 // GameState holds the entire game state
 type GameState struct {
-	GameID      string          `json:"game_id"`
-	Players     [2]*PlayerState `json:"players"`
-	CurrentTurn int             `json:"current_turn"` // 0 or 1 (which player's turn)
-	FirstPlayer int             `json:"first_player"` // 0 or 1
-	TurnNumber  int             `json:"turn_number"`
-	Phase       GamePhase       `json:"phase"`
-	Winner      int             `json:"winner"` // -2 = draw, -1 = no winner, 0 or 1
-	HandLimit   int             `json:"hand_limit"`
-	IsFirstTurn bool            `json:"is_first_turn"` // first player's first turn
+	GameID                       string          `json:"game_id"`
+	Players                      [2]*PlayerState `json:"players"`
+	CurrentTurn                  int             `json:"current_turn"` // 0 or 1 (which player's turn)
+	FirstPlayer                  int             `json:"first_player"` // 0 or 1
+	TurnNumber                   int             `json:"turn_number"`
+	Phase                        GamePhase       `json:"phase"`
+	Winner                       int             `json:"winner"` // -2 = draw, -1 = no winner, 0 or 1
+	HandLimit                    int             `json:"hand_limit"`
+	IsFirstTurn                  bool            `json:"is_first_turn"` // first player's first turn
+	CardEnteredGraveyardThisTurn bool            `json:"card_entered_graveyard_this_turn,omitempty"`
 
 	// Combat state
 	PendingSpell *SpellCast `json:"pending_spell,omitempty"`

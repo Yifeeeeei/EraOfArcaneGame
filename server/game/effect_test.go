@@ -3223,6 +3223,46 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("silverleaf cyclone power becomes six after a card enters graveyard this turn", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		cyclone := readySkill(baseCard(t, "3321109"), 0)
+		discard := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Skills[0] = cyclone
+		p0.Hand = []*CardInstance{discard}
+
+		if got := engine.effectiveSpellPower(0, cyclone, nil); got != cyclone.Card.Power {
+			t.Fatalf("3321109 should start at printed power before any card enters graveyard, got=%d", got)
+		}
+		if engine.discardHandCardAt(0, 0) != discard {
+			t.Fatalf("discard setup card")
+		}
+		if !engine.State.CardEnteredGraveyardThisTurn {
+			t.Fatalf("discarding a hand card should mark graveyard entry this turn")
+		}
+		if got := engine.effectiveSpellPower(0, cyclone, nil); got != 6 {
+			t.Fatalf("3321109 power should become 6 after hand discard, got=%d", got)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "end_turn", Data: map[string]any{}}); err != nil {
+			t.Fatalf("end turn after discard: %v", err)
+		}
+		if engine.State.CardEnteredGraveyardThisTurn {
+			t.Fatalf("graveyard entry marker should clear at turn end")
+		}
+		if got := engine.effectiveSpellPower(0, cyclone, nil); got != cyclone.Card.Power {
+			t.Fatalf("3321109 power should reset after turn end, got=%d", got)
+		}
+
+		deathEngine := setupReportedBugEngine(t)
+		deathCyclone := readySkill(baseCard(t, "3321109"), 0)
+		deathEngine.State.Players[0].Skills[0] = deathCyclone
+		unit := placeUnit(baseCard(t, "1021001"), 1, 1, 0, deathEngine)
+		deathEngine.destroyUnit(unit, 1)
+		if got := deathEngine.effectiveSpellPower(0, deathCyclone, nil); got != 6 {
+			t.Fatalf("3321109 power should become 6 after unit death, got=%d", got)
+		}
+	})
+
 	t.Run("rock wall monster limits damage while its owner has no learned spells", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		monster := placeUnit(baseCard(t, "1421111"), 0, 0, 0, engine)

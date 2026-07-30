@@ -436,7 +436,7 @@ func (e *Engine) discardCounterTrap(playerID int, counter *CardInstance) {
 	for i, card := range ps.Equipment {
 		if card != nil && card.InstanceID == counter.InstanceID {
 			ps.Equipment[i] = nil
-			ps.Graveyard = append(ps.Graveyard, counter)
+			e.addToGraveyard(playerID, counter)
 			e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(counter)}})
 			return
 		}

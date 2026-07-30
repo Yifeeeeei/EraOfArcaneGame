@@ -23,6 +23,6 @@ func (e *Engine) moveEquipmentToGraveyard(playerID int, slot int, card *CardInst
 	card.SlotIndex = -1
 	e.releaseUnderCardsToGraveyard(playerID, card)
 	card.BoundSkills = nil
-	ps.Graveyard = append(ps.Graveyard, card)
+	e.addToGraveyard(playerID, card)
 	e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
 }

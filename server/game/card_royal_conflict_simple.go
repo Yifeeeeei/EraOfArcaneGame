@@ -1319,7 +1319,7 @@ func (Card1521108ContradictoryKnight) OnDeath(ctx *EffectContext) error {
 			ctx.Source.UnderCards = nil
 			ctx.Source.AttachedBehaviors = nil
 			if !ctx.Engine.placeExistingCompanionAtPosition(opponentID, ctx.Source, pos, true) {
-				ctx.Engine.State.Players[ctx.PlayerID].Graveyard = append(ctx.Engine.State.Players[ctx.PlayerID].Graveyard, ctx.Source)
+				ctx.Engine.addToGraveyard(ctx.PlayerID, ctx.Source)
 			}
 		})
 	return nil

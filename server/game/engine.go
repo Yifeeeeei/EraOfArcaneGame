@@ -218,7 +218,7 @@ func (e *Engine) enforceSlotCapacities(ps *PlayerState) {
 		ps.Equipment[i] = nil
 		equipment.SlotIndex = -1
 		equipment.BoundSkills = nil
-		ps.Graveyard = append(ps.Graveyard, equipment)
+		e.addToGraveyard(ps.PlayerID, equipment)
 		e.emit(GameEvent{Type: "discard", Player: ps.PlayerID, Data: map[string]any{"card": cardToInfo(equipment)}})
 	}
 
@@ -371,6 +371,7 @@ func (e *Engine) startTurn() {
 
 	ps := e.State.Players[e.State.CurrentTurn]
 	clearSpellCastTracking(ps)
+	e.clearGraveyardTurnTracking()
 	ps.DrawCountThisTurn = 0
 
 	// Elements are cleared at the end of their owner's turn. Start turn should
@@ -651,7 +652,7 @@ func (e *Engine) millTopDeckCards(playerID int, n int) []*CardInstance {
 	for i := 0; i < count; i++ {
 		card := ps.Deck[0]
 		ps.Deck = ps.Deck[1:]
-		ps.Graveyard = append(ps.Graveyard, card)
+		e.addToGraveyard(playerID, card)
 		milled = append(milled, card)
 		e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
 	}
@@ -1461,7 +1462,7 @@ func (e *Engine) moveHandConsumablesToGraveyard(ps *PlayerState, cards []*CardIn
 			continue
 		}
 		ps.RemoveFromHand(idx)
-		ps.Graveyard = append(ps.Graveyard, card)
+		e.addToGraveyard(ps.PlayerID, card)
 		e.emit(GameEvent{
 			Type:   "use_item",
 			Player: -1,
@@ -2664,7 +2665,7 @@ func (e *Engine) destroyUnitWithData(unit *CardInstance, ownerID int, deathData 
 	unit.BoundSkills = nil
 
 	// Add to graveyard
-	ps.Graveyard = append(ps.Graveyard, unit)
+	e.addToGraveyard(ownerID, unit)
 
 	e.emit(GameEvent{
 		Type:   "unit_destroyed",
@@ -3069,7 +3070,7 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 	}
 	e.notifyCardPlayCostPaid(ps, card)
 	ps.RemoveFromHand(handIdx)
-	ps.Graveyard = append(ps.Graveyard, card)
+	e.addToGraveyard(playerID, card)
 
 	e.emit(GameEvent{
 		Type:   "use_item",
@@ -3188,7 +3189,7 @@ func (e *Engine) handleUseSpellScrollItem(playerID int, action ActionMessage, ca
 	}
 	e.notifyCardPlayCostPaid(ps, card)
 	ps.RemoveFromHand(handIdx)
-	ps.Graveyard = append(ps.Graveyard, card)
+	e.addToGraveyard(playerID, card)
 
 	e.emit(GameEvent{
 		Type:   "use_item",
@@ -3772,6 +3773,7 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 		ps.Elements[elem] = 0
 	}
 	clearSpellCastTracking(ps)
+	e.clearGraveyardTurnTracking()
 
 	e.emit(GameEvent{
 		Type:   "turn_end",

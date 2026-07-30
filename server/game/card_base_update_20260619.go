@@ -242,7 +242,7 @@ func newBurier() CardBehavior {
 		for i := 0; i < count; i++ {
 			card := ps.Deck[0]
 			ps.Deck = ps.Deck[1:]
-			ps.Graveyard = append(ps.Graveyard, card)
+			ctx.Engine.addToGraveyard(ctx.PlayerID, card)
 			ctx.Engine.emit(GameEvent{Type: "discard", Player: ctx.PlayerID, Data: map[string]any{"card": cardToInfo(card)}})
 		}
 		ps.GainElements(map[string]int{model.ElementShadow: 2})

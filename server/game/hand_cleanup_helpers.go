@@ -35,7 +35,7 @@ func (e *Engine) discardHandCardToGraveyard(playerID int, card *CardInstance) {
 	if ps == nil {
 		return
 	}
-	ps.Graveyard = append(ps.Graveyard, card)
+	e.addToGraveyard(playerID, card)
 	delete(ps.RevealedHand, card.InstanceID)
 	e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
 	e.resolveDiscardedCardEffects(playerID, card)
