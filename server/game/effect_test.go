@@ -2633,6 +2633,63 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("sting frog boosts later spells after friendly drive or charge skills", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		placeUnit(baseCard(t, "1021114"), 0, 0, 0, engine)
+		drive := readySkill(baseCard(t, "3321109"), 0)
+		laterSpell := readySkill(baseCard(t, "3021008"), 0)
+		p0.Skills[0] = drive
+		p0.Skills[1] = laterSpell
+		p0.Elements[model.ElementAir] = 2
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": drive.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(target.Position.Col),
+			"target_row":  float64(target.Position.Row),
+		}}); err != nil {
+			t.Fatalf("cast drive spell with frog: %v", err)
+		}
+		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != TempModSkillPowerBonus || p0.TempModifiers[0].Amount != 1 {
+			t.Fatalf("1021114 should add current-turn spell power modifier, modifiers=%+v", p0.TempModifiers)
+		}
+		if got := engine.effectiveSpellPower(0, laterSpell, nil); got != laterSpell.Card.Power+1 {
+			t.Fatalf("1021114 should boost later spells this turn, got=%d", got)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
+			t.Fatalf("resolve drive spell: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "end_turn", Data: map[string]any{}}); err != nil {
+			t.Fatalf("end turn after frog trigger: %v", err)
+		}
+		if len(p0.TempModifiers) != 0 {
+			t.Fatalf("1021114 modifier should expire at turn end, modifiers=%+v", p0.TempModifiers)
+		}
+
+		nonTriggerEngine := setupReportedBugEngine(t)
+		nonP0 := nonTriggerEngine.State.Players[0]
+		placeUnit(baseCard(t, "1021114"), 0, 0, 0, nonTriggerEngine)
+		nonTrigger := readySkill(baseCard(t, "3121001"), 0)
+		checkSpell := readySkill(baseCard(t, "3021008"), 0)
+		nonP0.Skills[0] = nonTrigger
+		nonP0.Skills[1] = checkSpell
+		nonP0.Elements[model.ElementFire] = 2
+		nonTarget := placeUnit(baseCard(t, "1021001"), 1, 1, 0, nonTriggerEngine)
+		if err := nonTriggerEngine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": nonTrigger.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(nonTarget.Position.Col),
+			"target_row":  float64(nonTarget.Position.Row),
+		}}); err != nil {
+			t.Fatalf("cast non-drive spell with frog: %v", err)
+		}
+		if len(nonP0.TempModifiers) != 0 {
+			t.Fatalf("1021114 should ignore non-drive/non-charge skills, modifiers=%+v", nonP0.TempModifiers)
+		}
+	})
+
 	t.Run("greedy tyrant increases both players hand card entry costs", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
