@@ -1108,6 +1108,58 @@ func (Card1621114SoulSymbiote) OnDeath(ctx *EffectContext) error {
 	return nil
 }
 
+type Card1621101PainSoul struct{ AlwaysActive }
+
+func (Card1621101PainSoul) ID() string   { return "1621101" }
+func (Card1621101PainSoul) Name() string { return "苦痛之魂" }
+func (Card1621101PainSoul) OnDamaged(ctx *EffectContext) error {
+	if ctx.Source == nil || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) {
+		return nil
+	}
+	ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementShadow, 1, ctx.Source)
+	ctx.Source.UsedThisTurn++
+	return nil
+}
+
+type Card1621102PainAvenger struct{ AlwaysActive }
+
+func (Card1621102PainAvenger) ID() string   { return "1621102" }
+func (Card1621102PainAvenger) Name() string { return "苦痛复仇者" }
+func (Card1621102PainAvenger) OnDamaged(ctx *EffectContext) error {
+	if ctx.Source == nil || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) {
+		return nil
+	}
+	ctx.Source.CurrentAttack++
+	ctx.Source.UsedThisTurn++
+	return nil
+}
+
+type Card1621104RoseGardenGardener struct{ AlwaysActive }
+
+func (Card1621104RoseGardenGardener) ID() string   { return "1621104" }
+func (Card1621104RoseGardenGardener) Name() string { return "蔷薇花园园丁" }
+func (Card1621104RoseGardenGardener) OnFriendlyDeath(ctx *EffectContext) error {
+	if ctx.Source == nil || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) {
+		return nil
+	}
+	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
+		return card != nil && card.CurrentLife < maxLife(card)
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Source.UsedThisTurn++
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "rose_garden_gardener_heal",
+		"蔷薇花园园丁:选择1个友方单位回复2血", candidates, 1, 1,
+		func(selected []string) {
+			target := ctx.Engine.findUnitByInstanceID(firstSelected(selected))
+			if target != nil && target.OwnerID == ctx.PlayerID {
+				healUnit(target, 2)
+			}
+		})
+	return nil
+}
+
 type Card2201101DreamBloom struct{ AlwaysActive }
 
 func (Card2201101DreamBloom) ID() string   { return "2201101" }

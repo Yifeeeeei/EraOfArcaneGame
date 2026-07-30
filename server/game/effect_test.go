@@ -2818,6 +2818,56 @@ func TestRoyalConflictSimpleActiveAbilityEffects(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
+	t.Run("pain soul gains shadow load once after being damaged", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		soul := placeUnit(baseCard(t, "1621101"), 0, 0, 0, engine)
+		engine.dealDamageWithExtra(soul, 1, 0, map[string]any{"attacker": 1})
+		if effectiveElementsGain(soul)[model.ElementShadow] != soul.Card.ElementsGain[model.ElementShadow]+1 || soul.UsedThisTurn != 1 {
+			t.Fatalf("pain soul should gain one shadow load after damage, load=%v used=%d", effectiveElementsGain(soul), soul.UsedThisTurn)
+		}
+		engine.dealDamageWithExtra(soul, 1, 0, map[string]any{"attacker": 1})
+		if effectiveElementsGain(soul)[model.ElementShadow] != soul.Card.ElementsGain[model.ElementShadow]+1 {
+			t.Fatalf("pain soul should trigger at most once per turn, load=%v used=%d", effectiveElementsGain(soul), soul.UsedThisTurn)
+		}
+	})
+
+	t.Run("pain avenger gains attack once after being damaged", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		avenger := placeUnit(baseCard(t, "1621102"), 0, 0, 0, engine)
+		engine.dealDamageWithExtra(avenger, 1, 0, map[string]any{"attacker": 1})
+		if avenger.CurrentAttack != avenger.Card.Attack+1 || avenger.UsedThisTurn != 1 {
+			t.Fatalf("pain avenger should gain one attack after damage, attack=%d used=%d", avenger.CurrentAttack, avenger.UsedThisTurn)
+		}
+		engine.dealDamageWithExtra(avenger, 1, 0, map[string]any{"attacker": 1})
+		if avenger.CurrentAttack != avenger.Card.Attack+1 {
+			t.Fatalf("pain avenger should trigger at most once per turn, attack=%d used=%d", avenger.CurrentAttack, avenger.UsedThisTurn)
+		}
+	})
+
+	t.Run("rose garden gardener heals a friendly unit once after a unit dies", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		gardener := placeUnit(baseCard(t, "1621104"), 0, 0, 0, engine)
+		wounded := placeUnit(baseCard(t, "1021002"), 0, 1, 0, engine)
+		wounded.CurrentLife = maxLife(wounded) - 2
+		dead := placeUnit(baseCard(t, "1021001"), 0, 2, 0, engine)
+		engine.destroyUnitWithData(dead, 0, map[string]any{"attacker": 1})
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "rose_garden_gardener_heal" || gardener.UsedThisTurn != 1 {
+			t.Fatalf("gardener should prompt once after friendly death, pending=%+v used=%d", engine.State.PendingAction, gardener.UsedThisTurn)
+		}
+		resolvePendingSelection(t, engine, 0, wounded.InstanceID)
+		if wounded.CurrentLife != maxLife(wounded) {
+			t.Fatalf("gardener should heal selected friendly unit up to max, life=%d max=%d", wounded.CurrentLife, maxLife(wounded))
+		}
+
+		anotherDead := placeUnit(baseCard(t, "1021001"), 0, 2, 1, engine)
+		engine.destroyUnitWithData(anotherDead, 0, map[string]any{"attacker": 1})
+		if engine.State.PendingAction != nil {
+			t.Fatalf("gardener should trigger at most once per turn, pending=%+v used=%d", engine.State.PendingAction, gardener.UsedThisTurn)
+		}
+	})
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 
