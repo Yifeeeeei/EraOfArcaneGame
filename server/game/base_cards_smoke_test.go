@@ -314,6 +314,9 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 							engine.State.Players[1].Skills[i] = readySkill(cards.PlayableCardDB["3021005"], 1)
 						}
 					}
+					if card.Number == "2221101" {
+						ps.Skills[0] = readySkill(cards.PlayableCardDB["3221103"], 0)
+					}
 					if card.Number == "2611002" {
 						sacrifice := NewCardInstance(cards.PlayableCardDB["1021001"], 0, engine.State.TurnNumber)
 						sacrifice.Position = &Position{Col: 0, Row: 0}

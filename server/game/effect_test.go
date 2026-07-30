@@ -2116,6 +2116,23 @@ func TestRoyalConflictPermanentSkillCostAndGraveyardBurstEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("mirrorsea spring requires a friendly spell before payment", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		spring := NewCardInstance(baseCard(t, "2221101"), 0, 1)
+		p0.Hand = []*CardInstance{spring}
+		p0.Elements[model.ElementWater] = 1
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id": spring.InstanceID,
+		}}); err == nil {
+			t.Fatal("2221101 should fail before payment when there is no friendly spell")
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != spring || len(p0.Graveyard) != 0 || p0.Elements[model.ElementWater] != 1 {
+			t.Fatalf("failed 2221101 should leave hand/grave/elements unchanged, hand=%v grave=%v elements=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard), p0.Elements)
+		}
+	})
+
 	t.Run("dreamcatcher buffs learned spirit spells only", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
