@@ -2460,6 +2460,102 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictResetAndTemporaryAbilityEffects(t *testing.T) {
+	t.Run("fire butterfly temporarily changes its load to one air", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		butterfly := NewCardInstance(baseCard(t, "1121108"), 0, 1)
+		if err := (Card1121108FireButterfly{}).OnPerTurn(&EffectContext{Engine: engine, Source: butterfly, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("fire butterfly ability: %v", err)
+		}
+		load := effectiveElementsGain(butterfly)
+		if len(load) != 1 || load[model.ElementAir] != 1 {
+			t.Fatalf("fire butterfly should temporarily set load to exactly 1 air, load=%v", load)
+		}
+		if err := (Card1121108FireButterfly{}).OnTurnEnd(&EffectContext{Engine: engine, Source: butterfly, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("fire butterfly turn end: %v", err)
+		}
+		if effectiveElementsGain(butterfly)[model.ElementAir] != butterfly.Card.ElementsGain[model.ElementAir] || butterfly.Statuses[fireButterflyTemporaryLoadStatus] != 0 {
+			t.Fatalf("fire butterfly temporary load should expire, load=%v statuses=%v", effectiveElementsGain(butterfly), butterfly.Statuses)
+		}
+	})
+
+	t.Run("water mage resets a low-cost water spell", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		mage := NewCardInstance(baseCard(t, "1221112"), 0, 1)
+		waterSkill := readySkill(baseCard(t, "3221103"), 0)
+		waterSkill.IsHorizontal = true
+		p0.Skills[0] = waterSkill
+		if err := (Card1221112WaterMage{}).OnUltimate(&EffectContext{Engine: engine, Source: mage, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("water mage ultimate: %v", err)
+		}
+		resolvePendingSelection(t, engine, 0, waterSkill.InstanceID)
+		if waterSkill.IsHorizontal {
+			t.Fatalf("water mage should reset selected water skill")
+		}
+
+		failEngine := setupReportedBugEngine(t)
+		failMage := NewCardInstance(baseCard(t, "1221112"), 0, 1)
+		if err := (Card1221112WaterMage{}).OnUltimate(&EffectContext{Engine: failEngine, Source: failMage, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("water mage should no-op without a resettable water spell: %v", err)
+		}
+		if failEngine.State.PendingAction != nil {
+			t.Fatalf("water mage should not open a prompt without legal targets, pending=%+v", failEngine.State.PendingAction)
+		}
+	})
+
+	t.Run("silverleaf ranger consumes for the next spell attack bonus", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		ranger := NewCardInstance(baseCard(t, "1321106"), 0, 1)
+		ranger.IsHorizontal = false
+		if err := (Card1321106SilverleafRanger{}).OnPerTurn(&EffectContext{Engine: engine, Source: ranger, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("silverleaf ranger ability: %v", err)
+		}
+		if !ranger.IsHorizontal {
+			t.Fatal("silverleaf ranger should consume itself")
+		}
+		spell := readySkill(baseCard(t, "3021005"), 0)
+		damage := engine.effectiveSpellDamage(0, spell, max(spell.Card.Attack+spell.AttackBonus, 0), nil)
+		if damage != 1 {
+			t.Fatalf("silverleaf ranger should add +1 attack to next spell, damage=%d modifiers=%v", damage, p0.TempModifiers)
+		}
+		engine.consumeNextSpellAttackBonuses(p0, spell)
+		if len(p0.TempModifiers) != 0 {
+			t.Fatalf("silverleaf ranger attack bonus should be consumed once, modifiers=%v", p0.TempModifiers)
+		}
+	})
+
+	t.Run("autumn maple gem marks itself and resets a horizontal earth companion", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		gem := NewCardInstance(baseCard(t, "2421112"), 0, 1)
+		if err := (Card2421112AutumnMapleGem{}).OnEnter(&EffectContext{Engine: engine, Source: gem, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("autumn maple gem enter: %v", err)
+		}
+		if gem.Statuses[autumnMapleGemCounter] != 2 {
+			t.Fatalf("autumn maple gem should enter with two counters, statuses=%v", gem.Statuses)
+		}
+		earth := placeUnit(baseCard(t, "1421101"), 0, 0, 0, engine)
+		earth.IsHorizontal = true
+		if err := (Card2421112AutumnMapleGem{}).OnPerTurn(&EffectContext{Engine: engine, Source: gem, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("autumn maple gem ability: %v", err)
+		}
+		resolvePendingSelection(t, engine, 0, earth.InstanceID)
+		if earth.IsHorizontal || gem.Statuses[autumnMapleGemCounter] != 1 {
+			t.Fatalf("autumn maple gem should spend one counter to reset earth companion, horizontal=%v statuses=%v", earth.IsHorizontal, gem.Statuses)
+		}
+
+		failEngine := setupReportedBugEngine(t)
+		failGem := NewCardInstance(baseCard(t, "2421112"), 0, 1)
+		if err := (Card2421112AutumnMapleGem{}).OnPerTurn(&EffectContext{Engine: failEngine, Source: failGem, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("autumn maple gem should no-op without counters: %v", err)
+		}
+		if failEngine.State.PendingAction != nil {
+			t.Fatalf("autumn maple gem should not open a prompt without counters, pending=%+v", failEngine.State.PendingAction)
+		}
+	})
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

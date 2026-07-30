@@ -248,12 +248,70 @@ func (Card1121103BeaconGuard) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
+type Card1121108FireButterfly struct{ AlwaysActive }
+
+const fireButterflyTemporaryLoadStatus = "火蝴蝶临时负载"
+
+func (Card1121108FireButterfly) ID() string   { return "1121108" }
+func (Card1121108FireButterfly) Name() string { return "火蝴蝶" }
+func (Card1121108FireButterfly) PerTurnLabel(*CardInstance) string {
+	return "主动"
+}
+func (Card1121108FireButterfly) OnPerTurn(ctx *EffectContext) error {
+	setElementsGain(ctx.Source, map[string]int{model.ElementAir: 1})
+	ctx.Source.Statuses[fireButterflyTemporaryLoadStatus] = 1
+	return nil
+}
+func (Card1121108FireButterfly) OnTurnEnd(ctx *EffectContext) error {
+	if ctx.Source.Statuses[fireButterflyTemporaryLoadStatus] <= 0 {
+		return nil
+	}
+	clearElementsGainSet(ctx.Source)
+	delete(ctx.Source.Statuses, fireButterflyTemporaryLoadStatus)
+	return nil
+}
+
 type Card1421115Geomancer struct{ AlwaysActive }
 
 func (Card1421115Geomancer) ID() string   { return "1421115" }
 func (Card1421115Geomancer) Name() string { return "地卜行者" }
 func (Card1421115Geomancer) OnEnter(ctx *EffectContext) error {
 	ctx.Engine.drawCards(ctx.PlayerID, 1)
+	return nil
+}
+
+type Card1221112WaterMage struct{ AlwaysActive }
+
+func (Card1221112WaterMage) ID() string   { return "1221112" }
+func (Card1221112WaterMage) Name() string { return "水魔导师" }
+func (Card1221112WaterMage) OnUltimate(ctx *EffectContext) error {
+	candidates := ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, func(skill *CardInstance) bool {
+		return skill != nil && skill.Card != nil && skill.Card.IsSkill() &&
+			skill.Card.Category == model.ElementWater &&
+			totalElementCost(skill.Card.ElementsExpense) < 3 &&
+			skill.IsHorizontal
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	allowed := make(map[string]bool, len(candidates))
+	for _, candidate := range candidates {
+		if id, _ := candidate["instance_id"].(string); id != "" {
+			allowed[id] = true
+		}
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "water_mage_reset_skill",
+		"水魔导师:选择1个使用花费小于3的水纹法术重置", candidates, 1, 1,
+		func(selected []string) {
+			id := firstSelected(selected)
+			if !allowed[id] {
+				return
+			}
+			skill := ctx.Engine.findSkill(ctx.Engine.State.Players[ctx.PlayerID], id)
+			if skill != nil && skill.Card != nil && skill.Card.IsSkill() && skill.Card.Category == model.ElementWater && totalElementCost(skill.Card.ElementsExpense) < 3 {
+				skill.IsHorizontal = false
+			}
+		})
 	return nil
 }
 
@@ -273,6 +331,27 @@ func (Card1321110SilverleafMessenger) OnEnter(ctx *EffectContext) error {
 		func(selected []string) {
 			ctx.Engine.searchDeckToHand(ctx.PlayerID, firstSelected(selected))
 		})
+	return nil
+}
+
+type Card1321106SilverleafRanger struct{ AlwaysActive }
+
+func (Card1321106SilverleafRanger) ID() string   { return "1321106" }
+func (Card1321106SilverleafRanger) Name() string { return "银叶游侠" }
+func (Card1321106SilverleafRanger) PerTurnLabel(*CardInstance) string {
+	return "主动"
+}
+func (Card1321106SilverleafRanger) OnPerTurn(ctx *EffectContext) error {
+	if !ctx.Engine.canConsumeCard(ctx.Source) {
+		return fmt.Errorf("银叶游侠不能被消耗")
+	}
+	ctx.Source.IsHorizontal = true
+	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
+		Type:          TempModSkillAttackBonus,
+		Amount:        1,
+		RemainingUses: 1,
+		ExpiresTurn:   ctx.Engine.State.TurnNumber + 2,
+	})
 	return nil
 }
 
@@ -894,6 +973,52 @@ func (Card2521104GoldenDragonbone) OnPerTurn(ctx *EffectContext) error {
 		return fmt.Errorf("golden dragonbone must be sacrificed from equipment")
 	}
 	ctx.Engine.drawCards(ctx.PlayerID, 2)
+	return nil
+}
+
+type Card2421112AutumnMapleGem struct{ AlwaysActive }
+
+const autumnMapleGemCounter = "秋枫宝钻标记物"
+
+func (Card2421112AutumnMapleGem) ID() string   { return "2421112" }
+func (Card2421112AutumnMapleGem) Name() string { return "秋枫宝钻" }
+func (Card2421112AutumnMapleGem) OnEnter(ctx *EffectContext) error {
+	ctx.Source.Statuses[autumnMapleGemCounter] += 2
+	return nil
+}
+func (Card2421112AutumnMapleGem) PerTurnLabel(*CardInstance) string {
+	return "回合技"
+}
+func (Card2421112AutumnMapleGem) OnPerTurn(ctx *EffectContext) error {
+	if ctx.Source.Statuses[autumnMapleGemCounter] <= 0 {
+		return nil
+	}
+	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
+		return card != nil && card.Card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementEarth && card.IsHorizontal
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	allowed := make(map[string]bool, len(candidates))
+	for _, candidate := range candidates {
+		if id, _ := candidate["instance_id"].(string); id != "" {
+			allowed[id] = true
+		}
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "autumn_maple_gem_reset",
+		"秋枫宝钻:选择1个地脉伙伴重置", candidates, 1, 1,
+		func(selected []string) {
+			id := firstSelected(selected)
+			if !allowed[id] || ctx.Source.Statuses[autumnMapleGemCounter] <= 0 {
+				return
+			}
+			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, id)
+			if target == nil || zone != "unit" || target.Card == nil || !target.Card.IsCompanion() || target.Card.Category != model.ElementEarth {
+				return
+			}
+			ctx.Source.Statuses[autumnMapleGemCounter]--
+			target.IsHorizontal = false
+		})
 	return nil
 }
 
