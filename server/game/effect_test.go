@@ -2998,6 +2998,26 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("psychic disk reduces medium skill use cost", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		disk := NewCardInstance(baseCard(t, "2021108"), 0, 1)
+		p0.Equipment[0] = disk
+
+		medium := readySkill(baseCard(t, "3621105"), 0)
+		nonMedium := readySkill(baseCard(t, "3121105"), 0)
+		arcaneMedium := readySkill(baseCard(t, "3021002"), 0)
+		if got := engine.effectiveSkillUseCost(p0, medium)[model.ElementShadow]; got != 1 {
+			t.Fatalf("2021108 should reduce dark medium skill cost from 2 to 1, cost=%v", engine.effectiveSkillUseCost(p0, medium))
+		}
+		if got := engine.effectiveSkillUseCost(p0, nonMedium)[model.ElementFire]; got != 2 {
+			t.Fatalf("2021108 should not reduce non-medium skill cost, cost=%v", engine.effectiveSkillUseCost(p0, nonMedium))
+		}
+		if got := engine.effectiveSkillUseCost(p0, arcaneMedium)[model.ElementArcane]; got != 0 {
+			t.Fatalf("2021108 should reduce one-cost arcane medium skill to 0, cost=%v", engine.effectiveSkillUseCost(p0, arcaneMedium))
+		}
+	})
+
 	t.Run("church envoy removes negative statuses from friendly cards", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]

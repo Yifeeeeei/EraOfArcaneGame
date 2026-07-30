@@ -86,6 +86,22 @@ func reduceCost(cost map[string]int, elem string, amount int) {
 	}
 }
 
+func reduceGenericCost(cost map[string]int, preferredElem string, amount int) {
+	if amount <= 0 {
+		return
+	}
+	if preferredElem != "" && cost[preferredElem] > 0 {
+		reduceCost(cost, preferredElem, amount)
+		return
+	}
+	for _, elem := range model.AllElements {
+		if cost[elem] > 0 {
+			reduceCost(cost, elem, amount)
+			return
+		}
+	}
+}
+
 func summonHandCompanionFree(ctx *EffectContext, predicate func(*CardInstance) bool) *CardInstance {
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	pos := ps.FindEmptyPosition()
