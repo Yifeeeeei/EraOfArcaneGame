@@ -321,6 +321,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"1021101": func() CardBehavior { return Card1021101PrivateTeacher{} },
 	"1021102": func() CardBehavior { return Card1021102SwordsmanshipTeacher{} },
 	"1021104": func() CardBehavior { return Card1021104DimensionalRiftBeast{} },
+	"1021105": func() CardBehavior { return Card1021105RoyalTaxCollector{} },
 	"1021106": func() CardBehavior { return Card1021106SkyCityTycoon{} },
 	"1021108": func() CardBehavior { return Card1021108AlchemyApprentice{} },
 	"1021109": func() CardBehavior { return Card1021109ChurchEnvoy{} },

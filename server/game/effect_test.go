@@ -4768,12 +4768,25 @@ func TestChargeSystem(t *testing.T) {
 
 func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 	t.Run("dragon blood treant removes a friendly load and gains shadow load", func(t *testing.T) {
+		selfEngine := setupEffectTest(t)
+		setElementsGain(selfEngine.State.Players[0].Hero, map[string]int{})
+		selfTreant := placeUnit(baseCard(t, "1421107"), 0, 0, 0, selfEngine)
+		behavior := Card1421107DragonBloodTreant{}
+
+		if err := behavior.OnEnter(&EffectContext{Engine: selfEngine, Source: selfTreant, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1421107 self load enter: %v", err)
+		}
+		selfLoad := effectiveElementsGain(selfTreant)
+		if selfLoad[model.ElementEarth] != 1 || selfLoad[model.ElementShadow] != 1 {
+			t.Fatalf("1421107 should be able to remove its own load and gain shadow, load=%v", selfLoad)
+		}
+
 		engine := setupEffectTest(t)
 		setElementsGain(engine.State.Players[0].Hero, map[string]int{})
 		treant := placeUnit(baseCard(t, "1421107"), 0, 0, 0, engine)
+		setElementsGain(treant, map[string]int{})
 		target := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
 		setElementsGain(target, map[string]int{model.ElementFire: 1})
-		behavior := Card1421107DragonBloodTreant{}
 
 		if err := behavior.OnEnter(&EffectContext{Engine: engine, Source: treant, PlayerID: 0, OpponentID: 1}); err != nil {
 			t.Fatalf("1421107 single load enter: %v", err)
@@ -4785,6 +4798,7 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		multiEngine := setupEffectTest(t)
 		setElementsGain(multiEngine.State.Players[0].Hero, map[string]int{})
 		multiTreant := placeUnit(baseCard(t, "1421107"), 0, 0, 0, multiEngine)
+		setElementsGain(multiTreant, map[string]int{})
 		multiTarget := placeUnit(baseCard(t, "1021001"), 0, 1, 0, multiEngine)
 		setElementsGain(multiTarget, map[string]int{model.ElementFire: 1, model.ElementWater: 1})
 		if err := behavior.OnEnter(&EffectContext{Engine: multiEngine, Source: multiTreant, PlayerID: 0, OpponentID: 1}); err != nil {
@@ -4797,6 +4811,82 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		load := effectiveElementsGain(multiTarget)
 		if load[model.ElementFire] != 1 || load[model.ElementWater] != 0 || effectiveElementsGain(multiTreant)[model.ElementShadow] != 1 {
 			t.Fatalf("1421107 should remove selected load only and gain shadow, target=%v treant=%v", load, effectiveElementsGain(multiTreant))
+		}
+
+		bonusEngine := setupEffectTest(t)
+		setElementsGain(bonusEngine.State.Players[0].Hero, map[string]int{})
+		bonusTreant := placeUnit(baseCard(t, "1421107"), 0, 0, 0, bonusEngine)
+		setElementsGain(bonusTreant, map[string]int{})
+		bonusTarget := placeUnit(baseCard(t, "1021001"), 0, 1, 0, bonusEngine)
+		setElementsGain(bonusTarget, map[string]int{model.ElementFire: 1})
+		bonusTarget.ElementsGainBonus = map[string]int{model.ElementWater: 1}
+		if err := behavior.OnEnter(&EffectContext{Engine: bonusEngine, Source: bonusTreant, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1421107 bonus load enter: %v", err)
+		}
+		resolvePendingSelection(t, bonusEngine, 0, bonusTarget.InstanceID+"|"+model.ElementWater)
+		bonusLoad := effectiveElementsGain(bonusTarget)
+		if bonusLoad[model.ElementFire] != 1 || bonusLoad[model.ElementWater] != 0 || bonusTarget.ElementsGainBonus[model.ElementWater] != 0 || bonusTarget.ElementsGainSet[model.ElementFire] != 1 {
+			t.Fatalf("1421107 should remove selected bonus load without changing base load, target=%v bonus=%v set=%v", bonusLoad, bonusTarget.ElementsGainBonus, bonusTarget.ElementsGainSet)
+		}
+	})
+
+	t.Run("royal tax collector gains arcane when opponent draws until their next turn ends", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		collector := placeUnit(baseCard(t, "1021105"), 0, 0, 0, engine)
+		p1.Equipment[0] = NewCardInstance(baseCard(t, "2311002"), 1, engine.State.TurnNumber)
+		p1.Deck = []*CardInstance{
+			NewCardInstance(baseCard(t, "1021001"), 1, engine.State.TurnNumber),
+			NewCardInstance(baseCard(t, "1021002"), 1, engine.State.TurnNumber),
+		}
+		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021004"), 0, engine.State.TurnNumber)}
+		behavior := Card1021105RoyalTaxCollector{}
+
+		if err := behavior.OnEnter(&EffectContext{Engine: engine, Source: collector, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1021105 enter: %v", err)
+		}
+		if collector.Statuses[royalTaxCollectorUntilOpponentTurnEndStatus] != engine.State.TurnNumber {
+			t.Fatalf("1021105 should arm tax window, statuses=%v", collector.Statuses)
+		}
+
+		engine.drawCards(0, 1)
+		if p0.Elements[model.ElementArcane] != 0 || engine.State.PendingAction != nil {
+			t.Fatalf("1021105 should ignore own draw and opponent draw listeners should not trigger for own-only cards, elements=%v pending=%+v", p0.Elements, engine.State.PendingAction)
+		}
+		engine.drawCards(1, 2)
+		if p0.Elements[model.ElementArcane] != 2 {
+			t.Fatalf("1021105 should gain one arcane per opponent draw, elements=%v", p0.Elements)
+		}
+
+		if err := behavior.OnTurnEnd(&EffectContext{
+			Engine:     engine,
+			Source:     collector,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"ended_player": 0},
+		}); err != nil {
+			t.Fatalf("1021105 own turn end: %v", err)
+		}
+		if collector.Statuses[royalTaxCollectorUntilOpponentTurnEndStatus] == 0 {
+			t.Fatalf("1021105 should stay active through own turn end, statuses=%v", collector.Statuses)
+		}
+		if err := behavior.OnTurnEnd(&EffectContext{
+			Engine:     engine,
+			Source:     collector,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"ended_player": 1},
+		}); err != nil {
+			t.Fatalf("1021105 opponent turn end: %v", err)
+		}
+		if collector.Statuses[royalTaxCollectorUntilOpponentTurnEndStatus] != 0 {
+			t.Fatalf("1021105 should expire at opponent turn end, statuses=%v", collector.Statuses)
+		}
+		p1.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021006"), 1, engine.State.TurnNumber)}
+		engine.drawCards(1, 1)
+		if p0.Elements[model.ElementArcane] != 2 {
+			t.Fatalf("1021105 should stop after opponent turn end, elements=%v", p0.Elements)
 		}
 	})
 

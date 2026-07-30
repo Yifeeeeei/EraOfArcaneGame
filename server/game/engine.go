@@ -694,6 +694,7 @@ func (e *Engine) notifyCardDrawn(playerID int, card *CardInstance) {
 		"initial_hand":         e.State.Phase == PhaseWaitingPlayers || e.State.Phase == PhaseMulligan,
 	}
 	e.triggerFieldEffectsWithData(TriggerOnDraw, playerID, card, data)
+	e.triggerFieldEffectsWithData(TriggerOnDraw, 1-playerID, card, data)
 	if h, ok := cardBehavior(card).(OnSelfDrawBehavior); ok && h.HasActiveDraw(card) {
 		_ = h.OnSelfDraw(&EffectContext{
 			Engine:     e,

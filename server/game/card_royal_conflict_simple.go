@@ -58,6 +58,44 @@ func (Card1001101AbandonedPawn) OnDeath(ctx *EffectContext) error {
 	return nil
 }
 
+type Card1021105RoyalTaxCollector struct{ AlwaysActive }
+
+func (Card1021105RoyalTaxCollector) ID() string   { return "1021105" }
+func (Card1021105RoyalTaxCollector) Name() string { return "皇城征税员" }
+
+const royalTaxCollectorUntilOpponentTurnEndStatus = "皇城征税员征税至对手回合结束"
+
+func (Card1021105RoyalTaxCollector) OnEnter(ctx *EffectContext) error {
+	if ctx.Source == nil {
+		return nil
+	}
+	ctx.Source.Statuses[royalTaxCollectorUntilOpponentTurnEndStatus] = ctx.Engine.State.TurnNumber
+	return nil
+}
+
+func (Card1021105RoyalTaxCollector) OnDraw(ctx *EffectContext) error {
+	if ctx.Source == nil || ctx.Source.Statuses[royalTaxCollectorUntilOpponentTurnEndStatus] <= 0 || ctx.ExtraData == nil {
+		return nil
+	}
+	drawnPlayer, _ := ctx.ExtraData["drawn_player"].(int)
+	if drawnPlayer != ctx.OpponentID {
+		return nil
+	}
+	ctx.Engine.State.Players[ctx.PlayerID].Elements[model.ElementArcane]++
+	return nil
+}
+
+func (Card1021105RoyalTaxCollector) OnTurnEnd(ctx *EffectContext) error {
+	if ctx.Source == nil || ctx.Source.Statuses[royalTaxCollectorUntilOpponentTurnEndStatus] <= 0 || ctx.ExtraData == nil {
+		return nil
+	}
+	endedPlayer, _ := ctx.ExtraData["ended_player"].(int)
+	if endedPlayer == ctx.OpponentID && ctx.Engine.State.TurnNumber >= ctx.Source.Statuses[royalTaxCollectorUntilOpponentTurnEndStatus] {
+		delete(ctx.Source.Statuses, royalTaxCollectorUntilOpponentTurnEndStatus)
+	}
+	return nil
+}
+
 type Card1221106MirrorLotus struct{ AlwaysActive }
 
 func (Card1221106MirrorLotus) ID() string            { return "1221106" }
@@ -386,10 +424,10 @@ func (Card1421107DragonBloodTreant) Name() string { return "龙血树精" }
 func (Card1421107DragonBloodTreant) OnEnter(ctx *EffectContext) error {
 	candidates := make([]map[string]any, 0)
 	for _, card := range ctx.Engine.getAllFieldCards(ctx.Engine.State.Players[ctx.PlayerID]) {
-		if card == nil || card == ctx.Source || card.Card == nil {
+		if card == nil || card.Card == nil {
 			continue
 		}
-		load := effectiveElementsGain(card)
+		load := dragonBloodTreantReducibleLoad(card)
 		for _, elem := range model.AllElements {
 			if load[elem] <= 0 {
 				continue
@@ -410,13 +448,10 @@ func (Card1421107DragonBloodTreant) OnEnter(ctx *EffectContext) error {
 			return
 		}
 		target, _ := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, instanceID)
-		if target == nil || target == ctx.Source || effectiveElementsGain(target)[elem] <= 0 {
+		if target == nil || dragonBloodTreantReducibleLoad(target)[elem] <= 0 {
 			return
 		}
-		current := effectiveElementsGain(target)
-		current[elem]--
-		setElementsGain(target, current)
-		target.ElementsGainBonus = make(map[string]int)
+		dragonBloodTreantRemoveLoad(target, elem)
 		ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementShadow, 1, ctx.Source)
 	}
 	if len(candidates) == 1 {
@@ -430,6 +465,50 @@ func (Card1421107DragonBloodTreant) OnEnter(ctx *EffectContext) error {
 			removeLoad(firstSelected(selected))
 		})
 	return nil
+}
+
+func dragonBloodTreantReducibleLoad(card *CardInstance) map[string]int {
+	load := make(map[string]int)
+	if card == nil || card.Card == nil {
+		return load
+	}
+	base := card.Card.ElementsGain
+	if card.ElementsGainSet != nil {
+		base = card.ElementsGainSet
+	}
+	for elem, amount := range base {
+		if amount > 0 {
+			load[elem] += amount
+		}
+	}
+	for elem, amount := range card.ElementsGainBonus {
+		if amount > 0 {
+			load[elem] += amount
+		}
+	}
+	return load
+}
+
+func dragonBloodTreantRemoveLoad(card *CardInstance, elem string) {
+	if card == nil || elem == "" {
+		return
+	}
+	if card.ElementsGainBonus != nil && card.ElementsGainBonus[elem] > 0 {
+		card.ElementsGainBonus[elem]--
+		if card.ElementsGainBonus[elem] == 0 {
+			delete(card.ElementsGainBonus, elem)
+		}
+		return
+	}
+	base := copyElementCost(card.Card.ElementsGain)
+	if card.ElementsGainSet != nil {
+		base = copyElementCost(card.ElementsGainSet)
+	}
+	if base[elem] <= 0 {
+		return
+	}
+	base[elem]--
+	setElementsGain(card, base)
 }
 
 type Card1321110SilverleafMessenger struct{ AlwaysActive }
