@@ -4890,6 +4890,45 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("fire beast trainer discounts the next fire beast or monster companion", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		trainer := placeUnit(baseCard(t, "1121106"), 0, 0, 0, engine)
+		beast := NewCardInstance(baseCard(t, "1121102"), 0, engine.State.TurnNumber)
+		machine := NewCardInstance(baseCard(t, "1121104"), 0, engine.State.TurnNumber)
+		behavior := Card1121106FireBeastTrainer{}
+
+		if err := behavior.OnEnter(&EffectContext{Engine: engine, Source: trainer, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1121106 enter: %v", err)
+		}
+		if trainer.Statuses[fireBeastTrainerDiscountStatus] != 1 {
+			t.Fatalf("1121106 should arm one discount, statuses=%v", trainer.Statuses)
+		}
+		if cost := engine.effectiveCardPlayCost(p0, machine); cost[model.ElementFire] != machine.Card.ElementsCost[model.ElementFire] {
+			t.Fatalf("1121106 should not discount fire machines, cost=%v", cost)
+		}
+		if cost := engine.effectiveCardPlayCost(p0, beast); cost[model.ElementFire] != 4 {
+			t.Fatalf("1121106 should discount fire beast/monster companion by two, cost=%v", cost)
+		}
+
+		p0.Hand = append(p0.Hand, beast)
+		p0.Elements[model.ElementFire] = 4
+		if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+			"instance_id": beast.InstanceID,
+			"col":         float64(1),
+			"row":         float64(0),
+		}}); err != nil {
+			t.Fatalf("1121106 discounted summon: %v", err)
+		}
+		if trainer.Statuses[fireBeastTrainerDiscountStatus] != 0 {
+			t.Fatalf("1121106 discount should be consumed after matching summon, statuses=%v", trainer.Statuses)
+		}
+		nextBeast := NewCardInstance(baseCard(t, "1121101"), 0, engine.State.TurnNumber)
+		if cost := engine.effectiveCardPlayCost(p0, nextBeast); cost[model.ElementFire] != nextBeast.Card.ElementsCost[model.ElementFire] {
+			t.Fatalf("1121106 should discount only one matching companion, cost=%v", cost)
+		}
+	})
+
 	t.Run("arcane shield grants shield at next turn start", func(t *testing.T) {
 		engine := setupEffectTest(t)
 		skill := readySkill(baseCard(t, "3021107"), 0)
