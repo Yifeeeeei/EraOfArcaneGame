@@ -3083,6 +3083,38 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("raider ghost captain gives other friendly raiders water load", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		captain := NewCardInstance(baseCard(t, "1221110"), 0, 1)
+		friendlyRaider := NewCardInstance(baseCard(t, "1221111"), 0, 1)
+		friendlyNonRaider := NewCardInstance(baseCard(t, "1221106"), 0, 1)
+		enemyRaider := NewCardInstance(baseCard(t, "1221111"), 1, 1)
+		p0.Units[1][0] = captain
+		p0.Units[1][1] = friendlyRaider
+		p0.Units[1][2] = friendlyNonRaider
+		p1.Units[1][1] = enemyRaider
+
+		if got := engine.effectiveElementsGain(friendlyRaider)[model.ElementWater]; got != friendlyRaider.Card.ElementsGain[model.ElementWater]+1 {
+			t.Fatalf("1221110 should add water load to other friendly raiders, load=%v", engine.effectiveElementsGain(friendlyRaider))
+		}
+		if got := engine.effectiveElementsGain(captain)[model.ElementWater]; got != captain.Card.ElementsGain[model.ElementWater] {
+			t.Fatalf("1221110 should not buff itself, load=%v", engine.effectiveElementsGain(captain))
+		}
+		if got := engine.effectiveElementsGain(friendlyNonRaider)[model.ElementWater]; got != friendlyNonRaider.Card.ElementsGain[model.ElementWater] {
+			t.Fatalf("1221110 should not buff non-raider companions, load=%v", engine.effectiveElementsGain(friendlyNonRaider))
+		}
+		if got := engine.effectiveElementsGain(enemyRaider)[model.ElementWater]; got != enemyRaider.Card.ElementsGain[model.ElementWater] {
+			t.Fatalf("1221110 should not buff enemy raiders, load=%v", engine.effectiveElementsGain(enemyRaider))
+		}
+
+		captain.Statuses[StatusPetrify] = 1
+		if got := engine.effectiveElementsGain(friendlyRaider)[model.ElementWater]; got != friendlyRaider.Card.ElementsGain[model.ElementWater] {
+			t.Fatalf("1221110 aura should be inactive while petrified, load=%v statuses=%v", engine.effectiveElementsGain(friendlyRaider), captain.Statuses)
+		}
+	})
+
 	t.Run("seven gods blessing rewards distinct skill elements", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
