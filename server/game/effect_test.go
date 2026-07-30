@@ -4116,6 +4116,73 @@ func TestRoyalConflictSimpleActiveAbilityEffects(t *testing.T) {
 }
 
 func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
+	t.Run("soul hunter marks friendly spell once after it hits", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		hunter := placeUnit(baseCard(t, "1621106"), 0, 0, 0, engine)
+		skill := readySkill(baseCard(t, "3021005"), 0)
+		behavior := Card1621106SoulHunter{}
+
+		if err := behavior.OnSpellHit(&EffectContext{
+			Engine:     engine,
+			Source:     hunter,
+			Target:     skill,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"attacker": 0, "spell_source": skill},
+		}); err != nil {
+			t.Fatalf("1621106 friendly spell hit: %v", err)
+		}
+		if skill.Statuses[soulMarkerStatus] != 1 || skill.PowerBonus != 2 || hunter.UsedThisTurn != 1 {
+			t.Fatalf("1621106 should mark the hit spell once, statuses=%v power=%d used=%d", skill.Statuses, skill.PowerBonus, hunter.UsedThisTurn)
+		}
+
+		if err := behavior.OnSpellHit(&EffectContext{
+			Engine:     engine,
+			Source:     hunter,
+			Target:     skill,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"attacker": 0, "spell_source": skill},
+		}); err != nil {
+			t.Fatalf("1621106 second friendly spell hit: %v", err)
+		}
+		if skill.Statuses[soulMarkerStatus] != 1 || skill.PowerBonus != 2 || hunter.UsedThisTurn != 1 {
+			t.Fatalf("1621106 should trigger at most once per turn, statuses=%v power=%d used=%d", skill.Statuses, skill.PowerBonus, hunter.UsedThisTurn)
+		}
+
+		enemyEngine := setupReportedBugEngine(t)
+		enemyHunter := placeUnit(baseCard(t, "1621106"), 0, 0, 0, enemyEngine)
+		enemySkill := readySkill(baseCard(t, "3021005"), 1)
+		if err := behavior.OnSpellHit(&EffectContext{
+			Engine:     enemyEngine,
+			Source:     enemyHunter,
+			Target:     enemySkill,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"attacker": 1, "spell_source": enemySkill},
+		}); err != nil {
+			t.Fatalf("1621106 enemy spell hit: %v", err)
+		}
+		if enemySkill.Statuses[soulMarkerStatus] != 0 || enemySkill.PowerBonus != 0 || enemyHunter.UsedThisTurn != 0 {
+			t.Fatalf("1621106 should ignore enemy spell hits, statuses=%v power=%d used=%d", enemySkill.Statuses, enemySkill.PowerBonus, enemyHunter.UsedThisTurn)
+		}
+
+		missingSourceEngine := setupReportedBugEngine(t)
+		missingSourceHunter := placeUnit(baseCard(t, "1621106"), 0, 0, 0, missingSourceEngine)
+		if err := behavior.OnSpellHit(&EffectContext{
+			Engine:     missingSourceEngine,
+			Source:     missingSourceHunter,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"attacker": 0},
+		}); err != nil {
+			t.Fatalf("1621106 missing source spell hit: %v", err)
+		}
+		if missingSourceHunter.UsedThisTurn != 0 {
+			t.Fatalf("1621106 should not spend trigger without a skill source, used=%d", missingSourceHunter.UsedThisTurn)
+		}
+	})
+
 	t.Run("celtic deer resets once after any medium skill is used", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		deer := placeUnit(baseCard(t, "1421108"), 0, 1, 1, engine)

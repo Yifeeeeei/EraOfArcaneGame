@@ -1436,6 +1436,29 @@ type Card1621114SoulSymbiote struct{ AlwaysActive }
 
 const soulMarkerStatus = "灵魂标记物"
 
+type Card1621106SoulHunter struct{ AlwaysActive }
+
+func (Card1621106SoulHunter) ID() string   { return "1621106" }
+func (Card1621106SoulHunter) Name() string { return "猎魂者" }
+func (Card1621106SoulHunter) OnSpellHit(ctx *EffectContext) error {
+	if !isFriendlySpellHit(ctx) || ctx.Source == nil || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) {
+		return nil
+	}
+	skill := ctx.Target
+	if ctx.ExtraData != nil {
+		if source, ok := ctx.ExtraData["spell_source"].(*CardInstance); ok && source != nil {
+			skill = source
+		}
+	}
+	if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
+		return nil
+	}
+	skill.Statuses[soulMarkerStatus]++
+	skill.PowerBonus += 2
+	ctx.Source.UsedThisTurn++
+	return nil
+}
+
 func (Card1621114SoulSymbiote) ID() string   { return "1621114" }
 func (Card1621114SoulSymbiote) Name() string { return "灵魂共生体" }
 func (Card1621114SoulSymbiote) OnDeath(ctx *EffectContext) error {
