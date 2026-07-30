@@ -2864,6 +2864,24 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("returning heart counts only friendly light and non-light companions", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		returningHeart := readySkill(baseCard(t, "3521106"), 0)
+
+		placeUnit(baseCard(t, "1521001"), 0, 0, 0, engine)
+		placeUnit(baseCard(t, "1521103"), 0, 1, 0, engine)
+		placeUnit(baseCard(t, "1021001"), 0, 2, 0, engine)
+		placeUnit(baseCard(t, "1421001"), 1, 0, 0, engine)
+		if got := engine.effectiveSpellPower(0, returningHeart, nil); got != returningHeart.Card.Power+1 {
+			t.Fatalf("3521106 should count friendly light companions minus friendly non-light companions only, got=%d", got)
+		}
+
+		placeUnit(baseCard(t, "1421001"), 0, 1, 1, engine)
+		if got := engine.effectiveSpellPower(0, returningHeart, nil); got != returningHeart.Card.Power {
+			t.Fatalf("3521106 should reduce power for each friendly non-light companion, got=%d", got)
+		}
+	})
+
 	t.Run("church envoy removes negative statuses from friendly cards", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
