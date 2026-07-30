@@ -2736,6 +2736,9 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		if len(p0.TempModifiers) != 2 {
 			t.Fatalf("2321110 should create one power and one attack modifier, modifiers=%v", p0.TempModifiers)
 		}
+		if p0.TempModifiers[0].Type != TempModSkillPowerBonus || p0.TempModifiers[1].Type != TempModNextSkillUseAttackBonus {
+			t.Fatalf("2321110 should use next-use power and attack modifiers, modifiers=%v", p0.TempModifiers)
+		}
 		if got := engine.effectiveSpellPower(0, rushThisTurn, nil); got != rushThisTurn.Card.Power+1 {
 			t.Fatalf("2321110 should buff selected skill power, got=%d", got)
 		}
@@ -2744,6 +2747,10 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 		if got := engine.effectiveSpellPower(0, oldRush, nil); got != oldRush.Card.Power {
 			t.Fatalf("2321110 should not buff unselected rush skill, got=%d", got)
+		}
+		engine.consumeNextSpellPowerBonuses(p0, rushThisTurn)
+		if len(p0.TempModifiers) != 0 {
+			t.Fatalf("2321110 next-use power and attack should be consumed together when the skill is used, modifiers=%v", p0.TempModifiers)
 		}
 	})
 
