@@ -530,6 +530,19 @@ func (Card2321110PigeonRaidOrder) OnUseItem(ctx *EffectContext) error {
 	return nil
 }
 
+type Card2321107PigeonArrestOrder struct{ AlwaysActive }
+
+func (Card2321107PigeonArrestOrder) ID() string   { return "2321107" }
+func (Card2321107PigeonArrestOrder) Name() string { return "飞鸽拘捕令" }
+func (Card2321107PigeonArrestOrder) OnSpellHit(ctx *EffectContext) error {
+	if !isFriendlySpellHit(ctx) || ctx.Source == nil || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) {
+		return nil
+	}
+	addGeneratedCardToPlayerHand(ctx, ctx.OpponentID, "2001102")
+	ctx.Source.UsedThisTurn++
+	return nil
+}
+
 func isLearnedRushSkillThisTurn(e *Engine, skill *CardInstance) bool {
 	return e != nil &&
 		skill != nil &&

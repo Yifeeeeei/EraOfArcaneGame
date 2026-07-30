@@ -1836,6 +1836,40 @@ func TestRoyalConflictJiuxiaoMarkEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("pigeon arrest order adds a Jiuxiao Mark after a friendly spell hits once per turn", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		order := NewCardInstance(baseCard(t, "2321107"), 0, 1)
+		p0.Equipment[0] = order
+		behavior := Card2321107PigeonArrestOrder{}
+
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: order, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+			t.Fatalf("pigeon arrest order friendly hit: %v", err)
+		}
+		if len(p1.Hand) != 1 || p1.Hand[0].Card.Number != "2001102" || p1.Hand[0].OwnerID != 1 || order.UsedThisTurn != 1 {
+			t.Fatalf("2321107 should add one Jiuxiao Mark to opponent hand and spend trigger, hand=%v used=%d", cardsToInfo(p1.Hand), order.UsedThisTurn)
+		}
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: order, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+			t.Fatalf("pigeon arrest order second friendly hit: %v", err)
+		}
+		if len(p1.Hand) != 1 || order.UsedThisTurn != 1 {
+			t.Fatalf("2321107 should trigger at most once per turn, hand=%v used=%d", cardsToInfo(p1.Hand), order.UsedThisTurn)
+		}
+
+		enemyEngine := setupReportedBugEngine(t)
+		enemyP0 := enemyEngine.State.Players[0]
+		enemyP1 := enemyEngine.State.Players[1]
+		enemyOrder := NewCardInstance(baseCard(t, "2321107"), 0, 1)
+		enemyP0.Equipment[0] = enemyOrder
+		if err := behavior.OnSpellHit(&EffectContext{Engine: enemyEngine, Source: enemyOrder, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 1}}); err != nil {
+			t.Fatalf("pigeon arrest order enemy hit: %v", err)
+		}
+		if len(enemyP1.Hand) != 0 || enemyOrder.UsedThisTurn != 0 {
+			t.Fatalf("2321107 should ignore enemy spell hits, hand=%v used=%d", cardsToInfo(enemyP1.Hand), enemyOrder.UsedThisTurn)
+		}
+	})
+
 	t.Run("council executor discards an extra card when it hits a mark", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p1 := engine.State.Players[1]
