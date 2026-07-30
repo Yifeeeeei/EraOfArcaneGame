@@ -4194,6 +4194,23 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 		if engine.State.PendingAction != nil || hellhound.UsedThisTurn != 1 {
 			t.Fatalf("1121113 should trigger at most once per turn, pending=%+v used=%d", engine.State.PendingAction, hellhound.UsedThisTurn)
 		}
+
+		otherConsumeEngine := setupReportedBugEngine(t)
+		observer := placeUnit(baseCard(t, "1121113"), 0, 0, 0, otherConsumeEngine)
+		consumedOther := placeUnit(baseCard(t, "1121101"), 0, 1, 0, otherConsumeEngine)
+		if err := behavior.OnConsume(&EffectContext{
+			Engine:     otherConsumeEngine,
+			Source:     observer,
+			Target:     consumedOther,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"consumed_player": 0, "consume_source": "2121108"},
+		}); err != nil {
+			t.Fatalf("1121113 observing other effect consume: %v", err)
+		}
+		if otherConsumeEngine.State.PendingAction != nil || observer.UsedThisTurn != 0 {
+			t.Fatalf("1121113 should not trigger when another unit is consumed, pending=%+v used=%d", otherConsumeEngine.State.PendingAction, observer.UsedThisTurn)
+		}
 	})
 
 	t.Run("soul hunter marks friendly spell once after it hits", func(t *testing.T) {

@@ -741,6 +741,9 @@ func (Card1121113LavaFortHellhound) OnConsume(ctx *EffectContext) error {
 	if ctx == nil || ctx.Source == nil || ctx.Engine == nil || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) || ctx.ExtraData == nil {
 		return nil
 	}
+	if ctx.Target != nil && ctx.Target != ctx.Source {
+		return nil
+	}
 	if source, _ := ctx.ExtraData["consume_source"].(string); source == "" || source == ctx.Source.Card.Number {
 		return nil
 	}
