@@ -1450,7 +1450,7 @@ func (Card1621106SoulHunter) OnSpellHit(ctx *EffectContext) error {
 			skill = source
 		}
 	}
-	if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
+	if skill == nil || skill.Card == nil || !isSpellLikeCard(skill.Card) {
 		return nil
 	}
 	skill.Statuses[soulMarkerStatus]++

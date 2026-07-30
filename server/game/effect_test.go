@@ -4181,6 +4181,22 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 		if missingSourceHunter.UsedThisTurn != 0 {
 			t.Fatalf("1621106 should not spend trigger without a skill source, used=%d", missingSourceHunter.UsedThisTurn)
 		}
+
+		fieldEngine := setupReportedBugEngine(t)
+		fieldHunter := placeUnit(baseCard(t, "1621106"), 0, 0, 0, fieldEngine)
+		fieldSkill := readySkill(baseCard(t, "3021005"), 0)
+		fieldEngine.triggerFieldEffectsWithData(TriggerOnSpellHit, 0, fieldSkill, map[string]any{"attacker": 0, "spell_source": fieldSkill})
+		if fieldSkill.Statuses[soulMarkerStatus] != 1 || fieldSkill.PowerBonus != 2 || fieldHunter.UsedThisTurn != 1 {
+			t.Fatalf("1621106 should trigger through field spell-hit plumbing, statuses=%v power=%d used=%d", fieldSkill.Statuses, fieldSkill.PowerBonus, fieldHunter.UsedThisTurn)
+		}
+
+		scrollEngine := setupReportedBugEngine(t)
+		scrollHunter := placeUnit(baseCard(t, "1621106"), 0, 0, 0, scrollEngine)
+		scroll := NewCardInstance(baseCard(t, "2121003"), 0, 1)
+		scrollEngine.triggerFieldEffectsWithData(TriggerOnSpellHit, 0, scroll, map[string]any{"attacker": 0, "spell_source": scroll})
+		if scroll.Statuses[soulMarkerStatus] != 1 || scroll.PowerBonus != 2 || scrollHunter.UsedThisTurn != 1 {
+			t.Fatalf("1621106 should mark spell scroll hits too, statuses=%v power=%d used=%d", scroll.Statuses, scroll.PowerBonus, scrollHunter.UsedThisTurn)
+		}
 	})
 
 	t.Run("celtic deer resets once after any medium skill is used", func(t *testing.T) {
