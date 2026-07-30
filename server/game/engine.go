@@ -3441,6 +3441,13 @@ func (e *Engine) validateUltimatePreconditions(card *CardInstance) error {
 		if !e.hasResettableWaterSpell(card.OwnerID) {
 			return fmt.Errorf("水魔导师需要1个已横置且使用花费小于3的水纹法术")
 		}
+	case "1321109":
+		if len(e.State.Players[card.OwnerID].Hand) == 0 {
+			return fmt.Errorf("风暴之角需要丢弃1张手牌")
+		}
+		if !e.hasAirEquipmentInDeck(card.OwnerID) {
+			return fmt.Errorf("风暴之角需要卡组中有可翻取的大气装备")
+		}
 	}
 	return nil
 }

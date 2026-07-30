@@ -2732,6 +2732,92 @@ func TestRoyalConflictDeathrattleEffects(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictSimpleActiveAbilityEffects(t *testing.T) {
+	t.Run("lone star tower watcher discards up to three hand cards for shield", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		watcher := placeUnit(baseCard(t, "1321103"), 0, 0, 0, engine)
+		cardA := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		cardB := NewCardInstance(baseCard(t, "1021002"), 0, 1)
+		cardC := NewCardInstance(baseCard(t, "1021003"), 0, 1)
+		p0.Hand = []*CardInstance{cardA, cardB, cardC}
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  watcher.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("watcher ultimate: %v", err)
+		}
+		resolvePendingSelection(t, engine, 0, cardA.InstanceID, cardC.InstanceID)
+		if p0.Shield != 2 || len(p0.Hand) != 1 || p0.Hand[0] != cardB || len(p0.Graveyard) != 2 {
+			t.Fatalf("watcher should discard selected cards for shield, shield=%d hand=%v grave=%v", p0.Shield, cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
+		}
+	})
+
+	t.Run("storm horn discards a hand card to search air equipment", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		horn := placeUnit(baseCard(t, "1321109"), 0, 0, 0, engine)
+		discard := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		equipment := NewCardInstance(baseCard(t, "2321101"), 0, 1)
+		p0.Hand = []*CardInstance{discard}
+		p0.Deck = []*CardInstance{equipment, NewCardInstance(baseCard(t, "1021002"), 0, 1)}
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  horn.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("storm horn ultimate: %v", err)
+		}
+		resolvePendingSelection(t, engine, 0, discard.InstanceID)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "storm_horn_search_air_equipment" {
+			t.Fatalf("storm horn should prompt to search air equipment, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, equipment.InstanceID)
+		if len(p0.Graveyard) != 1 || p0.Graveyard[0] != discard || len(p0.Hand) != 1 || p0.Hand[0] != equipment {
+			t.Fatalf("storm horn should discard cost and search equipment, hand=%v grave=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard), cardsToInfo(p0.Deck))
+		}
+
+		failEngine := setupReportedBugEngine(t)
+		failHorn := placeUnit(baseCard(t, "1321109"), 0, 0, 0, failEngine)
+		failEngine.State.Players[0].Deck = []*CardInstance{NewCardInstance(baseCard(t, "2321101"), 0, 1)}
+		err := failEngine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  failHorn.InstanceID,
+			"ability_type": "ultimate",
+		}})
+		if err == nil || failHorn.UltimateUsed {
+			t.Fatalf("storm horn should fail without a hand card and not burn ultimate, err=%v ultimate=%v", err, failHorn.UltimateUsed)
+		}
+	})
+
+	t.Run("jiuxiao radiance discards both hands then draws the same counts", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		radiance := NewCardInstance(baseCard(t, "2511101"), 0, 1)
+		p0.Equipment[0] = radiance
+		oldP0 := []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1), NewCardInstance(baseCard(t, "1021002"), 0, 1)}
+		oldP1 := []*CardInstance{NewCardInstance(baseCard(t, "1021003"), 1, 1)}
+		p0.Hand = oldP0
+		p1.Hand = oldP1
+		draw0A := NewCardInstance(baseCard(t, "1021004"), 0, 1)
+		draw0B := NewCardInstance(baseCard(t, "1021005"), 0, 1)
+		draw1 := NewCardInstance(baseCard(t, "1021006"), 1, 1)
+		p0.Deck = []*CardInstance{draw0A, draw0B}
+		p1.Deck = []*CardInstance{draw1}
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  radiance.InstanceID,
+			"ability_type": "ultimate",
+		}}); err != nil {
+			t.Fatalf("jiuxiao radiance ultimate: %v", err)
+		}
+		if len(p0.Graveyard) != 2 || len(p1.Graveyard) != 1 || len(p0.Hand) != 2 || len(p1.Hand) != 1 {
+			t.Fatalf("jiuxiao radiance should discard all hands then draw same counts, p0 hand/grave=%v/%v p1 hand/grave=%v/%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard), cardsToInfo(p1.Hand), cardsToInfo(p1.Graveyard))
+		}
+		if p0.Hand[0] != draw0A || p0.Hand[1] != draw0B || p1.Hand[0] != draw1 {
+			t.Fatalf("jiuxiao radiance should draw replacement cards from deck, p0=%v p1=%v", cardsToInfo(p0.Hand), cardsToInfo(p1.Hand))
+		}
+	})
+}
+
 func TestChargeSystem(t *testing.T) {
 	engine := setupEffectTest(t)
 

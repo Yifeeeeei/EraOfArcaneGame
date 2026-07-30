@@ -419,6 +419,46 @@ func (Card1321106SilverleafRanger) OnPerTurn(ctx *EffectContext) error {
 	return nil
 }
 
+type Card1321103LoneStarTowerWatcher struct{ AlwaysActive }
+
+func (Card1321103LoneStarTowerWatcher) ID() string   { return "1321103" }
+func (Card1321103LoneStarTowerWatcher) Name() string { return "孤星塔守望者" }
+func (Card1321103LoneStarTowerWatcher) OnUltimate(ctx *EffectContext) error {
+	candidates := ctx.Engine.friendlyHandCards(ctx.PlayerID, nil)
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "lone_star_tower_watcher_discard",
+		"孤星塔守望者:丢弃至多3张手牌并获得等量护盾", candidates, 0, min(3, len(candidates)),
+		func(selected []string) {
+			discarded := ctx.Engine.discardSelectedHandCards(ctx.PlayerID, selected, 3)
+			if discarded > 0 {
+				ctx.Engine.gainPlayerShield(ctx.PlayerID, discarded)
+			}
+		})
+	return nil
+}
+
+type Card1321109StormHorn struct{ AlwaysActive }
+
+func (Card1321109StormHorn) ID() string   { return "1321109" }
+func (Card1321109StormHorn) Name() string { return "风暴之角" }
+func (Card1321109StormHorn) OnUltimate(ctx *EffectContext) error {
+	handCandidates := ctx.Engine.friendlyHandCards(ctx.PlayerID, nil)
+	if len(handCandidates) == 0 || !ctx.Engine.hasAirEquipmentInDeck(ctx.PlayerID) {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "storm_horn_discard",
+		"风暴之角:丢弃1张手牌", handCandidates, 1, 1,
+		func(selected []string) {
+			if ctx.Engine.discardSelectedHandCards(ctx.PlayerID, selected, 1) != 1 {
+				return
+			}
+			searchDeckToHandByPredicate(ctx, "storm_horn_search_air_equipment", "风暴之角:翻取1张大气装备", isAirEquipment)
+		})
+	return nil
+}
+
 type Card1321113CouncilMessenger struct{ AlwaysActive }
 
 func (Card1321113CouncilMessenger) ID() string   { return "1321113" }
@@ -1139,6 +1179,26 @@ func (Card2021116ArcaneBomb) OnUseItem(ctx *EffectContext) error {
 	return nil
 }
 
+type Card2511101JiuxiaoRadiance struct{ AlwaysActive }
+
+func (Card2511101JiuxiaoRadiance) ID() string   { return "2511101" }
+func (Card2511101JiuxiaoRadiance) Name() string { return "九霄辉迹" }
+func (Card2511101JiuxiaoRadiance) OnUltimate(ctx *EffectContext) error {
+	counts := make([]int, len(ctx.Engine.State.Players))
+	for playerID, ps := range ctx.Engine.State.Players {
+		counts[playerID] = len(ps.Hand)
+	}
+	for playerID := range ctx.Engine.State.Players {
+		ctx.Engine.discardAllHandCards(playerID)
+	}
+	for playerID, count := range counts {
+		if count > 0 {
+			ctx.Engine.drawCards(playerID, count)
+		}
+	}
+	return nil
+}
+
 type Card2521104GoldenDragonbone struct{ AlwaysActive }
 
 func (Card2521104GoldenDragonbone) ID() string   { return "2521104" }
@@ -1346,6 +1406,56 @@ func (e *Engine) discardRandomHandCard(playerID int) *CardInstance {
 	}
 	idx := rand.Intn(len(ps.Hand))
 	return e.discardHandCardAt(playerID, idx)
+}
+
+func (e *Engine) discardSelectedHandCards(playerID int, selected []string, limit int) int {
+	if playerID < 0 || playerID >= len(e.State.Players) || limit <= 0 {
+		return 0
+	}
+	ps := e.State.Players[playerID]
+	selectedSet := map[string]bool{}
+	for _, id := range selected {
+		if id != "" {
+			selectedSet[id] = true
+		}
+	}
+	discarded := 0
+	for i := len(ps.Hand) - 1; i >= 0 && discarded < limit; i-- {
+		card := ps.Hand[i]
+		if card == nil || !selectedSet[card.InstanceID] {
+			continue
+		}
+		if e.discardHandCardAt(playerID, i) != nil {
+			discarded++
+		}
+	}
+	return discarded
+}
+
+func (e *Engine) discardAllHandCards(playerID int) int {
+	if playerID < 0 || playerID >= len(e.State.Players) {
+		return 0
+	}
+	ps := e.State.Players[playerID]
+	discarded := 0
+	for len(ps.Hand) > 0 {
+		if e.discardHandCardAt(playerID, len(ps.Hand)-1) != nil {
+			discarded++
+		}
+	}
+	return discarded
+}
+
+func (e *Engine) hasAirEquipmentInDeck(playerID int) bool {
+	if playerID < 0 || playerID >= len(e.State.Players) {
+		return false
+	}
+	for _, card := range e.State.Players[playerID].Deck {
+		if isAirEquipment(card) && canFlipOrSearchCard(card) {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Engine) resolveDiscardedCardEffects(playerID int, card *CardInstance) {
