@@ -627,6 +627,16 @@ func (e *Engine) clearDamageTakenThisTurn() {
 	}
 }
 
+func (e *Engine) rollFriendlyUnitDamageHistory() {
+	for _, ps := range e.State.Players {
+		if ps == nil {
+			continue
+		}
+		ps.FriendlyUnitDamagedLastTurn = ps.FriendlyUnitDamagedThisTurn
+		ps.FriendlyUnitDamagedThisTurn = false
+	}
+}
+
 func (e *Engine) drawCards(playerID int, n int) []*CardInstance {
 	if n <= 0 {
 		return nil
@@ -2495,6 +2505,9 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 
 	target.CurrentLife -= amount
 	target.DamageTakenThisTurn += amount
+	if target.Card != nil && target.Card.IsCompanion() && ownerID >= 0 && ownerID < len(e.State.Players) {
+		e.State.Players[ownerID].FriendlyUnitDamagedThisTurn = true
+	}
 
 	e.emit(GameEvent{
 		Type:   "damage",
@@ -3774,6 +3787,7 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 	}
 	clearSpellCastTracking(ps)
 	e.clearGraveyardTurnTracking()
+	e.rollFriendlyUnitDamageHistory()
 
 	e.emit(GameEvent{
 		Type:   "turn_end",

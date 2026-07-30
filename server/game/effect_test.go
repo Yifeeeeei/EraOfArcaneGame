@@ -2843,6 +2843,45 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("radiant guard is free after friendly companion was damaged last turn", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		guard := NewCardInstance(baseCard(t, "1521107"), 0, 1)
+		wounded := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+
+		engine.dealDamageWithExtra(wounded, 1, 0, map[string]any{"damage_source": "test", "attacker": 1})
+		if !p0.FriendlyUnitDamagedThisTurn || p0.FriendlyUnitDamagedLastTurn {
+			t.Fatalf("friendly unit damage should be tracked for this turn only before rolling, this=%v last=%v", p0.FriendlyUnitDamagedThisTurn, p0.FriendlyUnitDamagedLastTurn)
+		}
+		if cost := engine.effectiveCardPlayCost(p0, guard); cost[model.ElementLight] != guard.Card.ElementsCost[model.ElementLight] {
+			t.Fatalf("1521107 should not be free until the next turn, cost=%v", cost)
+		}
+
+		engine.rollFriendlyUnitDamageHistory()
+		if p0.FriendlyUnitDamagedThisTurn || !p0.FriendlyUnitDamagedLastTurn {
+			t.Fatalf("friendly unit damage history should roll to last turn, this=%v last=%v", p0.FriendlyUnitDamagedThisTurn, p0.FriendlyUnitDamagedLastTurn)
+		}
+		if cost := engine.effectiveCardPlayCost(p0, guard); cost[model.ElementLight] != 0 {
+			t.Fatalf("1521107 should be free after a friendly companion was damaged last turn, cost=%v", cost)
+		}
+
+		placeUnit(baseCard(t, "1111103"), 1, 0, 0, engine)
+		if cost := engine.effectiveCardPlayCost(p0, guard); cost[model.ElementLight] != 0 || cost[model.ElementArcane] != 0 {
+			t.Fatalf("1521107 free entry should override other entry cost increases, cost=%v", cost)
+		}
+
+		nextEngine := setupReportedBugEngine(t)
+		nextP0 := nextEngine.State.Players[0]
+		hero := NewCardInstance(baseCard(t, "4011001"), 0, 1)
+		hero.Position = &Position{Col: 1, Row: 1}
+		nextP0.Hero = hero
+		nextEngine.dealDamageWithExtra(hero, 1, 0, map[string]any{"damage_source": "test", "attacker": 1})
+		nextEngine.rollFriendlyUnitDamageHistory()
+		if nextP0.FriendlyUnitDamagedLastTurn {
+			t.Fatalf("1521107 should care about friendly companions, not hero damage")
+		}
+	})
+
 	t.Run("sting frog boosts later spells after friendly drive or charge skills", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]

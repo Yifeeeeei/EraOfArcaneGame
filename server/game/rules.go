@@ -124,10 +124,6 @@ func (e *Engine) effectiveCardPlayCost(ps *PlayerState, card *CardInstance) map[
 		PlayerID:   ps.PlayerID,
 		OpponentID: 1 - ps.PlayerID,
 	}
-	if modifier, ok := globalRegistry.GetBehavior(card.Card.Number).(SelfCardPlayCostModifier); ok && modifier.HasActiveSelfCardPlayCostModifier(card) {
-		ctx.Source = card
-		modifier.ModifySelfCardPlayCost(ctx, cost)
-	}
 	for _, player := range e.State.Players {
 		if player == nil {
 			continue
@@ -161,6 +157,10 @@ func (e *Engine) effectiveCardPlayCost(ps *PlayerState, card *CardInstance) map[
 			}
 			reduceCost(cost, elem, parsePositiveInt(status[len(key):])*amount)
 		}
+	}
+	if modifier, ok := globalRegistry.GetBehavior(card.Card.Number).(SelfCardPlayCostModifier); ok && modifier.HasActiveSelfCardPlayCostModifier(card) {
+		ctx.Source = card
+		modifier.ModifySelfCardPlayCost(ctx, cost)
 	}
 	return cost
 }
