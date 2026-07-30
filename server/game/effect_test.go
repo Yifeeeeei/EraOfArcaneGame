@@ -2612,6 +2612,43 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("thunderlight warrior chooses one reward per thunderlight item", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		warrior := NewCardInstance(baseCard(t, "1321111"), 0, 1)
+		helm := NewCardInstance(baseCard(t, "2321104"), 0, 1)
+		armor := NewCardInstance(baseCard(t, "2321105"), 0, 1)
+		airOnly := NewCardInstance(baseCard(t, "2321107"), 0, 1)
+		p0.Equipment[0] = helm
+		p0.Equipment[1] = armor
+		p0.Equipment[2] = airOnly
+
+		if err := (Card1321111ThunderlightWarrior{}).OnEnter(&EffectContext{Engine: engine, Source: warrior, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("thunderlight warrior enter: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "thunderlight_warrior_rewards" || engine.State.PendingAction.MinSelect != 2 || engine.State.PendingAction.MaxSelect != 2 || len(engine.State.PendingAction.Candidates) != 8 {
+			t.Fatalf("1321111 should offer four rewards per thunderlight item, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, "life#0", "air#1")
+		if warrior.CurrentLife != warrior.Card.Life+2 {
+			t.Fatalf("1321111 should apply selected life reward, life=%d", warrior.CurrentLife)
+		}
+		load := effectiveElementsGain(warrior)
+		if warrior.AttackBonus != 0 || load[model.ElementAir] != warrior.Card.ElementsGain[model.ElementAir]+1 || load[model.ElementLight] != warrior.Card.ElementsGain[model.ElementLight] {
+			t.Fatalf("1321111 should apply selected air load only, attack=%d load=%v", warrior.AttackBonus, load)
+		}
+
+		emptyEngine := setupReportedBugEngine(t)
+		emptyWarrior := NewCardInstance(baseCard(t, "1321111"), 0, 1)
+		emptyEngine.State.Players[0].Equipment[0] = NewCardInstance(baseCard(t, "2321107"), 0, 1)
+		if err := (Card1321111ThunderlightWarrior{}).OnEnter(&EffectContext{Engine: emptyEngine, Source: emptyWarrior, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("thunderlight warrior no-op enter: %v", err)
+		}
+		if emptyEngine.State.PendingAction != nil {
+			t.Fatalf("1321111 should no-op without thunderlight items, pending=%+v", emptyEngine.State.PendingAction)
+		}
+	})
+
 	t.Run("church envoy removes negative statuses from friendly cards", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
