@@ -2633,6 +2633,32 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("greedy tyrant increases both players hand card entry costs", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		tyrant := placeUnit(baseCard(t, "1111103"), 0, 0, 0, engine)
+		ownHandCard := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		enemyHandCard := NewCardInstance(baseCard(t, "1021001"), 1, 1)
+		notHandCard := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		p0.Hand = []*CardInstance{ownHandCard}
+		p1.Hand = []*CardInstance{enemyHandCard}
+
+		if got := engine.effectiveCardPlayCost(p0, ownHandCard)[model.ElementArcane]; got != ownHandCard.Card.ElementsCost[model.ElementArcane]+1 {
+			t.Fatalf("1111103 should increase own hand card entry cost, cost=%v", engine.effectiveCardPlayCost(p0, ownHandCard))
+		}
+		if got := engine.effectiveCardPlayCost(p1, enemyHandCard)[model.ElementArcane]; got != enemyHandCard.Card.ElementsCost[model.ElementArcane]+1 {
+			t.Fatalf("1111103 should increase enemy hand card entry cost, cost=%v", engine.effectiveCardPlayCost(p1, enemyHandCard))
+		}
+		if got := engine.effectiveCardPlayCost(p0, notHandCard)[model.ElementArcane]; got != notHandCard.Card.ElementsCost[model.ElementArcane] {
+			t.Fatalf("1111103 should not increase non-hand card entry cost, cost=%v", engine.effectiveCardPlayCost(p0, notHandCard))
+		}
+		tyrant.Statuses[StatusPetrify] = 1
+		if got := engine.effectiveCardPlayCost(p0, ownHandCard)[model.ElementArcane]; got != ownHandCard.Card.ElementsCost[model.ElementArcane] {
+			t.Fatalf("petrified 1111103 should not increase hand card entry cost, cost=%v", engine.effectiveCardPlayCost(p0, ownHandCard))
+		}
+	})
+
 	t.Run("alchemy apprentice converts one arcane into two non-arcane elements", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]

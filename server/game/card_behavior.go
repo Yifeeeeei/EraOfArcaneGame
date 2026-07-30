@@ -71,6 +71,9 @@ func (AlwaysActive) HasActiveSpellElementGain(*CardInstance) bool          { ret
 func (AlwaysActive) HasActiveSpellDamage(*CardInstance) bool               { return true }
 func (AlwaysActive) HasActiveSkillUseCostModifier(*CardInstance) bool      { return true }
 func (AlwaysActive) HasActiveCardPlayCostModifier(*CardInstance) bool      { return true }
+func (AlwaysActive) HasActiveGlobalCardPlayCostModifier(*CardInstance) bool {
+	return true
+}
 func (AlwaysActive) HasActiveSelfCardPlayCostModifier(*CardInstance) bool  { return true }
 func (AlwaysActive) HasActiveCardPlayCostPaid(*CardInstance) bool          { return true }
 func (AlwaysActive) HasActiveSkillUsePermissionModifier(*CardInstance) bool {
@@ -368,6 +371,11 @@ type SkillUseCostModifier interface {
 type CardPlayCostModifier interface {
 	HasActiveCardPlayCostModifier(*CardInstance) bool
 	ModifyCardPlayCost(*EffectContext, *CardInstance, map[string]int)
+}
+
+type GlobalCardPlayCostModifier interface {
+	HasActiveGlobalCardPlayCostModifier(*CardInstance) bool
+	ModifyGlobalCardPlayCost(*EffectContext, *CardInstance, map[string]int)
 }
 
 type SelfCardPlayCostModifier interface {
