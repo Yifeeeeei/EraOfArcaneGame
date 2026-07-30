@@ -4849,6 +4849,67 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 			t.Fatalf("3421109 should apply petrify 3, statuses=%v", target.Statuses)
 		}
 	})
+
+	t.Run("goshawk buffs a friendly air spell next use", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		goshawk := readySkill(baseCard(t, "3321108"), 0)
+		airSkill := readySkill(baseCard(t, "3321106"), 0)
+		p0.Skills[0] = goshawk
+		p0.Skills[1] = airSkill
+		behavior := Card3321108CallSpiritGoshawk{}
+
+		if err := behavior.OnEnter(&EffectContext{Engine: engine, Source: goshawk, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("3321108 enter: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "goshawk_air_skill_buff" {
+			t.Fatalf("3321108 should ask for an air skill target, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, airSkill.InstanceID)
+		if len(p0.TempModifiers) != 2 {
+			t.Fatalf("3321108 should add two next-use modifiers, modifiers=%+v", p0.TempModifiers)
+		}
+		if p0.TempModifiers[0].TargetInstanceID != airSkill.InstanceID || p0.TempModifiers[1].TargetInstanceID != airSkill.InstanceID {
+			t.Fatalf("3321108 modifiers should target selected skill, modifiers=%+v", p0.TempModifiers)
+		}
+		if p0.TempModifiers[0].Type != TempModSkillPowerBonus || p0.TempModifiers[1].Type != TempModNextSkillUseAttackBonus {
+			t.Fatalf("3321108 should grant +1 power and +1 attack next use, modifiers=%+v", p0.TempModifiers)
+		}
+	})
+
+	t.Run("air flow triggers on learned skill enter and hastes only next air spell", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		for i := range p0.Skills {
+			p0.Skills[i] = nil
+		}
+		airFlow := NewCardInstance(baseCard(t, "3321110"), 0, engine.State.TurnNumber)
+		fireSkill := NewCardInstance(baseCard(t, "3121109"), 0, engine.State.TurnNumber)
+		airSkill := NewCardInstance(baseCard(t, "3321106"), 0, engine.State.TurnNumber)
+		p0.SkillPool = []*CardInstance{airFlow, fireSkill, airSkill}
+		p0.Elements = map[string]int{model.ElementAir: 20, model.ElementFire: 20}
+
+		if err := engine.handleLearnSkill(0, ActionMessage{Action: "learn_skill", Data: map[string]any{"instance_id": airFlow.InstanceID}}); err != nil {
+			t.Fatalf("learn 3321110: %v", err)
+		}
+		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != TempModNextLearnedSkillHaste || p0.TempModifiers[0].Element != model.ElementAir {
+			t.Fatalf("3321110 should add air-only next learned haste, modifiers=%+v", p0.TempModifiers)
+		}
+
+		if err := engine.handleLearnSkill(0, ActionMessage{Action: "learn_skill", Data: map[string]any{"instance_id": fireSkill.InstanceID}}); err != nil {
+			t.Fatalf("learn non-air skill: %v", err)
+		}
+		if !fireSkill.IsHorizontal || len(p0.TempModifiers) != 1 {
+			t.Fatalf("3321110 should not haste or consume on non-air skill, horizontal=%v modifiers=%+v", fireSkill.IsHorizontal, p0.TempModifiers)
+		}
+
+		if err := engine.handleLearnSkill(0, ActionMessage{Action: "learn_skill", Data: map[string]any{"instance_id": airSkill.InstanceID}}); err != nil {
+			t.Fatalf("learn air skill: %v", err)
+		}
+		if airSkill.IsHorizontal || len(p0.TempModifiers) != 0 {
+			t.Fatalf("3321110 should haste next learned air skill once, horizontal=%v modifiers=%+v", airSkill.IsHorizontal, p0.TempModifiers)
+		}
+	})
 }
 
 func TestEffectSystemIntegration(t *testing.T) {

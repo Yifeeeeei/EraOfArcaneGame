@@ -2903,13 +2903,7 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 	skill.EnterTurn = e.State.TurnNumber
 	e.ApplyKeywordOnEnter(skill)
 	ps.Skills[slotIdx] = skill
-	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
-		if modifier.Type == TempModNextLearnedSkillHaste && modifier.RemainingUses != 0 {
-			skill.IsHorizontal = false
-			e.removeTemporaryModifier(playerID, modifier.ID)
-			break
-		}
-	}
+	e.applyNextLearnedSkillHasteModifier(playerID, skill)
 
 	e.emit(GameEvent{
 		Type:   "learn_skill",
@@ -2921,6 +2915,7 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 			"elements": ps.Elements,
 		},
 	})
+	e.triggerEffects(TriggerOnEnter, skill, nil, nil)
 
 	return nil
 }
@@ -2979,13 +2974,7 @@ func (e *Engine) learnSkillFromPoolWithoutCost(playerID int, instanceID string, 
 	skill.EnterTurn = e.State.TurnNumber
 	e.ApplyKeywordOnEnter(skill)
 	ps.Skills[slotIdx] = skill
-	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
-		if modifier.Type == TempModNextLearnedSkillHaste && modifier.RemainingUses != 0 {
-			skill.IsHorizontal = false
-			e.removeTemporaryModifier(playerID, modifier.ID)
-			break
-		}
-	}
+	e.applyNextLearnedSkillHasteModifier(playerID, skill)
 
 	e.emit(GameEvent{
 		Type:   "learn_skill",
@@ -2997,7 +2986,23 @@ func (e *Engine) learnSkillFromPoolWithoutCost(playerID int, instanceID string, 
 			"elements": ps.Elements,
 		},
 	})
+	e.triggerEffects(TriggerOnEnter, skill, nil, nil)
 	return true
+}
+
+func (e *Engine) applyNextLearnedSkillHasteModifier(playerID int, skill *CardInstance) {
+	ps := e.State.Players[playerID]
+	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
+		if modifier.Type != TempModNextLearnedSkillHaste || modifier.RemainingUses == 0 {
+			continue
+		}
+		if modifier.Element != "" && (skill == nil || skill.Card == nil || skill.Card.Category != modifier.Element) {
+			continue
+		}
+		skill.IsHorizontal = false
+		e.removeTemporaryModifier(playerID, modifier.ID)
+		break
+	}
 }
 
 func returnSkillToPool(skill *CardInstance) {
