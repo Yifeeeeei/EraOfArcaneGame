@@ -2977,6 +2977,27 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("magma fortress chariot burns the target when attacking", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		chariot := placeUnit(baseCard(t, "1121104"), 0, 1, 0, engine)
+		target := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
+		beforeLife := target.CurrentLife
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "attack", Data: map[string]any{
+			"attacker_id": chariot.InstanceID,
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("chariot attack: %v", err)
+		}
+		if target.Statuses[StatusBurn] != 1 {
+			t.Fatalf("1121104 should burn its attack target, statuses=%v", target.Statuses)
+		}
+		if target.CurrentLife != beforeLife-chariot.CurrentAttack {
+			t.Fatalf("chariot attack should still deal normal attack damage, life=%d want=%d", target.CurrentLife, beforeLife-chariot.CurrentAttack)
+		}
+	})
+
 	t.Run("church envoy removes negative statuses from friendly cards", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]

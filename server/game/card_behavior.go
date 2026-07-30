@@ -29,6 +29,7 @@ func (AlwaysActive) HasActiveUnitEnter(*CardInstance) bool                 { ret
 func (AlwaysActive) HasActiveFriendlyDeath(*CardInstance) bool             { return true }
 func (AlwaysActive) HasActiveEnemyDeath(*CardInstance) bool                { return true }
 func (AlwaysActive) HasActiveDamaged(*CardInstance) bool                   { return true }
+func (AlwaysActive) HasActiveAttack(*CardInstance) bool                    { return true }
 func (AlwaysActive) HasActiveFriendlyDamagedFromHidden(*CardInstance) bool { return true }
 func (AlwaysActive) HasActiveSpellCast(*CardInstance) bool                 { return true }
 func (AlwaysActive) HasActiveSpellHitBeforeDamage(*CardInstance) bool      { return true }
@@ -135,6 +136,11 @@ type OnEnemyDeathBehavior interface {
 type OnDamagedBehavior interface {
 	HasActiveDamaged(*CardInstance) bool
 	OnDamaged(*EffectContext) error
+}
+
+type OnAttackBehavior interface {
+	HasActiveAttack(*CardInstance) bool
+	OnAttack(*EffectContext) error
 }
 
 type OnFriendlyDamagedFromHiddenBehavior interface {
@@ -491,6 +497,14 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 				return nil
 			}
 			return h.OnDamaged(ctx)
+		})
+	}
+	if h, ok := behavior.(OnAttackBehavior); ok {
+		r.Register(id, TriggerOnAttack, func(ctx *EffectContext) error {
+			if !h.HasActiveAttack(ctx.Source) {
+				return nil
+			}
+			return h.OnAttack(ctx)
 		})
 	}
 	if h, ok := behavior.(OnSpellCastBehavior); ok {
