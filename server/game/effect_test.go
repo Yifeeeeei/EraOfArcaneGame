@@ -2668,6 +2668,21 @@ func TestRoyalConflictDeathrattleEffects(t *testing.T) {
 		if summoned != knight || summoned.OwnerID != 1 || summoned.Card.Life != 3 || summoned.CurrentLife != 3 {
 			t.Fatalf("contradictory knight should switch sides with max life -1, summoned=%+v", cardToInfo(summoned))
 		}
+
+		staleEngine := setupReportedBugEngine(t)
+		staleKnight := NewCardInstance(baseCard(t, "1521108"), 0, 1)
+		staleEngine.State.Players[0].Graveyard = append(staleEngine.State.Players[0].Graveyard, staleKnight)
+		if err := (Card1521108ContradictoryKnight{}).OnDeath(&EffectContext{Engine: staleEngine, Source: staleKnight, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("contradictory knight stale deathrattle: %v", err)
+		}
+		blocker := placeUnit(baseCard(t, "1021001"), 1, 0, 0, staleEngine)
+		resolvePendingSelection(t, staleEngine, 1, positionSelectionID(Position{Col: 0, Row: 0}))
+		if len(staleEngine.State.Players[0].Graveyard) != 1 || staleEngine.State.Players[0].Graveyard[0] != staleKnight || staleKnight.OwnerID != 0 || staleKnight.Card.Life != 4 {
+			t.Fatalf("stale contradictory knight position should leave card in original graveyard, grave=%v owner=%d life=%d", cardsToInfo(staleEngine.State.Players[0].Graveyard), staleKnight.OwnerID, staleKnight.Card.Life)
+		}
+		if staleEngine.State.Players[1].Units[0][0] != blocker {
+			t.Fatalf("stale contradictory knight should not overwrite occupied position")
+		}
 	})
 
 	t.Run("radiant watchdog searches a discounted companion only when enemy killed it", func(t *testing.T) {

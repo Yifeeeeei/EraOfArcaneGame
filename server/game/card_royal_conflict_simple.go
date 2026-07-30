@@ -929,6 +929,10 @@ func (Card1521108ContradictoryKnight) OnDeath(ctx *EffectContext) error {
 			if !ok {
 				return
 			}
+			opponent := ctx.Engine.State.Players[opponentID]
+			if opponent.Units[pos.Col][pos.Row] != nil {
+				return
+			}
 			if !ctx.Engine.removeCardFromGraveyard(ctx.PlayerID, ctx.Source) {
 				return
 			}
@@ -953,7 +957,9 @@ func (Card1521108ContradictoryKnight) OnDeath(ctx *EffectContext) error {
 			ctx.Source.BoundSkills = nil
 			ctx.Source.UnderCards = nil
 			ctx.Source.AttachedBehaviors = nil
-			ctx.Engine.placeExistingCompanionAtPosition(opponentID, ctx.Source, pos, true)
+			if !ctx.Engine.placeExistingCompanionAtPosition(opponentID, ctx.Source, pos, true) {
+				ctx.Engine.State.Players[ctx.PlayerID].Graveyard = append(ctx.Engine.State.Players[ctx.PlayerID].Graveyard, ctx.Source)
+			}
 		})
 	return nil
 }
