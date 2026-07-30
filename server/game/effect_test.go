@@ -3929,6 +3929,33 @@ func TestRoyalConflictSimpleActiveAbilityEffects(t *testing.T) {
 }
 
 func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
+	t.Run("lone star fire seed gains fire load after other companions take fire damage", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		seed := placeUnit(baseCard(t, "1121111"), 0, 0, 0, engine)
+		ally := placeUnit(baseCard(t, "1121101"), 0, 1, 0, engine)
+		enemy := placeUnit(baseCard(t, "1121101"), 1, 0, 0, engine)
+
+		engine.dealDamageWithExtra(ally, 1, 0, map[string]any{"damage_source": "test", "damage_element": model.ElementFire})
+		if got := effectiveElementsGain(seed)[model.ElementFire]; got != seed.Card.ElementsGain[model.ElementFire]+1 {
+			t.Fatalf("1121111 should gain fire load when another companion takes fire damage, load=%v", effectiveElementsGain(seed))
+		}
+
+		engine.dealDamageWithExtra(enemy, 1, 1, map[string]any{"damage_source": "test", "damage_element": model.ElementFire})
+		if got := effectiveElementsGain(seed)[model.ElementFire]; got != seed.Card.ElementsGain[model.ElementFire]+2 {
+			t.Fatalf("1121111 should also see enemy companion fire damage, load=%v", effectiveElementsGain(seed))
+		}
+
+		engine.dealDamageWithExtra(ally, 1, 0, map[string]any{"damage_source": "test", "damage_element": model.ElementWater})
+		if got := effectiveElementsGain(seed)[model.ElementFire]; got != seed.Card.ElementsGain[model.ElementFire]+2 {
+			t.Fatalf("1121111 should ignore non-fire damage, load=%v", effectiveElementsGain(seed))
+		}
+
+		engine.dealDamageWithExtra(seed, 1, 0, map[string]any{"damage_source": "test", "damage_element": model.ElementFire})
+		if got := effectiveElementsGain(seed)[model.ElementFire]; got != seed.Card.ElementsGain[model.ElementFire]+2 {
+			t.Fatalf("1121111 should ignore damage to itself, load=%v", effectiveElementsGain(seed))
+		}
+	})
+
 	t.Run("pain soul gains shadow load once after being damaged", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		soul := placeUnit(baseCard(t, "1621101"), 0, 0, 0, engine)
