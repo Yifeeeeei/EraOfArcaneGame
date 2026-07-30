@@ -27,6 +27,28 @@ func (Card3121013FireBacklash) OnDefend(ctx *EffectContext) error {
 	return nil
 }
 
+type Card3121102LionGuardian struct{ AlwaysActive }
+
+func (Card3121102LionGuardian) ID() string   { return "3121102" }
+func (Card3121102LionGuardian) Name() string { return "雄狮之守护" }
+
+func (Card3121102LionGuardian) OnDefend(ctx *EffectContext) error {
+	if ctx.ExtraData == nil {
+		return nil
+	}
+	success, _ := ctx.ExtraData["defense_success"].(bool)
+	if !success {
+		return nil
+	}
+	for _, skill := range ctx.Engine.State.Players[ctx.PlayerID].Skills {
+		if skill == nil || skill == ctx.Source || skill.Card == nil || skill.Card.Category != "火" {
+			continue
+		}
+		skill.PowerBonus++
+	}
+	return nil
+}
+
 type Card3221014IceField struct{ AlwaysActive }
 
 func (Card3221014IceField) ID() string   { return "3221014" }
@@ -58,6 +80,29 @@ func (Card3221014IceField) OnDefend(ctx *EffectContext) error {
 			"amount": 1,
 		}})
 	}
+	return nil
+}
+
+type Card3321104GatherMomentum struct{ AlwaysActive }
+
+func (Card3321104GatherMomentum) ID() string   { return "3321104" }
+func (Card3321104GatherMomentum) Name() string { return "收势" }
+
+func (Card3321104GatherMomentum) OnDefend(ctx *EffectContext) error {
+	if ctx.ExtraData == nil {
+		return nil
+	}
+	success, _ := ctx.ExtraData["defense_success"].(bool)
+	if !success {
+		return nil
+	}
+	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
+		Type:             TempModSkillPowerBonus,
+		SourceCardNumber: ctx.Source.Card.Number,
+		SourceName:       ctx.Source.Card.Name,
+		Amount:           3,
+		RemainingUses:    1,
+	})
 	return nil
 }
 

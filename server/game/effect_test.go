@@ -4818,6 +4818,63 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("lion guardian permanently buffs other fire spells after successful defense", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		guardian := readySkill(baseCard(t, "3121102"), 0)
+		fireSkill := readySkill(baseCard(t, "3121109"), 0)
+		otherFireSkill := readySkill(baseCard(t, "3121007"), 0)
+		nonFireSkill := readySkill(baseCard(t, "3321106"), 0)
+		p0.Skills[0] = guardian
+		p0.Skills[1] = fireSkill
+		p0.Skills[2] = otherFireSkill
+		p0.Skills[3] = nonFireSkill
+		behavior := Card3121102LionGuardian{}
+
+		if err := behavior.OnDefend(&EffectContext{Engine: engine, Source: guardian, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"defense_success": false}}); err != nil {
+			t.Fatalf("3121102 failed defense: %v", err)
+		}
+		if fireSkill.PowerBonus != 0 || otherFireSkill.PowerBonus != 0 || guardian.PowerBonus != 0 {
+			t.Fatalf("3121102 should not buff on failed defense, guardian=%d fire=%d other=%d", guardian.PowerBonus, fireSkill.PowerBonus, otherFireSkill.PowerBonus)
+		}
+
+		if err := behavior.OnDefend(&EffectContext{Engine: engine, Source: guardian, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"defense_success": true}}); err != nil {
+			t.Fatalf("3121102 successful defense: %v", err)
+		}
+		if fireSkill.PowerBonus != 1 || otherFireSkill.PowerBonus != 1 || guardian.PowerBonus != 0 || nonFireSkill.PowerBonus != 0 {
+			t.Fatalf("3121102 should buff other fire spells only, guardian=%d fire=%d other=%d nonfire=%d", guardian.PowerBonus, fireSkill.PowerBonus, otherFireSkill.PowerBonus, nonFireSkill.PowerBonus)
+		}
+	})
+
+	t.Run("gather momentum buffs next attacking spell after successful defense", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		defense := readySkill(baseCard(t, "3321104"), 0)
+		attackSpell := readySkill(baseCard(t, "3321106"), 0)
+		behavior := Card3321104GatherMomentum{}
+
+		if err := behavior.OnDefend(&EffectContext{Engine: engine, Source: defense, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"defense_success": false}}); err != nil {
+			t.Fatalf("3321104 failed defense: %v", err)
+		}
+		if len(p0.TempModifiers) != 0 {
+			t.Fatalf("3321104 should not add modifier on failed defense, modifiers=%+v", p0.TempModifiers)
+		}
+
+		if err := behavior.OnDefend(&EffectContext{Engine: engine, Source: defense, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"defense_success": true}}); err != nil {
+			t.Fatalf("3321104 successful defense: %v", err)
+		}
+		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != TempModSkillPowerBonus || p0.TempModifiers[0].Amount != 3 || p0.TempModifiers[0].RemainingUses != 1 {
+			t.Fatalf("3321104 should add one +3 power next-use modifier, modifiers=%+v", p0.TempModifiers)
+		}
+		if got := engine.temporarySpellPowerBonus(0, attackSpell); got != 3 {
+			t.Fatalf("3321104 temporary power bonus = %d, want 3", got)
+		}
+		engine.consumeNextSpellPowerBonuses(p0, attackSpell)
+		if len(p0.TempModifiers) != 0 {
+			t.Fatalf("3321104 modifier should be consumed after next attacking spell, modifiers=%+v", p0.TempModifiers)
+		}
+	})
+
 	t.Run("corrosive flow discards a random enemy hand card on hit", func(t *testing.T) {
 		engine := setupEffectTest(t)
 		p1 := engine.State.Players[1]
