@@ -17,6 +17,7 @@ const (
 	TempModNextNoCooldown               = "next_skill_no_cooldown"
 	TempModNextSpellHitStatus           = "next_spell_hit_status"
 	TempModNextElementSpellPowerBonus   = "next_element_spell_power_bonus"
+	TempModNextTaggedSpellPowerBonus    = "next_tagged_spell_power_bonus"
 	TempModNextElementSpellDamageBonus  = "next_element_spell_damage_bonus"
 	TempModCurrentTurnElementDamage     = "current_turn_element_damage"
 	TempModCurrentTurnElementHitStatus  = "current_turn_element_hit_status"
@@ -163,6 +164,10 @@ func (e *Engine) temporarySpellPowerBonus(playerID int, skill *CardInstance) int
 			if modifier.RemainingUses != 0 && modifier.Status == skill.Card.Category {
 				total += modifier.Amount
 			}
+		case TempModNextTaggedSpellPowerBonus:
+			if modifier.RemainingUses != 0 && hasCardTag(skill.Card, modifier.Status) {
+				total += modifier.Amount
+			}
 		}
 	}
 	return total
@@ -180,6 +185,10 @@ func (e *Engine) consumeNextSpellPowerBonuses(ps *PlayerState, skill *CardInstan
 			}
 		case TempModNextElementSpellPowerBonus:
 			if modifier.RemainingUses == 0 || modifier.Status != skill.Card.Category {
+				continue
+			}
+		case TempModNextTaggedSpellPowerBonus:
+			if modifier.RemainingUses == 0 || !hasCardTag(skill.Card, modifier.Status) {
 				continue
 			}
 		default:
@@ -296,6 +305,19 @@ func (e *Engine) addNextElementSpellPowerBonus(playerID int, elem string, amount
 	e.addTemporaryModifier(playerID, TemporaryModifier{
 		Type:          TempModNextElementSpellPowerBonus,
 		Status:        elem,
+		Amount:        amount,
+		RemainingUses: 1,
+		ExpiresTurn:   e.State.TurnNumber + 2,
+	})
+}
+
+func (e *Engine) addNextTaggedSpellPowerBonus(playerID int, tag string, amount int) {
+	if amount <= 0 || tag == "" {
+		return
+	}
+	e.addTemporaryModifier(playerID, TemporaryModifier{
+		Type:          TempModNextTaggedSpellPowerBonus,
+		Status:        tag,
 		Amount:        amount,
 		RemainingUses: 1,
 		ExpiresTurn:   e.State.TurnNumber + 2,

@@ -2679,6 +2679,39 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("thunderlight crown prayer buffs the next focus spell only", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		crown := NewCardInstance(baseCard(t, "2321104"), 0, 1)
+		p0.Equipment[0] = crown
+		focus := readySkill(baseCard(t, "3321103"), 0)
+		drive := readySkill(baseCard(t, "3321101"), 0)
+
+		if !cardHasActivePrayer(crown) {
+			t.Fatal("2321104 should expose a prayer ability")
+		}
+		if err := (Card2321104ThunderlightCrown{}).OnPerTurn(&EffectContext{Engine: engine, Source: crown, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("thunderlight crown prayer: %v", err)
+		}
+		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != TempModNextTaggedSpellPowerBonus || p0.TempModifiers[0].Status != "聚能" || p0.TempModifiers[0].Amount != 1 {
+			t.Fatalf("2321104 should create a next focus spell power modifier, modifiers=%v", p0.TempModifiers)
+		}
+		if got := engine.effectiveSpellPower(0, drive, nil); got != drive.Card.Power {
+			t.Fatalf("2321104 should not buff drive spells, got=%d", got)
+		}
+		engine.consumeNextSpellPowerBonuses(p0, drive)
+		if len(p0.TempModifiers) != 1 {
+			t.Fatalf("2321104 modifier should not be consumed by drive spells, modifiers=%v", p0.TempModifiers)
+		}
+		if got := engine.effectiveSpellPower(0, focus, nil); got != focus.Card.Power+1 {
+			t.Fatalf("2321104 should buff the next focus spell, got=%d", got)
+		}
+		engine.consumeNextSpellPowerBonuses(p0, focus)
+		if len(p0.TempModifiers) != 0 {
+			t.Fatalf("2321104 modifier should be consumed by the focus spell, modifiers=%v", p0.TempModifiers)
+		}
+	})
+
 	t.Run("church envoy removes negative statuses from friendly cards", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
