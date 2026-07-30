@@ -2795,6 +2795,80 @@ func TestRoyalConflictResetAndTemporaryAbilityEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("cave elf pickaxe consumes to flip a chosen card kind from top five", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		pickaxe := NewCardInstance(baseCard(t, "2421109"), 0, 1)
+		pickaxe.SlotIndex = 0
+		pickaxe.IsHorizontal = false
+		p0.Equipment[0] = pickaxe
+		unflippable := NewCardInstance(baseCard(t, "2211101"), 0, 1)
+		item := NewCardInstance(baseCard(t, "2021101"), 0, 1)
+		companion := NewCardInstance(baseCard(t, "1421101"), 0, 1)
+		tooDeep := NewCardInstance(baseCard(t, "1421102"), 0, 1)
+		p0.Deck = []*CardInstance{
+			NewCardInstance(baseCard(t, "3021005"), 0, 1),
+			unflippable,
+			item,
+			companion,
+			NewCardInstance(baseCard(t, "3021006"), 0, 1),
+			tooDeep,
+		}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  pickaxe.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use 2421109: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "cave_elf_pickaxe_kind" || len(engine.State.PendingAction.Candidates) != 2 {
+			t.Fatalf("2421109 should ask for companion/item kind, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, "companion")
+		if !pickaxe.IsHorizontal || pickaxe.UsedThisTurn != 1 {
+			t.Fatalf("2421109 should consume itself and spend ability use, horizontal=%v used=%d", pickaxe.IsHorizontal, pickaxe.UsedThisTurn)
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != companion || containsCardInstance(p0.Hand, tooDeep) {
+			t.Fatalf("2421109 should flip the first companion within top five only, hand=%v", cardsToInfo(p0.Hand))
+		}
+		if !containsCardInstance(p0.Deck, item) || !containsCardInstance(p0.Deck, unflippable) || !containsCardInstance(p0.Deck, tooDeep) {
+			t.Fatalf("2421109 should leave nonmatching/unflippable/out-of-range cards in deck, deck=%v", cardsToInfo(p0.Deck))
+		}
+
+		itemEngine := setupReportedBugEngine(t)
+		itemP0 := itemEngine.State.Players[0]
+		itemPickaxe := NewCardInstance(baseCard(t, "2421109"), 0, 1)
+		itemPickaxe.SlotIndex = 0
+		itemPickaxe.IsHorizontal = false
+		itemP0.Equipment[0] = itemPickaxe
+		itemTarget := NewCardInstance(baseCard(t, "2021101"), 0, 1)
+		itemP0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1421101"), 0, 1), itemTarget}
+		if err := itemEngine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  itemPickaxe.InstanceID,
+			"ability_type": "per_turn",
+		}}); err != nil {
+			t.Fatalf("use 2421109 for item: %v", err)
+		}
+		resolvePendingSelection(t, itemEngine, 0, "item")
+		if len(itemP0.Hand) != 1 || itemP0.Hand[0] != itemTarget {
+			t.Fatalf("2421109 should flip an item when item kind is selected, hand=%v", cardsToInfo(itemP0.Hand))
+		}
+
+		failEngine := setupReportedBugEngine(t)
+		failP0 := failEngine.State.Players[0]
+		failPickaxe := NewCardInstance(baseCard(t, "2421109"), 0, 1)
+		failPickaxe.SlotIndex = 0
+		failPickaxe.IsHorizontal = true
+		failP0.Equipment[0] = failPickaxe
+		err := failEngine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+			"instance_id":  failPickaxe.InstanceID,
+			"ability_type": "per_turn",
+		}})
+		if err == nil || failPickaxe.UsedThisTurn != 0 {
+			t.Fatalf("2421109 should require a ready source without burning use, err=%v used=%d", err, failPickaxe.UsedThisTurn)
+		}
+	})
+
 	t.Run("autumn maple gem marks itself and resets a horizontal earth companion", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		gem := NewCardInstance(baseCard(t, "2421112"), 0, 1)
