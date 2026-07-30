@@ -4896,6 +4896,38 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("plundering tide discards and draws for each hit unit", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		startHand := len(p0.Hand)
+		p1.Hand = []*CardInstance{
+			NewCardInstance(baseCard(t, "1021001"), 1, engine.State.TurnNumber),
+			NewCardInstance(baseCard(t, "1021002"), 1, engine.State.TurnNumber),
+			NewCardInstance(baseCard(t, "1021004"), 1, engine.State.TurnNumber),
+		}
+		unitA := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		unitB := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
+		skill := readySkill(baseCard(t, "3221110"), 0)
+		behavior := Card3221110PlunderingTide{}
+
+		if err := behavior.OnSpellHitBeforeDamage(&EffectContext{
+			Engine:     engine,
+			Source:     skill,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"affected_units": []*CardInstance{unitA, unitB}, "attacker": 0, "spell_source": skill},
+		}); err != nil {
+			t.Fatalf("3221110 hit before damage: %v", err)
+		}
+		if len(p1.Hand) != 1 || len(p1.Graveyard) != 2 {
+			t.Fatalf("3221110 should discard one enemy hand card per hit unit, hand=%d grave=%d", len(p1.Hand), len(p1.Graveyard))
+		}
+		if len(p0.Hand) != startHand+2 {
+			t.Fatalf("3221110 should draw one card per hit unit, hand=%d start=%d", len(p0.Hand), startHand)
+		}
+	})
+
 	t.Run("petrifying death ray applies petrify three", func(t *testing.T) {
 		engine := setupEffectTest(t)
 		skill := readySkill(baseCard(t, "3421109"), 0)
@@ -5047,6 +5079,49 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		}
 		if hero.CurrentLife != maxLife(hero) {
 			t.Fatalf("3621103 should heal own hero by 2 on hit, life=%d max=%d", hero.CurrentLife, maxLife(hero))
+		}
+	})
+
+	t.Run("blood pledge rewards damaging a friendly unit", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		friend := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		enemy := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		skill := readySkill(baseCard(t, "3621101"), 0)
+		behavior := Card3621101BloodPledge{}
+
+		if err := behavior.OnSpellHit(&EffectContext{
+			Engine:     engine,
+			Source:     skill,
+			Target:     enemy,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"damage": 1, "attacker": 0, "spell_source": skill},
+		}); err != nil {
+			t.Fatalf("3621101 enemy hit: %v", err)
+		}
+		if p0.Elements[model.ElementShadow] != 0 || len(p0.TempModifiers) != 0 {
+			t.Fatalf("3621101 should ignore enemy targets, elements=%v modifiers=%+v", p0.Elements, p0.TempModifiers)
+		}
+
+		if err := behavior.OnSpellHit(&EffectContext{
+			Engine:     engine,
+			Source:     skill,
+			Target:     friend,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"damage": 1, "attacker": 0, "spell_source": skill},
+		}); err != nil {
+			t.Fatalf("3621101 friendly hit: %v", err)
+		}
+		if p0.Elements[model.ElementShadow] != 2 {
+			t.Fatalf("3621101 should gain 2 shadow after damaging friendly unit, elements=%v", p0.Elements)
+		}
+		if len(p0.TempModifiers) != 2 || p0.TempModifiers[0].TargetInstanceID != skill.InstanceID || p0.TempModifiers[1].TargetInstanceID != skill.InstanceID {
+			t.Fatalf("3621101 should add two self next-use modifiers, modifiers=%+v", p0.TempModifiers)
+		}
+		if p0.TempModifiers[0].Type != TempModSkillPowerBonus || p0.TempModifiers[0].Amount != 2 || p0.TempModifiers[1].Type != TempModNextSkillUseAttackBonus || p0.TempModifiers[1].Amount != 1 {
+			t.Fatalf("3621101 should grant +2 power and +1 attack next use, modifiers=%+v", p0.TempModifiers)
 		}
 	})
 }

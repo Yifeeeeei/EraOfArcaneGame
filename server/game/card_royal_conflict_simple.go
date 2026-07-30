@@ -600,6 +600,31 @@ func (Card3221105CorrosiveFlow) OnSpellHit(ctx *EffectContext) error {
 	return nil
 }
 
+type Card3221110PlunderingTide struct{ AlwaysActive }
+
+func (Card3221110PlunderingTide) ID() string   { return "3221110" }
+func (Card3221110PlunderingTide) Name() string { return "劫掠之潮" }
+func (Card3221110PlunderingTide) OnSpellHitBeforeDamage(ctx *EffectContext) error {
+	if ctx.ExtraData == nil {
+		return nil
+	}
+	affected, _ := ctx.ExtraData["affected_units"].([]*CardInstance)
+	hitUnits := 0
+	for _, unit := range affected {
+		if unit != nil {
+			hitUnits++
+		}
+	}
+	if hitUnits == 0 {
+		return nil
+	}
+	for i := 0; i < hitUnits; i++ {
+		ctx.Engine.discardRandomHandCard(ctx.OpponentID)
+	}
+	ctx.Engine.drawCards(ctx.PlayerID, hitUnits)
+	return nil
+}
+
 type Card3321108CallSpiritGoshawk struct{ AlwaysActive }
 
 func (Card3321108CallSpiritGoshawk) ID() string   { return "3321108" }
@@ -723,6 +748,38 @@ func (Card3621103BloodSoulSlash) OnSpellHit(ctx *EffectContext) error {
 	if hero != nil {
 		healUnit(hero, 2)
 	}
+	return nil
+}
+
+type Card3621101BloodPledge struct{ AlwaysActive }
+
+func (Card3621101BloodPledge) ID() string   { return "3621101" }
+func (Card3621101BloodPledge) Name() string { return "歃血" }
+func (Card3621101BloodPledge) OnSpellHit(ctx *EffectContext) error {
+	if ctx.Source == nil || ctx.Target == nil || ctx.Target.OwnerID != ctx.PlayerID {
+		return nil
+	}
+	damage, _ := ctx.ExtraData["damage"].(int)
+	if damage <= 0 {
+		return nil
+	}
+	ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementShadow: 2})
+	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
+		Type:             TempModSkillPowerBonus,
+		SourceCardNumber: ctx.Source.Card.Number,
+		SourceName:       ctx.Source.Card.Name,
+		TargetInstanceID: ctx.Source.InstanceID,
+		Amount:           2,
+		RemainingUses:    1,
+	})
+	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
+		Type:             TempModNextSkillUseAttackBonus,
+		SourceCardNumber: ctx.Source.Card.Number,
+		SourceName:       ctx.Source.Card.Name,
+		TargetInstanceID: ctx.Source.InstanceID,
+		Amount:           1,
+		RemainingUses:    1,
+	})
 	return nil
 }
 
