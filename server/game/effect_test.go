@@ -3979,6 +3979,82 @@ func TestRoyalConflictResetAndTemporaryAbilityEffects(t *testing.T) {
 		if len(boostP0.TempModifiers) != 0 {
 			t.Fatalf("main attack should consume next-use modifiers for both main and boost skills, modifiers=%+v", boostP0.TempModifiers)
 		}
+
+		zeroEngine := setupEffectTest(t)
+		zeroP0 := zeroEngine.State.Players[0]
+		zeroMage := placeUnit(baseCard(t, "1221115"), 0, 0, 0, zeroEngine)
+		zeroMain := readySkill(baseCard(t, "3221106"), 0)
+		zeroBoost := readySkill(baseCard(t, "3221003"), 0)
+		zeroP0.Skills[0] = zeroMain
+		zeroP0.Skills[1] = zeroBoost
+		zeroP0.Elements = map[string]int{model.ElementWater: 10}
+		zeroP0.TempModifiers = append(zeroP0.TempModifiers, TemporaryModifier{
+			ID:               "boost-zero-should-remain",
+			Type:             TempModNextSkillCostZero,
+			TargetInstanceID: zeroBoost.InstanceID,
+			RemainingUses:    1,
+		})
+		if err := (Card1221115WinterfellAntiMage{}).OnPrayer(&EffectContext{Engine: zeroEngine, Source: zeroMage, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1221115 zero boost prayer: %v", err)
+		}
+		zeroTarget := placeUnit(baseCard(t, "1021001"), 1, 0, 0, zeroEngine)
+		if err := zeroEngine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id":  zeroMain.InstanceID,
+			"target_type":  "unit",
+			"target_col":   float64(zeroTarget.Position.Col),
+			"target_row":   float64(zeroTarget.Position.Row),
+			"target_owner": float64(1),
+			"boost_ids":    []any{zeroBoost.InstanceID},
+		}}); err != nil {
+			t.Fatalf("use boost skill with unrelated zero-cost modifier: %v", err)
+		}
+		if len(zeroP0.TempModifiers) != 1 || zeroP0.TempModifiers[0].Type != TempModNextSkillCostZero || zeroP0.TempModifiers[0].TargetInstanceID != zeroBoost.InstanceID {
+			t.Fatalf("boost use should consume only applied -1 water modifier and keep unapplied zero-cost modifier, modifiers=%+v", zeroP0.TempModifiers)
+		}
+	})
+
+	t.Run("coral belly permanently empowers the first spell attack this game", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		p0.Hero = NewCardInstance(baseCard(t, "4211101"), 0, engine.State.TurnNumber)
+		first := readySkill(baseCard(t, "3221106"), 0)
+		second := readySkill(baseCard(t, "3121109"), 0)
+		p0.Skills[0] = first
+		p0.Skills[1] = second
+		p0.Elements = map[string]int{model.ElementWater: 10, model.ElementFire: 10}
+		target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id":  first.InstanceID,
+			"target_type":  "unit",
+			"target_col":   float64(target.Position.Col),
+			"target_row":   float64(target.Position.Row),
+			"target_owner": float64(1),
+		}}); err != nil {
+			t.Fatalf("cast first spell with coral belly: %v", err)
+		}
+		if first.PowerBonus != 3 || p0.Hero.Statuses[coralBellyFirstSpellAttackUsedStatus] != 1 {
+			t.Fatalf("4211101 should permanently give the first spell +3 power and mark itself, power=%d statuses=%v", first.PowerBonus, p0.Hero.Statuses)
+		}
+		if engine.State.PendingSpell == nil || engine.State.PendingSpell.TotalPower != first.Card.Power+3 {
+			t.Fatalf("4211101 bonus should affect the current spell power, pending=%+v base=%d", engine.State.PendingSpell, first.Card.Power)
+		}
+
+		engine.State.PendingSpell = nil
+		engine.State.Phase = PhaseMain
+		secondTarget := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id":  second.InstanceID,
+			"target_type":  "unit",
+			"target_col":   float64(secondTarget.Position.Col),
+			"target_row":   float64(secondTarget.Position.Row),
+			"target_owner": float64(1),
+		}}); err != nil {
+			t.Fatalf("cast second spell with coral belly: %v", err)
+		}
+		if second.PowerBonus != 0 {
+			t.Fatalf("4211101 should trigger only once per game, second power bonus=%d", second.PowerBonus)
+		}
 	})
 
 	t.Run("silverleaf ranger consumes for the next spell attack bonus", func(t *testing.T) {

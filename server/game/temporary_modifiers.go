@@ -125,11 +125,18 @@ func (e *Engine) temporaryNextSkillUseCostMinus(ps *PlayerState, skill *CardInst
 }
 
 func (e *Engine) consumeNextSkillUseModifiers(ps *PlayerState, skill *CardInstance) {
+	e.consumeNextSkillUseModifiersForPurpose(ps, skill, skillPurposeAttack)
+}
+
+func (e *Engine) consumeNextSkillUseModifiersForPurpose(ps *PlayerState, skill *CardInstance, purpose skillPurpose) {
 	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
 		if modifier.RemainingUses == 0 {
 			continue
 		}
 		if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != skill.InstanceID {
+			continue
+		}
+		if isBoostPurpose(purpose) && modifier.Type != TempModNextSkillUseCostMinus {
 			continue
 		}
 		switch modifier.Type {

@@ -85,6 +85,7 @@ func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, ta
 	e.applySkillUseCooldownModifiers(ps, skill)
 	e.consumeNextSkillUseModifiers(ps, skill)
 	e.advanceMasteryForUsedSkills(playerID, skill)
+	e.applyCoralBellyFirstSpellAttackBonus(playerID, skill)
 	totalPower := e.effectiveSpellPower(playerID, skill, nil, target)
 	isSorcery := isSorcerySkill(skill.Card)
 	spellCastData := map[string]any{

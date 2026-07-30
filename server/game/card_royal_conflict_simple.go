@@ -1799,6 +1799,40 @@ func (Card2221108WesternChart) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
+type Card4211101CoralBelly struct{ AlwaysActive }
+
+func (Card4211101CoralBelly) ID() string   { return "4211101" }
+func (Card4211101CoralBelly) Name() string { return "海神之使 珊瑚 贝莉" }
+
+const coralBellyFirstSpellAttackUsedStatus = "海神之使首次法术攻击已触发"
+
+func (e *Engine) applyCoralBellyFirstSpellAttackBonus(playerID int, skill *CardInstance) {
+	if e == nil || skill == nil || skill.Card == nil || !isSpellLikeCard(skill.Card) {
+		return
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return
+	}
+	for _, card := range e.getAllFieldCards(ps) {
+		if card == nil || card.Card == nil || card.Card.Number != "4211101" || e.hasEffectiveStatus(card, StatusPetrify) {
+			continue
+		}
+		if card.Statuses[coralBellyFirstSpellAttackUsedStatus] > 0 {
+			continue
+		}
+		card.Statuses[coralBellyFirstSpellAttackUsedStatus] = 1
+		skill.PowerBonus += 3
+		e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
+			"source": cardToInfo(card),
+			"target": cardToInfo(skill),
+			"effect": "first_spell_attack_power_bonus",
+			"amount": 3,
+		}})
+		return
+	}
+}
+
 type Card2321102WindCycle struct{ AlwaysActive }
 
 func (Card2321102WindCycle) ID() string   { return "2321102" }

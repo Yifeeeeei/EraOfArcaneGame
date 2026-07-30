@@ -1142,12 +1142,13 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		e.applyNextRedMoonModifiers(playerID, skill)
 		e.refreshRedMoonState(playerID)
 	}
-	usedSkills := append([]*CardInstance{skill}, boostSkills...)
-	for _, usedSkill := range usedSkills {
-		e.consumeNextSkillUseModifiers(ps, usedSkill)
+	e.consumeNextSkillUseModifiers(ps, skill)
+	for _, boostSkill := range boostSkills {
+		e.consumeNextSkillUseModifiersForPurpose(ps, boostSkill, skillPurposeAttackBoost)
 	}
 	e.advanceMasteryForUsedSkills(playerID, append([]*CardInstance{skill}, boostSkills...)...)
 
+	e.applyCoralBellyFirstSpellAttackBonus(playerID, skill)
 	powerTargets := append([]SpellTarget{target}, extraTargets...)
 	totalPower := e.effectiveSpellPower(playerID, skill, boostSkills, powerTargets...)
 	powerSources := e.spellPowerSources(playerID, skill, boostSkills, totalPower, powerTargets...)
@@ -1299,8 +1300,11 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		e.moveHandConsumablesToGraveyard(ps, append(defenseScrolls, boostScrolls...))
 		usedSkills := append([]*CardInstance{}, defenseSkills...)
 		usedSkills = append(usedSkills, boostSkills...)
-		for _, usedSkill := range usedSkills {
-			e.consumeNextSkillUseModifiers(ps, usedSkill)
+		for _, defenseSkill := range defenseSkills {
+			e.consumeNextSkillUseModifiersForPurpose(ps, defenseSkill, skillPurposeDefend)
+		}
+		for _, boostSkill := range boostSkills {
+			e.consumeNextSkillUseModifiersForPurpose(ps, boostSkill, skillPurposeDefenseBoost)
 		}
 		e.advanceMasteryForUsedSkills(playerID, usedSkills...)
 	}
@@ -3259,6 +3263,7 @@ func (e *Engine) handleUseSpellScrollItem(playerID int, action ActionMessage, ca
 func (e *Engine) startSpellScrollCast(playerID int, scroll *CardInstance, target SpellTarget) {
 	ps := e.State.Players[playerID]
 	boostSkills := []*CardInstance{}
+	e.applyCoralBellyFirstSpellAttackBonus(playerID, scroll)
 	totalPower := e.effectiveSpellPower(playerID, scroll, boostSkills, target)
 	powerSources := e.spellPowerSources(playerID, scroll, boostSkills, totalPower, target)
 	e.consumeNextSpellPowerBonuses(ps, scroll)
