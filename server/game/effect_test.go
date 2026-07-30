@@ -4213,6 +4213,48 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("curse box marks deaths and spends markers to weaken enemy spells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p1 := engine.State.Players[1]
+		box := NewCardInstance(baseCard(t, "2621107"), 0, 1)
+		p1.Skills[0] = readySkill(baseCard(t, "3321005"), 1)
+		p1.Skills[1] = readySkill(baseCard(t, "3221001"), 1)
+		p1.Skills[2] = readySkill(baseCard(t, "3621006"), 1)
+		behavior := Card2621107CurseBox{}
+
+		if err := behavior.OnFriendlyDeath(&EffectContext{Engine: engine, Source: box, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("2621107 friendly death: %v", err)
+		}
+		if err := behavior.OnEnemyDeath(&EffectContext{Engine: engine, Source: box, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("2621107 enemy death: %v", err)
+		}
+		box.Statuses[curseBoxMarkerStatus] += 2
+		if box.Statuses[curseBoxMarkerStatus] != 4 {
+			t.Fatalf("2621107 should mark every unit death, statuses=%v", box.Statuses)
+		}
+
+		if err := behavior.OnPerTurn(&EffectContext{Engine: engine, Source: box, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("2621107 per-turn: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "curse_box_weaken" || engine.State.PendingAction.MaxSelect != 3 {
+			t.Fatalf("2621107 should ask for up to 3 enemy spells, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, p1.Skills[0].InstanceID, p1.Skills[1].InstanceID, p1.Skills[2].InstanceID)
+		if box.Statuses[curseBoxMarkerStatus] != 1 {
+			t.Fatalf("2621107 should remove one marker per selected spell, statuses=%v", box.Statuses)
+		}
+		for i := 0; i < 3; i++ {
+			if p1.Skills[i].Statuses[StatusWeaken] != 1 {
+				t.Fatalf("2621107 should weaken selected enemy spells by 1, skill %d statuses=%v", i, p1.Skills[i].Statuses)
+			}
+		}
+
+		emptyBox := NewCardInstance(baseCard(t, "2621107"), 0, 1)
+		if err := behavior.OnPerTurn(&EffectContext{Engine: engine, Source: emptyBox, PlayerID: 0, OpponentID: 1}); err == nil {
+			t.Fatal("2621107 should reject active ability with no markers")
+		}
+	})
+
 	t.Run("soul hunter marks friendly spell once after it hits", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		hunter := placeUnit(baseCard(t, "1621106"), 0, 0, 0, engine)

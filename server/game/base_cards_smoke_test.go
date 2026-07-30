@@ -390,6 +390,10 @@ func TestEveryRegisteredCardEffectHandlerRuns(t *testing.T) {
 					if card.Number == "1121003" && effect.Trigger == TriggerPerTurn {
 						engine.State.Players[0].Skills[0] = readySkill(cards.PlayableCardDB["3321005"], 0)
 					}
+					if card.Number == "2621107" && effect.Trigger == TriggerPerTurn {
+						source.Statuses[curseBoxMarkerStatus] = 1
+						engine.State.Players[1].Skills[0] = readySkill(cards.PlayableCardDB["3321005"], 1)
+					}
 					target := engine.State.Players[1].Hero
 					if card.Number == "4611002" && effect.Trigger == TriggerUltimate {
 						target = NewCardInstance(cards.PlayableCardDB["1011002"], 0, engine.State.TurnNumber)
