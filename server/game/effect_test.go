@@ -4929,6 +4929,47 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("legion general prayer buffs fire spells until next turn end", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		general := placeUnit(baseCard(t, "1121114"), 0, 0, 0, engine)
+		fireSkill := readySkill(baseCard(t, "3121106"), 0)
+		waterSkill := readySkill(baseCard(t, "3221107"), 0)
+		behavior := Card1121114LegionGeneral{}
+
+		if !cardHasActivePrayer(general) {
+			t.Fatal("1121114 should expose prayer ability")
+		}
+		if err := behavior.OnPerTurn(&EffectContext{Engine: engine, Source: general, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1121114 prayer: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "legion_general_prayer" {
+			t.Fatalf("1121114 should ask which fire spell buff to apply, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, "power")
+		if got := engine.effectiveSpellPower(0, fireSkill, nil); got != fireSkill.Card.Power+2 {
+			t.Fatalf("1121114 should give fire spells +2 power, got=%d", got)
+		}
+		if got := engine.effectiveSpellPower(0, waterSkill, nil); got != waterSkill.Card.Power {
+			t.Fatalf("1121114 should not buff non-fire spell power, got=%d", got)
+		}
+		engine.State.TurnNumber += 2
+		engine.clearExpiredTemporaryModifiers(0)
+		if got := engine.effectiveSpellPower(0, fireSkill, nil); got != fireSkill.Card.Power {
+			t.Fatalf("1121114 power buff should expire by next turn end, got=%d modifiers=%v", got, engine.State.Players[0].TempModifiers)
+		}
+
+		attackEngine := setupEffectTest(t)
+		attackGeneral := placeUnit(baseCard(t, "1121114"), 0, 0, 0, attackEngine)
+		attackSkill := readySkill(baseCard(t, "3121106"), 0)
+		if err := behavior.OnPerTurn(&EffectContext{Engine: attackEngine, Source: attackGeneral, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1121114 attack prayer: %v", err)
+		}
+		resolvePendingSelection(t, attackEngine, 0, "attack")
+		if got := attackEngine.effectiveSpellDamage(0, attackSkill, attackSkill.Card.Attack, nil); got != attackSkill.Card.Attack+1 {
+			t.Fatalf("1121114 should give fire spells +1 attack, got=%d", got)
+		}
+	})
+
 	t.Run("arcane shield grants shield at next turn start", func(t *testing.T) {
 		engine := setupEffectTest(t)
 		skill := readySkill(baseCard(t, "3021107"), 0)
