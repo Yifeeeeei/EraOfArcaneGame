@@ -69,13 +69,14 @@ func (AlwaysActive) HasActiveSorcerySkill(*CardInstance) bool              { ret
 func (AlwaysActive) HasActiveSpellHitStatus(*CardInstance) bool            { return true }
 func (AlwaysActive) HasActiveSpellElementGain(*CardInstance) bool          { return true }
 func (AlwaysActive) HasActiveSpellDamage(*CardInstance) bool               { return true }
+func (AlwaysActive) HasActiveElementsGainModifier(*CardInstance) bool      { return true }
 func (AlwaysActive) HasActiveSkillUseCostModifier(*CardInstance) bool      { return true }
 func (AlwaysActive) HasActiveCardPlayCostModifier(*CardInstance) bool      { return true }
 func (AlwaysActive) HasActiveGlobalCardPlayCostModifier(*CardInstance) bool {
 	return true
 }
-func (AlwaysActive) HasActiveSelfCardPlayCostModifier(*CardInstance) bool  { return true }
-func (AlwaysActive) HasActiveCardPlayCostPaid(*CardInstance) bool          { return true }
+func (AlwaysActive) HasActiveSelfCardPlayCostModifier(*CardInstance) bool { return true }
+func (AlwaysActive) HasActiveCardPlayCostPaid(*CardInstance) bool         { return true }
 func (AlwaysActive) HasActiveSkillUsePermissionModifier(*CardInstance) bool {
 	return true
 }
@@ -364,6 +365,11 @@ type UltimateAbility interface {
 type SpellDamageBehavior interface {
 	HasActiveSpellDamage(*CardInstance) bool
 	SpellDamage(*EffectContext) int
+}
+
+type ElementsGainModifier interface {
+	HasActiveElementsGainModifier(*CardInstance) bool
+	ModifyElementsGain(*EffectContext, *CardInstance, map[string]int)
 }
 
 type SkillUseCostModifier interface {

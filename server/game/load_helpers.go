@@ -7,7 +7,33 @@ func effectiveElementsGain(card *CardInstance) map[string]int {
 }
 
 func (e *Engine) effectiveElementsGain(card *CardInstance) map[string]int {
-	return effectiveElementsGainWithStealth(card, e != nil && e.hasActiveStealth(card))
+	gains := effectiveElementsGainWithStealth(card, e != nil && e.hasActiveStealth(card))
+	if e == nil || card == nil || card.Card == nil || card.OwnerID < 0 || card.OwnerID >= len(e.State.Players) {
+		return gains
+	}
+	ps := e.State.Players[card.OwnerID]
+	if ps == nil {
+		return gains
+	}
+	ctx := &EffectContext{
+		Engine:     e,
+		Source:     card,
+		PlayerID:   card.OwnerID,
+		OpponentID: 1 - card.OwnerID,
+	}
+	for _, fieldCard := range e.getAllFieldCards(ps) {
+		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
+			continue
+		}
+		behavior := globalRegistry.GetBehavior(fieldCard.Card.Number)
+		modifier, ok := behavior.(ElementsGainModifier)
+		if !ok || !modifier.HasActiveElementsGainModifier(fieldCard) {
+			continue
+		}
+		ctx.Target = fieldCard
+		modifier.ModifyElementsGain(ctx, card, gains)
+	}
+	return gains
 }
 
 func effectiveElementsGainWithStealth(card *CardInstance, hasEffectiveStealth bool) map[string]int {

@@ -3061,6 +3061,28 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("spirit guard amulet gains arcane load only as sole equipment", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		amulet := NewCardInstance(baseCard(t, "2021110"), 0, 1)
+		p0.Equipment[0] = amulet
+
+		if got := engine.effectiveElementsGain(amulet)[model.ElementArcane]; got != amulet.Card.ElementsGain[model.ElementArcane]+1 {
+			t.Fatalf("2021110 should gain +1 arcane load as sole equipment, load=%v", engine.effectiveElementsGain(amulet))
+		}
+
+		p0.Equipment[1] = NewCardInstance(baseCard(t, "2021108"), 0, 1)
+		if got := engine.effectiveElementsGain(amulet)[model.ElementArcane]; got != amulet.Card.ElementsGain[model.ElementArcane] {
+			t.Fatalf("2021110 should lose bonus with another equipment, load=%v", engine.effectiveElementsGain(amulet))
+		}
+
+		p0.Equipment[1] = nil
+		amulet.Statuses[StatusPetrify] = 1
+		if got := engine.effectiveElementsGain(amulet)[model.ElementArcane]; got != amulet.Card.ElementsGain[model.ElementArcane] {
+			t.Fatalf("2021110 aura should be inactive while petrified, load=%v statuses=%v", engine.effectiveElementsGain(amulet), amulet.Statuses)
+		}
+	})
+
 	t.Run("seven gods blessing rewards distinct skill elements", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
