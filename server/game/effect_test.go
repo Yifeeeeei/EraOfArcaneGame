@@ -4017,12 +4017,24 @@ func TestRoyalConflictResetAndTemporaryAbilityEffects(t *testing.T) {
 		engine := setupEffectTest(t)
 		p0 := engine.State.Players[0]
 		p0.Hero = NewCardInstance(baseCard(t, "4211101"), 0, engine.State.TurnNumber)
+		sorcery := readySkill(baseCard(t, "3021003"), 0)
 		first := readySkill(baseCard(t, "3221106"), 0)
 		second := readySkill(baseCard(t, "3121109"), 0)
+		p0.Skills[2] = sorcery
 		p0.Skills[0] = first
 		p0.Skills[1] = second
 		p0.Elements = map[string]int{model.ElementWater: 10, model.ElementFire: 10}
 		target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": sorcery.InstanceID,
+			"target_type": "none",
+		}}); err != nil {
+			t.Fatalf("cast sorcery before coral belly trigger: %v", err)
+		}
+		if sorcery.PowerBonus != 0 || p0.Hero.Statuses[coralBellyFirstSpellAttackUsedStatus] != 0 {
+			t.Fatalf("4211101 should ignore sorceries before the first spell attack, sorcery_power=%d statuses=%v", sorcery.PowerBonus, p0.Hero.Statuses)
+		}
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
 			"instance_id":  first.InstanceID,

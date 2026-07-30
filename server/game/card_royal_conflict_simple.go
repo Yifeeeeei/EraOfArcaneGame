@@ -1807,7 +1807,7 @@ func (Card4211101CoralBelly) Name() string { return "海神之使 珊瑚 贝莉"
 const coralBellyFirstSpellAttackUsedStatus = "海神之使首次法术攻击已触发"
 
 func (e *Engine) applyCoralBellyFirstSpellAttackBonus(playerID int, skill *CardInstance) {
-	if e == nil || skill == nil || skill.Card == nil || !isSpellLikeCard(skill.Card) {
+	if e == nil || skill == nil || skill.Card == nil || !isSpellLikeCard(skill.Card) || isSorcerySkill(skill.Card) {
 		return
 	}
 	ps := e.State.Players[playerID]
