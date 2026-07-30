@@ -2788,6 +2788,27 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("uncontrolled divine fire beast buffs both players attacking spells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		attackerSkill := readySkill(baseCard(t, "3121001"), 0)
+		defenseSkill := readySkill(baseCard(t, "3121102"), 0)
+
+		placeUnit(baseCard(t, "1121107"), 0, 0, 0, engine)
+		if got := engine.effectiveSpellPower(0, attackerSkill, nil); got != attackerSkill.Card.Power+2 {
+			t.Fatalf("1121107 should buff friendly attacking spells, got=%d", got)
+		}
+		if got := engine.effectiveSkillPowerForPurposeWithData(0, defenseSkill, nil, skillPurposeDefend, nil); got != defenseSkill.Card.Power {
+			t.Fatalf("1121107 should not buff defensive spells, got=%d", got)
+		}
+
+		enemyEngine := setupReportedBugEngine(t)
+		enemyAttackerSkill := readySkill(baseCard(t, "3121001"), 0)
+		placeUnit(baseCard(t, "1121107"), 1, 0, 0, enemyEngine)
+		if got := enemyEngine.effectiveSpellPower(0, enemyAttackerSkill, nil); got != enemyAttackerSkill.Card.Power+2 {
+			t.Fatalf("1121107 should buff enemy attacking spells too, got=%d", got)
+		}
+	})
+
 	t.Run("killing wind gains power from absolute hand size difference", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
