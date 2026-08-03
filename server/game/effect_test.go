@@ -1319,6 +1319,40 @@ func TestRoyalConflictCouncilSpokesmanReducesEnemyHandLimit(t *testing.T) {
 	if normalEngine.State.PendingAction != nil {
 		t.Fatalf("normal draw over hand limit should not force immediate discard, pending=%+v", normalEngine.State.PendingAction)
 	}
+
+	searchEngine := setupReportedBugEngine(t)
+	searchP1 := searchEngine.State.Players[1]
+	placeUnit(baseCard(t, "1311103"), 0, 0, 0, searchEngine)
+	for len(searchP1.Hand) < searchEngine.State.HandLimit-1 {
+		searchP1.Hand = append(searchP1.Hand, NewCardInstance(baseCard(t, "1021001"), 1, 1))
+	}
+	searched := NewCardInstance(baseCard(t, "1021002"), 1, 1)
+	searchP1.Deck = []*CardInstance{searched}
+	if got := searchEngine.searchDeckCardToHand(1, searched.InstanceID); got != searched {
+		t.Fatal("test setup should search card to hand")
+	}
+	if searchEngine.State.PendingAction == nil || searchEngine.State.PendingAction.Type != "discard" || searchEngine.State.PendingAction.PlayerID != 1 {
+		t.Fatalf("1311103 should force discard after searching over hand limit, pending=%+v", searchEngine.State.PendingAction)
+	}
+	resolvePendingSelection(t, searchEngine, 1, searched.InstanceID)
+	if len(searchP1.Hand) != searchEngine.State.HandLimit-1 || len(searchP1.Graveyard) != 1 || searchP1.Graveyard[0] != searched {
+		t.Fatalf("searched card should be discarded back to reduced limit, hand=%d grave=%v", len(searchP1.Hand), cardsToInfo(searchP1.Graveyard))
+	}
+
+	graveEngine := setupReportedBugEngine(t)
+	graveP1 := graveEngine.State.Players[1]
+	placeUnit(baseCard(t, "1311103"), 0, 0, 0, graveEngine)
+	for len(graveP1.Hand) < graveEngine.State.HandLimit-1 {
+		graveP1.Hand = append(graveP1.Hand, NewCardInstance(baseCard(t, "1021001"), 1, 1))
+	}
+	recovered := NewCardInstance(baseCard(t, "1021003"), 1, 1)
+	graveP1.Graveyard = []*CardInstance{recovered}
+	if !graveEngine.moveGraveyardCardToHand(1, recovered.InstanceID) {
+		t.Fatal("test setup should move graveyard card to hand")
+	}
+	if graveEngine.State.PendingAction == nil || graveEngine.State.PendingAction.Type != "discard" || graveEngine.State.PendingAction.PlayerID != 1 {
+		t.Fatalf("1311103 should force discard after returning a card to hand, pending=%+v", graveEngine.State.PendingAction)
+	}
 }
 
 func TestRoyalConflictTreasureCabinetExpandsEquipmentAndAllowsDuplicates(t *testing.T) {
@@ -1385,6 +1419,20 @@ func TestRoyalConflictArcaneImpactGainsStatsForArcaneCosts(t *testing.T) {
 }
 
 func TestRoyalConflictArcaneSealSealsEnemySkillAndRaisesOwnCost(t *testing.T) {
+	noTargetEngine := setupReportedBugEngine(t)
+	noTargetP0 := noTargetEngine.State.Players[0]
+	noTargetSeal := readySkill(baseCard(t, "3021108"), 0)
+	noTargetP0.Skills[0] = noTargetSeal
+	noTargetP0.Elements[model.ElementArcane] = 10
+	if err := noTargetEngine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": noTargetSeal.InstanceID,
+	}}); err == nil {
+		t.Fatal("3021108 should not be cast without an enemy skill target")
+	}
+	if noTargetP0.Elements[model.ElementArcane] != 10 || noTargetSeal.IsHorizontal || noTargetSeal.Statuses[StatusCooldown] > 0 || noTargetSeal.Statuses[arcaneSealExtraUseCostStatus] > 0 {
+		t.Fatalf("failed 3021108 cast should not pay, tap, cool down, or raise cost; elements=%v horizontal=%v statuses=%v", noTargetP0.Elements, noTargetSeal.IsHorizontal, noTargetSeal.Statuses)
+	}
+
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
 	p1 := engine.State.Players[1]

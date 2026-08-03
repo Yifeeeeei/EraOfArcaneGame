@@ -371,11 +371,12 @@ func SearchDeckAndDraw(predicate func(*model.Card) bool) EffectHandler {
 				// 从卡组移除
 				ps.Deck = removeCardFromDeck(ps.Deck, c.InstanceID)
 				// 加入手牌
-				ps.Hand = append(ps.Hand, c)
+				ctx.Engine.appendCardsToHand(ctx.PlayerID, []*CardInstance{c})
 				ctx.Engine.emit(GameEvent{
 					Type: "search_draw", Player: ctx.PlayerID,
 					Data: map[string]any{"card": cardToInfo(c)},
 				})
+				ctx.Engine.enforceImmediateHandLimitAfterHandGain(ctx.PlayerID)
 				return nil
 			}
 		}

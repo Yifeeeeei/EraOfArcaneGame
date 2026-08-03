@@ -17,8 +17,8 @@ func (Card1311001Roc) OnEnter(ctx *EffectContext) error {
 		remaining = append(remaining, card)
 	}
 	ps.Deck = remaining
+	ctx.Engine.appendCardsToHand(ctx.PlayerID, drawn)
 	for _, card := range drawn {
-		ps.Hand = append(ps.Hand, card)
 		ps.DrawCountThisTurn++
 		if ps.DiscardAtTurnEnd == nil {
 			ps.DiscardAtTurnEnd = make(map[string]bool)
@@ -31,6 +31,7 @@ func (Card1311001Roc) OnEnter(ctx *EffectContext) error {
 			"draw_count_this_turn": ps.DrawCountThisTurn,
 		})
 	}
+	ctx.Engine.enforceImmediateHandLimitAfterHandGain(ctx.PlayerID)
 	ctx.Engine.shuffleDeck(ctx.PlayerID)
 	return nil
 }

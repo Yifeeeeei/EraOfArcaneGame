@@ -255,14 +255,15 @@ func (e *Engine) searchDeckCardToHandThen(playerID int, instanceID string, after
 	ps := e.State.Players[playerID]
 	for i, card := range ps.Deck {
 		if card != nil && card.InstanceID == instanceID && canFlipOrSearchCard(card) {
-			ps.Hand = append(ps.Hand, card)
 			ps.Deck = append(ps.Deck[:i], ps.Deck[i+1:]...)
+			e.appendCardsToHand(playerID, []*CardInstance{card})
 			e.shuffleDeck(playerID)
 			e.emit(GameEvent{Type: "search_card", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
 			e.notifyCardSearchedThen(playerID, card, func() {
 				if afterSearch != nil {
 					afterSearch(card)
 				}
+				e.enforceImmediateHandLimitAfterHandGain(playerID)
 			})
 			return card
 		}
@@ -290,10 +291,11 @@ func (e *Engine) flipDeckMatchesToHand(playerID int, count int, limit int, predi
 		remaining = append(remaining, card)
 	}
 	ps.Deck = remaining
+	e.appendCardsToHand(playerID, drawn)
 	for _, card := range drawn {
-		ps.Hand = append(ps.Hand, card)
 		e.notifyCardDrawn(playerID, card)
 	}
+	e.enforceImmediateHandLimitAfterHandGain(playerID)
 	e.shuffleDeck(playerID)
 	e.emit(GameEvent{
 		Type:   "flip_deck",
@@ -317,10 +319,11 @@ func (e *Engine) drawFirstDeckMatch(playerID int, predicate func(*CardInstance) 
 		if card == nil || !canFlipOrSearchCard(card) || (predicate != nil && !predicate(card)) {
 			continue
 		}
-		ps.Hand = append(ps.Hand, card)
 		ps.Deck = append(ps.Deck[:i], ps.Deck[i+1:]...)
+		e.appendCardsToHand(playerID, []*CardInstance{card})
 		e.emit(GameEvent{Type: "search_card", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
 		e.notifyCardSearched(playerID, card)
+		e.enforceImmediateHandLimitAfterHandGain(playerID)
 		return card
 	}
 	return nil
@@ -352,7 +355,7 @@ func (e *Engine) moveGraveyardCardToHand(playerID int, instanceID string) bool {
 		}
 		ps.Graveyard = append(ps.Graveyard[:i], ps.Graveyard[i+1:]...)
 		resetCardForHiddenZone(card)
-		ps.Hand = append(ps.Hand, card)
+		e.addCardToHand(playerID, card)
 		e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
 			"effect": "graveyard_to_hand",
 			"card":   cardToInfo(card),

@@ -60,8 +60,8 @@ func resolveOkoruObserve(e *Engine, playerID int, looked []*CardInstance, select
 		used[card.InstanceID] = true
 	}
 	ps.Deck = append(append(top, rest...), bottom...)
+	e.appendCardsToHand(playerID, drawn)
 	for _, card := range drawn {
-		ps.Hand = append(ps.Hand, card)
 		ps.DrawCountThisTurn++
 		e.emit(GameEvent{Type: "draw_card", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
 		e.triggerFieldEffectsWithData(TriggerOnDraw, playerID, card, map[string]any{
@@ -70,6 +70,7 @@ func resolveOkoruObserve(e *Engine, playerID int, looked []*CardInstance, select
 			"draw_count_this_turn": ps.DrawCountThisTurn,
 		})
 	}
+	e.enforceImmediateHandLimitAfterHandGain(playerID)
 	if len(drawn) > 0 && ps.Hero != nil {
 		e.dealDamage(ps.Hero, len(drawn), playerID)
 	}

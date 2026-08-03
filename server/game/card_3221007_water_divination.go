@@ -85,9 +85,10 @@ func resolveWaterDivination(e *Engine, playerID int, looked []*CardInstance, sel
 
 	ps.Deck = append(append(top, rest...), bottom...)
 	if searched != nil {
-		ps.Hand = append(ps.Hand, searched)
+		e.appendCardsToHand(playerID, []*CardInstance{searched})
 		e.emit(GameEvent{Type: "search_card", Player: playerID, Data: map[string]any{"card": cardToInfo(searched)}})
 		e.notifyCardSearched(playerID, searched)
+		e.enforceImmediateHandLimitAfterHandGain(playerID)
 	}
 	e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
 		"effect":       "water_divination_reorder",

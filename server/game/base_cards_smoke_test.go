@@ -332,6 +332,9 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 						bow.Statuses[winterBowWaterMark] = 5
 						ps.Equipment[0] = bow
 					}
+					if card.Number == "3021108" {
+						engine.State.Players[1].Skills[0] = readySkill(cards.PlayableCardDB["3021005"], 1)
+					}
 					setAllElements(ps, 99)
 					err := engine.HandleAction(0, ActionMessage{
 						Action: "cast_spell",

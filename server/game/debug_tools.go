@@ -71,11 +71,12 @@ func (e *Engine) DebugAddCardAt(playerID int, cardNumber string, zone string, co
 	}
 
 	ps := e.State.Players[playerID]
+	var addedToHand []*CardInstance
 	for i := 0; i < count; i++ {
 		instance := NewCardInstance(card, playerID, e.State.TurnNumber)
 		switch zone {
 		case "hand":
-			ps.Hand = append(ps.Hand, instance)
+			addedToHand = append(addedToHand, instance)
 		case "deck_top":
 			ps.Deck = append([]*CardInstance{instance}, ps.Deck...)
 		case "deck_bottom":
@@ -122,6 +123,7 @@ func (e *Engine) DebugAddCardAt(playerID int, cardNumber string, zone string, co
 			ps.Graveyard = append(ps.Graveyard, instance)
 		}
 	}
+	e.addCardsToHand(playerID, addedToHand)
 	return nil
 }
 

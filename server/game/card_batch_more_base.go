@@ -61,7 +61,7 @@ func addGeneratedCardToHand(ctx *EffectContext, cardNumber string) {
 	if card == nil {
 		return
 	}
-	ctx.Engine.State.Players[ctx.PlayerID].Hand = append(ctx.Engine.State.Players[ctx.PlayerID].Hand, NewCardInstance(card, ctx.PlayerID, ctx.Engine.State.TurnNumber))
+	ctx.Engine.addCardToHand(ctx.PlayerID, NewCardInstance(card, ctx.PlayerID, ctx.Engine.State.TurnNumber))
 	emitBatchEffect(ctx, "add_generated_card_to_hand")
 }
 

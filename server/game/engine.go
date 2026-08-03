@@ -652,6 +652,44 @@ func (e *Engine) drawCards(playerID int, n int) []*CardInstance {
 	return drawn
 }
 
+func (e *Engine) addCardToHand(playerID int, card *CardInstance) bool {
+	return e.addCardsToHand(playerID, []*CardInstance{card}) > 0
+}
+
+func (e *Engine) addCardsToHand(playerID int, cards []*CardInstance) int {
+	added := e.appendCardsToHand(playerID, cards)
+	if added > 0 {
+		e.enforceImmediateHandLimitAfterHandGain(playerID)
+	}
+	return added
+}
+
+func (e *Engine) appendCardsToHand(playerID int, cards []*CardInstance) int {
+	if playerID < 0 || playerID >= len(e.State.Players) {
+		return 0
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return 0
+	}
+	added := 0
+	for _, card := range cards {
+		if card == nil {
+			continue
+		}
+		ps.Hand = append(ps.Hand, card)
+		added++
+	}
+	return added
+}
+
+func (e *Engine) enforceImmediateHandLimitAfterHandGain(playerID int) bool {
+	if !e.shouldImmediatelyEnforceHandLimit(playerID) {
+		return false
+	}
+	return e.promptDiscardToHandLimit(playerID, nil)
+}
+
 func (e *Engine) millTopDeckCards(playerID int, n int) []*CardInstance {
 	if n <= 0 {
 		return nil
@@ -1089,6 +1127,9 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		return fmt.Errorf("skill not found in skill area or bound skills")
 	}
 
+	if skill.Card.Number == "3021108" && len(e.enemySkills(playerID, nil)) == 0 {
+		return fmt.Errorf("arcane seal requires an enemy skill")
+	}
 	if err := e.validateSkillForPurpose(skill, skillPurposeAttack); err != nil {
 		return err
 	}

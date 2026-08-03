@@ -2885,7 +2885,7 @@ func addGeneratedCardToPlayerHand(ctx *EffectContext, playerID int, cardNumber s
 		return nil
 	}
 	instance := NewCardInstance(card, playerID, ctx.Engine.State.TurnNumber)
-	ctx.Engine.State.Players[playerID].Hand = append(ctx.Engine.State.Players[playerID].Hand, instance)
+	ctx.Engine.addCardToHand(playerID, instance)
 	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 		"source": cardToInfo(ctx.Source),
 		"card":   cardToInfo(instance),
