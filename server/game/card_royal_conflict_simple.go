@@ -58,6 +58,75 @@ func (Card1001101AbandonedPawn) OnDeath(ctx *EffectContext) error {
 	return nil
 }
 
+type Card3001101EnterGame struct{ AlwaysActive }
+
+func (Card3001101EnterGame) ID() string   { return "3001101" }
+func (Card3001101EnterGame) Name() string { return "入局" }
+func (Card3001101EnterGame) OnSpellCast(ctx *EffectContext) error {
+	candidates := enterGamePlayerCandidates(ctx)
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "enter_game_player",
+		"入局:选择召唤弃子的玩家", candidates, 1, 1,
+		func(selected []string) {
+			targetPlayerID, ok := enterGamePlayerIDFromSelection(firstSelected(selected))
+			if !ok || targetPlayerID < 0 || targetPlayerID >= len(ctx.Engine.State.Players) {
+				return
+			}
+			positions := ctx.Engine.emptyUnitPositionsForPlayer(targetPlayerID, ctx.PlayerID)
+			if len(positions) == 0 {
+				return
+			}
+			ctx.Engine.SetPendingAction(ctx.PlayerID, "enter_game_position",
+				"入局:选择弃子的召唤位置", positions, 1, 1,
+				func(posSelected []string) {
+					pos, ok := positionFromSelectionID(firstSelected(posSelected))
+					if !ok || targetPlayerID < 0 || targetPlayerID >= len(ctx.Engine.State.Players) {
+						return
+					}
+					ps := ctx.Engine.State.Players[targetPlayerID]
+					if ps == nil || ps.Units[pos.Col][pos.Row] != nil {
+						return
+					}
+					ctx.Engine.summonFreshCardAtPosition(targetPlayerID, "1001101", pos, true)
+				})
+		})
+	return nil
+}
+
+func enterGamePlayerCandidates(ctx *EffectContext) []map[string]any {
+	if ctx == nil || ctx.Engine == nil {
+		return nil
+	}
+	candidates := make([]map[string]any, 0, len(ctx.Engine.State.Players))
+	for playerID := range ctx.Engine.State.Players {
+		if len(ctx.Engine.emptyUnitPositionsForPlayer(playerID, ctx.PlayerID)) == 0 {
+			continue
+		}
+		side := "enemy"
+		if playerID == ctx.PlayerID {
+			side = "own"
+		}
+		candidates = append(candidates, map[string]any{
+			"instance_id": fmt.Sprintf("player:%d", playerID),
+			"name":        fmt.Sprintf("玩家%d", playerID+1),
+			"zone":        "player",
+			"side":        side,
+			"player_id":   playerID,
+		})
+	}
+	return candidates
+}
+
+func enterGamePlayerIDFromSelection(id string) (int, bool) {
+	var playerID int
+	if _, err := fmt.Sscanf(id, "player:%d", &playerID); err != nil {
+		return 0, false
+	}
+	return playerID, true
+}
+
 type Card1021105RoyalTaxCollector struct{ AlwaysActive }
 
 func (Card1021105RoyalTaxCollector) ID() string   { return "1021105" }
@@ -93,6 +162,29 @@ func (Card1021105RoyalTaxCollector) OnTurnEnd(ctx *EffectContext) error {
 	if endedPlayer == ctx.OpponentID && ctx.Engine.State.TurnNumber >= ctx.Source.Statuses[royalTaxCollectorUntilOpponentTurnEndStatus] {
 		delete(ctx.Source.Statuses, royalTaxCollectorUntilOpponentTurnEndStatus)
 	}
+	return nil
+}
+
+type Card1021107GiftedYouth struct{ AlwaysActive }
+
+func (Card1021107GiftedYouth) ID() string      { return "1021107" }
+func (Card1021107GiftedYouth) Name() string    { return "天才少年" }
+func (Card1021107GiftedYouth) MasteryMax() int { return 2 }
+func (Card1021107GiftedYouth) OnMastery(ctx *EffectContext, level int) error {
+	if level != 2 {
+		return nil
+	}
+	source := ctx.Source
+	choices := elementChoiceCandidates("1021107", model.ElementFire, model.ElementWater, model.ElementEarth, model.ElementAir, model.ElementLight, model.ElementShadow)
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "gifted_youth_mastery_load",
+		"天才少年:选择获得的非奥术负载", choices, 1, 1,
+		func(selected []string) {
+			elem := firstSelected(selected)
+			if !isNonArcaneElement(elem) || !ctx.Engine.cardStillOnField(source) {
+				return
+			}
+			ctx.Engine.addElementsGainBonus(source, ctx.PlayerID, elem, 1, source)
+		})
 	return nil
 }
 
@@ -530,6 +622,25 @@ func (Card4211102WinterfellWarlockSophia) OnUltimate(ctx *EffectContext) error {
 				"attacker":      ctx.PlayerID,
 			})
 		})
+	return nil
+}
+
+type Card1421112SandDustDemon struct{ AlwaysActive }
+
+func (Card1421112SandDustDemon) ID() string            { return "1421112" }
+func (Card1421112SandDustDemon) Name() string          { return "沙尘恶魔" }
+func (Card1421112SandDustDemon) IsPrayerAbility() bool { return true }
+func (Card1421112SandDustDemon) OnPerTurn(ctx *EffectContext) error {
+	opponent := ctx.Engine.State.Players[ctx.OpponentID]
+	frontRow := opponent.GetFrontRow()
+	if frontRow < 0 || frontRow >= 3 {
+		return nil
+	}
+	for col := 0; col < 3; col++ {
+		if unit := opponent.Units[col][frontRow]; unit != nil {
+			ctx.Engine.addStatus(unit, StatusPetrify, 1)
+		}
+	}
 	return nil
 }
 

@@ -78,6 +78,19 @@ func (Card2221102OceanShieldScroll) OnUseItem(ctx *EffectContext) error {
 	return nil
 }
 
+type Card2421107EmeraldBarrierScroll struct{ AlwaysActive }
+
+func (Card2421107EmeraldBarrierScroll) ID() string   { return "2421107" }
+func (Card2421107EmeraldBarrierScroll) Name() string { return "翡翠结界卷轴" }
+func (Card2421107EmeraldBarrierScroll) OnUseItem(ctx *EffectContext) error {
+	own := learnedSkillCount(ctx.Engine.State.Players[ctx.PlayerID])
+	enemy := learnedSkillCount(ctx.Engine.State.Players[ctx.OpponentID])
+	if diff := enemy - own; diff > 0 {
+		ctx.Engine.gainPlayerShield(ctx.PlayerID, diff)
+	}
+	return nil
+}
+
 type Card2411101EmeraldImmortality struct{ AlwaysActive }
 
 func (Card2411101EmeraldImmortality) ID() string   { return "2411101" }
@@ -89,4 +102,17 @@ func (Card2411101EmeraldImmortality) OnEnter(ctx *EffectContext) error {
 func (Card2411101EmeraldImmortality) PreventsFieldDamage(ctx *EffectContext) bool {
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	return ps != nil && ps.Shield > 0
+}
+
+func learnedSkillCount(ps *PlayerState) int {
+	if ps == nil {
+		return 0
+	}
+	count := 0
+	for _, skill := range ps.Skills {
+		if skill != nil {
+			count++
+		}
+	}
+	return count
 }

@@ -482,10 +482,12 @@ func TestRoyalConflictVanillaCardsAreExplicitlyRegistered(t *testing.T) {
 		"1521104": "旭日之龙",
 		"1621105": "混沌胚胎",
 		"1621107": "蔷薇死神",
+		"2001102": "九霄印记",
 		"2021109": "氏族战锤",
 		"2121103": "浴火之翼",
 		"2121112": "炎流卷轴",
 		"2421101": "秋暮耳环",
+		"1021112": "奥术纯净体",
 		"3021102": "奥术屏障",
 		"3121106": "爆炎气焰",
 		"3121108": "熔岩障壁",
@@ -610,6 +612,105 @@ func TestRoyalConflictGraceHealsAndRewardsFullyHealedCompanion(t *testing.T) {
 	resolvePendingSelection(t, partialEngine, 0, partialTarget.InstanceID)
 	if partialTarget.CurrentLife != partialTarget.Card.Life-1 || partialTarget.Statuses["max_life_bonus"] != 0 || effectiveElementsGain(partialTarget)[model.ElementLight] != partialTarget.Card.ElementsGain[model.ElementLight] {
 		t.Fatalf("3521108 should not grant reward unless fully healed, life=%d statuses=%v load=%v", partialTarget.CurrentLife, partialTarget.Statuses, effectiveElementsGain(partialTarget))
+	}
+}
+
+func TestRoyalConflictEnterGameSummonsPawnForChosenPlayer(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	behavior := Card3001101EnterGame{}
+	source := readySkill(baseCard(t, "3001101"), 0)
+
+	if err := behavior.OnSpellCast(&EffectContext{Engine: engine, Source: source, PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("enter game spell cast: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "enter_game_player" {
+		t.Fatalf("3001101 should ask for target player first, pending=%+v", engine.State.PendingAction)
+	}
+	resolvePendingSelection(t, engine, 0, "player:1")
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "enter_game_position" {
+		t.Fatalf("3001101 should ask for target position after player choice, pending=%+v", engine.State.PendingAction)
+	}
+	resolvePendingSelection(t, engine, 0, positionSelectionID(Position{Col: 0, Row: 0}))
+	summoned := engine.State.Players[1].Units[0][0]
+	if summoned == nil || summoned.Card.Number != "1001101" || summoned.OwnerID != 1 {
+		t.Fatalf("3001101 should summon abandoned pawn for chosen player, summoned=%v", cardToInfo(summoned))
+	}
+
+	staleEngine := setupReportedBugEngine(t)
+	if err := behavior.OnSpellCast(&EffectContext{Engine: staleEngine, Source: source, PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("enter game stale spell cast: %v", err)
+	}
+	resolvePendingSelection(t, staleEngine, 0, "player:1")
+	blocker := placeUnit(baseCard(t, "1021001"), 1, 0, 0, staleEngine)
+	resolvePendingSelection(t, staleEngine, 0, positionSelectionID(Position{Col: 0, Row: 0}))
+	if staleEngine.State.Players[1].Units[0][0] != blocker {
+		t.Fatalf("3001101 should not overwrite a stale occupied position")
+	}
+}
+
+func TestRoyalConflictEmeraldBarrierScrollCountsSkillDifference(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+	p0.Skills[0] = readySkill(baseCard(t, "3021005"), 0)
+	p1.Skills[0] = readySkill(baseCard(t, "3121001"), 1)
+	p1.Skills[1] = readySkill(baseCard(t, "3221001"), 1)
+	p1.Skills[2] = readySkill(baseCard(t, "3321005"), 1)
+
+	scroll := NewCardInstance(baseCard(t, "2421107"), 0, 1)
+	if err := (Card2421107EmeraldBarrierScroll{}).OnUseItem(&EffectContext{Engine: engine, Source: scroll, PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("emerald barrier scroll: %v", err)
+	}
+	if p0.Shield != 2 {
+		t.Fatalf("2421107 should gain shield equal to enemy skill surplus, got %d", p0.Shield)
+	}
+
+	p0.Skills[1] = readySkill(baseCard(t, "3021005"), 0)
+	p0.Skills[2] = readySkill(baseCard(t, "3021005"), 0)
+	p0.Shield = 0
+	if err := (Card2421107EmeraldBarrierScroll{}).OnUseItem(&EffectContext{Engine: engine, Source: scroll, PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("emerald barrier scroll tied count: %v", err)
+	}
+	if p0.Shield != 0 {
+		t.Fatalf("2421107 should not gain shield when enemy has no skill surplus, got %d", p0.Shield)
+	}
+}
+
+func TestRoyalConflictGiftedYouthMasteryAddsChosenNonArcaneLoad(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	youth := placeUnit(baseCard(t, "1021107"), 0, 0, 0, engine)
+
+	engine.advanceMastery(youth, 0, 1)
+	if engine.State.PendingAction != nil {
+		t.Fatalf("1021107 should not prompt before mastery 2, pending=%+v", engine.State.PendingAction)
+	}
+	engine.advanceMastery(youth, 0, 1)
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "gifted_youth_mastery_load" {
+		t.Fatalf("1021107 should prompt for non-arcane load at mastery 2, pending=%+v", engine.State.PendingAction)
+	}
+	resolvePendingSelection(t, engine, 0, model.ElementAir)
+	if effectiveElementsGain(youth)[model.ElementAir] != youth.Card.ElementsGain[model.ElementAir]+1 {
+		t.Fatalf("1021107 should gain selected air load, load=%v", effectiveElementsGain(youth))
+	}
+	if youth.Statuses[StatusMastery] != 2 {
+		t.Fatalf("1021107 mastery should reach 2, statuses=%v", youth.Statuses)
+	}
+}
+
+func TestRoyalConflictSandDustDemonPetrifiesEnemyFrontRow(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	frontA := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+	frontB := placeUnit(baseCard(t, "1021001"), 1, 2, 0, engine)
+	back := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
+
+	if err := (Card1421112SandDustDemon{}).OnPerTurn(&EffectContext{Engine: engine, Source: placeUnit(baseCard(t, "1421112"), 0, 0, 0, engine), PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("sand dust demon prayer: %v", err)
+	}
+	if frontA.Statuses[StatusPetrify] != 1 || frontB.Statuses[StatusPetrify] != 1 || back.Statuses[StatusPetrify] != 0 {
+		t.Fatalf("1421112 should petrify only enemy front row, frontA=%v frontB=%v back=%v", frontA.Statuses, frontB.Statuses, back.Statuses)
+	}
+	if !(Card1421112SandDustDemon{}).IsPrayerAbility() {
+		t.Fatal("1421112 should expose prayer ability")
 	}
 }
 
