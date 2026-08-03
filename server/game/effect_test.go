@@ -2418,6 +2418,115 @@ func TestRoyalConflictSoulAndInsightUtilityCards(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictSummonUtilityCards(t *testing.T) {
+	t.Run("volcano salamander sacrifices itself at mastery two to summon from hand", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		target := NewCardInstance(baseCard(t, "1121105"), 0, 1)
+		p0.Hand = []*CardInstance{target}
+		salamander := placeUnit(baseCard(t, "1121101"), 0, 1, 1, engine)
+		for col := 0; col < 3; col++ {
+			for row := 0; row < 3; row++ {
+				if col == 1 && row == 1 {
+					continue
+				}
+				placeUnit(baseCard(t, "1021001"), 0, col, row, engine)
+			}
+		}
+
+		engine.advanceMastery(salamander, 0, 2)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "volcano_salamander_summon_card" || !candidateContains(engine.State.PendingAction.Candidates, target.InstanceID) {
+			t.Fatalf("1121101 should ask for a fire companion in hand at mastery two, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, target.InstanceID)
+		sourcePos := Position{Col: 1, Row: 1}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "volcano_salamander_summon_position" || !candidateContains(engine.State.PendingAction.Candidates, positionSelectionID(sourcePos)) {
+			t.Fatalf("1121101 should allow summoning into its sacrificed slot on a full board, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, positionSelectionID(sourcePos))
+		if p0.Units[sourcePos.Col][sourcePos.Row] != target || !containsCardInstance(p0.Graveyard, salamander) || len(p0.Hand) != 0 {
+			t.Fatalf("1121101 should sacrifice itself and summon target from hand, unit=%v grave=%v hand=%v", p0.Units[sourcePos.Col][sourcePos.Row], cardsToInfo(p0.Graveyard), cardsToInfo(p0.Hand))
+		}
+	})
+
+	t.Run("prayer flame adds markers or spends them to summon a fire companion from hand", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		p0.Hand = nil
+		flame := readySkill(baseCard(t, "3121103"), 0)
+		behavior := Card3121103PrayerFlame{}
+
+		if err := behavior.OnSpellCast(&EffectContext{Engine: engine, Source: flame, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"cast_player": 0}}); err != nil {
+			t.Fatalf("3121103 add markers cast: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "prayer_flame_choice" || candidateContains(engine.State.PendingAction.Candidates, "summon") {
+			t.Fatalf("3121103 without target should offer only marker choice, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, "add_markers")
+		if flame.Statuses[prayerFlameMarkerStatus] != 3 {
+			t.Fatalf("3121103 should add three markers, statuses=%v", flame.Statuses)
+		}
+
+		fireCompanion := NewCardInstance(baseCard(t, "1121101"), 0, 1)
+		p0.Hand = []*CardInstance{fireCompanion}
+		if err := behavior.OnSpellCast(&EffectContext{Engine: engine, Source: flame, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"cast_player": 0}}); err != nil {
+			t.Fatalf("3121103 summon cast: %v", err)
+		}
+		if engine.State.PendingAction == nil || !candidateContains(engine.State.PendingAction.Candidates, "summon") {
+			t.Fatalf("3121103 with markers and hand target should offer summon, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, "summon")
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "prayer_flame_summon_card" || !candidateContains(engine.State.PendingAction.Candidates, fireCompanion.InstanceID) {
+			t.Fatalf("3121103 should ask which fire companion to summon, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, fireCompanion.InstanceID)
+		pos := Position{Col: 2, Row: 2}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "prayer_flame_summon_position" {
+			t.Fatalf("3121103 should ask for summon position, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, positionSelectionID(pos))
+		if p0.Units[pos.Col][pos.Row] != fireCompanion || len(p0.Hand) != 0 || flame.Statuses[prayerFlameMarkerStatus] != 0 {
+			t.Fatalf("3121103 should summon from hand and remove all markers, unit=%v hand=%v statuses=%v", p0.Units[pos.Col][pos.Row], cardsToInfo(p0.Hand), flame.Statuses)
+		}
+	})
+
+	t.Run("phantom lizard consumes itself and splits into two normal lizards", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		p1.Equipment[0] = NewCardInstance(baseCard(t, "2121002"), 1, 1)
+		lizard := placeUnit(baseCard(t, "1421106"), 0, 0, 0, engine)
+		spiritSkill := readySkill(baseCard(t, "3421101"), 0)
+
+		if err := (Card1421106PhantomLizard{}).OnSpellCast(&EffectContext{Engine: engine, Source: lizard, Target: spiritSkill, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"cast_player": 0}}); err != nil {
+			t.Fatalf("1421106 spell cast: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "phantom_lizard_split" {
+			t.Fatalf("1421106 should ask whether to split after spirit skill, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, lizard.InstanceID)
+		if !containsCardInstance(p0.Graveyard, lizard) || p0.Elements[model.ElementEarth] != 1 || !lizard.UltimateUsed || lizard.Statuses[StatusBurn] != 1 {
+			t.Fatalf("1421106 should consume for earth, trigger consume watchers, mark ultimate used, and move source to graveyard, grave=%v elements=%v ultimate=%v statuses=%v", cardsToInfo(p0.Graveyard), p0.Elements, lizard.UltimateUsed, lizard.Statuses)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "phantom_lizard_first_position" {
+			t.Fatalf("1421106 should ask for first lizard position, pending=%+v", engine.State.PendingAction)
+		}
+		firstPos := Position{Col: 0, Row: 0}
+		resolvePendingSelection(t, engine, 0, positionSelectionID(firstPos))
+		if p0.Units[firstPos.Col][firstPos.Row] == nil || p0.Units[firstPos.Col][firstPos.Row].Card.Number != "1401101" {
+			t.Fatalf("1421106 should summon first normal lizard, unit=%v", p0.Units[firstPos.Col][firstPos.Row])
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "phantom_lizard_second_position" {
+			t.Fatalf("1421106 should ask for second lizard position, pending=%+v", engine.State.PendingAction)
+		}
+		secondPos := Position{Col: 1, Row: 0}
+		resolvePendingSelection(t, engine, 0, positionSelectionID(secondPos))
+		if p0.Units[secondPos.Col][secondPos.Row] == nil || p0.Units[secondPos.Col][secondPos.Row].Card.Number != "1401101" {
+			t.Fatalf("1421106 should summon second normal lizard, unit=%v", p0.Units[secondPos.Col][secondPos.Row])
+		}
+	})
+}
+
 func TestRoyalConflictPrintedBoundSkills(t *testing.T) {
 	cases := []struct {
 		name        string

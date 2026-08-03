@@ -227,6 +227,69 @@ func isFireBeastOrMonsterCompanion(card *CardInstance) bool {
 	return strings.Contains(card.Card.Tag, "野兽") || strings.Contains(card.Card.Tag, "异兽")
 }
 
+type Card1121101VolcanoSalamander struct{ AlwaysActive }
+
+func (Card1121101VolcanoSalamander) ID() string      { return "1121101" }
+func (Card1121101VolcanoSalamander) Name() string    { return "火山蝾螈" }
+func (Card1121101VolcanoSalamander) MasteryMax() int { return 2 }
+func (Card1121101VolcanoSalamander) OnMastery(ctx *EffectContext, level int) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || level != 2 || !ctx.Engine.cardStillOnField(ctx.Source) {
+		return nil
+	}
+	candidates := ctx.Engine.friendlyHandCards(ctx.PlayerID, isFireCompanionWithEntryCostLessThanEight)
+	if len(candidates) == 0 || len(friendlyPositionsAfterRemovingSource(ctx.Engine, ctx.PlayerID, ctx.Source)) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "volcano_salamander_summon_card",
+		"火山蝾螈:选择1个入场费用小于8的火焰伙伴免费召唤", candidates, 1, 1,
+		func(selected []string) {
+			cardID := firstSelected(selected)
+			positions := friendlyPositionsAfterRemovingSource(ctx.Engine, ctx.PlayerID, ctx.Source)
+			if cardID == "" || len(positions) == 0 {
+				return
+			}
+			ctx.Engine.SetPendingAction(ctx.PlayerID, "volcano_salamander_summon_position",
+				"火山蝾螈:选择召唤位置", positions, 1, 1,
+				func(posSelected []string) {
+					pos, ok := positionFromSelectionID(firstSelected(posSelected))
+					if !ok || !ctx.Engine.cardStillOnField(ctx.Source) {
+						return
+					}
+					if card, _ := ctx.Engine.State.Players[ctx.PlayerID].FindHandCard(cardID); !isFireCompanionWithEntryCostLessThanEight(card) {
+						return
+					}
+					ctx.Engine.destroyUnitWithCause(ctx.Source, ctx.PlayerID, DeathCauseSacrifice)
+					summonCardFreeFromHandOrDeckAtPosition(ctx, cardID, pos)
+				})
+		})
+	return nil
+}
+
+func isFireCompanionWithEntryCostLessThanEight(card *CardInstance) bool {
+	return card != nil && card.Card != nil && card.Card.IsCompanion() &&
+		card.Card.Category == model.ElementFire &&
+		totalElementCost(card.Card.ElementsCost) < 8
+}
+
+func friendlyPositionsAfterRemovingSource(e *Engine, playerID int, source *CardInstance) []map[string]any {
+	positions := e.friendlyEmptyUnitPositions(playerID)
+	if source == nil || source.Position == nil {
+		return positions
+	}
+	pos := *source.Position
+	if !pos.Valid() {
+		return positions
+	}
+	return append(positions, map[string]any{
+		"instance_id": positionSelectionID(pos),
+		"name":        fmt.Sprintf("位置 (%d,%d)", pos.Col, pos.Row),
+		"zone":        "field_position",
+		"side":        "own",
+		"col":         pos.Col,
+		"row":         pos.Row,
+	})
+}
+
 type Card1121114LegionGeneral struct{ AlwaysActive }
 
 func (Card1121114LegionGeneral) ID() string            { return "1121114" }
@@ -1108,6 +1171,186 @@ func removeSoulMarkerFromCard(card *CardInstance) {
 	if card.Statuses[soulMarkerStatus] <= 0 {
 		delete(card.Statuses, soulMarkerStatus)
 	}
+}
+
+const prayerFlameMarkerStatus = "祈祷之焰标记物"
+
+type Card3121103PrayerFlame struct{ AlwaysActive }
+
+func (Card3121103PrayerFlame) ID() string   { return "3121103" }
+func (Card3121103PrayerFlame) Name() string { return "祈祷之焰" }
+func (Card3121103PrayerFlame) OnSpellCast(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Source.Card == nil || !isFriendlySpellCast(ctx) || !isSpellBeingCast(ctx) {
+		return nil
+	}
+	if ctx.Source.Card.Number != "3121103" {
+		return nil
+	}
+	choices := []map[string]any{
+		{"instance_id": "add_markers", "name": "放置3个标记物", "zone": "choice", "side": "own"},
+	}
+	if prayerFlameHasSummonTarget(ctx.Engine, ctx.PlayerID, ctx.Source.Statuses[prayerFlameMarkerStatus]) {
+		choices = append(choices, map[string]any{"instance_id": "summon", "name": "取除标记物免费召唤火焰伙伴", "zone": "choice", "side": "own"})
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "prayer_flame_choice",
+		"祈祷之焰:选择放置标记物或取除标记物召唤火焰伙伴", choices, 1, 1,
+		func(selected []string) {
+			if firstSelected(selected) != "summon" {
+				ctx.Source.Statuses[prayerFlameMarkerStatus] += 3
+				return
+			}
+			markers := ctx.Source.Statuses[prayerFlameMarkerStatus]
+			if markers <= 0 {
+				return
+			}
+			openPrayerFlameSummonPrompt(ctx, markers)
+		})
+	return nil
+}
+
+func prayerFlameHasSummonTarget(e *Engine, playerID int, markers int) bool {
+	return markers > 0 && len(e.friendlyHandCards(playerID, func(card *CardInstance) bool {
+		return isFireCompanionWithEntryCostAtMost(card, markers)
+	})) > 0 && len(e.friendlyEmptyUnitPositions(playerID)) > 0
+}
+
+func openPrayerFlameSummonPrompt(ctx *EffectContext, markers int) {
+	candidates := ctx.Engine.friendlyHandCards(ctx.PlayerID, func(card *CardInstance) bool {
+		return isFireCompanionWithEntryCostAtMost(card, markers)
+	})
+	if len(candidates) == 0 {
+		return
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "prayer_flame_summon_card",
+		"祈祷之焰:选择1个火焰伙伴免费召唤", candidates, 1, 1,
+		func(selected []string) {
+			cardID := firstSelected(selected)
+			positions := ctx.Engine.friendlyEmptyUnitPositions(ctx.PlayerID)
+			if len(positions) == 0 {
+				return
+			}
+			ctx.Engine.SetPendingAction(ctx.PlayerID, "prayer_flame_summon_position",
+				"祈祷之焰:选择召唤位置", positions, 1, 1,
+				func(posSelected []string) {
+					pos, ok := positionFromSelectionID(firstSelected(posSelected))
+					if !ok {
+						return
+					}
+					card := summonCardFreeFromHandOrDeckAtPosition(ctx, cardID, pos)
+					if card != nil {
+						delete(ctx.Source.Statuses, prayerFlameMarkerStatus)
+					}
+				})
+		})
+}
+
+func isFireCompanionWithEntryCostAtMost(card *CardInstance, maxCost int) bool {
+	return card != nil && card.Card != nil && card.Card.IsCompanion() &&
+		card.Card.Category == model.ElementFire &&
+		totalElementCost(card.Card.ElementsCost) <= maxCost
+}
+
+type Card1421106PhantomLizard struct{ AlwaysActive }
+
+func (Card1421106PhantomLizard) ID() string   { return "1421106" }
+func (Card1421106PhantomLizard) Name() string { return "幻影蜥蜴" }
+func (Card1421106PhantomLizard) OnSpellCast(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.Target.Card == nil || ctx.Source.UltimateUsed {
+		return nil
+	}
+	if !isFriendlySpellCast(ctx) || !hasCardTag(ctx.Target.Card, "灵媒") || !ctx.Engine.canConsumeCard(ctx.Source) {
+		return nil
+	}
+	if len(ctx.Engine.friendlyEmptyUnitPositions(ctx.PlayerID)) < 1 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "phantom_lizard_split",
+		"幻影蜥蜴:是否消耗此卡并分裂为两个普通蜥蜴", []map[string]any{candidateInfo(ctx.Source, "unit", "own")}, 0, 1,
+		func(selected []string) {
+			if len(selected) == 0 || !ctx.Engine.canConsumeCard(ctx.Source) || !ctx.Engine.cardStillOnField(ctx.Source) {
+				return
+			}
+			ctx.Source.UltimateUsed = true
+			consumeCardForEffectWithTriggers(ctx.Engine, ctx.PlayerID, ctx.Source)
+			moveUnitToGraveyardWithoutDeath(ctx.Engine, ctx.PlayerID, ctx.Source)
+			positions := ctx.Engine.friendlyEmptyUnitPositions(ctx.PlayerID)
+			if len(positions) < 2 {
+				return
+			}
+			ctx.Engine.SetPendingAction(ctx.PlayerID, "phantom_lizard_first_position",
+				"幻影蜥蜴:选择第1个普通蜥蜴的位置", positions, 1, 1,
+				func(firstSelectedPos []string) {
+					firstPos, ok := positionFromSelectionID(firstSelected(firstSelectedPos))
+					if !ok || ctx.Engine.summonFreshCardAtPosition(ctx.PlayerID, "1401101", firstPos, true) == nil {
+						return
+					}
+					secondPositions := ctx.Engine.friendlyEmptyUnitPositions(ctx.PlayerID)
+					if len(secondPositions) == 0 {
+						return
+					}
+					ctx.Engine.SetPendingAction(ctx.PlayerID, "phantom_lizard_second_position",
+						"幻影蜥蜴:选择第2个普通蜥蜴的位置", secondPositions, 1, 1,
+						func(secondSelectedPos []string) {
+							secondPos, ok := positionFromSelectionID(firstSelected(secondSelectedPos))
+							if ok {
+								ctx.Engine.summonFreshCardAtPosition(ctx.PlayerID, "1401101", secondPos, true)
+							}
+						})
+				})
+		})
+	return nil
+}
+
+func consumeCardForEffectWithTriggers(e *Engine, playerID int, card *CardInstance) {
+	if e == nil || card == nil || playerID < 0 || playerID >= len(e.State.Players) || !e.canConsumeCard(card) {
+		return
+	}
+	gains := e.effectiveElementsGain(card)
+	card.IsHorizontal = true
+	ps := e.State.Players[playerID]
+	ps.GainElements(gains)
+	e.emit(GameEvent{
+		Type:   "consume",
+		Player: -1,
+		Data: map[string]any{
+			"player":      playerID,
+			"instance_id": card.InstanceID,
+			"elements":    ps.Elements,
+			"gained":      gains,
+		},
+	})
+	e.triggerEffects(TriggerOnConsume, card, nil, map[string]any{
+		"gained": gains,
+	})
+	e.triggerFieldEffectsWithData(TriggerOnConsume, playerID, card, map[string]any{
+		"consumed_player": playerID,
+		"gained":          gains,
+	})
+	e.triggerFieldEffectsWithData(TriggerOnConsume, 1-playerID, card, map[string]any{
+		"consumed_player": playerID,
+		"gained":          gains,
+	})
+	e.advanceMastery(card, playerID, 1)
+	e.destroyFuyeDoomedCardAfterExert(card)
+}
+
+func moveUnitToGraveyardWithoutDeath(e *Engine, playerID int, unit *CardInstance) {
+	if e == nil || unit == nil || unit.Position == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return
+	}
+	ps := e.State.Players[playerID]
+	if ps.Units[unit.Position.Col][unit.Position.Row] != unit {
+		return
+	}
+	ps.Units[unit.Position.Col][unit.Position.Row] = nil
+	unit.Position = nil
+	e.releaseUnderCardsToGraveyard(playerID, unit)
+	unit.BoundSkills = nil
+	e.addToGraveyard(playerID, unit)
+	e.emit(GameEvent{Type: "unit_transformed", Player: -1, Data: map[string]any{
+		"player": playerID,
+		"card":   cardToInfo(unit),
+	}})
 }
 
 type Card1321111ThunderlightWarrior struct{ AlwaysActive }

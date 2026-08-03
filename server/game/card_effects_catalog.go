@@ -355,6 +355,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"1221112": func() CardBehavior { return Card1221112WaterMage{} },
 	"1221113": func() CardBehavior { return vanillaCardBehavior{id: "1221113", name: "凛冬城象骑兵"} },
 	"1221115": func() CardBehavior { return Card1221115WinterfellAntiMage{} },
+	"1121101": func() CardBehavior { return Card1121101VolcanoSalamander{} },
 	"1121102": func() CardBehavior { return vanillaCardBehavior{id: "1121102", name: "火山谷底巨兽"} },
 	"1121103": func() CardBehavior { return Card1121103BeaconGuard{} },
 	"1121105": func() CardBehavior { return vanillaCardBehavior{id: "1121105", name: "弗卡莱诺近卫"} },
@@ -384,6 +385,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 		return royalShieldOnEnter{id: "1421104", name: "拜利兰森林熊", amount: 3}
 	},
 	"1421105": func() CardBehavior { return Card1421105InactiveRoot{} },
+	"1421106": func() CardBehavior { return Card1421106PhantomLizard{} },
 	"1421107": func() CardBehavior { return Card1421107DragonBloodTreant{} },
 	"1421108": func() CardBehavior { return Card1421108CelticDeer{} },
 	"1421109": func() CardBehavior { return vanillaCardBehavior{id: "1421109", name: "地穴巨蝠"} },
@@ -502,6 +504,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"4011101": func() CardBehavior { return Card4011101PureSpiritOshis{} },
 	"3001101": func() CardBehavior { return Card3001101EnterGame{} },
 	"3021102": func() CardBehavior { return vanillaCardBehavior{id: "3021102", name: "奥术屏障"} },
+	"3121103": func() CardBehavior { return Card3121103PrayerFlame{} },
 	"3121106": func() CardBehavior { return vanillaCardBehavior{id: "3121106", name: "爆炎气焰"} },
 	"3121107": func() CardBehavior { return Card3121107WarTrample{} },
 	"3121108": func() CardBehavior { return vanillaCardBehavior{id: "3121108", name: "熔岩障壁"} },
