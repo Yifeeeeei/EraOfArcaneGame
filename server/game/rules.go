@@ -428,13 +428,16 @@ func (e *Engine) effectiveSpellPower(playerID int, skill *CardInstance, boostSki
 	return max(power, 0)
 }
 
-func (e *Engine) effectiveSpellDamage(playerID int, skill *CardInstance, baseDamage int, boostSkills []*CardInstance) int {
+func (e *Engine) effectiveSpellDamage(playerID int, skill *CardInstance, baseDamage int, boostSkills []*CardInstance, affectedUnitGroups ...[]*CardInstance) int {
 	damage := baseDamage + e.genericSpellBonus(playerID, skill, "攻")
 	extra := map[string]any{"stat": "damage"}
 	if e.State.PendingSpell != nil && e.State.PendingSpell.Skill == skill {
 		extra["final_power"] = e.State.PendingSpell.TotalPower
 	} else {
 		extra["final_power"] = e.effectiveSpellPower(playerID, skill, boostSkills)
+	}
+	if len(affectedUnitGroups) > 0 {
+		extra["affected_units"] = affectedUnitGroups[0]
 	}
 	damage += e.skillContributionStatsWithData(playerID, skill, skill, skillPurposeAttack, extra).DamageBonus
 	for _, boostSkill := range boostSkills {
@@ -512,7 +515,6 @@ func (e *Engine) skillContributionStatsWithData(playerID int, skill *CardInstanc
 		modifier.ModifySkillContribution(ctx, &stats)
 	}
 	stats.PowerBonus = max(stats.PowerBonus, 0)
-	stats.DamageBonus = max(stats.DamageBonus, 0)
 	return stats
 }
 

@@ -2563,6 +2563,40 @@ func (Card1621108DemonChild) DevourCardRequirement() DevourCardRequirement {
 	return DevourCardRequirement{Count: 1, Category: model.ElementShadow, CompanionOnly: true}
 }
 
+type Card3221108SixPetalSnowflake struct{ AlwaysActive }
+
+func (Card3221108SixPetalSnowflake) ID() string   { return "3221108" }
+func (Card3221108SixPetalSnowflake) Name() string { return "六瓣雪花" }
+func (Card3221108SixPetalSnowflake) SpellHitStatuses(ctx *EffectContext) map[string]int {
+	if ctx == nil || ctx.Target == nil || ctx.Target.Card == nil || ctx.Target.Card.IsHero() {
+		return nil
+	}
+	return map[string]int{StatusFreeze: 1}
+}
+
+type Card3321105SweepingWind struct{ AlwaysActive }
+
+func (Card3321105SweepingWind) ID() string   { return "3321105" }
+func (Card3321105SweepingWind) Name() string { return "风卷残云" }
+func (Card3321105SweepingWind) OnDamaged(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Target == nil || ctx.Target.Position == nil || ctx.Target.CurrentLife != 1 {
+		return nil
+	}
+	ctx.Engine.destroyUnit(ctx.Target, ctx.Target.OwnerID)
+	return nil
+}
+
+type Card3121107WarTrample struct{ AlwaysActive }
+
+func (Card3121107WarTrample) ID() string   { return "3121107" }
+func (Card3121107WarTrample) Name() string { return "战争践踏" }
+func (Card3121107WarTrample) ModifySkillContribution(ctx *EffectContext, stats *SpellStats) {
+	if ctx == nil || ctx.Source == nil || ctx.Target != ctx.Source || ctx.ExtraData["purpose"] != string(skillPurposeAttack) || ctx.ExtraData["stat"] != "damage" {
+		return
+	}
+	stats.DamageBonus -= spellTargetUnitCount(ctx.ExtraData)
+}
+
 type Card3621110BloodNourish struct{ AlwaysActive }
 
 func (Card3621110BloodNourish) ID() string   { return "3621110" }
@@ -2824,6 +2858,25 @@ func isCurrentFrontRowUnit(ps *PlayerState, card *CardInstance) bool {
 	}
 	frontRow := ps.GetFrontRow()
 	return frontRow >= 0 && card.Position.Row == frontRow
+}
+
+func spellTargetUnitCount(data map[string]any) int {
+	if units, ok := data["affected_units"].([]*CardInstance); ok {
+		return len(units)
+	}
+	if targets, ok := data["spell_targets"].([]SpellTarget); ok {
+		count := 0
+		for _, target := range targets {
+			if target.Type == "unit" {
+				count++
+			}
+		}
+		return count
+	}
+	if target, ok := data["spell_target"].(SpellTarget); ok && target.Type == "unit" {
+		return 1
+	}
+	return 0
 }
 
 func addGeneratedCardToPlayerHand(ctx *EffectContext, playerID int, cardNumber string) *CardInstance {

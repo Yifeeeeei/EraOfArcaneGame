@@ -465,6 +465,50 @@ func TestRoyalConflictSpellScrollItemsAreSpellLike(t *testing.T) {
 	}
 }
 
+func TestRoyalConflictAdditionalSpellBehaviors(t *testing.T) {
+	t.Run("six petal snowflake freezes companions but not heroes", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		snowflake := readySkill(baseCard(t, "3221108"), 0)
+		companion := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		engine.applyExplicitSpellHitStatuses(snowflake, companion)
+		if companion.Statuses[StatusFreeze] != 1 {
+			t.Fatalf("3221108 should freeze companion targets, statuses=%v", companion.Statuses)
+		}
+		hero := placeUnit(baseCard(t, "4311003"), 1, 1, 1, engine)
+		engine.State.Players[1].Hero = hero
+		engine.applyExplicitSpellHitStatuses(snowflake, hero)
+		if hero.Statuses[StatusFreeze] != 0 {
+			t.Fatalf("3221108 should not freeze hero targets, statuses=%v", hero.Statuses)
+		}
+	})
+
+	t.Run("sweeping wind destroys units damaged down to one life", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p0.Skills[0] = readySkill(baseCard(t, "3321105"), 0)
+		target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		target.CurrentLife = 2
+		engine.dealDamageWithExtra(target, 1, 1, map[string]any{"damage_source": "effect", "attacker": 0})
+		if engine.State.Players[1].Units[0][0] != nil || len(engine.State.Players[1].Graveyard) != 1 || engine.State.Players[1].Graveyard[0] != target {
+			t.Fatalf("3321105 should destroy damaged one-life unit, unit=%v grave=%v", cardToInfo(engine.State.Players[1].Units[0][0]), cardsToInfo(engine.State.Players[1].Graveyard))
+		}
+	})
+
+	t.Run("war trample loses attack for every affected unit", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		trample := readySkill(baseCard(t, "3121107"), 0)
+		units := []*CardInstance{
+			placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine),
+			placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine),
+			placeUnit(baseCard(t, "1021003"), 1, 2, 0, engine),
+		}
+		want := max(trample.Card.Attack-len(units), 0)
+		if got := engine.effectiveSpellDamage(0, trample, trample.Card.Attack, nil, units); got != want {
+			t.Fatalf("3121107 should reduce attack by affected unit count, got %d want %d", got, want)
+		}
+	})
+}
+
 func TestRoyalConflictVanillaCardsAreExplicitlyRegistered(t *testing.T) {
 	setupReportedBugEngine(t)
 

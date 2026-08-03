@@ -1848,7 +1848,7 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 	if override, ok := globalRegistry.SpellDamage(skill.Card.Number, ctx); ok {
 		dmg = max(override, 0)
 	}
-	dmg = e.effectiveSpellDamage(attackerID, skill, dmg, boostSkills)
+	dmg = e.effectiveSpellDamage(attackerID, skill, dmg, boostSkills, affectedUnits)
 	e.consumeNextElementSpellDamageBonus(e.State.Players[attackerID], skill)
 	e.consumeAllSpellDamageZero(e.State.Players[attackerID], skill)
 	e.consumeAllSpellDamageZero(e.State.Players[defenderID], skill)
