@@ -402,6 +402,14 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 						target.IsHorizontal = false
 						ps.Units[0][0] = target
 					}
+					if card.Number == "2121101" {
+						ps.SkillPool = append(ps.SkillPool, readySkill(cards.PlayableCardDB["3121001"], 0))
+						ps.Deck = append(ps.Deck, NewCardInstance(cards.PlayableCardDB["1121114"], 0, engine.State.TurnNumber))
+					}
+					if card.Number == "2121110" {
+						ps.Skills[0] = readySkill(cards.PlayableCardDB["3121001"], 0)
+						ps.Skills[1] = readySkill(cards.PlayableCardDB["3121002"], 0)
+					}
 					if card.Number == "2521102" {
 						counter := NewCardInstance(cards.PlayableCardDB["2021113"], 1, engine.State.TurnNumber)
 						counter.IsSetCounter = true

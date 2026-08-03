@@ -1643,6 +1643,180 @@ func TestRoyalConflictLightweightSpellAndItemEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("retribution gains attack from hero damage this turn and last turn", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p0.Hero = NewCardInstance(baseCard(t, "4611101"), 0, engine.State.TurnNumber)
+		p0.Hero.CurrentLife = 20
+		retribution := readySkill(baseCard(t, "3621102"), 0)
+
+		engine.dealDamageWithExtra(p0.Hero, 2, 0, map[string]any{"damage_source": "test", "attacker": 1})
+		if p0.HeroDamageTakenThisTurn != 2 || p0.HeroDamageTakenLastTurn != 0 {
+			t.Fatalf("hero damage should be tracked this turn, this=%d last=%d", p0.HeroDamageTakenThisTurn, p0.HeroDamageTakenLastTurn)
+		}
+		if got := engine.effectiveSpellDamage(0, retribution, retribution.Card.Attack, nil); got != retribution.Card.Attack+2 {
+			t.Fatalf("3621102 should gain attack from this turn hero damage, got=%d base=%d", got, retribution.Card.Attack)
+		}
+
+		engine.rollFriendlyUnitDamageHistory()
+		if p0.HeroDamageTakenThisTurn != 0 || p0.HeroDamageTakenLastTurn != 2 {
+			t.Fatalf("hero damage should roll into last turn history, this=%d last=%d", p0.HeroDamageTakenThisTurn, p0.HeroDamageTakenLastTurn)
+		}
+		engine.dealDamageWithExtra(p0.Hero, 1, 0, map[string]any{"damage_source": "test", "attacker": 1})
+		if got := engine.effectiveSpellDamage(0, retribution, retribution.Card.Attack, nil); got != retribution.Card.Attack+3 {
+			t.Fatalf("3621102 should add this and last turn hero damage, got=%d base=%d", got, retribution.Card.Attack)
+		}
+
+		engine.rollFriendlyUnitDamageHistory()
+		engine.rollFriendlyUnitDamageHistory()
+		if got := engine.effectiveSpellDamage(0, retribution, retribution.Card.Attack, nil); got != retribution.Card.Attack {
+			t.Fatalf("3621102 bonus should expire after the two-turn damage window, got=%d base=%d", got, retribution.Card.Attack)
+		}
+	})
+
+	t.Run("panacea p damages heals and draws through the consumable item flow", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		potion := NewCardInstance(baseCard(t, "2521107"), 0, engine.State.TurnNumber)
+		p0.Hand = []*CardInstance{potion}
+		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, engine.State.TurnNumber)}
+		setAllElements(p0, 99)
+		friendly := placeUnit(baseCard(t, "1021002"), 0, 0, 0, engine)
+		friendly.CurrentLife -= 2
+		enemy := placeUnit(baseCard(t, "1021003"), 1, 0, 0, engine)
+		friendlyLife := friendly.CurrentLife
+		enemyLife := enemy.CurrentLife
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{"instance_id": potion.InstanceID}}); err != nil {
+			t.Fatalf("use 2521107: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "panacea_p_damage" {
+			t.Fatalf("2521107 should first prompt for a damage target, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, enemy.InstanceID)
+		if enemy.CurrentLife != enemyLife-1 {
+			t.Fatalf("2521107 should deal 1 damage before healing, got=%d want=%d", enemy.CurrentLife, enemyLife-1)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "panacea_p_heal" {
+			t.Fatalf("2521107 should then prompt for a heal target, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, friendly.InstanceID)
+		if friendly.CurrentLife != friendlyLife+1 {
+			t.Fatalf("2521107 should heal 1 after damage, got=%d want=%d", friendly.CurrentLife, friendlyLife+1)
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0].Card.Number != "1021001" || len(p0.Deck) != 0 {
+			t.Fatalf("2521107 should draw one card after resolving, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
+		}
+		if countCardsByNumber(p0.Graveyard, "2521107") != 1 {
+			t.Fatalf("2521107 should be in graveyard after use, grave=%v", cardsToInfo(p0.Graveyard))
+		}
+	})
+
+	t.Run("offering torch exiles one fire spell to permanently buff another", func(t *testing.T) {
+		blockedEngine := setupReportedBugEngine(t)
+		blockedP0 := blockedEngine.State.Players[0]
+		blockedTorch := NewCardInstance(baseCard(t, "2121110"), 0, blockedEngine.State.TurnNumber)
+		blockedP0.Hand = []*CardInstance{blockedTorch}
+		blockedP0.Skills[0] = readySkill(baseCard(t, "3121001"), 0)
+		setAllElements(blockedP0, 99)
+		if err := blockedEngine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{"instance_id": blockedTorch.InstanceID}}); err == nil {
+			t.Fatal("2121110 should require at least two friendly fire spells")
+		}
+
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		torch := NewCardInstance(baseCard(t, "2121110"), 0, engine.State.TurnNumber)
+		p0.Hand = []*CardInstance{torch}
+		exiled := readySkill(baseCard(t, "3121001"), 0)
+		exiled.PowerBonus = 1
+		exiled.AttackBonus = 1
+		target := readySkill(baseCard(t, "3121002"), 0)
+		host := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		boundTarget := readySkill(baseCard(t, "3121003"), 0)
+		host.BoundSkills = []*CardInstance{boundTarget}
+		p0.Skills[0] = exiled
+		p0.Skills[1] = target
+		setAllElements(p0, 99)
+		wantPowerBonus := max(exiled.Card.Power+exiled.PowerBonus, 0)
+		wantAttackBonus := max(exiled.Card.Attack+exiled.AttackBonus, 0)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{"instance_id": torch.InstanceID}}); err != nil {
+			t.Fatalf("use 2121110: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "offering_torch_exile" {
+			t.Fatalf("2121110 should ask which fire spell to exile, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, exiled.InstanceID)
+		if len(p0.Exile) != 1 || p0.Exile[0] != exiled || p0.Skills[0] != nil {
+			t.Fatalf("2121110 should exile the selected fire spell, exile=%v skills=%v", cardsToInfo(p0.Exile), cardsToInfo(p0.Skills[:]))
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "offering_torch_buff" {
+			t.Fatalf("2121110 should ask which other fire spell to buff, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, boundTarget.InstanceID)
+		if boundTarget.PowerBonus != wantPowerBonus || boundTarget.AttackBonus != wantAttackBonus {
+			t.Fatalf("2121110 should permanently add exiled spell stats to bound spells, powerBonus=%d attackBonus=%d want=%d/%d", boundTarget.PowerBonus, boundTarget.AttackBonus, wantPowerBonus, wantAttackBonus)
+		}
+		if target.PowerBonus != 0 || target.AttackBonus != 0 {
+			t.Fatalf("2121110 should only buff the selected spell, target=%d/%d", target.PowerBonus, target.AttackBonus)
+		}
+		if countCardsByNumber(p0.Graveyard, "2121110") != 1 {
+			t.Fatalf("2121110 should go to graveyard after use, grave=%v", cardsToInfo(p0.Graveyard))
+		}
+	})
+
+	t.Run("lavafort ashes exiles a fire skill to search a higher cost fire card with discount", func(t *testing.T) {
+		blockedEngine := setupReportedBugEngine(t)
+		blockedP0 := blockedEngine.State.Players[0]
+		blockedAshes := NewCardInstance(baseCard(t, "2121101"), 0, blockedEngine.State.TurnNumber)
+		blockedSkill := readySkill(baseCard(t, "3121001"), 0)
+		blockedP0.Hand = []*CardInstance{blockedAshes}
+		blockedP0.SkillPool = []*CardInstance{blockedSkill}
+		blockedP0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1121001"), 0, blockedEngine.State.TurnNumber)}
+		setAllElements(blockedP0, 99)
+		if err := blockedEngine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{"instance_id": blockedAshes.InstanceID}}); err == nil {
+			t.Fatal("2121101 should require a higher-cost fire card in deck")
+		}
+
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		ashes := NewCardInstance(baseCard(t, "2121101"), 0, engine.State.TurnNumber)
+		source := readySkill(baseCard(t, "3121001"), 0)
+		target := NewCardInstance(baseCard(t, "1121114"), 0, engine.State.TurnNumber)
+		tooCheap := NewCardInstance(baseCard(t, "1121001"), 0, engine.State.TurnNumber)
+		p0.Hand = []*CardInstance{ashes}
+		p0.SkillPool = []*CardInstance{source}
+		p0.Deck = []*CardInstance{tooCheap, target}
+		setAllElements(p0, 99)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{"instance_id": ashes.InstanceID}}); err != nil {
+			t.Fatalf("use 2121101: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "lavafort_ashes_exile_fire_skill" {
+			t.Fatalf("2121101 should ask which fire skill to exile, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, source.InstanceID)
+		if len(p0.Exile) != 1 || p0.Exile[0] != source || len(p0.SkillPool) != 0 {
+			t.Fatalf("2121101 should exile selected fire skill from field or pool, exile=%v pool=%v", cardsToInfo(p0.Exile), cardsToInfo(p0.SkillPool))
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "lavafort_ashes_search_fire_card" || len(engine.State.PendingAction.Candidates) != 1 {
+			t.Fatalf("2121101 should offer only higher-cost fire deck cards, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, target.InstanceID)
+		if len(p0.Hand) != 1 || p0.Hand[0] != target {
+			t.Fatalf("2121101 should search selected fire card to hand, hand=%v", cardsToInfo(p0.Hand))
+		}
+		if target.Statuses["入场费用"+model.ElementFire+"-1"] != 1 {
+			t.Fatalf("2121101 should give searched card fire entry discount, statuses=%v", target.Statuses)
+		}
+		if cost := engine.effectiveCardPlayCost(p0, target); cost[model.ElementFire] != max(target.Card.ElementsCost[model.ElementFire]-1, 0) {
+			t.Fatalf("2121101 discount should affect entry cost, cost=%v base=%v", cost, target.Card.ElementsCost)
+		}
+		if countCardsByNumber(p0.Graveyard, "2121101") != 1 {
+			t.Fatalf("2121101 should go to graveyard after use, grave=%v", cardsToInfo(p0.Graveyard))
+		}
+	})
+
 	t.Run("claw of erebos requires weakened enemy spells and then weakens up to three", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]

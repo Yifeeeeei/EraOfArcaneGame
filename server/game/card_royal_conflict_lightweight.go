@@ -540,6 +540,256 @@ func enemySkillSlotWeakenedSpellLayers(e *Engine, playerID int) int {
 	return total
 }
 
+type Card3621102Retribution struct{ AlwaysActive }
+
+func (Card3621102Retribution) ID() string   { return "3621102" }
+func (Card3621102Retribution) Name() string { return "报应" }
+func (Card3621102Retribution) ModifySkillContribution(ctx *EffectContext, stats *SpellStats) {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Source.Card == nil || ctx.Source.Card.Number != "3621102" {
+		return
+	}
+	if ctx.ExtraData["purpose"] != string(skillPurposeAttack) {
+		return
+	}
+	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	if ps == nil {
+		return
+	}
+	stats.DamageBonus += ps.HeroDamageTakenThisTurn + ps.HeroDamageTakenLastTurn
+}
+
+type Card2521107PanaceaP struct{ AlwaysActive }
+
+func (Card2521107PanaceaP) ID() string   { return "2521107" }
+func (Card2521107PanaceaP) Name() string { return "百灵药P型" }
+func (Card2521107PanaceaP) OnUseItem(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil {
+		return nil
+	}
+	resolveHealAndDraw := func() {
+		targets := ctx.Engine.friendlyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
+			return card != nil && card.CurrentLife < maxLife(card)
+		})
+		if len(targets) == 0 {
+			ctx.Engine.drawCards(ctx.PlayerID, 1)
+			return
+		}
+		ctx.Engine.SetPendingAction(ctx.PlayerID, "panacea_p_heal",
+			"百灵药P型:选择1个友方单位回复1点生命", targets, 0, 1,
+			func(selected []string) {
+				target := selectedUnitFromCandidates(ctx.Engine, selected, targets)
+				if target != nil {
+					healUnit(target, 1)
+					ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
+						"source": cardToInfo(ctx.Source),
+						"target": cardToInfo(target),
+						"effect": "heal",
+						"amount": 1,
+					}})
+				}
+				ctx.Engine.drawCards(ctx.PlayerID, 1)
+			})
+	}
+
+	targets := append(ctx.Engine.friendlyUnits(ctx.PlayerID, true, nil), ctx.Engine.enemyUnits(ctx.PlayerID, true, nil)...)
+	if len(targets) == 0 {
+		resolveHealAndDraw()
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "panacea_p_damage",
+		"百灵药P型:选择1个单位造成1点伤害", targets, 1, 1,
+		func(selected []string) {
+			target := selectedUnitFromCandidates(ctx.Engine, selected, targets)
+			if target != nil {
+				ctx.Engine.dealDamageWithExtra(target, 1, target.OwnerID, map[string]any{
+					"damage_source": "panacea_p",
+					"attacker":      ctx.PlayerID,
+				})
+			}
+			resolveHealAndDraw()
+		})
+	return nil
+}
+
+type Card2121110OfferingTorch struct{ AlwaysActive }
+
+func (Card2121110OfferingTorch) ID() string   { return "2121110" }
+func (Card2121110OfferingTorch) Name() string { return "供奉之炬" }
+func (Card2121110OfferingTorch) OnUseItem(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil {
+		return nil
+	}
+	sources := ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, isFireSpellInstance)
+	if len(sources) < 2 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "offering_torch_exile",
+		"供奉之炬:选择要移出游戏的火焰法术", sources, 1, 1,
+		func(selected []string) {
+			sourceID := firstSelected(selected)
+			exiledSkill := findFriendlySkillIncludingBound(ctx.Engine, ctx.PlayerID, sourceID)
+			if !isFireSpellInstance(exiledSkill) {
+				return
+			}
+			powerBonus := max(exiledSkill.Card.Power+exiledSkill.PowerBonus, 0)
+			attackBonus := max(exiledSkill.Card.Attack+exiledSkill.AttackBonus, 0)
+			if !ctx.Engine.exileCard(ctx.PlayerID, exiledSkill) {
+				return
+			}
+			targets := ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, func(skill *CardInstance) bool {
+				return isFireSpellInstance(skill) && skill.InstanceID != sourceID
+			})
+			if len(targets) == 0 {
+				return
+			}
+			ctx.Engine.SetPendingAction(ctx.PlayerID, "offering_torch_buff",
+				"供奉之炬:选择另一个火焰法术永久增加威和攻", targets, 1, 1,
+				func(buffSelected []string) {
+					targetID := firstSelected(buffSelected)
+					target := findFriendlySkillIncludingBound(ctx.Engine, ctx.PlayerID, targetID)
+					if !isFireSpellInstance(target) || target.InstanceID == sourceID {
+						return
+					}
+					target.PowerBonus += powerBonus
+					target.AttackBonus += attackBonus
+					ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
+						"source":       cardToInfo(ctx.Source),
+						"exiled_skill": sourceID,
+						"target":       cardToInfo(target),
+						"effect":       "permanent_spell_buff",
+						"power":        powerBonus,
+						"attack":       attackBonus,
+					}})
+				})
+		})
+	return nil
+}
+
+type Card2121101LavafortAshes struct{ AlwaysActive }
+
+func (Card2121101LavafortAshes) ID() string   { return "2121101" }
+func (Card2121101LavafortAshes) Name() string { return "熔岩堡的灰烬" }
+func (Card2121101LavafortAshes) OnUseItem(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil {
+		return nil
+	}
+	sources := lavaFortAshSourceCandidates(ctx.Engine, ctx.PlayerID)
+	if len(sources) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "lavafort_ashes_exile_fire_skill",
+		"熔岩堡的灰烬:选择场上或技能池1个火焰技能移出游戏", sources, 1, 1,
+		func(selected []string) {
+			source := findFriendlyFieldOrPoolSkill(ctx.Engine, ctx.PlayerID, firstSelected(selected))
+			if !isFireLearnableSkillInstance(source) {
+				return
+			}
+			sourceCost := totalElementCost(source.Card.ElementsCost)
+			targets := lavaFortAshDeckTargets(ctx.Engine, ctx.PlayerID, sourceCost)
+			if len(targets) == 0 || !ctx.Engine.exileCard(ctx.PlayerID, source) {
+				return
+			}
+			ctx.Engine.SetPendingAction(ctx.PlayerID, "lavafort_ashes_search_fire_card",
+				"熔岩堡的灰烬:翻取1张更高入场花费的火焰卡牌", targets, 1, 1,
+				func(searchSelected []string) {
+					card := ctx.Engine.searchDeckCardToHand(ctx.PlayerID, firstSelected(searchSelected))
+					if card == nil {
+						return
+					}
+					card.Statuses["入场费用"+model.ElementFire+"-1"]++
+				})
+		})
+	return nil
+}
+
+func isFireSpellInstance(card *CardInstance) bool {
+	return card != nil && card.Card != nil && card.Card.Category == model.ElementFire && isSpellLikeCard(card.Card)
+}
+
+func isFireLearnableSkillInstance(card *CardInstance) bool {
+	return card != nil && card.Card != nil && card.Card.IsSkill() && card.Card.Category == model.ElementFire
+}
+
+func findFriendlySkillIncludingBound(e *Engine, playerID int, instanceID string) *CardInstance {
+	if e == nil || playerID < 0 || playerID >= len(e.State.Players) || instanceID == "" {
+		return nil
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return nil
+	}
+	for _, skill := range ps.Skills {
+		if skill != nil && skill.InstanceID == instanceID {
+			return skill
+		}
+	}
+	for _, card := range e.getAllFieldCards(ps) {
+		if card == nil {
+			continue
+		}
+		for _, skill := range card.BoundSkills {
+			if skill != nil && skill.InstanceID == instanceID {
+				return skill
+			}
+		}
+	}
+	return nil
+}
+
+func lavaFortAshSourceCandidates(e *Engine, playerID int) []map[string]any {
+	if e == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return nil
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return nil
+	}
+	candidates := make([]map[string]any, 0)
+	addIfValid := func(skill *CardInstance, zone string) {
+		if !isFireLearnableSkillInstance(skill) {
+			return
+		}
+		if len(lavaFortAshDeckTargets(e, playerID, totalElementCost(skill.Card.ElementsCost))) == 0 {
+			return
+		}
+		candidates = append(candidates, candidateInfo(skill, zone, "own"))
+	}
+	for _, skill := range ps.Skills {
+		addIfValid(skill, "skill")
+	}
+	for _, skill := range ps.SkillPool {
+		addIfValid(skill, "skill_pool")
+	}
+	return candidates
+}
+
+func lavaFortAshDeckTargets(e *Engine, playerID int, sourceCost int) []map[string]any {
+	return e.friendlyDeckCards(playerID, func(card *CardInstance) bool {
+		return card != nil && card.Card != nil && card.Card.Category == model.ElementFire && totalElementCost(card.Card.ElementsCost) > sourceCost
+	})
+}
+
+func findFriendlyFieldOrPoolSkill(e *Engine, playerID int, instanceID string) *CardInstance {
+	if e == nil || playerID < 0 || playerID >= len(e.State.Players) || instanceID == "" {
+		return nil
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return nil
+	}
+	for _, skill := range ps.Skills {
+		if skill != nil && skill.InstanceID == instanceID {
+			return skill
+		}
+	}
+	for _, skill := range ps.SkillPool {
+		if skill != nil && skill.InstanceID == instanceID {
+			return skill
+		}
+	}
+	return nil
+}
+
 var _ SpellStatModifier = Card4311101SkyWitchSoland{}
 var _ SkillLearnPermissionModifier = Card4311101SkyWitchSoland{}
 var _ SkillContributionModifier = Card2221110LingeringFrostScroll{}
@@ -564,3 +814,7 @@ var _ OnCardEnterBehavior = Card4011101PureSpiritOshis{}
 var _ SkillLearnPermissionModifier = Card3611102ClawOfErebos{}
 var _ SkillContributionModifier = Card3611102ClawOfErebos{}
 var _ OnSpellCastBehavior = Card3611102ClawOfErebos{}
+var _ SkillContributionModifier = Card3621102Retribution{}
+var _ OnUseItemBehavior = Card2521107PanaceaP{}
+var _ OnUseItemBehavior = Card2121110OfferingTorch{}
+var _ OnUseItemBehavior = Card2121101LavafortAshes{}

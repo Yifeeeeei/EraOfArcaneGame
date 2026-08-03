@@ -635,6 +635,8 @@ func (e *Engine) rollFriendlyUnitDamageHistory() {
 		}
 		ps.FriendlyUnitDamagedLastTurn = ps.FriendlyUnitDamagedThisTurn
 		ps.FriendlyUnitDamagedThisTurn = false
+		ps.HeroDamageTakenLastTurn = ps.HeroDamageTakenThisTurn
+		ps.HeroDamageTakenThisTurn = 0
 	}
 }
 
@@ -2577,6 +2579,9 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 
 	target.CurrentLife -= amount
 	target.DamageTakenThisTurn += amount
+	if target.Card != nil && target.Card.IsHero() && ownerID >= 0 && ownerID < len(e.State.Players) {
+		e.State.Players[ownerID].HeroDamageTakenThisTurn += amount
+	}
 	if actualDamage, ok := damageData["actual_damage_by_instance"].(map[string]int); ok && target.InstanceID != "" {
 		actualDamage[target.InstanceID] += amount
 	}
@@ -3251,6 +3256,14 @@ func (e *Engine) validateConsumableItemUse(playerID int, card *CardInstance) err
 	case "2621111":
 		if countShadowCompanionsInGraveyard(e.State.Players[playerID]) < 5 {
 			return fmt.Errorf("Dark Burst Scroll requires at least five shadow companions in graveyard")
+		}
+	case "2121110":
+		if len(e.friendlySkillsIncludingBound(playerID, isFireSpellInstance)) < 2 {
+			return fmt.Errorf("Offering Torch requires at least two friendly fire spells")
+		}
+	case "2121101":
+		if len(lavaFortAshSourceCandidates(e, playerID)) == 0 {
+			return fmt.Errorf("Lavafort Ashes requires a fire skill and a higher-cost fire card in deck")
 		}
 	}
 	return nil

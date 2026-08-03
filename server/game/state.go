@@ -148,6 +148,8 @@ type PlayerState struct {
 	DrawCountThisTurn           int                       `json:"draw_count_this_turn,omitempty"`
 	FriendlyUnitDamagedThisTurn bool                      `json:"friendly_unit_damaged_this_turn,omitempty"`
 	FriendlyUnitDamagedLastTurn bool                      `json:"friendly_unit_damaged_last_turn,omitempty"`
+	HeroDamageTakenThisTurn     int                       `json:"hero_damage_taken_this_turn,omitempty"`
+	HeroDamageTakenLastTurn     int                       `json:"hero_damage_taken_last_turn,omitempty"`
 
 	// Legacy charge pool. Do not use this for 精通; mastery is a per-card
 	// instance mark stored in CardInstance.Statuses[StatusMastery].
