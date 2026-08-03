@@ -1191,6 +1191,184 @@ func TestRoyalConflictStealthTargetingAndDelayedSummon(t *testing.T) {
 	}
 }
 
+func TestRoyalConflictLightweightSpellAndItemEffects(t *testing.T) {
+	t.Run("gospel discounts light skill use after a friendly light companion consumes", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		gospel := readySkill(baseCard(t, "3521101"), 0)
+		p0.Skills[0] = gospel
+		lightCompanion := placeUnit(baseCard(t, "1521104"), 0, 0, 0, engine)
+		lightCompanion.IsHorizontal = false
+
+		if got := engine.effectiveSkillUseCost(p0, gospel)[model.ElementLight]; got != gospel.Card.ElementsExpense[model.ElementLight] {
+			t.Fatalf("unexpected base gospel use cost, got=%d card=%v", got, gospel.Card.ElementsExpense)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "consume", Data: map[string]any{"instance_id": lightCompanion.InstanceID}}); err != nil {
+			t.Fatalf("consume light companion: %v", err)
+		}
+		if got := engine.effectiveSkillUseCost(p0, gospel)[model.ElementLight]; got != gospel.Card.ElementsExpense[model.ElementLight]-1 {
+			t.Fatalf("gospel should reduce its light use cost this turn, got=%d modifiers=%+v", got, p0.TempModifiers)
+		}
+		engine.clearExpiredTemporaryModifiers(0)
+		if got := engine.effectiveSkillUseCost(p0, gospel)[model.ElementLight]; got != gospel.Card.ElementsExpense[model.ElementLight] {
+			t.Fatalf("gospel discount should expire at turn end, got=%d modifiers=%+v", got, p0.TempModifiers)
+		}
+	})
+
+	t.Run("lingering frost scroll counts water spells already used this turn", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		scroll := NewCardInstance(baseCard(t, "2221110"), 0, engine.State.TurnNumber)
+		p0.SpellsCastThisTurn[model.ElementWater] = 2
+
+		if got := engine.effectiveSpellPower(0, scroll, nil); got != scroll.Card.Power+6 {
+			t.Fatalf("2221110 should gain +3 power per prior water spell, got=%d base=%d", got, scroll.Card.Power)
+		}
+	})
+
+	t.Run("oracle scroll unity discounts itself for friendly light units", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		scroll := NewCardInstance(baseCard(t, "2521112"), 0, engine.State.TurnNumber)
+		placeUnit(baseCard(t, "1521104"), 0, 0, 0, engine)
+		placeUnit(baseCard(t, "1521109"), 0, 1, 0, engine)
+
+		if got := engine.effectiveCardPlayCost(p0, scroll)[model.ElementLight]; got != scroll.Card.ElementsCost[model.ElementLight]-2 {
+			t.Fatalf("2521112 should cost -1 light per friendly light unit, got=%d cost=%v", got, engine.effectiveCardPlayCost(p0, scroll))
+		}
+	})
+
+	t.Run("rotting erosion weakens enemy spells and advances mastery on friendly spell hit", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		erosion := readySkill(baseCard(t, "3421106"), 0)
+		erosion.Statuses[StatusMastery] = 2
+		p0.Skills[0] = erosion
+		enemyA := readySkill(baseCard(t, "3121001"), 1)
+		enemyB := readySkill(baseCard(t, "3221003"), 1)
+		p1.Skills[0] = enemyA
+		p1.Skills[1] = enemyB
+		otherSpell := readySkill(baseCard(t, "3121001"), 0)
+
+		engine.triggerFieldEffectsWithData(TriggerOnSpellHit, 0, otherSpell, map[string]any{"attacker": 0, "spell_source": otherSpell})
+		if enemyA.Statuses[StatusWeaken] != 0 || enemyB.Statuses[StatusWeaken] != 0 || erosion.Statuses[StatusMastery] != 2 {
+			t.Fatalf("3421106 should ignore other friendly spell hits, a=%v b=%v mastery=%d", enemyA.Statuses, enemyB.Statuses, erosion.Statuses[StatusMastery])
+		}
+
+		engine.triggerEffects(TriggerOnSpellHit, erosion, nil, map[string]any{"attacker": 0, "spell_source": erosion})
+		if enemyA.Statuses[StatusWeaken] != 1 || enemyB.Statuses[StatusWeaken] != 1 {
+			t.Fatalf("3421106 should weaken all enemy spell instances by attack, a=%v b=%v", enemyA.Statuses, enemyB.Statuses)
+		}
+		if erosion.Statuses[StatusMastery] != 3 || erosion.PowerBonus != 1 || erosion.AttackBonus != 1 {
+			t.Fatalf("3421106 should advance to mastery 3 and gain stats, mastery=%d powerBonus=%d attackBonus=%d", erosion.Statuses[StatusMastery], erosion.PowerBonus, erosion.AttackBonus)
+		}
+		engine.advanceMastery(erosion, 0, 3)
+		if erosion.Statuses[StatusMastery] != 6 || erosion.PowerBonus != 2 || erosion.AttackBonus != 2 {
+			t.Fatalf("3421106 should gain stats again at mastery 6, mastery=%d powerBonus=%d attackBonus=%d", erosion.Statuses[StatusMastery], erosion.PowerBonus, erosion.AttackBonus)
+		}
+	})
+
+	t.Run("sky witch soland buffs drive and focus spells while restricting learned skill tags", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p0.Hero = NewCardInstance(baseCard(t, "4311101"), 0, engine.State.TurnNumber)
+		drive := NewCardInstance(baseCard(t, "3321101"), 0, engine.State.TurnNumber)
+		creation := NewCardInstance(baseCard(t, "3121001"), 0, engine.State.TurnNumber)
+		p0.SkillPool = []*CardInstance{creation, drive}
+		p0.Elements = cloneElements(map[string]int{model.ElementFire: 9, model.ElementAir: 9})
+
+		if got := engine.effectiveSpellPower(0, drive, nil); got != drive.Card.Power+1 {
+			t.Fatalf("4311101 should give drive/focus spells +1 power, got=%d base=%d", got, drive.Card.Power)
+		}
+		if got := engine.effectiveSpellPower(0, creation, nil); got != creation.Card.Power {
+			t.Fatalf("4311101 should not buff other spell tags, got=%d base=%d", got, creation.Card.Power)
+		}
+		if err := engine.handleLearnSkill(0, ActionMessage{Action: "learn_skill", Data: map[string]any{"instance_id": creation.InstanceID}}); err == nil {
+			t.Fatal("4311101 should block learning non-drive/non-focus spells")
+		}
+		if err := engine.handleLearnSkill(0, ActionMessage{Action: "learn_skill", Data: map[string]any{"instance_id": drive.InstanceID}}); err != nil {
+			t.Fatalf("4311101 should allow learning drive/focus spells: %v", err)
+		}
+	})
+
+	t.Run("held breath buffs air spells until an extra draw happens", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p0.Skills[0] = readySkill(baseCard(t, "3321107"), 0)
+		airSpell := readySkill(baseCard(t, "3321101"), 0)
+		fireSpell := readySkill(baseCard(t, "3121001"), 0)
+
+		p0.DrawCountThisTurn = 1
+		if got := engine.effectiveSpellPower(0, airSpell, nil); got != airSpell.Card.Power+1 {
+			t.Fatalf("3321107 should buff air spells before extra draws, got=%d base=%d", got, airSpell.Card.Power)
+		}
+		if got := engine.effectiveSpellPower(0, fireSpell, nil); got != fireSpell.Card.Power {
+			t.Fatalf("3321107 should not buff non-air spells, got=%d base=%d", got, fireSpell.Card.Power)
+		}
+		p0.DrawCountThisTurn = 2
+		if got := engine.effectiveSpellPower(0, airSpell, nil); got != airSpell.Card.Power {
+			t.Fatalf("3321107 should stop after extra draws, got=%d base=%d", got, airSpell.Card.Power)
+		}
+	})
+
+	t.Run("devotion contract triggers once after a friendly atonement spell cast", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		contract := NewCardInstance(baseCard(t, "2621104"), 0, engine.State.TurnNumber)
+		p0.Equipment[0] = contract
+		p0.Hero = NewCardInstance(baseCard(t, "4611101"), 0, engine.State.TurnNumber)
+		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, engine.State.TurnNumber)}
+		heroLife := p0.Hero.CurrentLife
+		spell := readySkill(baseCard(t, "3621103"), 0)
+
+		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, spell, map[string]any{"cast_player": 0})
+		if p0.Hero.CurrentLife != heroLife-1 || len(p0.Hand) != 1 || contract.UsedThisTurn != 1 {
+			t.Fatalf("2621104 should damage hero, draw, and spend trigger once, hero=%d hand=%d used=%d", p0.Hero.CurrentLife, len(p0.Hand), contract.UsedThisTurn)
+		}
+		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, spell, map[string]any{"cast_player": 0})
+		if p0.Hero.CurrentLife != heroLife-1 || len(p0.Hand) != 1 || contract.UsedThisTurn != 1 {
+			t.Fatalf("2621104 should not trigger more than once per turn, hero=%d hand=%d used=%d", p0.Hero.CurrentLife, len(p0.Hand), contract.UsedThisTurn)
+		}
+	})
+
+	t.Run("claw of erebos requires weakened enemy spells and then weakens up to three", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		claw := NewCardInstance(baseCard(t, "3611102"), 0, engine.State.TurnNumber)
+		p0.SkillPool = []*CardInstance{claw}
+		p0.Elements = cloneElements(map[string]int{model.ElementShadow: 9})
+		enemyA := readySkill(baseCard(t, "3121001"), 1)
+		enemyB := readySkill(baseCard(t, "3221003"), 1)
+		enemyC := readySkill(baseCard(t, "3321101"), 1)
+		p1.Skills[0] = enemyA
+		p1.Skills[1] = enemyB
+		p1.Skills[2] = enemyC
+		enemyA.Statuses[StatusWeaken] = 2
+
+		if err := engine.handleLearnSkill(0, ActionMessage{Action: "learn_skill", Data: map[string]any{"instance_id": claw.InstanceID}}); err == nil {
+			t.Fatal("3611102 should require at least three weakened enemy spell layers to learn")
+		}
+		enemyB.Statuses[StatusWeaken] = 1
+		if err := engine.handleLearnSkill(0, ActionMessage{Action: "learn_skill", Data: map[string]any{"instance_id": claw.InstanceID}}); err != nil {
+			t.Fatalf("3611102 should learn once enemy spell weaken layers reach three: %v", err)
+		}
+		if got := engine.effectiveSpellPower(0, claw, nil); got != claw.Card.Power+3 {
+			t.Fatalf("3611102 should gain power for enemy weakened spell layers, got=%d base=%d", got, claw.Card.Power)
+		}
+
+		engine.triggerEffects(TriggerOnSpellCast, claw, nil, map[string]any{"cast_player": 0})
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "claw_of_erebos_weaken" {
+			t.Fatalf("3611102 should prompt to weaken enemy spells after use, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, enemyA.InstanceID, enemyB.InstanceID, enemyC.InstanceID)
+		if enemyA.Statuses[StatusWeaken] != 3 || enemyB.Statuses[StatusWeaken] != 2 || enemyC.Statuses[StatusWeaken] != 1 {
+			t.Fatalf("3611102 should weaken up to three different enemy spells, a=%v b=%v c=%v", enemyA.Statuses, enemyB.Statuses, enemyC.Statuses)
+		}
+	})
+}
+
 func TestRoyalConflictStrictPaymentCards(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]

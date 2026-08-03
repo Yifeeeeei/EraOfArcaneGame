@@ -73,6 +73,7 @@ func (AlwaysActive) HasActiveDraw(*CardInstance) bool                      { ret
 func (AlwaysActive) HasActiveLoadGain(*CardInstance) bool                  { return true }
 func (AlwaysActive) HasActiveMasteryAchieved(*CardInstance) bool           { return true }
 func (AlwaysActive) HasActivePrayer(*CardInstance) bool                    { return true }
+func (AlwaysActive) HasActiveSkillLearnPermission(*CardInstance) bool      { return true }
 func (AlwaysActive) HasActiveSkillUsability(*CardInstance) bool            { return true }
 func (AlwaysActive) HasActiveDefenseOnlySkill(*CardInstance) bool          { return true }
 func (AlwaysActive) HasActiveSorcerySkill(*CardInstance) bool              { return true }
@@ -351,6 +352,11 @@ type PrayerAbility interface {
 
 type OptionalPrayerAbility interface {
 	IsPrayerOptional(*CardInstance) bool
+}
+
+type SkillLearnPermissionModifier interface {
+	HasActiveSkillLearnPermission(*CardInstance) bool
+	ValidateSkillLearn(*EffectContext, *CardInstance) error
 }
 
 type SkillUsabilityBehavior interface {

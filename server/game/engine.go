@@ -2919,6 +2919,9 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 	if skill == nil {
 		return fmt.Errorf("skill not found in skill pool")
 	}
+	if err := e.validateSkillLearnPermissionModifiers(playerID, skill); err != nil {
+		return err
+	}
 
 	// Check cost
 	cost := e.effectiveSkillLearnCost(ps, skill)
@@ -3012,6 +3015,9 @@ func (e *Engine) learnSkillFromPoolWithoutCost(playerID int, instanceID string, 
 		}
 	}
 	if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
+		return false
+	}
+	if err := e.validateSkillLearnPermissionModifiers(playerID, skill); err != nil {
 		return false
 	}
 

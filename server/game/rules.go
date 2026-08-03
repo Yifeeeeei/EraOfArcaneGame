@@ -180,6 +180,43 @@ func (e *Engine) effectiveSkillLearnCost(ps *PlayerState, skill *CardInstance) m
 	return cost
 }
 
+func (e *Engine) validateSkillLearnPermissionModifiers(playerID int, skill *CardInstance) error {
+	if skill == nil || skill.Card == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return nil
+	}
+	ps := e.State.Players[playerID]
+	ctx := &EffectContext{
+		Engine:     e,
+		Target:     skill,
+		PlayerID:   playerID,
+		OpponentID: 1 - playerID,
+	}
+	if skillBehavior, ok := behaviorForNumber(skill.Card.Number).(SkillLearnPermissionModifier); ok && skillBehavior.HasActiveSkillLearnPermission(skill) {
+		ctx.Source = skill
+		if err := skillBehavior.ValidateSkillLearn(ctx, skill); err != nil {
+			return err
+		}
+	}
+	for _, fieldCard := range e.getAllFieldCards(ps) {
+		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
+			continue
+		}
+		if fieldCard == skill {
+			continue
+		}
+		behavior := globalRegistry.GetBehavior(fieldCard.Card.Number)
+		modifier, ok := behavior.(SkillLearnPermissionModifier)
+		if !ok || !modifier.HasActiveSkillLearnPermission(fieldCard) {
+			continue
+		}
+		ctx.Source = fieldCard
+		if err := modifier.ValidateSkillLearn(ctx, skill); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (e *Engine) notifyCardPlayCostPaid(ps *PlayerState, card *CardInstance) {
 	if ps == nil || card == nil || card.Card == nil {
 		return

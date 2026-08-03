@@ -313,6 +313,13 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 			case card.IsSkill():
 				instance := NewCardInstance(card, 0, engine.State.TurnNumber)
 				ps.SkillPool = append(ps.SkillPool, instance)
+				if card.Number == "3611102" {
+					enemy := engine.State.Players[1]
+					enemy.Skills[0] = readySkill(cards.PlayableCardDB["3121001"], 1)
+					enemy.Skills[1] = readySkill(cards.PlayableCardDB["3221003"], 1)
+					enemy.Skills[0].Statuses[StatusWeaken] = 2
+					enemy.Skills[1].Statuses[StatusWeaken] = 1
+				}
 				if err := engine.HandleAction(0, ActionMessage{
 					Action: "learn_skill",
 					Data:   map[string]any{"instance_id": instance.InstanceID},

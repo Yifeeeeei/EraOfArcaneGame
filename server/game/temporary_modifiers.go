@@ -11,6 +11,7 @@ import (
 const (
 	TempModNextSkillCostZero            = "next_skill_cost_zero"
 	TempModNextSkillUseCostMinus        = "next_skill_use_cost_minus"
+	TempModCurrentTurnSkillUseCostMinus = "current_turn_skill_use_cost_minus"
 	TempModCurrentTurnSkillCostZero     = "current_turn_skill_cost_zero"
 	TempModNextLearnedSkillHaste        = "next_learned_skill_haste"
 	TempModSkillPowerBonus              = "skill_power_bonus"
@@ -107,7 +108,10 @@ func (e *Engine) temporaryNextSkillUseCostMinus(ps *PlayerState, skill *CardInst
 	}
 	total := 0
 	for _, modifier := range ps.TempModifiers {
-		if modifier.Type != TempModNextSkillUseCostMinus || modifier.RemainingUses == 0 {
+		if modifier.Type != TempModNextSkillUseCostMinus && modifier.Type != TempModCurrentTurnSkillUseCostMinus {
+			continue
+		}
+		if modifier.Type == TempModNextSkillUseCostMinus && modifier.RemainingUses == 0 {
 			continue
 		}
 		if modifier.Element != "" && modifier.Element != elem {
