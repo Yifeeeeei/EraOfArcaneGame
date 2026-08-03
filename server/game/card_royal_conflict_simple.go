@@ -482,8 +482,8 @@ type Card4211102WinterfellWarlockSophia struct{ AlwaysActive }
 
 func (Card4211102WinterfellWarlockSophia) ID() string   { return "4211102" }
 func (Card4211102WinterfellWarlockSophia) Name() string { return "凛冰魔巫 索菲娅" }
-func (Card4211102WinterfellWarlockSophia) HasNegativeStatusImmunity() bool {
-	return true
+func (Card4211102WinterfellWarlockSophia) HasNegativeStatusImmunity(status string) bool {
+	return status == StatusFreeze
 }
 
 func (Card4211102WinterfellWarlockSophia) OnUltimate(ctx *EffectContext) error {

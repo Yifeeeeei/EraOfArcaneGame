@@ -522,6 +522,15 @@ func TestRoyalConflictSophiaFreezeImmunityAndUltimate(t *testing.T) {
 	if sophia.Statuses[StatusFreeze] != 0 || engine.hasEffectiveStatus(sophia, StatusFreeze) {
 		t.Fatalf("4211102 should remain unfrozen, statuses=%v", sophia.Statuses)
 	}
+	for _, status := range []string{StatusBurn, StatusStun, StatusPetrify} {
+		if !engine.addStatus(sophia, status, 1) {
+			t.Fatalf("4211102 should not reject non-freeze negative status %s", status)
+		}
+		if sophia.Statuses[status] != 1 || !engine.hasEffectiveStatus(sophia, status) {
+			t.Fatalf("4211102 should be affected by %s, statuses=%v", status, sophia.Statuses)
+		}
+		delete(sophia.Statuses, status)
+	}
 
 	friendlyFrozen := placeUnit(baseCard(t, "1021001"), 0, 0, 1, engine)
 	enemyFrozen := placeUnit(baseCard(t, "1021004"), 1, 0, 0, engine)

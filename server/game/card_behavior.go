@@ -455,6 +455,11 @@ type NegativeStatusImmunityBehavior interface {
 	HasNegativeStatusImmunity() bool
 }
 
+type SpecificNegativeStatusImmunityBehavior interface {
+	HasActiveNegativeStatusImmunity(*CardInstance) bool
+	HasNegativeStatusImmunity(status string) bool
+}
+
 type AdjacentNegativeStatusProtectionBehavior interface {
 	HasActiveAdjacentNegativeStatusProtection(*CardInstance) bool
 	ProtectsAdjacentFromNegativeStatus() bool

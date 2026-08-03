@@ -25,7 +25,7 @@ func (e *Engine) addStatus(card *CardInstance, status string, amount int) bool {
 	if status == StatusWeaken && !canCardBeWeakened(card.Card) {
 		return false
 	}
-	if isNegativeStatus(status) && e.rejectsNegativeStatusApplication(card) {
+	if isNegativeStatus(status) && e.rejectsNegativeStatusApplication(card, status) {
 		return false
 	}
 	card.Statuses[status] += amount
@@ -35,12 +35,11 @@ func (e *Engine) addStatus(card *CardInstance, status string, amount int) bool {
 	return true
 }
 
-func (e *Engine) rejectsNegativeStatusApplication(card *CardInstance) bool {
+func (e *Engine) rejectsNegativeStatusApplication(card *CardInstance, status string) bool {
 	if card == nil || card.Card == nil {
 		return false
 	}
-	immune, ok := behaviorForNumber(card.Card.Number).(NegativeStatusImmunityBehavior)
-	return ok && immune.HasActiveNegativeStatusImmunity(card) && immune.HasNegativeStatusImmunity()
+	return e.cardHasNegativeStatusImmunity(card, status)
 }
 
 func (e *Engine) negativeStatusIneffective(card *CardInstance, status string) bool {
@@ -50,7 +49,7 @@ func (e *Engine) negativeStatusIneffective(card *CardInstance, status string) bo
 	if card.Statuses[fireNegativeStatusImmunityUntil] >= e.State.TurnNumber && card.Card.Category == model.ElementFire {
 		return true
 	}
-	if immune, ok := behaviorForNumber(card.Card.Number).(NegativeStatusImmunityBehavior); ok && immune.HasActiveNegativeStatusImmunity(card) && immune.HasNegativeStatusImmunity() {
+	if e.cardHasNegativeStatusImmunity(card, status) {
 		return true
 	}
 	ps := e.State.Players[card.OwnerID]
@@ -74,6 +73,20 @@ func (e *Engine) negativeStatusIneffective(card *CardInstance, status string) bo
 				return true
 			}
 		}
+	}
+	return false
+}
+
+func (e *Engine) cardHasNegativeStatusImmunity(card *CardInstance, status string) bool {
+	if card == nil || card.Card == nil {
+		return false
+	}
+	behavior := behaviorForNumber(card.Card.Number)
+	if immune, ok := behavior.(SpecificNegativeStatusImmunityBehavior); ok && immune.HasActiveNegativeStatusImmunity(card) && immune.HasNegativeStatusImmunity(status) {
+		return true
+	}
+	if immune, ok := behavior.(NegativeStatusImmunityBehavior); ok && immune.HasActiveNegativeStatusImmunity(card) && immune.HasNegativeStatusImmunity() {
+		return true
 	}
 	return false
 }
