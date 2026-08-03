@@ -46,6 +46,45 @@ func sortedSupportedCards(t *testing.T) []*model.Card {
 	return result
 }
 
+func smokeDevourCardRequirementFood(source *model.Card, requirement DevourCardRequirement, index int) *model.Card {
+	cardType := model.CardTypeCompanion
+	if !requirement.CompanionOnly && source != nil && source.Type != "" {
+		cardType = source.Type
+	}
+	category := requirement.Category
+	if category == "" && source != nil {
+		category = source.Category
+	}
+	return &model.Card{
+		Number:       fmt.Sprintf("%s_devour_card_food_%d", source.Number, index),
+		Type:         cardType,
+		Name:         "吞噬测试伙伴",
+		Category:     category,
+		ElementsCost: map[string]int{},
+		ElementsGain: map[string]int{},
+		Attack:       0,
+		Life:         1,
+		Duration:     -1,
+		Power:        -1,
+	}
+}
+
+func smokeDevourFoodSlot(index int) (int, int) {
+	slots := [][2]int{
+		{2, 0},
+		{0, 2},
+		{2, 1},
+		{1, 0},
+		{0, 1},
+		{1, 2},
+		{2, 2},
+	}
+	if index < len(slots) {
+		return slots[index][0], slots[index][1]
+	}
+	return 2, 2
+}
+
 func baseSmokeEngine(t *testing.T) *Engine {
 	t.Helper()
 	hero := cards.PlayableCardDB["4311003"]
@@ -230,13 +269,36 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 					"col":         float64(0),
 					"row":         float64(0),
 				}
+				devourIDs := []any{}
+				devourFoodCount := 0
 				if requirement := summonDevourRequirement(instance); len(requirement) > 0 {
 					foodCard := *card
 					foodCard.Number = card.Number + "_devour_food"
 					foodCard.Name = "吞噬测试负载"
 					foodCard.ElementsGain = requirement
 					food := placeUnit(&foodCard, 0, 2, 0, engine)
-					data["devour_id"] = food.InstanceID
+					devourIDs = append(devourIDs, food.InstanceID)
+					devourFoodCount++
+				}
+				if requirement := summonDevourCardRequirement(instance); requirement.Count > 0 {
+					satisfied := 0
+					for _, id := range devourIDs {
+						unit := engine.findUnitOnGrid(ps, fmt.Sprint(id))
+						if cardSatisfiesDevourCardRequirement(unit, requirement) {
+							satisfied++
+						}
+					}
+					for satisfied < requirement.Count {
+						foodCard := smokeDevourCardRequirementFood(card, requirement, devourFoodCount)
+						slotCol, slotRow := smokeDevourFoodSlot(devourFoodCount)
+						food := placeUnit(foodCard, 0, slotCol, slotRow, engine)
+						devourIDs = append(devourIDs, food.InstanceID)
+						devourFoodCount++
+						satisfied++
+					}
+				}
+				if len(devourIDs) > 0 {
+					data["devour_ids"] = devourIDs
 				}
 				if err := engine.HandleAction(0, ActionMessage{
 					Action: "summon",

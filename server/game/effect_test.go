@@ -714,6 +714,68 @@ func TestRoyalConflictSandDustDemonPetrifiesEnemyFrontRow(t *testing.T) {
 	}
 }
 
+func TestRoyalConflictDemonChildRequiresShadowCompanionDevour(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	demon := NewCardInstance(baseCard(t, "1621108"), 0, engine.State.TurnNumber)
+	p0.Hand = []*CardInstance{demon}
+	p0.Elements[model.ElementShadow] = 10
+	sacrifice := placeUnit(baseCard(t, "1621105"), 0, 0, 0, engine)
+
+	info := engine.cardToInfo(demon)
+	req, ok := info["devour_card_requirement"].(DevourCardRequirement)
+	if !ok || req.Count != 1 || req.Category != model.ElementShadow || !req.CompanionOnly {
+		t.Fatalf("1621108 should expose shadow companion devour requirement, info=%v", info["devour_card_requirement"])
+	}
+	if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+		"instance_id": demon.InstanceID,
+		"col":         float64(0),
+		"row":         float64(0),
+		"devour_ids":  []any{sacrifice.InstanceID},
+	}}); err != nil {
+		t.Fatalf("summon demon child with shadow companion devour: %v", err)
+	}
+	if p0.Units[0][0] != demon || len(p0.Graveyard) != 1 || p0.Graveyard[0] != sacrifice {
+		t.Fatalf("1621108 should enter after devouring shadow companion, unit=%v grave=%v", cardToInfo(p0.Units[0][0]), cardsToInfo(p0.Graveyard))
+	}
+
+	failEngine := setupReportedBugEngine(t)
+	failP0 := failEngine.State.Players[0]
+	failDemon := NewCardInstance(baseCard(t, "1621108"), 0, failEngine.State.TurnNumber)
+	failP0.Hand = []*CardInstance{failDemon}
+	failP0.Elements[model.ElementShadow] = 10
+	nonShadow := placeUnit(baseCard(t, "1021001"), 0, 0, 0, failEngine)
+	if err := failEngine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+		"instance_id": failDemon.InstanceID,
+		"col":         float64(1),
+		"row":         float64(1),
+		"devour_ids":  []any{nonShadow.InstanceID},
+	}}); err == nil {
+		t.Fatal("1621108 should reject non-shadow devour target")
+	}
+	if failP0.Units[0][0] != nonShadow || len(failP0.Graveyard) != 0 || len(failP0.Hand) != 1 {
+		t.Fatalf("failed 1621108 devour should leave state intact, units=%v grave=%v hand=%v", cardToInfo(failP0.Units[0][0]), cardsToInfo(failP0.Graveyard), cardsToInfo(failP0.Hand))
+	}
+}
+
+func TestRoyalConflictDreamRippleDamagesEnemyFrontRowTotalThree(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	frontA := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+	frontB := placeUnit(baseCard(t, "1021002"), 1, 2, 0, engine)
+	back := placeUnit(baseCard(t, "1021001"), 1, 1, 1, engine)
+
+	if err := (Card2201103DreamRipple{}).OnUseItem(&EffectContext{Engine: engine, Source: NewCardInstance(baseCard(t, "2201103"), 0, 1), PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("dream ripple: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "dream_ripple_damage" {
+		t.Fatalf("2201103 should ask for front enemy damage targets, pending=%+v", engine.State.PendingAction)
+	}
+	resolvePendingSelection(t, engine, 0, frontA.InstanceID, frontB.InstanceID)
+	if frontA.CurrentLife != frontA.Card.Life-2 || frontB.CurrentLife != frontB.Card.Life-1 || back.CurrentLife != back.Card.Life {
+		t.Fatalf("2201103 should distribute 3 damage among selected front enemies, frontA=%d frontB=%d back=%d", frontA.CurrentLife, frontB.CurrentLife, back.CurrentLife)
+	}
+}
+
 func TestRoyalConflictShieldCardBehaviors(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]

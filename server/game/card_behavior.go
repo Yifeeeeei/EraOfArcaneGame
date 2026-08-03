@@ -50,6 +50,7 @@ func (AlwaysActive) HasActiveConsume(*CardInstance) bool                   { ret
 func (AlwaysActive) HasActivePerTurn(*CardInstance) bool                   { return true }
 func (AlwaysActive) HasActiveUltimate(*CardInstance) bool                  { return true }
 func (AlwaysActive) HasActiveDevourRequirement(*CardInstance) bool         { return true }
+func (AlwaysActive) HasActiveDevourCardRequirement(*CardInstance) bool     { return true }
 func (AlwaysActive) HasActiveRush(*CardInstance) bool                      { return true }
 func (AlwaysActive) HasActivePierce(*CardInstance) bool                    { return true }
 func (AlwaysActive) HasActiveTemporary(*CardInstance) bool                 { return true }
@@ -209,6 +210,17 @@ type OnConsumeBehavior interface {
 type SummonDevourRequirementBehavior interface {
 	HasActiveDevourRequirement(*CardInstance) bool
 	DevourRequirement() map[string]int
+}
+
+type DevourCardRequirement struct {
+	Count         int    `json:"count"`
+	Category      string `json:"category,omitempty"`
+	CompanionOnly bool   `json:"companion_only,omitempty"`
+}
+
+type SummonDevourCardRequirementBehavior interface {
+	HasActiveDevourCardRequirement(*CardInstance) bool
+	DevourCardRequirement() DevourCardRequirement
 }
 
 type RushBehavior interface {

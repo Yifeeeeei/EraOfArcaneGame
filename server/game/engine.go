@@ -846,7 +846,8 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 
 func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, action ActionMessage) error {
 	requirement := summonDevourRequirement(card)
-	if len(requirement) == 0 {
+	cardRequirement := summonDevourCardRequirement(card)
+	if len(requirement) == 0 && cardRequirement.Count <= 0 {
 		return nil
 	}
 
@@ -862,6 +863,7 @@ func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, 
 	ps := e.State.Players[playerID]
 	targets := make([]*CardInstance, 0, len(devourIDs))
 	total := make(map[string]int)
+	cardRequirementCount := 0
 	seen := make(map[string]bool, len(devourIDs))
 	for _, devourID := range devourIDs {
 		if seen[devourID] {
@@ -883,6 +885,9 @@ func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, 
 				total[elem] += amount
 			}
 		}
+		if cardSatisfiesDevourCardRequirement(target, cardRequirement) {
+			cardRequirementCount++
+		}
 		targets = append(targets, target)
 	}
 
@@ -890,6 +895,9 @@ func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, 
 		if total[elem] < amount {
 			return fmt.Errorf("devour targets load does not satisfy requirement")
 		}
+	}
+	if cardRequirement.Count > 0 && cardRequirementCount < cardRequirement.Count {
+		return fmt.Errorf("devour targets do not satisfy card requirement")
 	}
 	for _, target := range targets {
 		if target.Card.IsCompanion() {
@@ -4363,6 +4371,9 @@ func cardToInfo(ci *CardInstance) map[string]any {
 	}
 	if requirement := summonDevourRequirement(ci); len(requirement) > 0 {
 		info["devour_requirement"] = requirement
+	}
+	if requirement := summonDevourCardRequirement(ci); requirement.Count > 0 {
+		info["devour_card_requirement"] = requirement
 	}
 
 	// Mark spell-like skills and spell scrolls.

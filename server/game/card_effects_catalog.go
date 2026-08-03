@@ -408,6 +408,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"1621105": func() CardBehavior { return vanillaCardBehavior{id: "1621105", name: "混沌胚胎"} },
 	"1621106": func() CardBehavior { return Card1621106SoulHunter{} },
 	"1621107": func() CardBehavior { return vanillaCardBehavior{id: "1621107", name: "蔷薇死神"} },
+	"1621108": func() CardBehavior { return Card1621108DemonChild{} },
 	"1621110": func() CardBehavior { return Card1621110ScarletBeast{} },
 	"1621111": func() CardBehavior { return Card1621111RedMoonProphet{} },
 	"1621112": func() CardBehavior { return Card1621112WhisperElfHunter{} },
@@ -436,6 +437,7 @@ var baseSetBehaviorFactories = map[string]func() CardBehavior{
 	"2121112": func() CardBehavior { return vanillaCardBehavior{id: "2121112", name: "炎流卷轴"} },
 	"2201101": func() CardBehavior { return Card2201101DreamBloom{} },
 	"2201102": func() CardBehavior { return Card2201102DreamMana{} },
+	"2201103": func() CardBehavior { return Card2201103DreamRipple{} },
 	"2221102": func() CardBehavior { return Card2221102OceanShieldScroll{} },
 	"2221101": func() CardBehavior {
 		return royalWaterUseCostReduction{id: "2221101", name: "镜花海的天泉"}

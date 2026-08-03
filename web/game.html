@@ -1958,7 +1958,8 @@
             }
 
             function summonDevourRequirement(card) {
-                return card?.devour_requirement || null;
+                if (card?.devour_requirement || card?.devour_card_requirement) return card.devour_requirement || {};
+                return null;
             }
 
             function loadSatisfiesRequirement(unit, requirement) {
@@ -1996,18 +1997,21 @@
 
             const devourSelectionMeetsRequirement = computed(() => {
                 const requirement = devourRequest.value?.requirement || {};
-                return Object.entries(requirement).every(([elem, amount]) => Number(devourSelectedLoad.value[elem] || 0) >= Number(amount || 0));
+                const cardRequirement = devourRequest.value?.card?.devour_card_requirement || null;
+                return Object.entries(requirement).every(([elem, amount]) => Number(devourSelectedLoad.value[elem] || 0) >= Number(amount || 0))
+                    && selectedDevourCardCount(cardRequirement) >= Number(cardRequirement?.count || 0);
             });
 
             function devourCandidates(card) {
                 const requirement = summonDevourRequirement(card);
                 if (!requirement) return [];
+                const cardRequirement = card?.devour_card_requirement || null;
                 const candidates = [];
                 for (let col = 0; col < 3; col++) {
                     for (let row = 0; row < 3; row++) {
                         const unit = getMyUnit(col, row);
                         if (!unit || unit.instance_id === myState.value?.hero?.instance_id) continue;
-                        if (hasDevourLoadContribution(unit, requirement)) candidates.push(unit);
+                        if (hasDevourLoadContribution(unit, requirement) || satisfiesDevourCardRequirement(unit, cardRequirement)) candidates.push(unit);
                     }
                 }
                 for (const equipment of (myState.value?.equipment || [])) {
@@ -2021,11 +2025,31 @@
                 return Object.keys(requirement || {}).some(elem => Number(contribution[elem] || 0) > 0);
             }
 
+            function satisfiesDevourCardRequirement(card, requirement) {
+                if (!requirement || Number(requirement.count || 0) <= 0) return false;
+                if (!card) return false;
+                if (requirement.companion_only && card.type !== '伙伴') return false;
+                if (requirement.category && card.category !== requirement.category) return false;
+                return true;
+            }
+
+            function selectedDevourCardCount(requirement) {
+                if (!requirement || Number(requirement.count || 0) <= 0 || !devourRequest.value) return 0;
+                const selected = new Set(devourSelection.value);
+                return devourCandidates(devourRequest.value.card)
+                    .filter(card => selected.has(card.instance_id) && satisfiesDevourCardRequirement(card, requirement))
+                    .length;
+            }
+
             function beginSummonDevour(card, col = null, row = null) {
                 const candidates = devourCandidates(card);
                 const requirement = summonDevourRequirement(card) || {};
-                if (!candidates.length || !Object.entries(requirement).every(([elem, amount]) => Number(addLoadMaps(candidates, requirement)[elem] || 0) >= Number(amount || 0))) {
-                    addLog(`${card.name} 没有满足吞噬负载的友方伙伴`);
+                const cardRequirement = card?.devour_card_requirement || null;
+                const loadSatisfied = Object.entries(requirement).every(([elem, amount]) => Number(addLoadMaps(candidates, requirement)[elem] || 0) >= Number(amount || 0));
+                const cardSatisfied = !cardRequirement || Number(cardRequirement.count || 0) <= 0
+                    || candidates.filter(candidate => satisfiesDevourCardRequirement(candidate, cardRequirement)).length >= Number(cardRequirement.count || 0);
+                if (!candidates.length || !loadSatisfied || !cardSatisfied) {
+                    addLog(`${card.name} 没有满足吞噬要求的友方卡牌`);
                     return;
                 }
                 devourSelection.value = [];
