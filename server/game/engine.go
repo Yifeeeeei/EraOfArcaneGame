@@ -3606,6 +3606,13 @@ func (e *Engine) validateUltimatePreconditions(card *CardInstance) error {
 		if !e.hasAirEquipmentInDeck(card.OwnerID) {
 			return fmt.Errorf("风暴之角需要卡组中有可翻取的大气装备")
 		}
+	case "1321105":
+		if len(e.friendlyUnits(card.OwnerID, false, func(candidate *CardInstance) bool {
+			return candidate != nil && candidate.Card != nil && candidate.Card.IsCompanion() &&
+				totalElementCost(candidate.Card.ElementsCost) < 6
+		})) == 0 {
+			return fmt.Errorf("幻术师需要1个入场花费小于6的友方伙伴")
+		}
 	}
 	return nil
 }
@@ -3621,6 +3628,17 @@ func (e *Engine) validatePerTurnPreconditions(card *CardInstance) error {
 		}
 		if !e.hasResettableEarthCompanion(card.OwnerID) {
 			return fmt.Errorf("秋枫宝钻需要1个已横置的地脉伙伴")
+		}
+	case "1621115":
+		if len(soulMarkedFriendlyFieldCandidates(e, card.OwnerID)) == 0 {
+			return fmt.Errorf("灵魂吸食者需要你场上有灵魂标记物")
+		}
+	case "2621112":
+		if len(shadowCompanionGraveyardCandidates(e.State.Players[card.OwnerID])) < 2 {
+			return fmt.Errorf("灵魂法杖需要弃牌堆中至少2张暗影伙伴")
+		}
+		if len(e.friendlySkillsIncludingBound(card.OwnerID, isShadowSpellInstance)) == 0 {
+			return fmt.Errorf("灵魂法杖需要1个暗影法术")
 		}
 	}
 	return nil

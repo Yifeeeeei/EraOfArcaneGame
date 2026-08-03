@@ -866,6 +866,250 @@ func moveSelectedAirGraveyardCardsToDeck(ps *PlayerState, selected []string, max
 	}
 }
 
+type Card3421101ForestInsight struct{ AlwaysActive }
+
+func (Card3421101ForestInsight) ID() string   { return "3421101" }
+func (Card3421101ForestInsight) Name() string { return "森之洞察" }
+func (Card3421101ForestInsight) OnSpellCast(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Source.Card == nil || !isFriendlySpellCast(ctx) || !isSpellBeingCast(ctx) {
+		return nil
+	}
+	if ctx.Source.Card.Number != "3421101" {
+		return nil
+	}
+	drawCount := min(5, countFriendlyEarthCompanions(ctx.Engine, ctx.PlayerID))
+	if drawCount <= 0 {
+		return nil
+	}
+	drawn := ctx.Engine.drawCards(ctx.PlayerID, drawCount)
+	shuffleBackCount := len(drawn)
+	if shuffleBackCount <= 0 {
+		return nil
+	}
+	candidates := ctx.Engine.friendlyHandCards(ctx.PlayerID, nil)
+	if len(candidates) < shuffleBackCount {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "forest_insight_shuffle_hand",
+		fmt.Sprintf("森之洞察:选择%d张手牌洗回卡组", shuffleBackCount), candidates, shuffleBackCount, shuffleBackCount,
+		func(selected []string) {
+			if moveSelectedHandCardsToDeck(ctx.Engine, ctx.PlayerID, selected, shuffleBackCount) > 0 {
+				ctx.Engine.shuffleDeck(ctx.PlayerID)
+			}
+		})
+	return nil
+}
+
+type Card1321105Illusionist struct{ AlwaysActive }
+
+func (Card1321105Illusionist) ID() string   { return "1321105" }
+func (Card1321105Illusionist) Name() string { return "幻术师" }
+func (Card1321105Illusionist) OnUltimate(ctx *EffectContext) error {
+	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
+		return card != nil && card.Card != nil && card.Card.IsCompanion() &&
+			totalElementCost(card.Card.ElementsCost) < 6
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "illusionist_return_companion",
+		"幻术师:选择1个入场花费小于6的友方伙伴移回手牌", candidates, 1, 1,
+		func(selected []string) {
+			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, firstSelected(selected))
+			if target == nil || zone != "unit" || target.Card == nil || !target.Card.IsCompanion() || totalElementCost(target.Card.ElementsCost) >= 6 {
+				return
+			}
+			gain := copyElementAmounts(effectiveElementsGain(target))
+			ctx.Engine.returnUnitToHand(target, ctx.PlayerID)
+			resetCardForHiddenZone(target)
+			ctx.Engine.State.Players[ctx.PlayerID].GainElements(gain)
+		})
+	return nil
+}
+
+type Card1621115SoulDevourer struct{ AlwaysActive }
+
+func (Card1621115SoulDevourer) ID() string   { return "1621115" }
+func (Card1621115SoulDevourer) Name() string { return "灵魂吸食者" }
+func (Card1621115SoulDevourer) PerTurnLabel(*CardInstance) string {
+	return "主动"
+}
+func (Card1621115SoulDevourer) OnPerTurn(ctx *EffectContext) error {
+	candidates := soulMarkedFriendlyFieldCandidates(ctx.Engine, ctx.PlayerID)
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "soul_devourer_remove_marker",
+		"灵魂吸食者:移除你场上的1个灵魂标记物，抽2张并获得2暗", candidates, 1, 1,
+		func(selected []string) {
+			target := findFriendlyFieldCardIncludingBoundSkill(ctx.Engine, ctx.PlayerID, firstSelected(selected))
+			if target == nil || target.Statuses[soulMarkerStatus] <= 0 {
+				return
+			}
+			removeSoulMarkerFromCard(target)
+			ctx.Engine.drawCards(ctx.PlayerID, 2)
+			ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementShadow: 2})
+		})
+	return nil
+}
+
+func copyElementAmounts(src map[string]int) map[string]int {
+	copied := make(map[string]int, len(src))
+	for elem, amount := range src {
+		if amount > 0 {
+			copied[elem] = amount
+		}
+	}
+	return copied
+}
+
+func countFriendlyEarthCompanions(e *Engine, playerID int) int {
+	if e == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return 0
+	}
+	count := 0
+	for _, card := range e.getAllFieldCards(e.State.Players[playerID]) {
+		if card != nil && card.Card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementEarth {
+			count++
+		}
+	}
+	return count
+}
+
+func moveSelectedHandCardsToDeck(e *Engine, playerID int, selected []string, maxCount int) int {
+	if e == nil || maxCount <= 0 || playerID < 0 || playerID >= len(e.State.Players) {
+		return 0
+	}
+	ps := e.State.Players[playerID]
+	selectedSet := make(map[string]bool, len(selected))
+	for _, id := range selected {
+		selectedSet[id] = true
+	}
+	moved := 0
+	for i := 0; i < len(ps.Hand) && moved < maxCount; {
+		card := ps.Hand[i]
+		if card != nil && selectedSet[card.InstanceID] {
+			ps.Hand = append(ps.Hand[:i], ps.Hand[i+1:]...)
+			resetCardForHiddenZone(card)
+			ps.Deck = append(ps.Deck, card)
+			moved++
+			continue
+		}
+		i++
+	}
+	return moved
+}
+
+func soulMarkedFriendlyFieldCandidates(e *Engine, playerID int) []map[string]any {
+	if e == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return nil
+	}
+	ps := e.State.Players[playerID]
+	candidates := make([]map[string]any, 0)
+	for _, card := range e.getAllFieldCards(ps) {
+		if card == nil {
+			continue
+		}
+		if card.Statuses[soulMarkerStatus] > 0 {
+			candidates = append(candidates, candidateInfo(card, "field", "own"))
+		}
+		for _, skill := range card.BoundSkills {
+			if skill != nil && skill.Statuses[soulMarkerStatus] > 0 {
+				candidates = append(candidates, candidateInfo(skill, "bound_skill", "own"))
+			}
+		}
+	}
+	for _, skill := range ps.Skills {
+		if skill != nil && skill.Statuses[soulMarkerStatus] > 0 {
+			candidates = append(candidates, candidateInfo(skill, "skill", "own"))
+		}
+	}
+	return candidates
+}
+
+func findFriendlyFieldCardIncludingBoundSkill(e *Engine, playerID int, instanceID string) *CardInstance {
+	if e == nil || playerID < 0 || playerID >= len(e.State.Players) || instanceID == "" {
+		return nil
+	}
+	ps := e.State.Players[playerID]
+	if card, zone := e.findFriendlyCandidate(playerID, instanceID); card != nil && (zone == "unit" || zone == "equipment" || zone == "skill") {
+		return card
+	}
+	for _, card := range e.getAllFieldCards(ps) {
+		if card == nil {
+			continue
+		}
+		for _, skill := range card.BoundSkills {
+			if skill != nil && skill.InstanceID == instanceID {
+				return skill
+			}
+		}
+	}
+	return nil
+}
+
+func shadowCompanionGraveyardCandidates(ps *PlayerState) []map[string]any {
+	candidates := make([]map[string]any, 0)
+	if ps == nil {
+		return candidates
+	}
+	for _, card := range ps.Graveyard {
+		if card != nil && card.Card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementShadow {
+			candidates = append(candidates, candidateInfo(card, "graveyard", "own"))
+		}
+	}
+	return candidates
+}
+
+func moveSelectedShadowCompanionsFromGraveyardToExile(e *Engine, playerID int, selected []string, maxCount int) int {
+	if e == nil || maxCount <= 0 || playerID < 0 || playerID >= len(e.State.Players) {
+		return 0
+	}
+	ps := e.State.Players[playerID]
+	selectedSet := make(map[string]bool, len(selected))
+	for _, id := range selected {
+		selectedSet[id] = true
+	}
+	moved := 0
+	for _, card := range append([]*CardInstance(nil), ps.Graveyard...) {
+		if moved >= maxCount {
+			break
+		}
+		if card == nil || !selectedSet[card.InstanceID] || card.Card == nil || !card.Card.IsCompanion() || card.Card.Category != model.ElementShadow {
+			continue
+		}
+		if e.exileCard(playerID, card) {
+			moved++
+		}
+	}
+	return moved
+}
+
+func isShadowSpellInstance(card *CardInstance) bool {
+	return card != nil && card.Card != nil && card.Card.Category == model.ElementShadow && isSpellLikeCard(card.Card)
+}
+
+func addSoulMarkerToSpell(skill *CardInstance) {
+	if skill == nil || skill.Card == nil || !isSpellLikeCard(skill.Card) {
+		return
+	}
+	skill.Statuses[soulMarkerStatus]++
+	skill.PowerBonus += 2
+}
+
+func removeSoulMarkerFromCard(card *CardInstance) {
+	if card == nil || card.Statuses[soulMarkerStatus] <= 0 {
+		return
+	}
+	card.Statuses[soulMarkerStatus]--
+	if card.Card != nil && isSpellLikeCard(card.Card) {
+		card.PowerBonus -= 2
+	}
+	if card.Statuses[soulMarkerStatus] <= 0 {
+		delete(card.Statuses, soulMarkerStatus)
+	}
+}
+
 type Card1321111ThunderlightWarrior struct{ AlwaysActive }
 
 func (Card1321111ThunderlightWarrior) ID() string   { return "1321111" }
@@ -2303,6 +2547,41 @@ type Card1621114SoulSymbiote struct{ AlwaysActive }
 
 const soulMarkerStatus = "灵魂标记物"
 
+type Card2621112SoulStaff struct{ AlwaysActive }
+
+func (Card2621112SoulStaff) ID() string   { return "2621112" }
+func (Card2621112SoulStaff) Name() string { return "灵魂法杖" }
+func (Card2621112SoulStaff) PerTurnLabel(*CardInstance) string {
+	return "主动"
+}
+func (Card2621112SoulStaff) OnPerTurn(ctx *EffectContext) error {
+	graveyardCandidates := shadowCompanionGraveyardCandidates(ctx.Engine.State.Players[ctx.PlayerID])
+	if len(graveyardCandidates) < 2 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "soul_staff_exile_companions",
+		"灵魂法杖:选择2张暗影伙伴移出游戏", graveyardCandidates, 2, 2,
+		func(selected []string) {
+			if moveSelectedShadowCompanionsFromGraveyardToExile(ctx.Engine, ctx.PlayerID, selected, 2) < 2 {
+				return
+			}
+			spellCandidates := ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, isShadowSpellInstance)
+			if len(spellCandidates) == 0 {
+				return
+			}
+			ctx.Engine.SetPendingAction(ctx.PlayerID, "soul_staff_mark_spell",
+				"灵魂法杖:选择1个暗影法术放置1个灵魂标记物", spellCandidates, 1, 1,
+				func(spellSelected []string) {
+					skill := findFriendlySkillIncludingBound(ctx.Engine, ctx.PlayerID, firstSelected(spellSelected))
+					if !isShadowSpellInstance(skill) {
+						return
+					}
+					addSoulMarkerToSpell(skill)
+				})
+		})
+	return nil
+}
+
 type Card1621106SoulHunter struct{ AlwaysActive }
 
 func (Card1621106SoulHunter) ID() string   { return "1621106" }
@@ -2320,8 +2599,7 @@ func (Card1621106SoulHunter) OnSpellHit(ctx *EffectContext) error {
 	if skill == nil || skill.Card == nil || !isSpellLikeCard(skill.Card) {
 		return nil
 	}
-	skill.Statuses[soulMarkerStatus]++
-	skill.PowerBonus += 2
+	addSoulMarkerToSpell(skill)
 	ctx.Source.UsedThisTurn++
 	return nil
 }
@@ -2348,8 +2626,7 @@ func (Card1621114SoulSymbiote) OnDeath(ctx *EffectContext) error {
 				if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
 					continue
 				}
-				skill.Statuses[soulMarkerStatus]++
-				skill.PowerBonus += 2
+				addSoulMarkerToSpell(skill)
 			}
 		})
 	return nil

@@ -2295,6 +2295,129 @@ func containsCardInstance(cards []*CardInstance, target *CardInstance) bool {
 	return false
 }
 
+func TestRoyalConflictSoulAndInsightUtilityCards(t *testing.T) {
+	t.Run("illusionist returns a low-cost companion and gains its load", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		illusionist := placeUnit(baseCard(t, "1321105"), 0, 0, 0, engine)
+		target := placeUnit(baseCard(t, "1321106"), 0, 1, 0, engine)
+		target.ElementsGainBonus = map[string]int{model.ElementAir: 2}
+
+		if err := (Card1321105Illusionist{}).OnUltimate(&EffectContext{Engine: engine, Source: illusionist, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1321105 ultimate: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "illusionist_return_companion" || !candidateContains(engine.State.PendingAction.Candidates, target.InstanceID) {
+			t.Fatalf("1321105 should ask for a low-cost friendly companion, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, target.InstanceID)
+		if p0.Units[1][0] != nil || !containsCardInstance(p0.Hand, target) {
+			t.Fatalf("1321105 should return selected companion to hand, units=%v hand=%v", p0.Units[1][0], cardsToInfo(p0.Hand))
+		}
+		if p0.Elements[model.ElementArcane] != 0 || p0.Elements[model.ElementAir] != 3 {
+			t.Fatalf("1321105 should gain returned companion load before hidden-zone reset, elements=%v", p0.Elements)
+		}
+		if target.ElementsGainBonus[model.ElementAir] != 0 || effectiveElementsGain(target)[model.ElementAir] != target.Card.ElementsGain[model.ElementAir] {
+			t.Fatalf("1321105 should reset returned companion state in hand, bonus=%v load=%v", target.ElementsGainBonus, effectiveElementsGain(target))
+		}
+	})
+
+	t.Run("soul devourer removes a soul marker to draw and gain shadow", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		p0.Hand = nil
+		devourer := placeUnit(baseCard(t, "1621115"), 0, 0, 0, engine)
+		skill := readySkill(baseCard(t, "3621102"), 0)
+		skill.Statuses[soulMarkerStatus] = 1
+		skill.PowerBonus = 2
+		p0.Skills[0] = skill
+		drawA := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		drawB := NewCardInstance(baseCard(t, "1021002"), 0, 1)
+		p0.Deck = []*CardInstance{drawA, drawB}
+
+		if err := (Card1621115SoulDevourer{}).OnPerTurn(&EffectContext{Engine: engine, Source: devourer, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1621115 per turn: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "soul_devourer_remove_marker" || !candidateContains(engine.State.PendingAction.Candidates, skill.InstanceID) {
+			t.Fatalf("1621115 should ask for a friendly soul marker, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, skill.InstanceID)
+		if skill.Statuses[soulMarkerStatus] != 0 || skill.PowerBonus != 0 {
+			t.Fatalf("1621115 should remove the marker and its power bonus, statuses=%v power=%d", skill.Statuses, skill.PowerBonus)
+		}
+		if len(p0.Hand) != 2 || p0.Elements[model.ElementShadow] != 2 {
+			t.Fatalf("1621115 should draw two and gain 2 shadow, hand=%v elements=%v", cardsToInfo(p0.Hand), p0.Elements)
+		}
+	})
+
+	t.Run("soul staff exiles two shadow companions and marks a shadow spell", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		staff := NewCardInstance(baseCard(t, "2621112"), 0, 1)
+		shadowA := NewCardInstance(baseCard(t, "1621101"), 0, 1)
+		shadowB := NewCardInstance(baseCard(t, "1621102"), 0, 1)
+		other := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		skill := readySkill(baseCard(t, "3621102"), 0)
+		p0.Graveyard = []*CardInstance{shadowA, other, shadowB}
+		p0.Skills[0] = skill
+
+		if err := (Card2621112SoulStaff{}).OnPerTurn(&EffectContext{Engine: engine, Source: staff, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("2621112 per turn: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "soul_staff_exile_companions" {
+			t.Fatalf("2621112 should ask for shadow companion graveyard cards, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, shadowA.InstanceID, shadowB.InstanceID)
+		if len(p0.Exile) != 2 || !containsCardInstance(p0.Exile, shadowA) || !containsCardInstance(p0.Exile, shadowB) || containsCardInstance(p0.Graveyard, shadowA) || containsCardInstance(p0.Graveyard, shadowB) {
+			t.Fatalf("2621112 should exile selected shadow companions, exile=%v grave=%v", cardsToInfo(p0.Exile), cardsToInfo(p0.Graveyard))
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "soul_staff_mark_spell" || !candidateContains(engine.State.PendingAction.Candidates, skill.InstanceID) {
+			t.Fatalf("2621112 should ask for a shadow spell after exiling, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, skill.InstanceID)
+		if skill.Statuses[soulMarkerStatus] != 1 || skill.PowerBonus != 2 {
+			t.Fatalf("2621112 should add one soul marker and +2 power, statuses=%v power=%d", skill.Statuses, skill.PowerBonus)
+		}
+	})
+
+	t.Run("forest insight draws for earth companions then shuffles that many hand cards back", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		p0.Hand = nil
+		placeUnit(baseCard(t, "1421102"), 0, 0, 0, engine)
+		placeUnit(baseCard(t, "1421105"), 0, 1, 0, engine)
+		skill := readySkill(baseCard(t, "3421101"), 0)
+		drawA := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		drawB := NewCardInstance(baseCard(t, "1021002"), 0, 1)
+		p0.Deck = []*CardInstance{drawA, drawB}
+
+		if err := (Card3421101ForestInsight{}).OnSpellCast(&EffectContext{Engine: engine, Source: skill, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"cast_player": 0, "spell_being_cast": true}}); err != nil {
+			t.Fatalf("3421101 spell cast: %v", err)
+		}
+		if len(p0.Hand) != 2 || engine.State.PendingAction == nil || engine.State.PendingAction.Type != "forest_insight_shuffle_hand" {
+			t.Fatalf("3421101 should draw two then ask to shuffle two hand cards back, hand=%v pending=%+v", cardsToInfo(p0.Hand), engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, drawA.InstanceID, drawB.InstanceID)
+		if len(p0.Hand) != 0 || len(p0.Deck) != 2 || !containsCardInstance(p0.Deck, drawA) || !containsCardInstance(p0.Deck, drawB) {
+			t.Fatalf("3421101 should shuffle selected cards back into deck, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
+		}
+
+		shortDeckEngine := setupEffectTest(t)
+		shortP0 := shortDeckEngine.State.Players[0]
+		shortP0.Hand = nil
+		for col := 0; col < 3; col++ {
+			placeUnit(baseCard(t, "1421102"), 0, col, 0, shortDeckEngine)
+		}
+		onlyDraw := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		shortP0.Deck = []*CardInstance{onlyDraw}
+		if err := (Card3421101ForestInsight{}).OnSpellCast(&EffectContext{Engine: shortDeckEngine, Source: readySkill(baseCard(t, "3421101"), 0), PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"cast_player": 0}}); err != nil {
+			t.Fatalf("3421101 short deck spell cast: %v", err)
+		}
+		if shortDeckEngine.State.PendingAction == nil || shortDeckEngine.State.PendingAction.MinSelect != 1 || shortDeckEngine.State.PendingAction.MaxSelect != 1 {
+			t.Fatalf("3421101 should shuffle back actual drawn count, pending=%+v hand=%v", shortDeckEngine.State.PendingAction, cardsToInfo(shortP0.Hand))
+		}
+	})
+}
+
 func TestRoyalConflictPrintedBoundSkills(t *testing.T) {
 	cases := []struct {
 		name        string
