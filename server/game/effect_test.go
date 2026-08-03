@@ -465,6 +465,145 @@ func TestRoyalConflictSpellScrollItemsAreSpellLike(t *testing.T) {
 	}
 }
 
+func TestRoyalConflictVanillaCardsAreExplicitlyRegistered(t *testing.T) {
+	setupReportedBugEngine(t)
+
+	for number, name := range map[string]string{
+		"1121102": "火山谷底巨兽",
+		"1121105": "弗卡莱诺近卫",
+		"1201101": "凛冰之龙",
+		"1221101": "掠夺者海盗船",
+		"1221104": "冰原猛犸",
+		"1221113": "凛冬城象骑兵",
+		"1401101": "普通蜥蜴",
+		"1421101": "岩壁刺球",
+		"1421103": "寄生虫",
+		"1421109": "地穴巨蝠",
+		"1521104": "旭日之龙",
+		"1621105": "混沌胚胎",
+		"1621107": "蔷薇死神",
+		"2021109": "氏族战锤",
+		"2121103": "浴火之翼",
+		"2121112": "炎流卷轴",
+		"2421101": "秋暮耳环",
+		"3021102": "奥术屏障",
+		"3121106": "爆炎气焰",
+		"3121108": "熔岩障壁",
+		"3221107": "海龙卷",
+		"3321101": "急速涡旋",
+		"3321103": "雷霆万钧",
+		"3321106": "紫电穿空",
+		"3421102": "苍岚之刃",
+		"3421103": "巨岩崩落",
+		"3421109": "石化死光",
+		"3521103": "光铸飞弹",
+		"3521105": "流光之束",
+		"3521107": "虹彩之壁",
+	} {
+		behavior := globalRegistry.GetBehavior(number)
+		if behavior == nil || behavior.ID() != number || behavior.Name() != name {
+			t.Fatalf("%s should have explicit vanilla behavior, behavior=%#v", number, behavior)
+		}
+	}
+}
+
+func TestRoyalConflictSophiaFreezeImmunityAndUltimate(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+
+	sophia := placeUnit(baseCard(t, "4211102"), 0, 1, 1, engine)
+	if !cardHasActiveUltimate(sophia) {
+		t.Fatal("4211102 should expose an ultimate ability")
+	}
+	if engine.addStatus(sophia, StatusFreeze, 1) {
+		t.Fatalf("4211102 should reject freeze application, statuses=%v", sophia.Statuses)
+	}
+	if sophia.Statuses[StatusFreeze] != 0 || engine.hasEffectiveStatus(sophia, StatusFreeze) {
+		t.Fatalf("4211102 should remain unfrozen, statuses=%v", sophia.Statuses)
+	}
+
+	friendlyFrozen := placeUnit(baseCard(t, "1021001"), 0, 0, 1, engine)
+	enemyFrozen := placeUnit(baseCard(t, "1021004"), 1, 0, 0, engine)
+	enemyUnfrozen := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
+	friendlyFrozen.Statuses[StatusFreeze] = 2
+	enemyFrozen.Statuses[StatusFreeze] = 1
+	startLife := enemyFrozen.CurrentLife
+
+	if err := (Card4211102WinterfellWarlockSophia{}).OnUltimate(&EffectContext{
+		Engine:     engine,
+		Source:     sophia,
+		PlayerID:   0,
+		OpponentID: 1,
+	}); err != nil {
+		t.Fatalf("4211102 ultimate: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "sophia_thaw_strike" {
+		t.Fatalf("4211102 should prompt for a frozen unit, pending=%+v", engine.State.PendingAction)
+	}
+	if len(engine.State.PendingAction.Candidates) != 2 {
+		t.Fatalf("4211102 should offer exactly frozen units, candidates=%+v", engine.State.PendingAction.Candidates)
+	}
+	resolvePendingSelection(t, engine, 0, enemyFrozen.InstanceID)
+	if enemyFrozen.Statuses[StatusFreeze] != 0 {
+		t.Fatalf("4211102 should remove one freeze layer, statuses=%v", enemyFrozen.Statuses)
+	}
+	if enemyFrozen.CurrentLife != startLife-2 {
+		t.Fatalf("4211102 should deal 2 damage after removing freeze, life=%d start=%d", enemyFrozen.CurrentLife, startLife)
+	}
+	if friendlyFrozen.Statuses[StatusFreeze] != 2 || enemyUnfrozen.Statuses[StatusFreeze] != 0 {
+		t.Fatalf("4211102 should not alter unselected units, friendly=%v enemy=%v", friendlyFrozen.Statuses, enemyUnfrozen.Statuses)
+	}
+	if len(p0.Graveyard) != 0 || len(p1.Graveyard) != 0 {
+		t.Fatalf("4211102 test units should survive the damage, p0 grave=%v p1 grave=%v", cardsToInfo(p0.Graveyard), cardsToInfo(p1.Graveyard))
+	}
+}
+
+func TestRoyalConflictGraceHealsAndRewardsFullyHealedCompanion(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	target := placeUnit(baseCard(t, "1021004"), 0, 0, 1, engine)
+	other := placeUnit(baseCard(t, "1021003"), 0, 1, 1, engine)
+	target.CurrentLife = maxLife(target) - 2
+	other.CurrentLife = maxLife(other) - 1
+	skill := readySkill(baseCard(t, "3521108"), 0)
+
+	if err := (Card3521108Grace{}).OnSpellCast(&EffectContext{
+		Engine:     engine,
+		Source:     skill,
+		PlayerID:   0,
+		OpponentID: 1,
+	}); err != nil {
+		t.Fatalf("3521108 cast: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "grace_heal_companion" || len(engine.State.PendingAction.Candidates) != 2 {
+		t.Fatalf("3521108 should prompt for wounded friendly companions, pending=%+v", engine.State.PendingAction)
+	}
+	resolvePendingSelection(t, engine, 0, target.InstanceID)
+	if target.CurrentLife != target.Card.Life+1 || maxLife(target) != target.Card.Life+1 || target.Statuses["max_life_bonus"] != 1 || effectiveElementsGain(target)[model.ElementLight] != target.Card.ElementsGain[model.ElementLight]+1 {
+		t.Fatalf("3521108 should heal to full then grant +1 life/load, life=%d statuses=%v load=%v", target.CurrentLife, target.Statuses, effectiveElementsGain(target))
+	}
+	if other.CurrentLife != maxLife(other)-1 || other.Statuses["max_life_bonus"] != 0 {
+		t.Fatalf("3521108 should not touch unselected unit, life=%d statuses=%v", other.CurrentLife, other.Statuses)
+	}
+
+	partialEngine := setupReportedBugEngine(t)
+	partialTarget := placeUnit(baseCard(t, "1221113"), 0, 0, 1, partialEngine)
+	partialTarget.CurrentLife = maxLife(partialTarget) - 3
+	partialSkill := readySkill(baseCard(t, "3521108"), 0)
+	if err := (Card3521108Grace{}).OnSpellCast(&EffectContext{
+		Engine:     partialEngine,
+		Source:     partialSkill,
+		PlayerID:   0,
+		OpponentID: 1,
+	}); err != nil {
+		t.Fatalf("3521108 partial cast: %v", err)
+	}
+	resolvePendingSelection(t, partialEngine, 0, partialTarget.InstanceID)
+	if partialTarget.CurrentLife != partialTarget.Card.Life-1 || partialTarget.Statuses["max_life_bonus"] != 0 || effectiveElementsGain(partialTarget)[model.ElementLight] != partialTarget.Card.ElementsGain[model.ElementLight] {
+		t.Fatalf("3521108 should not grant reward unless fully healed, life=%d statuses=%v load=%v", partialTarget.CurrentLife, partialTarget.Statuses, effectiveElementsGain(partialTarget))
+	}
+}
+
 func TestRoyalConflictShieldCardBehaviors(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]

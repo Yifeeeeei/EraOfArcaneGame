@@ -478,6 +478,61 @@ func (Card1221115WinterfellAntiMage) OnPrayer(ctx *EffectContext) error {
 	return nil
 }
 
+type Card4211102WinterfellWarlockSophia struct{ AlwaysActive }
+
+func (Card4211102WinterfellWarlockSophia) ID() string   { return "4211102" }
+func (Card4211102WinterfellWarlockSophia) Name() string { return "凛冰魔巫 索菲娅" }
+func (Card4211102WinterfellWarlockSophia) HasNegativeStatusImmunity() bool {
+	return true
+}
+
+func (Card4211102WinterfellWarlockSophia) OnUltimate(ctx *EffectContext) error {
+	candidates := make([]map[string]any, 0)
+	for playerID, ps := range ctx.Engine.State.Players {
+		if ps == nil {
+			continue
+		}
+		side := "enemy"
+		if playerID == ctx.PlayerID {
+			side = "own"
+		}
+		for _, unit := range ps.Units {
+			for _, card := range unit {
+				if card != nil && card.Card != nil && (card.Card.IsHero() || card.Card.IsCompanion()) && card.Statuses[StatusFreeze] > 0 {
+					candidates = append(candidates, candidateInfo(card, "unit", side))
+				}
+			}
+		}
+	}
+	if len(candidates) == 0 {
+		return nil
+	}
+	allowed := make(map[string]bool, len(candidates))
+	for _, candidate := range candidates {
+		if id, _ := candidate["instance_id"].(string); id != "" {
+			allowed[id] = true
+		}
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "sophia_thaw_strike",
+		"凛冰魔巫 索菲娅:选择1个冻结单位移除1层冻结并造成2点伤害", candidates, 1, 1,
+		func(selected []string) {
+			id := firstSelected(selected)
+			if !allowed[id] {
+				return
+			}
+			target := ctx.Engine.findUnitByInstanceID(id)
+			if target == nil || target.Card == nil || (!target.Card.IsHero() && !target.Card.IsCompanion()) || target.Statuses[StatusFreeze] <= 0 {
+				return
+			}
+			target.Statuses[StatusFreeze]--
+			ctx.Engine.dealDamageWithExtra(target, 2, target.OwnerID, map[string]any{
+				"damage_source": "effect",
+				"attacker":      ctx.PlayerID,
+			})
+		})
+	return nil
+}
+
 type Card1221112WaterMage struct{ AlwaysActive }
 
 func (Card1221112WaterMage) ID() string   { return "1221112" }
@@ -2236,6 +2291,34 @@ func (Card1621104RoseGardenGardener) OnFriendlyDeath(ctx *EffectContext) error {
 			if target != nil && target.OwnerID == ctx.PlayerID && target.CurrentLife < maxLife(target) && ctx.Source.UsedThisTurn < perTurnLimit(ctx.Source) {
 				healUnit(target, 2)
 				ctx.Source.UsedThisTurn++
+			}
+		})
+	return nil
+}
+
+type Card3521108Grace struct{ AlwaysActive }
+
+func (Card3521108Grace) ID() string   { return "3521108" }
+func (Card3521108Grace) Name() string { return "恩典" }
+func (Card3521108Grace) OnSpellCast(ctx *EffectContext) error {
+	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
+		return card != nil && card.Card != nil && card.Card.IsCompanion() && card.CurrentLife < maxLife(card)
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "grace_heal_companion",
+		"恩典:选择1个受伤友方伙伴回复2血", candidates, 1, 1,
+		func(selected []string) {
+			target := ctx.Engine.findUnitByInstanceID(firstSelected(selected))
+			if target == nil || target.OwnerID != ctx.PlayerID || target.Card == nil || !target.Card.IsCompanion() || target.Card.IsHero() || target.CurrentLife >= maxLife(target) {
+				return
+			}
+			healUnit(target, 2)
+			if target.CurrentLife >= maxLife(target) {
+				target.Statuses["max_life_bonus"]++
+				target.CurrentLife++
+				ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementLight, 1, ctx.Source)
 			}
 		})
 	return nil

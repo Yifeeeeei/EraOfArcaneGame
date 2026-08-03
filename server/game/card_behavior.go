@@ -8,6 +8,14 @@ type CardBehavior interface {
 	Name() string
 }
 
+type vanillaCardBehavior struct {
+	id   string
+	name string
+}
+
+func (v vanillaCardBehavior) ID() string   { return v.id }
+func (v vanillaCardBehavior) Name() string { return v.name }
+
 type PerTurnLabelBehavior interface {
 	PerTurnLabel(*CardInstance) string
 }
