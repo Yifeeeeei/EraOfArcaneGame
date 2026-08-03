@@ -31,6 +31,7 @@ const (
 	TempModAllSpellDamageZero           = "all_spell_attack_zero"
 	TempModFriendlySpellDamageMinus     = "friendly_spell_damage_minus"
 	TempModSkillUseCooldownAdd          = "skill_use_cooldown_add"
+	TempModFriendlyNegativeStatusIgnore = "friendly_negative_status_ignore"
 )
 
 type TemporaryModifier struct {

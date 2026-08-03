@@ -646,6 +646,9 @@ func (e *Engine) drawCards(playerID int, n int) []*CardInstance {
 	for _, card := range drawn {
 		e.notifyCardDrawn(playerID, card)
 	}
+	if e.shouldImmediatelyEnforceHandLimit(playerID) {
+		e.promptDiscardToHandLimit(playerID, nil)
+	}
 	return drawn
 }
 
@@ -2796,7 +2799,7 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 			return fmt.Errorf("replacement equipment not found")
 		}
 	} else {
-		if newSubtype != "" {
+		if newSubtype != "" && !playerCanEquipDuplicateSubtypes(ps) {
 			for _, equipment := range ps.Equipment {
 				if equipment != nil && restrictedEquipmentSubtype(equipment.Card) == newSubtype {
 					if equipment.IsHorizontal {
@@ -3751,40 +3754,66 @@ func (e *Engine) endTurn() {
 	ps := e.State.Players[e.State.CurrentTurn]
 
 	// Discard to hand limit
-	handLimit := e.handLimitForPlayer(ps)
-	if len(ps.Hand) > handLimit {
-		discardCount := len(ps.Hand) - handLimit
-		// Build candidates from hand cards
-		candidates := make([]map[string]any, len(ps.Hand))
-		for i, c := range ps.Hand {
-			candidates[i] = cardToInfo(c)
-		}
-		currentTurn := e.State.CurrentTurn
-		e.SetPendingAction(currentTurn, "discard",
-			fmt.Sprintf("弃牌至手牌上限（需弃%d张）", discardCount),
-			candidates, discardCount, discardCount,
-			func(selected []string) {
-				// Discard selected cards
-				toDiscard := make(map[string]bool)
-				for _, id := range selected {
-					toDiscard[id] = true
-				}
-				remaining := make([]*CardInstance, 0, len(ps.Hand)-len(selected))
-				for _, c := range ps.Hand {
-					if toDiscard[c.InstanceID] {
-						e.discardHandCardToGraveyard(currentTurn, c)
-					} else {
-						remaining = append(remaining, c)
-					}
-				}
-				ps.Hand = remaining
-				// Continue end turn processing
-				e.finishEndTurn(ps)
-			})
+	if e.promptDiscardToHandLimit(e.State.CurrentTurn, func() {
+		e.finishEndTurn(ps)
+	}) {
 		return // Wait for player to choose
 	}
 
 	e.finishEndTurn(ps)
+}
+
+func (e *Engine) promptDiscardToHandLimit(playerID int, afterDiscard func()) bool {
+	if playerID < 0 || playerID >= len(e.State.Players) {
+		return false
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return false
+	}
+	handLimit := e.handLimitForPlayer(ps)
+	if len(ps.Hand) <= handLimit {
+		return false
+	}
+
+	discardCount := len(ps.Hand) - handLimit
+	candidates := make([]map[string]any, len(ps.Hand))
+	for i, c := range ps.Hand {
+		candidates[i] = cardToInfo(c)
+	}
+	e.SetPendingAction(playerID, "discard",
+		fmt.Sprintf("弃牌至手牌上限（需弃%d张）", discardCount),
+		candidates, discardCount, discardCount,
+		func(selected []string) {
+			toDiscard := make(map[string]bool)
+			for _, id := range selected {
+				toDiscard[id] = true
+			}
+			remaining := make([]*CardInstance, 0, len(ps.Hand)-len(selected))
+			for _, c := range ps.Hand {
+				if toDiscard[c.InstanceID] {
+					e.discardHandCardToGraveyard(playerID, c)
+				} else {
+					remaining = append(remaining, c)
+				}
+			}
+			ps.Hand = remaining
+			if afterDiscard != nil {
+				afterDiscard()
+			}
+		})
+	return true
+}
+
+func (e *Engine) shouldImmediatelyEnforceHandLimit(playerID int) bool {
+	if playerID < 0 || playerID >= len(e.State.Players) {
+		return false
+	}
+	opponentID := 1 - playerID
+	if opponentID < 0 || opponentID >= len(e.State.Players) {
+		return false
+	}
+	return e.playerHasActiveCard(e.State.Players[opponentID], "1311103")
 }
 
 // finishEndTurn completes end-of-turn processing (after optional discard)

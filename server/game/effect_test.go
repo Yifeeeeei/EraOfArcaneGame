@@ -1274,6 +1274,174 @@ func TestRoyalConflictRadiantAngelLetsAnyElementPayLightCosts(t *testing.T) {
 	}
 }
 
+func TestRoyalConflictCouncilSpokesmanReducesEnemyHandLimit(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+	spokesman := placeUnit(baseCard(t, "1311103"), 0, 0, 0, engine)
+
+	if got := engine.handLimitForPlayer(p1); got != engine.State.HandLimit-1 {
+		t.Fatalf("1311103 should reduce opponent hand limit by one, got %d", got)
+	}
+	if got := engine.handLimitForPlayer(p0); got != engine.State.HandLimit {
+		t.Fatalf("1311103 should not reduce its owner's hand limit, got %d", got)
+	}
+	spokesman.Statuses[StatusPetrify] = 1
+	if got := engine.handLimitForPlayer(p1); got != engine.State.HandLimit {
+		t.Fatalf("petrified 1311103 should not reduce hand limit, got %d", got)
+	}
+
+	spokesman.Statuses[StatusPetrify] = 0
+	p1.Hand = []*CardInstance{
+		NewCardInstance(baseCard(t, "1021001"), 1, 1),
+		NewCardInstance(baseCard(t, "1021002"), 1, 1),
+		NewCardInstance(baseCard(t, "1021003"), 1, 1),
+		NewCardInstance(baseCard(t, "1021004"), 1, 1),
+	}
+	drawn := NewCardInstance(baseCard(t, "1021005"), 1, 1)
+	p1.Deck = []*CardInstance{drawn}
+	engine.drawCards(1, 1)
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "discard" || engine.State.PendingAction.PlayerID != 1 || engine.State.PendingAction.MinSelect != 1 {
+		t.Fatalf("1311103 should force immediate discard after exceeding reduced hand limit, pending=%+v", engine.State.PendingAction)
+	}
+	resolvePendingSelection(t, engine, 1, drawn.InstanceID)
+	if len(p1.Hand) != engine.State.HandLimit-1 || len(p1.Graveyard) != 1 || p1.Graveyard[0] != drawn {
+		t.Fatalf("discard should restore reduced hand limit, hand=%d grave=%v", len(p1.Hand), cardsToInfo(p1.Graveyard))
+	}
+
+	normalEngine := setupReportedBugEngine(t)
+	normalP1 := normalEngine.State.Players[1]
+	for len(normalP1.Hand) < normalEngine.State.HandLimit {
+		normalP1.Hand = append(normalP1.Hand, NewCardInstance(baseCard(t, "1021001"), 1, 1))
+	}
+	normalP1.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021002"), 1, 1)}
+	normalEngine.drawCards(1, 1)
+	if normalEngine.State.PendingAction != nil {
+		t.Fatalf("normal draw over hand limit should not force immediate discard, pending=%+v", normalEngine.State.PendingAction)
+	}
+}
+
+func TestRoyalConflictTreasureCabinetExpandsEquipmentAndAllowsDuplicates(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	cabinet := NewCardInstance(baseCard(t, "2021105"), 0, engine.State.TurnNumber)
+	cabinet.SlotIndex = 0
+	p0.Equipment[0] = cabinet
+
+	if got := equipmentSlotCapacity(p0); got != BaseEquipmentSlots+1 {
+		t.Fatalf("2021105 should add one equipment slot, got %d", got)
+	}
+
+	weaponA := NewCardInstance(baseCard(t, "2121004"), 0, engine.State.TurnNumber)
+	weaponA.SlotIndex = 1
+	p0.Equipment[1] = weaponA
+	weaponB := NewCardInstance(baseCard(t, "2121010"), 0, engine.State.TurnNumber)
+	p0.Hand = []*CardInstance{weaponB}
+	setAllElements(p0, 10)
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "equip", Data: map[string]any{
+		"instance_id": weaponB.InstanceID,
+	}}); err != nil {
+		t.Fatalf("2021105 should allow equipping duplicate weapon subtypes: %v", err)
+	}
+	if p0.Equipment[2] != weaponB {
+		t.Fatalf("duplicate weapon should enter an empty equipment slot, equipment=%v", cardsToInfo(p0.Equipment[:]))
+	}
+
+	cabinet.Statuses[StatusPetrify] = 1
+	if got := equipmentSlotCapacity(p0); got != BaseEquipmentSlots {
+		t.Fatalf("petrified 2021105 should stop adding a slot, got %d", got)
+	}
+	weaponC := NewCardInstance(baseCard(t, "2121004"), 0, engine.State.TurnNumber)
+	p0.Hand = []*CardInstance{weaponC}
+	setAllElements(p0, 10)
+	if err := engine.HandleAction(0, ActionMessage{Action: "equip", Data: map[string]any{
+		"instance_id": weaponC.InstanceID,
+	}}); err == nil {
+		t.Fatalf("petrified 2021105 should not allow another duplicate weapon")
+	}
+}
+
+func TestRoyalConflictArcaneImpactGainsStatsForArcaneCosts(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	main := readySkill(baseCard(t, "3021101"), 0)
+	boost := readySkill(baseCard(t, "3021101"), 0)
+	p0.Skills[0] = main
+	p0.Skills[1] = boost
+
+	if got := engine.effectiveSpellPower(0, main, nil); got != main.Card.Power+1 {
+		t.Fatalf("3021101 should gain +1 power as main spell, got %d", got)
+	}
+	if got := engine.effectiveSpellDamage(0, main, main.Card.Attack, nil); got != main.Card.Attack+1 {
+		t.Fatalf("3021101 should gain +1 damage as main spell, got %d", got)
+	}
+	if got := engine.effectiveSpellPower(0, main, []*CardInstance{boost}); got != main.Card.Power+boost.Card.Power+2 {
+		t.Fatalf("3021101 should gain +1 power for both main and boost contributions, got %d", got)
+	}
+	if got := engine.effectiveSpellDamage(0, main, main.Card.Attack, []*CardInstance{boost}); got != main.Card.Attack+2 {
+		t.Fatalf("3021101 should gain +1 damage for both main and boost contributions, got %d", got)
+	}
+}
+
+func TestRoyalConflictArcaneSealSealsEnemySkillAndRaisesOwnCost(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	p1 := engine.State.Players[1]
+	seal := readySkill(baseCard(t, "3021108"), 0)
+	target := readySkill(baseCard(t, "3021005"), 1)
+	p0.Skills[0] = seal
+	p1.Skills[0] = target
+
+	if cost := engine.effectiveSkillUseCost(p0, seal); cost[model.ElementArcane] != 2 {
+		t.Fatalf("3021108 should start with printed use cost, cost=%v", cost)
+	}
+	if err := (Card3021108ArcaneSeal{}).OnSpellCast(&EffectContext{Engine: engine, Source: seal, PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("3021108 spell cast: %v", err)
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "arcane_seal_skill" {
+		t.Fatalf("3021108 should ask for an enemy skill target, pending=%+v", engine.State.PendingAction)
+	}
+	resolvePendingSelection(t, engine, 0, target.InstanceID)
+	if target.Statuses[StatusSeal] != 1 {
+		t.Fatalf("3021108 should seal the selected enemy skill, statuses=%v", target.Statuses)
+	}
+	if err := engine.validateSkillForPurpose(target, skillPurposeAttack); err == nil {
+		t.Fatal("sealed target skill should not be usable")
+	}
+	if cost := engine.effectiveSkillUseCost(p0, seal); cost[model.ElementArcane] != 4 {
+		t.Fatalf("3021108 should permanently add 2 arcane to its own use cost, cost=%v", cost)
+	}
+}
+
+func TestRoyalConflictArcanePurificationIgnoresFriendlyNegativeStatusesThisTurn(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	unit := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+	purification := readySkill(baseCard(t, "3021105"), 0)
+
+	if err := (Card3021105ArcanePurification{}).OnSpellCast(&EffectContext{Engine: engine, Source: purification, PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("3021105 spell cast: %v", err)
+	}
+	if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != TempModFriendlyNegativeStatusIgnore {
+		t.Fatalf("3021105 should create friendly negative-status ignore modifier, modifiers=%+v", p0.TempModifiers)
+	}
+	if !engine.addStatus(unit, StatusPetrify, 2) || unit.Statuses[StatusPetrify] != 2 {
+		t.Fatalf("3021105 should still allow negative statuses to be present, statuses=%v", unit.Statuses)
+	}
+	if engine.hasEffectiveStatus(unit, StatusPetrify) {
+		t.Fatal("3021105 should make friendly negative statuses ineffective this turn")
+	}
+
+	engine.finishEndTurn(p0)
+	if len(p0.TempModifiers) != 0 {
+		t.Fatalf("3021105 modifier should expire at turn end, modifiers=%+v", p0.TempModifiers)
+	}
+	if unit.Statuses[StatusPetrify] != 1 || !engine.hasEffectiveStatus(unit, StatusPetrify) {
+		t.Fatal("3021105 should stop suppressing negative statuses after turn end")
+	}
+}
+
 func TestRoyalConflictArcaneDrainRequiresDistinctUseElements(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]

@@ -222,6 +222,13 @@ func (e *Engine) handLimitForPlayer(ps *PlayerState) int {
 	if ps.Hero != nil && ps.Hero.Card != nil && ps.Hero.Card.Number == "4311002" {
 		limit++
 	}
+	opponentID := 1 - ps.PlayerID
+	if opponentID >= 0 && opponentID < len(e.State.Players) && e.playerHasActiveCard(e.State.Players[opponentID], "1311103") {
+		limit--
+	}
+	if limit < 0 {
+		return 0
+	}
 	return limit
 }
 
@@ -263,10 +270,28 @@ func equipmentSlotCapacity(ps *PlayerState) int {
 			break
 		}
 	}
+	for _, equipment := range ps.Equipment {
+		if equipment != nil && equipment.Card != nil && equipment.Card.Number == "2021105" && equipment.Statuses[StatusPetrify] <= 0 {
+			capacity++
+			break
+		}
+	}
 	if capacity > MaxEquipmentSlots {
 		return MaxEquipmentSlots
 	}
 	return capacity
+}
+
+func playerCanEquipDuplicateSubtypes(ps *PlayerState) bool {
+	if ps == nil {
+		return false
+	}
+	for _, equipment := range ps.Equipment {
+		if equipment != nil && equipment.Card != nil && equipment.Card.Number == "2021105" && equipment.Statuses[StatusPetrify] <= 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Engine) collectSkillUses(ps *PlayerState, ids []string, purpose skillPurpose, reserved map[string]bool) ([]*CardInstance, map[string]int, error) {

@@ -53,6 +53,9 @@ func (e *Engine) negativeStatusIneffective(card *CardInstance, status string) bo
 		return true
 	}
 	ps := e.State.Players[card.OwnerID]
+	if ps != nil && playerIgnoresFriendlyNegativeStatuses(ps) {
+		return true
+	}
 	if ps != nil && card.Position != nil && ps.Shield > 0 && e.playerHasActiveCard(ps, "2411101") {
 		return true
 	}
@@ -72,6 +75,18 @@ func (e *Engine) negativeStatusIneffective(card *CardInstance, status string) bo
 			if abs(protector.Position.Col-card.Position.Col)+abs(protector.Position.Row-card.Position.Row) <= 1 {
 				return true
 			}
+		}
+	}
+	return false
+}
+
+func playerIgnoresFriendlyNegativeStatuses(ps *PlayerState) bool {
+	if ps == nil {
+		return false
+	}
+	for _, modifier := range ps.TempModifiers {
+		if modifier.Type == TempModFriendlyNegativeStatusIgnore {
+			return true
 		}
 	}
 	return false
