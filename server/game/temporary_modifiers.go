@@ -11,6 +11,7 @@ import (
 const (
 	TempModNextSkillCostZero            = "next_skill_cost_zero"
 	TempModNextSkillUseCostMinus        = "next_skill_use_cost_minus"
+	TempModNextItemOrSkillCostMinus     = "next_item_or_skill_cost_minus"
 	TempModCurrentTurnSkillUseCostMinus = "current_turn_skill_use_cost_minus"
 	TempModCurrentTurnSkillCostZero     = "current_turn_skill_cost_zero"
 	TempModNextLearnedSkillHaste        = "next_learned_skill_haste"
@@ -108,16 +109,40 @@ func (e *Engine) temporaryNextSkillUseCostMinus(ps *PlayerState, skill *CardInst
 	}
 	total := 0
 	for _, modifier := range ps.TempModifiers {
-		if modifier.Type != TempModNextSkillUseCostMinus && modifier.Type != TempModCurrentTurnSkillUseCostMinus {
+		if modifier.Type != TempModNextSkillUseCostMinus && modifier.Type != TempModCurrentTurnSkillUseCostMinus && modifier.Type != TempModNextItemOrSkillCostMinus {
 			continue
 		}
-		if modifier.Type == TempModNextSkillUseCostMinus && modifier.RemainingUses == 0 {
+		if (modifier.Type == TempModNextSkillUseCostMinus || modifier.Type == TempModNextItemOrSkillCostMinus) && modifier.RemainingUses == 0 {
 			continue
 		}
 		if modifier.Element != "" && modifier.Element != elem {
 			continue
 		}
 		if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != skill.InstanceID {
+			continue
+		}
+		amount := modifier.Amount
+		if amount <= 0 {
+			amount = 1
+		}
+		total += amount
+	}
+	return total
+}
+
+func (e *Engine) temporaryNextCardPlayCostMinus(ps *PlayerState, card *CardInstance, elem string) int {
+	if ps == nil || !isConsumableOrSkillCardInstance(card) || elem == "" {
+		return 0
+	}
+	total := 0
+	for _, modifier := range ps.TempModifiers {
+		if modifier.Type != TempModNextItemOrSkillCostMinus || modifier.RemainingUses == 0 {
+			continue
+		}
+		if modifier.Element != "" && modifier.Element != elem {
+			continue
+		}
+		if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != card.InstanceID {
 			continue
 		}
 		amount := modifier.Amount
@@ -141,17 +166,39 @@ func (e *Engine) consumeNextSkillUseModifiersForPurpose(ps *PlayerState, skill *
 		if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != skill.InstanceID {
 			continue
 		}
-		if isBoostPurpose(purpose) && modifier.Type != TempModNextSkillUseCostMinus {
+		if isBoostPurpose(purpose) && modifier.Type != TempModNextSkillUseCostMinus && modifier.Type != TempModNextItemOrSkillCostMinus {
 			continue
 		}
 		switch modifier.Type {
-		case TempModNextSkillCostZero, TempModNextSkillUseCostMinus, TempModNextNoCooldown:
+		case TempModNextSkillCostZero, TempModNextSkillUseCostMinus, TempModNextItemOrSkillCostMinus, TempModNextNoCooldown:
 			modifier.RemainingUses--
 			if modifier.RemainingUses <= 0 {
 				e.removeTemporaryModifier(ps.PlayerID, modifier.ID)
 			}
 		}
 	}
+}
+
+func (e *Engine) consumeNextCardPlayCostModifiers(ps *PlayerState, card *CardInstance) {
+	if ps == nil || !isConsumableOrSkillCardInstance(card) {
+		return
+	}
+	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
+		if modifier.Type != TempModNextItemOrSkillCostMinus || modifier.RemainingUses == 0 {
+			continue
+		}
+		if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != card.InstanceID {
+			continue
+		}
+		modifier.RemainingUses--
+		if modifier.RemainingUses <= 0 {
+			e.removeTemporaryModifier(ps.PlayerID, modifier.ID)
+		}
+	}
+}
+
+func isConsumableOrSkillCardInstance(card *CardInstance) bool {
+	return isConsumableCardInstance(card) || (card != nil && card.Card != nil && card.Card.IsSkill())
 }
 
 func (e *Engine) applySkillUseCooldownModifiers(ps *PlayerState, skills ...*CardInstance) {

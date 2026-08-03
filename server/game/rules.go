@@ -160,6 +160,9 @@ func (e *Engine) effectiveCardPlayCost(ps *PlayerState, card *CardInstance) map[
 			}
 			reduceCost(cost, elem, parsePositiveInt(status[len(key):])*amount)
 		}
+		if reduction := e.temporaryNextCardPlayCostMinus(ps, card, elem); reduction > 0 {
+			reduceCost(cost, elem, reduction)
+		}
 	}
 	if modifier, ok := globalRegistry.GetBehavior(card.Card.Number).(SelfCardPlayCostModifier); ok && modifier.HasActiveSelfCardPlayCostModifier(card) {
 		ctx.Source = card
@@ -239,6 +242,7 @@ func (e *Engine) notifyCardPlayCostPaid(ps *PlayerState, card *CardInstance) {
 		ctx.Source = fieldCard
 		paid.OnCardPlayCostPaid(ctx, card)
 	}
+	e.consumeNextCardPlayCostModifiers(ps, card)
 }
 
 func mergeElementCosts(costs ...map[string]int) map[string]int {

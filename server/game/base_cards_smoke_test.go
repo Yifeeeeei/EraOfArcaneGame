@@ -342,6 +342,10 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 					if card.Number == "3021108" {
 						engine.State.Players[1].Skills[0] = readySkill(cards.PlayableCardDB["3021005"], 1)
 					}
+					if card.Number == "3511102" {
+						placeUnit(cards.PlayableCardDB["1021001"], 1, 0, 0, engine)
+						placeUnit(cards.PlayableCardDB["1021002"], 1, 1, 0, engine)
+					}
 					setAllElements(ps, 99)
 					err := engine.HandleAction(0, ActionMessage{
 						Action: "cast_spell",
@@ -465,6 +469,9 @@ func TestEveryRegisteredCardEffectHandlerRuns(t *testing.T) {
 					if card.Number == "2621107" && effect.Trigger == TriggerPerTurn {
 						source.Statuses[curseBoxMarkerStatus] = 1
 						engine.State.Players[1].Skills[0] = readySkill(cards.PlayableCardDB["3321005"], 1)
+					}
+					if card.Number == "2621103" && effect.Trigger == TriggerPerTurn {
+						source.Statuses[bloodGuMarkerStatus] = 2
 					}
 					target := engine.State.Players[1].Hero
 					if card.Number == "4611002" && effect.Trigger == TriggerUltimate {

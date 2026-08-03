@@ -1332,6 +1332,200 @@ func TestRoyalConflictLightweightSpellAndItemEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("sky city zenith stone damages and stuns the drawing player's front row every fifth draw", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		stone := NewCardInstance(baseCard(t, "2311101"), 0, engine.State.TurnNumber)
+		p0.Equipment[0] = stone
+		frontLeft := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		frontRight := placeUnit(baseCard(t, "1021002"), 1, 2, 0, engine)
+		backUnit := placeUnit(baseCard(t, "1021003"), 1, 1, 1, engine)
+		frontLife := frontLeft.CurrentLife
+		backLife := backUnit.CurrentLife
+		p1.Deck = []*CardInstance{
+			NewCardInstance(baseCard(t, "1021001"), 1, engine.State.TurnNumber),
+			NewCardInstance(baseCard(t, "1021002"), 1, engine.State.TurnNumber),
+			NewCardInstance(baseCard(t, "1021003"), 1, engine.State.TurnNumber),
+			NewCardInstance(baseCard(t, "1021004"), 1, engine.State.TurnNumber),
+			NewCardInstance(baseCard(t, "1021005"), 1, engine.State.TurnNumber),
+		}
+
+		engine.drawCards(1, 4)
+		if stone.Statuses[skyCityZenithStoneMarkerStatus] != 4 || frontLeft.CurrentLife != frontLife || frontLeft.Statuses[StatusStun] != 0 {
+			t.Fatalf("2311101 should only collect markers before the fifth draw, markers=%d life=%d stun=%d", stone.Statuses[skyCityZenithStoneMarkerStatus], frontLeft.CurrentLife, frontLeft.Statuses[StatusStun])
+		}
+		engine.drawCards(1, 1)
+		if stone.Statuses[skyCityZenithStoneMarkerStatus] != 0 {
+			t.Fatalf("2311101 should remove all markers at five, statuses=%v", stone.Statuses)
+		}
+		if frontLeft.CurrentLife != frontLife-1 || frontRight.CurrentLife != frontRight.Card.Life-1 || frontLeft.Statuses[StatusStun] != 1 || frontRight.Statuses[StatusStun] != 1 {
+			t.Fatalf("2311101 should damage and stun front row, left=%d/%v right=%d/%v", frontLeft.CurrentLife, frontLeft.Statuses, frontRight.CurrentLife, frontRight.Statuses)
+		}
+		if backUnit.CurrentLife != backLife || backUnit.Statuses[StatusStun] != 0 {
+			t.Fatalf("2311101 should not hit back row, life=%d statuses=%v", backUnit.CurrentLife, backUnit.Statuses)
+		}
+	})
+
+	t.Run("blood gu tracks hero damage then sacrifices for a current turn spell power buff", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p0.Hero = NewCardInstance(baseCard(t, "4611101"), 0, engine.State.TurnNumber)
+		p0.Hero.CurrentLife = 20
+		gu := NewCardInstance(baseCard(t, "2621103"), 0, engine.State.TurnNumber)
+		p0.Equipment[0] = gu
+		spell := readySkill(baseCard(t, "3121001"), 0)
+		basePower := engine.effectiveSpellPower(0, spell, nil)
+
+		engine.dealDamageWithExtra(p0.Hero, 4, 0, map[string]any{"damage_source": "test", "attacker": 1})
+		if gu.Statuses[bloodGuMarkerStatus] != 4 {
+			t.Fatalf("2621103 should gain markers equal hero damage, statuses=%v", gu.Statuses)
+		}
+		other := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		engine.dealDamageWithExtra(other, 2, 0, map[string]any{"damage_source": "test", "attacker": 1})
+		if gu.Statuses[bloodGuMarkerStatus] != 4 {
+			t.Fatalf("2621103 should ignore non-hero damage, statuses=%v", gu.Statuses)
+		}
+		engine.dealDamageWithExtra(p0.Hero, 4, 0, map[string]any{"damage_source": "test", "attacker": 1})
+		if gu.Statuses[bloodGuMarkerStatus] != 6 {
+			t.Fatalf("2621103 markers should cap at six, statuses=%v", gu.Statuses)
+		}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{"instance_id": gu.InstanceID}}); err != nil {
+			t.Fatalf("2621103 active ability should sacrifice for spell power: %v", err)
+		}
+		if p0.Equipment[0] != nil || countCardsByNumber(p0.Graveyard, "2621103") != 1 {
+			t.Fatalf("2621103 should be sacrificed from equipment, equipment=%v grave=%v", p0.Equipment[0], cardsToInfo(p0.Graveyard))
+		}
+		if got := engine.effectiveSpellPower(0, spell, nil); got != basePower+3 {
+			t.Fatalf("2621103 should add +3 spell power from six markers, got=%d base=%d", got, basePower)
+		}
+		engine.clearExpiredTemporaryModifiers(0)
+		if got := engine.effectiveSpellPower(0, spell, nil); got != basePower {
+			t.Fatalf("2621103 spell power buff should expire after current turn, got=%d base=%d", got, basePower)
+		}
+	})
+
+	t.Run("council judgment hammer shuffles marks after enemy spell attacks once per turn", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		hammer := NewCardInstance(baseCard(t, "2521108"), 0, engine.State.TurnNumber)
+		p0.Equipment[0] = hammer
+		enemyAttackSpell := readySkill(baseCard(t, "3121001"), 1)
+		enemySorcery := readySkill(baseCard(t, "3021001"), 1)
+
+		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, enemySorcery, map[string]any{"cast_player": 1})
+		if countCardsByNumber(p1.Deck, "2001102") != 0 || hammer.UsedThisTurn != 0 {
+			t.Fatalf("2521108 should ignore enemy sorceries, deck=%v used=%d", cardsToInfo(p1.Deck), hammer.UsedThisTurn)
+		}
+		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, enemyAttackSpell, map[string]any{"cast_player": 1})
+		if countCardsByNumber(p1.Deck, "2001102") != 3 || hammer.UsedThisTurn != 1 {
+			t.Fatalf("2521108 should shuffle three marks into enemy deck once, deck=%v used=%d", cardsToInfo(p1.Deck), hammer.UsedThisTurn)
+		}
+		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, enemyAttackSpell, map[string]any{"cast_player": 1})
+		if countCardsByNumber(p1.Deck, "2001102") != 3 || hammer.UsedThisTurn != 1 {
+			t.Fatalf("2521108 should only trigger once per turn, deck=%v used=%d", cardsToInfo(p1.Deck), hammer.UsedThisTurn)
+		}
+	})
+
+	t.Run("red agate chalice gives the completed light artifact set extra load", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		scepter := NewCardInstance(baseCard(t, "2521006"), 0, engine.State.TurnNumber)
+		lamp := NewCardInstance(baseCard(t, "2521007"), 0, engine.State.TurnNumber)
+		chalice := NewCardInstance(baseCard(t, "2521103"), 0, engine.State.TurnNumber)
+		p0.Equipment[0] = scepter
+		p0.Equipment[1] = lamp
+		p0.Equipment[2] = chalice
+
+		if got := engine.effectiveElementsGain(scepter)[model.ElementLight]; got != scepter.Card.ElementsGain[model.ElementLight]+1 {
+			t.Fatalf("2521103 should add light load to green jade scepter in the complete set, load=%v", engine.effectiveElementsGain(scepter))
+		}
+		if got := engine.effectiveElementsGain(lamp)[model.ElementLight]; got != lamp.Card.ElementsGain[model.ElementLight]+1 {
+			t.Fatalf("2521103 should add light load to blue crystal lamp in the complete set, load=%v", engine.effectiveElementsGain(lamp))
+		}
+		if got := engine.effectiveElementsGain(chalice)[model.ElementLight]; got != chalice.Card.ElementsGain[model.ElementLight]+1 {
+			t.Fatalf("2521103 should add light load to itself in the complete set, load=%v", engine.effectiveElementsGain(chalice))
+		}
+
+		p0.Equipment[1] = nil
+		if got := engine.effectiveElementsGain(scepter)[model.ElementLight]; got != scepter.Card.ElementsGain[model.ElementLight] {
+			t.Fatalf("2521103 should not add load before the set is complete, load=%v", engine.effectiveElementsGain(scepter))
+		}
+	})
+
+	t.Run("quick ice bullet discounts the next consumable item or spell this turn", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		bullet := NewCardInstance(baseCard(t, "2221109"), 0, engine.State.TurnNumber)
+		item := NewCardInstance(baseCard(t, "2221009"), 0, engine.State.TurnNumber)
+		spell := readySkill(baseCard(t, "3201002"), 0)
+
+		engine.triggerEffects(TriggerOnUseItem, bullet, nil, nil)
+		if cost := engine.effectiveCardPlayCost(p0, item); cost[model.ElementWater] != item.Card.ElementsCost[model.ElementWater]-3 {
+			t.Fatalf("2221109 should discount the next consumable item's water cost, cost=%v", cost)
+		}
+		engine.notifyCardPlayCostPaid(p0, item)
+		if cost := engine.effectiveSkillUseCost(p0, spell); cost[model.ElementWater] != spell.Card.ElementsExpense[model.ElementWater] {
+			t.Fatalf("2221109 item discount should be consumed after the next consumable, cost=%v", cost)
+		}
+
+		engine.triggerEffects(TriggerOnUseItem, bullet, nil, nil)
+		if cost := engine.effectiveSkillUseCost(p0, spell); cost[model.ElementWater] != spell.Card.ElementsExpense[model.ElementWater]-3 {
+			t.Fatalf("2221109 should discount the next spell's water use cost, cost=%v", cost)
+		}
+		engine.consumeNextSkillUseModifiers(p0, spell)
+		if cost := engine.effectiveCardPlayCost(p0, item); cost[model.ElementWater] != item.Card.ElementsCost[model.ElementWater] {
+			t.Fatalf("2221109 spell discount should be consumed after the next spell, cost=%v", cost)
+		}
+
+		engine.triggerEffects(TriggerOnUseItem, bullet, nil, nil)
+		if cost := engine.effectiveSkillUseCostForPurpose(p0, spell, skillPurposeAttackBoost); cost[model.ElementWater] != spell.Card.ElementsExpense[model.ElementWater]-3 {
+			t.Fatalf("2221109 should also discount a spell used as boost, cost=%v", cost)
+		}
+		engine.consumeNextSkillUseModifiersForPurpose(p0, spell, skillPurposeAttackBoost)
+		if cost := engine.effectiveSkillUseCost(p0, spell); cost[model.ElementWater] != spell.Card.ElementsExpense[model.ElementWater] {
+			t.Fatalf("2221109 boost discount should be consumed after the boosted spell use, cost=%v", cost)
+		}
+
+		learnedSpell := NewCardInstance(baseCard(t, "3221003"), 0, engine.State.TurnNumber)
+		engine.triggerEffects(TriggerOnUseItem, bullet, nil, nil)
+		if cost := engine.effectiveSkillLearnCost(p0, learnedSpell); cost[model.ElementWater] != learnedSpell.Card.ElementsCost[model.ElementWater]-3 {
+			t.Fatalf("2221109 should discount the next spell learn cost, cost=%v", cost)
+		}
+		engine.notifyCardPlayCostPaid(p0, learnedSpell)
+		if cost := engine.effectiveSkillUseCost(p0, spell); cost[model.ElementWater] != spell.Card.ElementsExpense[model.ElementWater] {
+			t.Fatalf("2221109 learn discount should be consumed after learning a spell, cost=%v", cost)
+		}
+	})
+
+	t.Run("last stand light requires fewer friendly units and scales from the best light companion", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		lastStand := readySkill(baseCard(t, "3511102"), 0)
+		lightCompanion := placeUnit(baseCard(t, "1521001"), 0, 0, 0, engine)
+		lightCompanion.CurrentLife = 5
+		engine.addElementsGainBonus(lightCompanion, 0, model.ElementLight, 2, lastStand)
+		placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
+
+		if err := engine.validateSkillUsePermissionModifiers(lastStand, skillPurposeAttack); err != nil {
+			t.Fatalf("3511102 should be usable while friendly units are fewer: %v", err)
+		}
+		wantBonus := lightCompanion.CurrentLife + totalElementCost(engine.effectiveElementsGain(lightCompanion))
+		if got := engine.effectiveSpellPower(0, lastStand, nil); got != lastStand.Card.Power+wantBonus {
+			t.Fatalf("3511102 should gain power from the best light companion, got=%d base=%d bonus=%d", got, lastStand.Card.Power, wantBonus)
+		}
+
+		placeUnit(baseCard(t, "1021003"), 0, 1, 0, engine)
+		if err := engine.validateSkillUsePermissionModifiers(lastStand, skillPurposeAttack); err == nil {
+			t.Fatal("3511102 should require fewer friendly units than the opponent")
+		}
+		if err := engine.validateSkillUsePermissionModifiers(lastStand, skillPurposeDefenseBoost); err == nil {
+			t.Fatal("3511102 restriction should also block boost use")
+		}
+	})
+
 	t.Run("claw of erebos requires weakened enemy spells and then weakens up to three", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]

@@ -186,6 +186,200 @@ func (Card2621104DevotionContract) OnSpellCast(ctx *EffectContext) error {
 	return nil
 }
 
+const skyCityZenithStoneMarkerStatus = "云霄城的天顶石标记物"
+
+type Card2311101SkyCityZenithStone struct{ AlwaysActive }
+
+func (Card2311101SkyCityZenithStone) ID() string   { return "2311101" }
+func (Card2311101SkyCityZenithStone) Name() string { return "云霄城的天顶石" }
+func (Card2311101SkyCityZenithStone) OnDraw(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.ExtraData == nil {
+		return nil
+	}
+	drawnPlayer, ok := ctx.ExtraData["drawn_player"].(int)
+	if !ok || drawnPlayer < 0 || drawnPlayer >= len(ctx.Engine.State.Players) {
+		return nil
+	}
+	ctx.Source.Statuses[skyCityZenithStoneMarkerStatus]++
+	if ctx.Source.Statuses[skyCityZenithStoneMarkerStatus] < 5 {
+		return nil
+	}
+	delete(ctx.Source.Statuses, skyCityZenithStoneMarkerStatus)
+
+	ps := ctx.Engine.State.Players[drawnPlayer]
+	if ps == nil {
+		return nil
+	}
+	frontRow := ps.GetFrontRow()
+	if frontRow < 0 || frontRow >= 3 {
+		return nil
+	}
+	targets := make([]*CardInstance, 0, 3)
+	for col := 0; col < 3; col++ {
+		if unit := ps.Units[col][frontRow]; unit != nil {
+			targets = append(targets, unit)
+		}
+	}
+	for _, target := range targets {
+		ctx.Engine.dealDamageWithExtra(target, 1, drawnPlayer, map[string]any{
+			"damage_source": "sky_city_zenith_stone",
+			"attacker":      ctx.PlayerID,
+		})
+		ctx.Engine.addStatus(target, StatusStun, 1)
+	}
+	return nil
+}
+
+const bloodGuMarkerStatus = "血蛊标记物"
+
+type Card2621103BloodGu struct{ AlwaysActive }
+
+func (Card2621103BloodGu) ID() string   { return "2621103" }
+func (Card2621103BloodGu) Name() string { return "血蛊" }
+func (Card2621103BloodGu) OnDamaged(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.ExtraData == nil {
+		return nil
+	}
+	damagedPlayer, ok := ctx.ExtraData["damaged_player"].(int)
+	if !ok || damagedPlayer != ctx.PlayerID || ctx.Target != ctx.Engine.playerHeroCard(ctx.PlayerID) {
+		return nil
+	}
+	damage, _ := ctx.ExtraData["damage"].(int)
+	if damage <= 0 {
+		damage = 1
+	}
+	ctx.Source.Statuses[bloodGuMarkerStatus] = min(6, ctx.Source.Statuses[bloodGuMarkerStatus]+damage)
+	return nil
+}
+func (Card2621103BloodGu) PerTurnLabel(*CardInstance) string {
+	return "主动"
+}
+func (Card2621103BloodGu) OnPerTurn(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil {
+		return nil
+	}
+	amount := ctx.Source.Statuses[bloodGuMarkerStatus] / 2
+	if amount <= 0 {
+		return fmt.Errorf("血蛊没有足够标记物")
+	}
+	if !ctx.Engine.sacrificeEquipment(ctx.PlayerID, ctx.Source.InstanceID) {
+		return fmt.Errorf("血蛊必须从装备区献祭")
+	}
+	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
+		Type:             TempModSkillPowerBonus,
+		SourceCardNumber: ctx.Source.Card.Number,
+		SourceName:       ctx.Source.Card.Name,
+		Amount:           amount,
+		ExpiresTurn:      ctx.Engine.State.TurnNumber,
+	})
+	return nil
+}
+
+type Card2521108CouncilJudgmentHammer struct{ AlwaysActive }
+
+func (Card2521108CouncilJudgmentHammer) ID() string   { return "2521108" }
+func (Card2521108CouncilJudgmentHammer) Name() string { return "议庭审判锤" }
+func (Card2521108CouncilJudgmentHammer) OnSpellCast(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.Target.Card == nil {
+		return nil
+	}
+	if ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) || !isEnemySpellCast(ctx) || isSorcerySkill(ctx.Target.Card) {
+		return nil
+	}
+	addGeneratedCardsToPlayerDeck(ctx, ctx.OpponentID, "2001102", 3)
+	ctx.Source.UsedThisTurn++
+	return nil
+}
+
+type Card2521103RedAgateChalice struct{ AlwaysActive }
+
+func (Card2521103RedAgateChalice) ID() string   { return "2521103" }
+func (Card2521103RedAgateChalice) Name() string { return "红玛瑙圣杯" }
+func (Card2521103RedAgateChalice) ModifyElementsGain(ctx *EffectContext, target *CardInstance, gains map[string]int) {
+	if ctx == nil || ctx.Engine == nil || target == nil || target.Card == nil || !redAgateChaliceSetComplete(ctx.Engine, ctx.PlayerID) {
+		return
+	}
+	switch target.Card.Number {
+	case "2521006", "2521007", "2521103":
+		gains[model.ElementLight]++
+	}
+}
+
+func redAgateChaliceSetComplete(e *Engine, playerID int) bool {
+	if e == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return false
+	}
+	seen := map[string]bool{}
+	for _, card := range e.State.Players[playerID].Equipment {
+		if card == nil || card.Card == nil {
+			continue
+		}
+		switch card.Card.Number {
+		case "2521006", "2521007", "2521103":
+			seen[card.Card.Number] = true
+		}
+	}
+	return seen["2521006"] && seen["2521007"] && seen["2521103"]
+}
+
+type Card2221109QuickIceBullet struct{ AlwaysActive }
+
+func (Card2221109QuickIceBullet) ID() string   { return "2221109" }
+func (Card2221109QuickIceBullet) Name() string { return "速射冰弹" }
+func (Card2221109QuickIceBullet) OnUseItem(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil {
+		return nil
+	}
+	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
+		Type:             TempModNextItemOrSkillCostMinus,
+		SourceCardNumber: ctx.Source.Card.Number,
+		SourceName:       ctx.Source.Card.Name,
+		Element:          model.ElementWater,
+		Amount:           3,
+		RemainingUses:    1,
+		ExpiresTurn:      ctx.Engine.State.TurnNumber,
+	})
+	return nil
+}
+
+type Card3511102LastStandLight struct{ AlwaysActive }
+
+func (Card3511102LastStandLight) ID() string   { return "3511102" }
+func (Card3511102LastStandLight) Name() string { return "绝境之光 孤星闪耀" }
+func (Card3511102LastStandLight) ValidateSkillUse(ctx *EffectContext, skill *CardInstance, purpose skillPurpose) error {
+	if ctx == nil || ctx.Engine == nil || skill == nil || skill.Card == nil || skill.Card.Number != "3511102" {
+		return nil
+	}
+	if royalCompanionCount(ctx.Engine.State.Players[ctx.PlayerID]) < royalCompanionCount(ctx.Engine.State.Players[ctx.OpponentID]) {
+		return nil
+	}
+	return fmt.Errorf("绝境之光 孤星闪耀只能在你场上单位比对方少时使用")
+}
+func (Card3511102LastStandLight) ModifySkillContribution(ctx *EffectContext, stats *SpellStats) {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Source.Card == nil || ctx.Source.Card.Number != "3511102" {
+		return
+	}
+	stats.PowerBonus += highestFriendlyLightCompanionLifeAndLoad(ctx.Engine, ctx.PlayerID)
+}
+
+func highestFriendlyLightCompanionLifeAndLoad(e *Engine, playerID int) int {
+	if e == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return 0
+	}
+	best := 0
+	ps := e.State.Players[playerID]
+	for col := 0; col < 3; col++ {
+		for row := 0; row < 3; row++ {
+			unit := ps.Units[col][row]
+			if unit == nil || unit.Card == nil || !unit.Card.IsCompanion() || unit.Card.Category != model.ElementLight {
+				continue
+			}
+			best = max(best, unit.CurrentLife+totalElementCost(e.effectiveElementsGain(unit)))
+		}
+	}
+	return best
+}
+
 type Card3611102ClawOfErebos struct{ AlwaysActive }
 
 func (Card3611102ClawOfErebos) ID() string   { return "3611102" }
@@ -257,6 +451,14 @@ var _ OnConsumeBehavior = Card3521101Gospel{}
 var _ MasteryBehavior = Card3421106RottingErosion{}
 var _ OnSpellHitBehavior = Card3421106RottingErosion{}
 var _ OnSpellCastBehavior = Card2621104DevotionContract{}
+var _ OnDrawBehavior = Card2311101SkyCityZenithStone{}
+var _ OnDamagedBehavior = Card2621103BloodGu{}
+var _ PerTurnAbility = Card2621103BloodGu{}
+var _ OnSpellCastBehavior = Card2521108CouncilJudgmentHammer{}
+var _ ElementsGainModifier = Card2521103RedAgateChalice{}
+var _ OnUseItemBehavior = Card2221109QuickIceBullet{}
+var _ SkillUsePermissionModifier = Card3511102LastStandLight{}
+var _ SkillContributionModifier = Card3511102LastStandLight{}
 var _ SkillLearnPermissionModifier = Card3611102ClawOfErebos{}
 var _ SkillContributionModifier = Card3611102ClawOfErebos{}
 var _ OnSpellCastBehavior = Card3611102ClawOfErebos{}
