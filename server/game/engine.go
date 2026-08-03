@@ -3981,7 +3981,7 @@ func (e *Engine) clearPendingForGameOver() {
 
 func (e *Engine) payCostForAction(ps *PlayerState, cost map[string]int, action ActionMessage) bool {
 	if payment := paymentFromAction(action); payment != nil {
-		if !validateElementPaymentWithOptions(ps.Elements, cost, payment, e.playerHasLightWildcard(ps)) {
+		if !validateElementPaymentWithOptions(ps.Elements, cost, payment, e.playerHasLightWildcard(ps), e.playerHasLightCostWildcard(ps)) {
 			return false
 		}
 		for elem, amount := range payment {
@@ -3989,7 +3989,7 @@ func (e *Engine) payCostForAction(ps *PlayerState, cost map[string]int, action A
 		}
 		return true
 	}
-	payment, ok := calculateElementPaymentWithOptions(ps.Elements, cost, e.playerHasLightWildcard(ps))
+	payment, ok := calculateElementPaymentWithOptions(ps.Elements, cost, e.playerHasLightWildcard(ps), e.playerHasLightCostWildcard(ps))
 	if !ok {
 		return false
 	}
@@ -4003,11 +4003,11 @@ func (e *Engine) payCostForCardAction(ps *PlayerState, card *CardInstance, stric
 	payment := paymentFromAction(action)
 	if payment == nil {
 		var ok bool
-		payment, ok = calculateCardActionPaymentWithOptions(ps.Elements, card, strictCost, totalCost, purpose, e.playerHasLightWildcard(ps))
+		payment, ok = calculateCardActionPaymentWithOptions(ps.Elements, card, strictCost, totalCost, purpose, e.playerHasLightWildcard(ps), e.playerHasLightCostWildcard(ps))
 		if !ok {
 			return false
 		}
-	} else if !validateCardActionPaymentWithOptions(ps.Elements, card, strictCost, totalCost, purpose, payment, e.playerHasLightWildcard(ps)) {
+	} else if !validateCardActionPaymentWithOptions(ps.Elements, card, strictCost, totalCost, purpose, payment, e.playerHasLightWildcard(ps), e.playerHasLightCostWildcard(ps)) {
 		return false
 	}
 	if !strictPaymentSatisfied(card, purpose, strictCost, payment) {
@@ -4021,7 +4021,7 @@ func (e *Engine) payCostForCardAction(ps *PlayerState, card *CardInstance, stric
 
 func (e *Engine) canPayCostForAction(ps *PlayerState, cost map[string]int, action ActionMessage) bool {
 	if payment := paymentFromAction(action); payment != nil {
-		return validateElementPaymentWithOptions(ps.Elements, cost, payment, e.playerHasLightWildcard(ps))
+		return validateElementPaymentWithOptions(ps.Elements, cost, payment, e.playerHasLightWildcard(ps), e.playerHasLightCostWildcard(ps))
 	}
 	return e.canPayCost(ps, cost)
 }
@@ -4030,18 +4030,18 @@ func (e *Engine) canPayCostForCardAction(ps *PlayerState, card *CardInstance, st
 	payment := paymentFromAction(action)
 	if payment == nil {
 		var ok bool
-		payment, ok = calculateCardActionPaymentWithOptions(ps.Elements, card, strictCost, totalCost, purpose, e.playerHasLightWildcard(ps))
+		payment, ok = calculateCardActionPaymentWithOptions(ps.Elements, card, strictCost, totalCost, purpose, e.playerHasLightWildcard(ps), e.playerHasLightCostWildcard(ps))
 		if !ok {
 			return false
 		}
-	} else if !validateCardActionPaymentWithOptions(ps.Elements, card, strictCost, totalCost, purpose, payment, e.playerHasLightWildcard(ps)) {
+	} else if !validateCardActionPaymentWithOptions(ps.Elements, card, strictCost, totalCost, purpose, payment, e.playerHasLightWildcard(ps), e.playerHasLightCostWildcard(ps)) {
 		return false
 	}
 	return strictPaymentSatisfied(card, purpose, strictCost, payment)
 }
 
 func (e *Engine) canPayCost(ps *PlayerState, cost map[string]int) bool {
-	_, ok := calculateElementPaymentWithOptions(ps.Elements, cost, e.playerHasLightWildcard(ps))
+	_, ok := calculateElementPaymentWithOptions(ps.Elements, cost, e.playerHasLightWildcard(ps), e.playerHasLightCostWildcard(ps))
 	return ok
 }
 
@@ -4051,6 +4051,18 @@ func (e *Engine) playerHasLightWildcard(ps *PlayerState) bool {
 	}
 	for _, card := range e.getAllFieldCards(ps) {
 		if card != nil && card.Card != nil && card.Card.Number == "1521007" && !e.hasEffectiveStatus(card, StatusPetrify) {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Engine) playerHasLightCostWildcard(ps *PlayerState) bool {
+	if e == nil || ps == nil {
+		return false
+	}
+	for _, card := range e.getAllFieldCards(ps) {
+		if card != nil && card.Card != nil && card.Card.Number == "1521109" && !e.hasEffectiveStatus(card, StatusPetrify) {
 			return true
 		}
 	}

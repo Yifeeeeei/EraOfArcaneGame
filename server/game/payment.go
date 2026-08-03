@@ -22,7 +22,8 @@ func calculateElementPayment(available map[string]int, cost map[string]int) (map
 	return calculateElementPaymentWithOptions(available, cost, false)
 }
 
-func calculateElementPaymentWithOptions(available map[string]int, cost map[string]int, lightWildcard bool) (map[string]int, bool) {
+func calculateElementPaymentWithOptions(available map[string]int, cost map[string]int, lightWildcard bool, lightCostWildcardOptions ...bool) (map[string]int, bool) {
+	lightCostWildcard := len(lightCostWildcardOptions) > 0 && lightCostWildcardOptions[0]
 	payment := make(map[string]int)
 	remainingAvailable := cloneElements(available)
 	remainingCost := make(map[string]int)
@@ -74,7 +75,27 @@ func calculateElementPaymentWithOptions(available map[string]int, cost map[strin
 				remainingCost[elem] -= pay
 			}
 		}
-		if remainingCost[elem] > 0 {
+		if remainingCost[elem] > 0 && !(lightCostWildcard && elem == model.ElementLight) {
+			return nil, false
+		}
+	}
+
+	if lightCostWildcard && remainingCost[model.ElementLight] > 0 {
+		for _, elem := range model.AllElements {
+			if elem == model.ElementArcane || elem == model.ElementLight {
+				continue
+			}
+			pay := min(remainingAvailable[elem], remainingCost[model.ElementLight])
+			if pay > 0 {
+				payment[elem] += pay
+				remainingAvailable[elem] -= pay
+				remainingCost[model.ElementLight] -= pay
+			}
+			if remainingCost[model.ElementLight] <= 0 {
+				break
+			}
+		}
+		if remainingCost[model.ElementLight] > 0 {
 			return nil, false
 		}
 	}
@@ -110,17 +131,19 @@ func calculateElementPaymentWithOptions(available map[string]int, cost map[strin
 	return payment, true
 }
 
-func calculateCardActionPaymentWithOptions(available map[string]int, card *CardInstance, ownCost map[string]int, totalCost map[string]int, purpose paymentPurpose, lightWildcard bool) (map[string]int, bool) {
+func calculateCardActionPaymentWithOptions(available map[string]int, card *CardInstance, ownCost map[string]int, totalCost map[string]int, purpose paymentPurpose, lightWildcard bool, lightCostWildcardOptions ...bool) (map[string]int, bool) {
+	lightCostWildcard := len(lightCostWildcardOptions) > 0 && lightCostWildcardOptions[0]
 	if !requiresDistinctOwnUseCost(card, purpose) {
-		return calculateElementPaymentWithOptions(available, totalCost, lightWildcard)
+		return calculateElementPaymentWithOptions(available, totalCost, lightWildcard, lightCostWildcard)
 	}
-	return calculateDistinctOwnCostPayment(available, ownCost, totalCost, lightWildcard)
+	return calculateDistinctOwnCostPayment(available, ownCost, totalCost, lightWildcard, lightCostWildcard)
 }
 
-func calculateDistinctOwnCostPayment(available map[string]int, ownCost map[string]int, totalCost map[string]int, lightWildcard bool) (map[string]int, bool) {
+func calculateDistinctOwnCostPayment(available map[string]int, ownCost map[string]int, totalCost map[string]int, lightWildcard bool, lightCostWildcardOptions ...bool) (map[string]int, bool) {
+	lightCostWildcard := len(lightCostWildcardOptions) > 0 && lightCostWildcardOptions[0]
 	distinctCount := totalElementCost(ownCost)
 	if distinctCount <= 0 {
-		return calculateElementPaymentWithOptions(available, totalCost, lightWildcard)
+		return calculateElementPaymentWithOptions(available, totalCost, lightWildcard, lightCostWildcard)
 	}
 	extraCost := subtractElementCosts(totalCost, ownCost)
 	elements := model.AllElements
@@ -128,14 +151,14 @@ func calculateDistinctOwnCostPayment(available map[string]int, ownCost map[strin
 	var search func(int, int) (map[string]int, bool)
 	search = func(start int, remaining int) (map[string]int, bool) {
 		if remaining == 0 {
-			if !validateElementPaymentWithOptions(available, ownCost, ownPayment, lightWildcard) {
+			if !validateElementPaymentWithOptions(available, ownCost, ownPayment, lightWildcard, lightCostWildcard) {
 				return nil, false
 			}
 			remainingAvailable := cloneElements(available)
 			for elem, amount := range ownPayment {
 				remainingAvailable[elem] -= amount
 			}
-			extraPayment, ok := calculateElementPaymentWithOptions(remainingAvailable, extraCost, lightWildcard)
+			extraPayment, ok := calculateElementPaymentWithOptions(remainingAvailable, extraCost, lightWildcard, lightCostWildcard)
 			if !ok {
 				return nil, false
 			}
@@ -165,14 +188,15 @@ func validateElementPayment(available map[string]int, cost map[string]int, payme
 	return validateElementPaymentWithOptions(available, cost, payment, false)
 }
 
-func validateElementPaymentWithOptions(available map[string]int, cost map[string]int, payment map[string]int, lightWildcard bool) bool {
+func validateElementPaymentWithOptions(available map[string]int, cost map[string]int, payment map[string]int, lightWildcard bool, lightCostWildcardOptions ...bool) bool {
+	lightCostWildcard := len(lightCostWildcardOptions) > 0 && lightCostWildcardOptions[0]
 	for elem, amount := range payment {
 		if amount < 0 || amount > available[elem] {
 			return false
 		}
 	}
 
-	spent, ok := calculateElementPaymentWithOptions(payment, cost, lightWildcard)
+	spent, ok := calculateElementPaymentWithOptions(payment, cost, lightWildcard, lightCostWildcard)
 	if !ok {
 		return false
 	}
@@ -184,14 +208,15 @@ func validateElementPaymentWithOptions(available map[string]int, cost map[string
 	return true
 }
 
-func validateCardActionPaymentWithOptions(available map[string]int, card *CardInstance, ownCost map[string]int, totalCost map[string]int, purpose paymentPurpose, payment map[string]int, lightWildcard bool) bool {
-	if !validateElementPaymentWithOptions(available, totalCost, payment, lightWildcard) {
+func validateCardActionPaymentWithOptions(available map[string]int, card *CardInstance, ownCost map[string]int, totalCost map[string]int, purpose paymentPurpose, payment map[string]int, lightWildcard bool, lightCostWildcardOptions ...bool) bool {
+	lightCostWildcard := len(lightCostWildcardOptions) > 0 && lightCostWildcardOptions[0]
+	if !validateElementPaymentWithOptions(available, totalCost, payment, lightWildcard, lightCostWildcard) {
 		return false
 	}
 	if !requiresDistinctOwnUseCost(card, purpose) {
 		return true
 	}
-	return distinctOwnCostPaymentSatisfied(card, purpose, ownCost, totalCost, payment, lightWildcard)
+	return distinctOwnCostPaymentSatisfied(card, purpose, ownCost, totalCost, payment, lightWildcard, lightCostWildcard)
 }
 
 func strictPaymentRequirement(card *CardInstance, purpose paymentPurpose, cost map[string]int) map[string]int {
@@ -228,7 +253,8 @@ func requiresDistinctOwnUseCost(card *CardInstance, purpose paymentPurpose) bool
 	return card != nil && card.Card != nil && card.Card.Number == "3021103" && purpose == paymentPurposeUse
 }
 
-func distinctOwnCostPaymentSatisfied(card *CardInstance, purpose paymentPurpose, ownCost map[string]int, totalCost map[string]int, payment map[string]int, lightWildcard bool) bool {
+func distinctOwnCostPaymentSatisfied(card *CardInstance, purpose paymentPurpose, ownCost map[string]int, totalCost map[string]int, payment map[string]int, lightWildcard bool, lightCostWildcardOptions ...bool) bool {
+	lightCostWildcard := len(lightCostWildcardOptions) > 0 && lightCostWildcardOptions[0]
 	if !requiresDistinctOwnUseCost(card, purpose) {
 		return true
 	}
@@ -242,14 +268,14 @@ func distinctOwnCostPaymentSatisfied(card *CardInstance, purpose paymentPurpose,
 	var search func(int, int) bool
 	search = func(start int, remaining int) bool {
 		if remaining == 0 {
-			if !validateElementPaymentWithOptions(payment, ownCost, ownPayment, lightWildcard) {
+			if !validateElementPaymentWithOptions(payment, ownCost, ownPayment, lightWildcard, lightCostWildcard) {
 				return false
 			}
 			remainingPayment := cloneElements(payment)
 			for elem, amount := range ownPayment {
 				remainingPayment[elem] -= amount
 			}
-			return validateElementPaymentWithOptions(remainingPayment, extraCost, remainingPayment, lightWildcard)
+			return validateElementPaymentWithOptions(remainingPayment, extraCost, remainingPayment, lightWildcard, lightCostWildcard)
 		}
 		for i := start; i < len(elements); i++ {
 			elem := elements[i]
@@ -343,7 +369,7 @@ func canPayCostWithOverexertOptions(ps *PlayerState, cost map[string]int, units 
 }
 
 func (e *Engine) canPayCostWithOverexertOptions(ps *PlayerState, cost map[string]int, units []*CardInstance, lightWildcard bool) bool {
-	_, ok := calculateElementPaymentWithOptions(e.availableElementsWithOverexert(ps, units), cost, lightWildcard)
+	_, ok := calculateElementPaymentWithOptions(e.availableElementsWithOverexert(ps, units), cost, lightWildcard, e.playerHasLightCostWildcard(ps))
 	return ok
 }
 
@@ -382,11 +408,11 @@ func (e *Engine) payDefenseCostWithOptions(ps *PlayerState, cost map[string]int,
 	payment := paymentFromAction(action)
 	if payment == nil {
 		var ok bool
-		payment, ok = calculateElementPaymentWithOptions(available, cost, lightWildcard)
+		payment, ok = calculateElementPaymentWithOptions(available, cost, lightWildcard, e.playerHasLightCostWildcard(ps))
 		if !ok {
 			return false
 		}
-	} else if !validateElementPaymentWithOptions(available, cost, payment, lightWildcard) {
+	} else if !validateElementPaymentWithOptions(available, cost, payment, lightWildcard, e.playerHasLightCostWildcard(ps)) {
 		return false
 	}
 

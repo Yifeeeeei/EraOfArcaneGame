@@ -1248,6 +1248,32 @@ func TestRoyalConflictStrictPaymentCards(t *testing.T) {
 	}
 }
 
+func TestRoyalConflictRadiantAngelLetsAnyElementPayLightCosts(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	lightCard := NewCardInstance(baseCard(t, "1521104"), 0, 1)
+	cost := engine.effectiveCardPlayCost(p0, lightCard)
+
+	p0.Elements = cloneElements(map[string]int{model.ElementFire: 5})
+	if engine.canPayCostForCardAction(p0, lightCard, cost, cost, paymentPurposePlay, ActionMessage{}) {
+		t.Fatal("light cost should not be payable with fire without 1521109")
+	}
+
+	angel := placeUnit(baseCard(t, "1521109"), 0, 0, 0, engine)
+	if !engine.canPayCostForCardAction(p0, lightCard, cost, cost, paymentPurposePlay, ActionMessage{}) {
+		t.Fatal("1521109 should let other elements pay light costs")
+	}
+	if !engine.payCostForCardAction(p0, lightCard, cost, cost, paymentPurposePlay, ActionMessage{}) || p0.Elements[model.ElementFire] != 0 {
+		t.Fatalf("1521109 payment should spend fire as light, elements=%v", p0.Elements)
+	}
+
+	p0.Elements = cloneElements(map[string]int{model.ElementFire: 5})
+	angel.Statuses[StatusPetrify] = 1
+	if engine.canPayCostForCardAction(p0, lightCard, cost, cost, paymentPurposePlay, ActionMessage{}) {
+		t.Fatal("petrified 1521109 should not enable other elements as light")
+	}
+}
+
 func TestRoyalConflictArcaneDrainRequiresDistinctUseElements(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
