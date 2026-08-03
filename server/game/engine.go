@@ -2331,6 +2331,11 @@ func (e *Engine) handleAttack(playerID int, action ActionMessage) error {
 	if !e.isInDirectAttackRange(playerID, attacker, attackerIsEquipment, targetCol, targetRow) {
 		return fmt.Errorf("target is not in attack range")
 	}
+	if attackCost := e.effectiveAttackCost(ps, attacker); totalElementCost(attackCost) > 0 {
+		if !e.payCostForCardAction(ps, attacker, attackCost, attackCost, paymentPurposeAttack, action) {
+			return fmt.Errorf("invalid attack payment")
+		}
+	}
 
 	// Consume attacker (横置)
 	attacker.IsHorizontal = true

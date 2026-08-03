@@ -5,6 +5,7 @@ import (
 	"math/rand"
 	"strings"
 
+	"eraofarcane/cards"
 	"eraofarcane/model"
 )
 
@@ -56,6 +57,61 @@ func (Card1001101AbandonedPawn) OnDeath(ctx *EffectContext) error {
 		}
 	}
 	return nil
+}
+
+const conductorConsumedCountStatus = "指挥家消耗计数"
+
+type Card1011102ConductorLos struct{ AlwaysActive }
+
+func (Card1011102ConductorLos) ID() string   { return "1011102" }
+func (Card1011102ConductorLos) Name() string { return "\"指挥家\" 洛斯" }
+func (Card1011102ConductorLos) OnConsume(ctx *EffectContext) error {
+	if ctx.Source == nil || ctx.Target == nil {
+		return nil
+	}
+	ctx.Source.Statuses[conductorConsumedCountStatus]++
+	if ctx.Source.Statuses[conductorConsumedCountStatus] < 4 {
+		return nil
+	}
+	if ctx.Engine.firstFreeEquipmentSlot(ctx.PlayerID) < 0 {
+		return nil
+	}
+	ctx.Source.Statuses[conductorConsumedCountStatus] -= 4
+	if ctx.Source.Statuses[conductorConsumedCountStatus] <= 0 {
+		delete(ctx.Source.Statuses, conductorConsumedCountStatus)
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "conductor_los_equip_finale_violin",
+		"\"指挥家\" 洛斯:是否装备1个落幕提琴", []map[string]any{candidateInfo(ctx.Source, "unit", "own")}, 0, 1,
+		func(selected []string) {
+			if len(selected) == 0 || !ctx.Engine.cardStillOnField(ctx.Source) || ctx.Engine.firstFreeEquipmentSlot(ctx.PlayerID) < 0 {
+				return
+			}
+			ctx.Engine.equipGeneratedCard(ctx.PlayerID, "2001101")
+		})
+	return nil
+}
+func (Card1011102ConductorLos) PerTurnLabel(*CardInstance) string {
+	return "消耗"
+}
+func (Card1011102ConductorLos) OnPerTurn(ctx *EffectContext) error {
+	if ctx.Source == nil || !ctx.Engine.canConsumeCard(ctx.Source) || !ctx.Engine.cardStillOnField(ctx.Source) {
+		return fmt.Errorf("\"指挥家\" 洛斯需要在场且竖置才能消耗")
+	}
+	ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, ctx.Engine.effectiveElementsGain(ctx.Source), "1011102")
+	for _, equipment := range ctx.Engine.State.Players[ctx.PlayerID].Equipment {
+		if equipment != nil && equipment.Card != nil && equipment.Card.Number == "2001101" {
+			equipment.IsHorizontal = false
+		}
+	}
+	return nil
+}
+
+type Card2001101FinaleViolin struct{ AlwaysActive }
+
+func (Card2001101FinaleViolin) ID() string   { return "2001101" }
+func (Card2001101FinaleViolin) Name() string { return "落幕提琴" }
+func (Card2001101FinaleViolin) AttackCost(*EffectContext) map[string]int {
+	return map[string]int{model.ElementArcane: 2}
 }
 
 type Card3001101EnterGame struct{ AlwaysActive }
@@ -220,6 +276,43 @@ func (Card1121106FireBeastTrainer) OnCardPlayCostPaid(ctx *EffectContext, card *
 	}
 }
 
+type Card4111101ChiefAdvisorFelin struct{ AlwaysActive }
+
+func (Card4111101ChiefAdvisorFelin) ID() string   { return "4111101" }
+func (Card4111101ChiefAdvisorFelin) Name() string { return "首席顾问 费林" }
+func (Card4111101ChiefAdvisorFelin) OnUltimate(ctx *EffectContext) error {
+	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, isFireCompanion)
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "felin_sacrifice_fire_companion",
+		"首席顾问 费林:献祭1个友方火焰伙伴", candidates, 1, 1,
+		func(selected []string) {
+			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, firstSelected(selected))
+			if target == nil || zone != "unit" || !isFireCompanion(target) {
+				return
+			}
+			cost := copyElementCost(target.Card.ElementsCost)
+			if totalElementCost(cost) <= 0 {
+				return
+			}
+			ctx.Engine.destroyUnitWithCause(target, ctx.PlayerID, DeathCauseSacrifice)
+			for _, elem := range model.AllElements {
+				if cost[elem] <= 0 {
+					continue
+				}
+				ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
+					Type:          TempModNextFireCardPlayCostMinus,
+					Element:       elem,
+					Amount:        cost[elem],
+					RemainingUses: 1,
+					ExpiresTurn:   ctx.Engine.State.TurnNumber + 1,
+				})
+			}
+		})
+	return nil
+}
+
 func isFireBeastOrMonsterCompanion(card *CardInstance) bool {
 	if card == nil || card.Card == nil || !card.Card.IsCompanion() || card.Card.Category != model.ElementFire {
 		return false
@@ -322,6 +415,74 @@ func (Card1121114LegionGeneral) OnPerTurn(ctx *EffectContext) error {
 			}
 		})
 	return nil
+}
+
+type Card1121110LavafortArchivist struct{ AlwaysActive }
+
+func (Card1121110LavafortArchivist) ID() string   { return "1121110" }
+func (Card1121110LavafortArchivist) Name() string { return "熔岩堡档案员" }
+func (Card1121110LavafortArchivist) OnSpellCast(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.Target.Card == nil || ctx.Source.UltimateUsed {
+		return nil
+	}
+	if !isFriendlySpellCast(ctx) || !hasCardTag(ctx.Target.Card, "创造") {
+		return nil
+	}
+	drawn := ctx.Engine.flipDeckMatchesToHand(ctx.PlayerID, 1, 0, isRuneOrScroll)
+	if len(drawn) > 0 {
+		ctx.Source.UltimateUsed = true
+	}
+	return nil
+}
+
+type Card1121115LegionStaffOfficer struct{ AlwaysActive }
+
+func (Card1121115LegionStaffOfficer) ID() string   { return "1121115" }
+func (Card1121115LegionStaffOfficer) Name() string { return "军团参谋" }
+func (Card1121115LegionStaffOfficer) OnSpellCast(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.Target.Card == nil {
+		return nil
+	}
+	if ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) || !isFriendlySpellCast(ctx) || !hasCardTag(ctx.Target.Card, "创造") {
+		return nil
+	}
+	if !deckHasMatch(ctx.Engine.State.Players[ctx.PlayerID], isFireConsumableItem) {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "legion_staff_officer_flip_fire_consumable",
+		"军团参谋:是否翻取1个火焰消耗品道具", []map[string]any{candidateInfo(ctx.Source, "unit", "own")}, 0, 1,
+		func(selected []string) {
+			if len(selected) == 0 || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) {
+				return
+			}
+			drawn := ctx.Engine.flipDeckMatchesToHand(ctx.PlayerID, 1, 0, isFireConsumableItem)
+			if len(drawn) == 0 {
+				return
+			}
+			ps := ctx.Engine.State.Players[ctx.PlayerID]
+			if ps.DiscardAtTurnEnd == nil {
+				ps.DiscardAtTurnEnd = make(map[string]bool)
+			}
+			ps.DiscardAtTurnEnd[drawn[0].InstanceID] = true
+			ctx.Source.UsedThisTurn++
+		})
+	return nil
+}
+
+func isFireConsumableItem(card *CardInstance) bool {
+	return card != nil && card.Card != nil && card.Card.Category == model.ElementFire && isConsumableCardInstance(card)
+}
+
+func deckHasMatch(ps *PlayerState, predicate func(*CardInstance) bool) bool {
+	if ps == nil {
+		return false
+	}
+	for _, card := range ps.Deck {
+		if card != nil && (predicate == nil || predicate(card)) {
+			return true
+		}
+	}
+	return false
 }
 
 type Card1221106MirrorLotus struct{ AlwaysActive }
@@ -836,6 +997,19 @@ func dragonBloodTreantRemoveLoad(card *CardInstance, elem string) {
 	setElementsGain(card, base)
 }
 
+func reducibleElementLoad(card *CardInstance, elem string) int {
+	return dragonBloodTreantReducibleLoad(card)[elem]
+}
+
+func reduceCardElementLoad(card *CardInstance, elem string, amount int) {
+	for i := 0; i < amount; i++ {
+		if reducibleElementLoad(card, elem) <= 0 {
+			return
+		}
+		dragonBloodTreantRemoveLoad(card, elem)
+	}
+}
+
 type Card1321110SilverleafMessenger struct{ AlwaysActive }
 
 func (Card1321110SilverleafMessenger) ID() string   { return "1321110" }
@@ -1271,7 +1445,7 @@ func (Card1421106PhantomLizard) OnSpellCast(ctx *EffectContext) error {
 				return
 			}
 			ctx.Source.UltimateUsed = true
-			consumeCardForEffectWithTriggers(ctx.Engine, ctx.PlayerID, ctx.Source)
+			ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, ctx.Engine.effectiveElementsGain(ctx.Source), "")
 			moveUnitToGraveyardWithoutDeath(ctx.Engine, ctx.PlayerID, ctx.Source)
 			positions := ctx.Engine.friendlyEmptyUnitPositions(ctx.PlayerID)
 			if len(positions) < 2 {
@@ -1301,11 +1475,11 @@ func (Card1421106PhantomLizard) OnSpellCast(ctx *EffectContext) error {
 	return nil
 }
 
-func consumeCardForEffectWithTriggers(e *Engine, playerID int, card *CardInstance) {
+func (e *Engine) consumeCardForEffectWithTriggers(playerID int, card *CardInstance, gains map[string]int, sourceNumber string) {
 	if e == nil || card == nil || playerID < 0 || playerID >= len(e.State.Players) || !e.canConsumeCard(card) {
 		return
 	}
-	gains := e.effectiveElementsGain(card)
+	gains = copyElementCost(gains)
 	card.IsHorizontal = true
 	ps := e.State.Players[playerID]
 	ps.GainElements(gains)
@@ -1319,17 +1493,16 @@ func consumeCardForEffectWithTriggers(e *Engine, playerID int, card *CardInstanc
 			"gained":      gains,
 		},
 	})
-	e.triggerEffects(TriggerOnConsume, card, nil, map[string]any{
-		"gained": gains,
-	})
-	e.triggerFieldEffectsWithData(TriggerOnConsume, playerID, card, map[string]any{
+	consumeData := map[string]any{
 		"consumed_player": playerID,
 		"gained":          gains,
-	})
-	e.triggerFieldEffectsWithData(TriggerOnConsume, 1-playerID, card, map[string]any{
-		"consumed_player": playerID,
-		"gained":          gains,
-	})
+	}
+	if sourceNumber != "" {
+		consumeData["consume_source"] = sourceNumber
+	}
+	e.triggerEffects(TriggerOnConsume, card, nil, consumeData)
+	e.triggerFieldEffectsWithData(TriggerOnConsume, playerID, card, consumeData)
+	e.triggerFieldEffectsWithData(TriggerOnConsume, 1-playerID, card, consumeData)
 	e.advanceMastery(card, playerID, 1)
 	e.destroyFuyeDoomedCardAfterExert(card)
 }
@@ -2077,33 +2250,122 @@ func (Card2121108BurnoutScroll) OnUseItem(ctx *EffectContext) error {
 			if target == nil || zone != "unit" || !isFireCompanion(target) || !ctx.Engine.canConsumeCard(target) {
 				return
 			}
-			gains := copyElementCost(target.Card.ElementsCost)
-			target.IsHorizontal = true
-			if len(gains) > 0 {
-				ctx.Engine.State.Players[ctx.PlayerID].GainElements(gains)
-			}
-			ctx.Engine.emit(GameEvent{
-				Type:   "consume",
-				Player: -1,
-				Data: map[string]any{
-					"player":      ctx.PlayerID,
-					"instance_id": target.InstanceID,
-					"elements":    ctx.Engine.State.Players[ctx.PlayerID].Elements,
-					"gained":      gains,
-				},
-			})
-			consumeData := map[string]any{
-				"consumed_player": ctx.PlayerID,
-				"consume_source":  "2121108",
-				"gained":          gains,
-			}
-			ctx.Engine.triggerEffects(TriggerOnConsume, target, nil, consumeData)
-			ctx.Engine.triggerFieldEffectsWithData(TriggerOnConsume, ctx.PlayerID, target, consumeData)
-			ctx.Engine.triggerFieldEffectsWithData(TriggerOnConsume, ctx.OpponentID, target, consumeData)
-			ctx.Engine.advanceMastery(target, ctx.PlayerID, 1)
-			ctx.Engine.destroyFuyeDoomedCardAfterExert(target)
+			ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, target, target.Card.ElementsCost, "2121108")
 		})
 	return nil
+}
+
+const beastTamingCollarTargetPrefix = "驯兽项圈目标:"
+
+type Card2121106BeastTamingCollar struct{ AlwaysActive }
+
+func (Card2121106BeastTamingCollar) ID() string   { return "2121106" }
+func (Card2121106BeastTamingCollar) Name() string { return "驯兽项圈" }
+func (Card2121106BeastTamingCollar) OnEnter(ctx *EffectContext) error {
+	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, isCollarEligibleFireCompanion)
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "beast_taming_collar_target",
+		"驯兽项圈:选择1个巫师以外的火焰伙伴", candidates, 1, 1,
+		func(selected []string) {
+			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, firstSelected(selected))
+			if target == nil || zone != "unit" || !isCollarEligibleFireCompanion(target) {
+				return
+			}
+			clearStatusPrefix(ctx.Source, beastTamingCollarTargetPrefix)
+			ctx.Source.Statuses[beastTamingCollarTargetPrefix+target.InstanceID] = 1
+		})
+	return nil
+}
+func (Card2121106BeastTamingCollar) PerTurnLabel(*CardInstance) string {
+	return "消耗目标"
+}
+func (Card2121106BeastTamingCollar) OnPerTurn(ctx *EffectContext) error {
+	if !ctx.Engine.equipmentInOwnerSlot(ctx.PlayerID, ctx.Source) {
+		return nil
+	}
+	target := collarTarget(ctx.Engine, ctx.PlayerID, ctx.Source)
+	if target == nil || !ctx.Engine.canConsumeCard(target) {
+		return nil
+	}
+	ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, target, target.Card.ElementsCost, "2121106")
+	return nil
+}
+
+func isCollarEligibleFireCompanion(card *CardInstance) bool {
+	return isFireCompanion(card) && !hasCardTag(card.Card, "巫师")
+}
+
+func collarTarget(e *Engine, playerID int, collar *CardInstance) *CardInstance {
+	if e == nil || collar == nil {
+		return nil
+	}
+	for status, amount := range collar.Statuses {
+		if amount <= 0 || !strings.HasPrefix(status, beastTamingCollarTargetPrefix) {
+			continue
+		}
+		target, zone := e.findFriendlyCandidate(playerID, strings.TrimPrefix(status, beastTamingCollarTargetPrefix))
+		if target != nil && zone == "unit" && isCollarEligibleFireCompanion(target) {
+			return target
+		}
+	}
+	return nil
+}
+
+type Card2421106AgingPotion struct{ AlwaysActive }
+
+func (Card2421106AgingPotion) ID() string   { return "2421106" }
+func (Card2421106AgingPotion) Name() string { return "苍老药剂" }
+func (Card2421106AgingPotion) OnUseItem(ctx *EffectContext) error {
+	candidates := friendlyFieldCardsIncludingBound(ctx.Engine, ctx.PlayerID, func(card *CardInstance) bool {
+		behavior, ok := masteryBehavior(card)
+		return ok && card.Statuses[StatusMastery] < behavior.MasteryMax() && reducibleElementLoad(card, model.ElementEarth) > 0
+	})
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "aging_potion_mastery",
+		"苍老药剂:移除1点地负载并立刻达到下一次精通", candidates, 1, 1,
+		func(selected []string) {
+			target := ctx.Engine.findFriendlyCardIncludingBound(ctx.PlayerID, firstSelected(selected))
+			behavior, ok := masteryBehavior(target)
+			if target == nil || !ok || target.Statuses[StatusMastery] >= behavior.MasteryMax() || reducibleElementLoad(target, model.ElementEarth) <= 0 {
+				return
+			}
+			reduceCardElementLoad(target, model.ElementEarth, 1)
+			ctx.Engine.advanceMastery(target, ctx.PlayerID, 1)
+		})
+	return nil
+}
+
+func clearStatusPrefix(card *CardInstance, prefix string) {
+	if card == nil || prefix == "" {
+		return
+	}
+	for status := range card.Statuses {
+		if strings.HasPrefix(status, prefix) {
+			delete(card.Statuses, status)
+		}
+	}
+}
+
+func friendlyFieldCardsIncludingBound(e *Engine, playerID int, predicate func(*CardInstance) bool) []map[string]any {
+	ps := e.State.Players[playerID]
+	candidates := make([]map[string]any, 0)
+	for _, card := range e.getAllFieldCards(ps) {
+		if card == nil || predicate != nil && !predicate(card) {
+			continue
+		}
+		candidates = append(candidates, candidateInfo(card, "field", "own"))
+		for _, skill := range card.BoundSkills {
+			if skill == nil || predicate != nil && !predicate(skill) {
+				continue
+			}
+			candidates = append(candidates, candidateInfo(skill, "bound_skill", "own"))
+		}
+	}
+	return candidates
 }
 
 type royalInfusionRune struct {
@@ -2214,6 +2476,51 @@ func (e *Engine) equipmentInOwnerSlot(playerID int, target *CardInstance) bool {
 		}
 	}
 	return false
+}
+
+func (e *Engine) firstFreeEquipmentSlot(playerID int) int {
+	if e == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return -1
+	}
+	ps := e.State.Players[playerID]
+	for i := 0; i < equipmentSlotCapacity(ps); i++ {
+		if ps.Equipment[i] == nil {
+			return i
+		}
+	}
+	return -1
+}
+
+func (e *Engine) equipGeneratedCard(playerID int, number string) *CardInstance {
+	if e == nil || number == "" || playerID < 0 || playerID >= len(e.State.Players) {
+		return nil
+	}
+	cardDef, ok := cards.PlayableCardDB[number]
+	if !ok || !cardDef.IsItem() || !isEquipmentCard(cardDef) {
+		return nil
+	}
+	slot := e.firstFreeEquipmentSlot(playerID)
+	if slot < 0 {
+		return nil
+	}
+	card := NewCardInstance(cardDef, playerID, e.State.TurnNumber)
+	card.IsHorizontal = true
+	card.SlotIndex = slot
+	ps := e.State.Players[playerID]
+	ps.Equipment[slot] = card
+	e.emit(GameEvent{
+		Type:   "equip",
+		Player: -1,
+		Data: map[string]any{
+			"player": playerID,
+			"card":   cardToInfo(card),
+			"slot":   slot,
+		},
+	})
+	e.triggerEffects(TriggerOnEquip, card, nil, nil)
+	e.triggerEffects(TriggerOnEnter, card, nil, nil)
+	e.notifyCardEntered(playerID, card, map[string]any{"entered_player": playerID, "equipped": true})
+	return card
 }
 
 type royalWaterUseCostReduction struct {

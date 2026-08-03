@@ -12,6 +12,7 @@ const (
 	TempModNextSkillCostZero            = "next_skill_cost_zero"
 	TempModNextSkillUseCostMinus        = "next_skill_use_cost_minus"
 	TempModNextItemOrSkillCostMinus     = "next_item_or_skill_cost_minus"
+	TempModNextFireCardPlayCostMinus    = "next_fire_card_play_cost_minus"
 	TempModCurrentTurnSkillUseCostMinus = "current_turn_skill_use_cost_minus"
 	TempModCurrentTurnSkillCostZero     = "current_turn_skill_cost_zero"
 	TempModNextLearnedSkillHaste        = "next_learned_skill_haste"
@@ -131,18 +132,24 @@ func (e *Engine) temporaryNextSkillUseCostMinus(ps *PlayerState, skill *CardInst
 }
 
 func (e *Engine) temporaryNextCardPlayCostMinus(ps *PlayerState, card *CardInstance, elem string) int {
-	if ps == nil || !isConsumableOrSkillCardInstance(card) || elem == "" {
+	if ps == nil || card == nil || card.Card == nil || elem == "" {
 		return 0
 	}
 	total := 0
 	for _, modifier := range ps.TempModifiers {
-		if modifier.Type != TempModNextItemOrSkillCostMinus || modifier.RemainingUses == 0 {
+		switch modifier.Type {
+		case TempModNextItemOrSkillCostMinus:
+			if !isConsumableOrSkillCardInstance(card) {
+				continue
+			}
+		case TempModNextFireCardPlayCostMinus:
+			if card.Card.Category != model.ElementFire {
+				continue
+			}
+		default:
 			continue
 		}
-		if modifier.Element != "" && modifier.Element != elem {
-			continue
-		}
-		if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != card.InstanceID {
+		if modifier.RemainingUses == 0 || modifier.Element != "" && modifier.Element != elem || modifier.TargetInstanceID != "" && modifier.TargetInstanceID != card.InstanceID {
 			continue
 		}
 		amount := modifier.Amount
@@ -180,14 +187,23 @@ func (e *Engine) consumeNextSkillUseModifiersForPurpose(ps *PlayerState, skill *
 }
 
 func (e *Engine) consumeNextCardPlayCostModifiers(ps *PlayerState, card *CardInstance) {
-	if ps == nil || !isConsumableOrSkillCardInstance(card) {
+	if ps == nil || card == nil || card.Card == nil {
 		return
 	}
 	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
-		if modifier.Type != TempModNextItemOrSkillCostMinus || modifier.RemainingUses == 0 {
+		if modifier.RemainingUses == 0 || modifier.TargetInstanceID != "" && modifier.TargetInstanceID != card.InstanceID {
 			continue
 		}
-		if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != card.InstanceID {
+		switch modifier.Type {
+		case TempModNextItemOrSkillCostMinus:
+			if !isConsumableOrSkillCardInstance(card) {
+				continue
+			}
+		case TempModNextFireCardPlayCostMinus:
+			if card.Card.Category != model.ElementFire {
+				continue
+			}
+		default:
 			continue
 		}
 		modifier.RemainingUses--

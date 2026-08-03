@@ -100,6 +100,7 @@ func (AlwaysActive) HasActiveDamagePrevention(*CardInstance) bool { return true 
 func (AlwaysActive) HasActiveDamageAmountModifier(*CardInstance) bool {
 	return true
 }
+func (AlwaysActive) HasActiveAttackCost(*CardInstance) bool { return true }
 func (AlwaysActive) HasActiveFieldDamagePrevention(*CardInstance) bool {
 	return true
 }
@@ -166,6 +167,11 @@ type OnDamagedBehavior interface {
 type OnAttackBehavior interface {
 	HasActiveAttack(*CardInstance) bool
 	OnAttack(*EffectContext) error
+}
+
+type AttackCostBehavior interface {
+	HasActiveAttackCost(*CardInstance) bool
+	AttackCost(*EffectContext) map[string]int
 }
 
 type OnFriendlyDamagedFromHiddenBehavior interface {

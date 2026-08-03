@@ -74,6 +74,24 @@ func (e *Engine) effectiveSkillUseCost(ps *PlayerState, skill *CardInstance) map
 	return e.effectiveSkillUseCostForPurpose(ps, skill, skillPurposeAttack)
 }
 
+func (e *Engine) effectiveAttackCost(ps *PlayerState, attacker *CardInstance) map[string]int {
+	if e == nil || ps == nil || attacker == nil || attacker.Card == nil {
+		return map[string]int{}
+	}
+	behavior := globalRegistry.GetBehavior(attacker.Card.Number)
+	costBehavior, ok := behavior.(AttackCostBehavior)
+	if !ok || !costBehavior.HasActiveAttackCost(attacker) {
+		return map[string]int{}
+	}
+	ctx := &EffectContext{
+		Engine:     e,
+		Source:     attacker,
+		PlayerID:   ps.PlayerID,
+		OpponentID: 1 - ps.PlayerID,
+	}
+	return copyElementCost(costBehavior.AttackCost(ctx))
+}
+
 func (e *Engine) effectiveSkillUseCostForPurpose(ps *PlayerState, skill *CardInstance, purpose skillPurpose) map[string]int {
 	if skill == nil || skill.Card == nil {
 		return map[string]int{}

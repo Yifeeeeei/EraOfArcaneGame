@@ -2527,6 +2527,177 @@ func TestRoyalConflictSummonUtilityCards(t *testing.T) {
 	})
 }
 
+func TestRoyalConflictResourceConversionCards(t *testing.T) {
+	t.Run("chief advisor felin sacrifices a fire companion to discount the next fire card", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		felin := placeUnit(baseCard(t, "4111101"), 0, 1, 1, engine)
+		sacrifice := placeUnit(baseCard(t, "1121107"), 0, 0, 0, engine)
+		target := NewCardInstance(baseCard(t, "1121107"), 0, 1)
+		p0.Hand = []*CardInstance{target}
+
+		if err := (Card4111101ChiefAdvisorFelin{}).OnUltimate(&EffectContext{Engine: engine, Source: felin, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("4111101 ultimate: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "felin_sacrifice_fire_companion" || !candidateContains(engine.State.PendingAction.Candidates, sacrifice.InstanceID) {
+			t.Fatalf("4111101 should ask for a fire companion sacrifice, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, sacrifice.InstanceID)
+		if !containsCardInstance(p0.Graveyard, sacrifice) || len(p0.TempModifiers) != 2 {
+			t.Fatalf("4111101 should sacrifice target and create next fire discount, grave=%v modifiers=%+v", cardsToInfo(p0.Graveyard), p0.TempModifiers)
+		}
+		if cost := engine.effectiveCardPlayCost(p0, target); cost[model.ElementFire] != 0 || cost[model.ElementAir] != 0 {
+			t.Fatalf("4111101 should discount next fire card by sacrificed card's element costs, cost=%v sacrificeCost=%v", cost, sacrifice.Card.ElementsCost)
+		}
+		nonFire := NewCardInstance(baseCard(t, "1221104"), 0, 1)
+		if cost := engine.effectiveCardPlayCost(p0, nonFire); cost[model.ElementWater] != nonFire.Card.ElementsCost[model.ElementWater] {
+			t.Fatalf("4111101 should not discount non-fire cards, cost=%v", cost)
+		}
+		engine.notifyCardPlayCostPaid(p0, target)
+		if len(p0.TempModifiers) != 0 {
+			t.Fatalf("4111101 discount should be consumed by the next fire card, modifiers=%+v", p0.TempModifiers)
+		}
+	})
+
+	t.Run("beast taming collar binds and consumes the chosen fire companion for entry cost", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		collar := NewCardInstance(baseCard(t, "2121106"), 0, 1)
+		p0.Equipment[0] = collar
+		target := placeUnit(baseCard(t, "1121105"), 0, 0, 0, engine)
+		target.IsHorizontal = false
+
+		if err := (Card2121106BeastTamingCollar{}).OnEnter(&EffectContext{Engine: engine, Source: collar, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("2121106 enter: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "beast_taming_collar_target" || !candidateContains(engine.State.PendingAction.Candidates, target.InstanceID) {
+			t.Fatalf("2121106 should ask for eligible fire companion, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, target.InstanceID)
+		if collarTarget(engine, 0, collar) != target {
+			t.Fatalf("2121106 should remember selected companion, statuses=%v", collar.Statuses)
+		}
+		if err := (Card2121106BeastTamingCollar{}).OnPerTurn(&EffectContext{Engine: engine, Source: collar, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("2121106 per-turn: %v", err)
+		}
+		if !target.IsHorizontal || p0.Elements[model.ElementFire] != target.Card.ElementsCost[model.ElementFire] {
+			t.Fatalf("2121106 should consume target and gain its entry fire cost, horizontal=%v elements=%v cost=%v", target.IsHorizontal, p0.Elements, target.Card.ElementsCost)
+		}
+	})
+
+	t.Run("lavafort archivist and legion staff officer flip cards after creation spells", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		archivist := placeUnit(baseCard(t, "1121110"), 0, 0, 0, engine)
+		officer := placeUnit(baseCard(t, "1121115"), 0, 2, 0, engine)
+		createSkill := readySkill(baseCard(t, "3021107"), 0)
+		rune := NewCardInstance(baseCard(t, "2021111"), 0, 1)
+		fireConsumable := NewCardInstance(baseCard(t, "2121108"), 0, 1)
+		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1), rune, fireConsumable}
+
+		if err := (Card1121110LavafortArchivist{}).OnSpellCast(&EffectContext{Engine: engine, Source: archivist, Target: createSkill, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"cast_player": 0}}); err != nil {
+			t.Fatalf("1121110 spell cast: %v", err)
+		}
+		if !containsCardInstance(p0.Hand, rune) || !archivist.UltimateUsed {
+			t.Fatalf("1121110 should flip a rune or scroll and spend ultimate, hand=%v ultimate=%v", cardsToInfo(p0.Hand), archivist.UltimateUsed)
+		}
+		if err := (Card1121115LegionStaffOfficer{}).OnSpellCast(&EffectContext{Engine: engine, Source: officer, Target: createSkill, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"cast_player": 0}}); err != nil {
+			t.Fatalf("1121115 spell cast: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "legion_staff_officer_flip_fire_consumable" {
+			t.Fatalf("1121115 should offer optional fire consumable flip, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, officer.InstanceID)
+		if !containsCardInstance(p0.Hand, fireConsumable) || !p0.DiscardAtTurnEnd[fireConsumable.InstanceID] || officer.UsedThisTurn != 1 {
+			t.Fatalf("1121115 should flip a fire consumable, mark it for discard, and spend use, hand=%v discard=%v used=%d", cardsToInfo(p0.Hand), p0.DiscardAtTurnEnd, officer.UsedThisTurn)
+		}
+	})
+
+	t.Run("aging potion removes earth load and advances target to next mastery", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		target := readySkill(baseCard(t, "3421001"), 0)
+		target.ElementsGainBonus[model.ElementEarth] = 1
+		p0.Skills[0] = target
+		potion := NewCardInstance(baseCard(t, "2421106"), 0, 1)
+
+		if err := (Card2421106AgingPotion{}).OnUseItem(&EffectContext{Engine: engine, Source: potion, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("2421106 use: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "aging_potion_mastery" || !candidateContains(engine.State.PendingAction.Candidates, target.InstanceID) {
+			t.Fatalf("2421106 should ask for a friendly card with earth load and mastery, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, target.InstanceID)
+		if target.ElementsGainBonus[model.ElementEarth] != 0 || target.Statuses[StatusMastery] != 1 {
+			t.Fatalf("2421106 should remove one earth load and advance mastery, load=%v mastery=%v", target.ElementsGainBonus, target.Statuses[StatusMastery])
+		}
+	})
+
+	t.Run("conductor los equips finale violin after four consumed cards and resets them by consuming itself", func(t *testing.T) {
+		engine := setupEffectTest(t)
+		p0 := engine.State.Players[0]
+		los := placeUnit(baseCard(t, "1011102"), 0, 1, 1, engine)
+		consumed := []*CardInstance{
+			placeUnit(baseCard(t, "1001101"), 0, 0, 0, engine),
+			placeUnit(baseCard(t, "1021101"), 0, 1, 0, engine),
+			placeUnit(baseCard(t, "1021102"), 0, 2, 0, engine),
+			placeUnit(baseCard(t, "1021103"), 0, 0, 2, engine),
+		}
+		for i, card := range consumed {
+			card.IsHorizontal = false
+			engine.consumeCardForEffectWithTriggers(0, card, card.Card.ElementsGain, "")
+			if i < 3 && engine.State.PendingAction != nil {
+				t.Fatalf("1011102 should wait for four consumed cards, i=%d pending=%+v", i, engine.State.PendingAction)
+			}
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "conductor_los_equip_finale_violin" {
+			t.Fatalf("1011102 should offer finale violin after four consumes, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0)
+		if los.Statuses[conductorConsumedCountStatus] != 0 || p0.Equipment[0] != nil {
+			t.Fatalf("1011102 should spend four-count even when skipped, statuses=%v equipment=%v", los.Statuses, cardsToInfo(p0.Equipment[:]))
+		}
+		for _, card := range consumed {
+			card.IsHorizontal = false
+			engine.consumeCardForEffectWithTriggers(0, card, card.Card.ElementsGain, "")
+		}
+		resolvePendingSelection(t, engine, 0, los.InstanceID)
+		if p0.Equipment[0] == nil || p0.Equipment[0].Card.Number != "2001101" || !p0.Equipment[0].IsHorizontal {
+			t.Fatalf("1011102 should equip a horizontal finale violin, equipment=%v", cardsToInfo(p0.Equipment[:]))
+		}
+
+		violin := p0.Equipment[0]
+		los.IsHorizontal = false
+		if err := (Card1011102ConductorLos{}).OnPerTurn(&EffectContext{Engine: engine, Source: los, PlayerID: 0, OpponentID: 1}); err != nil {
+			t.Fatalf("1011102 per-turn: %v", err)
+		}
+		if !los.IsHorizontal || violin.IsHorizontal {
+			t.Fatalf("1011102 should consume itself and reset finale violins, los=%v violin=%v", los.IsHorizontal, violin.IsHorizontal)
+		}
+
+		target := placeUnit(baseCard(t, "1021101"), 1, 1, 0, engine)
+		p0.Elements[model.ElementArcane] = 1
+		if err := engine.handleAttack(0, ActionMessage{Data: map[string]any{
+			"attacker_id": violin.InstanceID,
+			"target_col":  float64(target.Position.Col),
+			"target_row":  float64(target.Position.Row),
+		}}); err == nil {
+			t.Fatalf("2001101 should require 2 arcane to attack")
+		}
+		p0.Elements[model.ElementArcane] = 2
+		if err := engine.handleAttack(0, ActionMessage{Data: map[string]any{
+			"attacker_id": violin.InstanceID,
+			"target_col":  float64(target.Position.Col),
+			"target_row":  float64(target.Position.Row),
+		}}); err != nil {
+			t.Fatalf("2001101 attack with payment: %v", err)
+		}
+		if p0.Elements[model.ElementArcane] != 0 || !violin.IsHorizontal || target.CurrentLife != target.Card.Life-1 {
+			t.Fatalf("2001101 should pay 2 arcane and attack for 1, elements=%v horizontal=%v targetLife=%d", p0.Elements, violin.IsHorizontal, target.CurrentLife)
+		}
+	})
+}
+
 func TestRoyalConflictPrintedBoundSkills(t *testing.T) {
 	cases := []struct {
 		name        string

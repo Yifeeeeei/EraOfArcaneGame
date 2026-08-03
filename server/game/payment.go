@@ -5,9 +5,10 @@ import "eraofarcane/model"
 type paymentPurpose string
 
 const (
-	paymentPurposePlay  paymentPurpose = "play"
-	paymentPurposeLearn paymentPurpose = "learn"
-	paymentPurposeUse   paymentPurpose = "use"
+	paymentPurposePlay   paymentPurpose = "play"
+	paymentPurposeLearn  paymentPurpose = "learn"
+	paymentPurposeUse    paymentPurpose = "use"
+	paymentPurposeAttack paymentPurpose = "attack"
 )
 
 func cloneElements(elements map[string]int) map[string]int {
