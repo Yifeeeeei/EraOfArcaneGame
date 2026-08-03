@@ -30,6 +30,7 @@ const (
 	TriggerOnFriendlyDeath                             // 友方死亡: any friendly unit dies
 	TriggerOnEnemyDeath                                // 敌方死亡: any enemy unit dies
 	TriggerOnUnitEnter                                 // 任意入场: any unit enters field (for passive listeners)
+	TriggerOnCardEnter                                 // 任意卡牌入场: any card enters a field zone
 	TriggerPerTurn                                     // 回合技: active ability (per-turn)
 	TriggerUltimate                                    // 绝技: one-time active ability
 	TriggerOnEquip                                     // 装备时: item is equipped
@@ -310,6 +311,17 @@ func (e *Engine) triggerFieldEffectsWithData(trigger EffectTrigger, playerID int
 	return e.promptCounterTrapQueue(counterCandidates, trigger, eventSource, extraData, nil)
 }
 
+func (e *Engine) notifyCardEntered(playerID int, card *CardInstance, extraData map[string]any) {
+	if card == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return
+	}
+	data := cloneExtraData(extraData)
+	data["entered_player"] = playerID
+	data["entered_card"] = card
+	e.triggerFieldEffectsWithData(TriggerOnCardEnter, playerID, card, data)
+	e.triggerFieldEffectsWithData(TriggerOnCardEnter, 1-playerID, card, data)
+}
+
 func triggerName(t EffectTrigger) string {
 	switch t {
 	case TriggerOnEnter:
@@ -342,6 +354,8 @@ func triggerName(t EffectTrigger) string {
 		return "on_load_gain"
 	case TriggerOnMastery:
 		return "on_mastery"
+	case TriggerOnCardEnter:
+		return "on_card_enter"
 	case TriggerPerTurn:
 		return "per_turn"
 	case TriggerUltimate:

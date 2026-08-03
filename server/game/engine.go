@@ -146,6 +146,7 @@ func (e *Engine) triggerInitialHeroEnterEffects() {
 		}
 		data := map[string]any{"initial_setup": true, "entered_player": playerID}
 		e.triggerEffects(TriggerOnEnter, hero, nil, data)
+		e.notifyCardEntered(playerID, hero, data)
 		e.triggerFieldEffectsWithData(TriggerOnUnitEnter, playerID, hero, data)
 		e.triggerFieldEffectsWithData(TriggerOnUnitEnter, 1-playerID, hero, data)
 	}
@@ -876,6 +877,7 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 	e.triggerEffects(TriggerOnEnter, card, nil, nil)
 
 	enterData := map[string]any{"entered_player": playerID}
+	e.notifyCardEntered(playerID, card, enterData)
 	// Notify both sides about the new unit entering; individual card behaviors
 	// decide whether they care about friendly or enemy units.
 	e.triggerFieldEffectsWithData(TriggerOnUnitEnter, playerID, card, enterData)
@@ -2888,6 +2890,7 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 
 	e.triggerEffects(TriggerOnEquip, card, nil, nil)
 	e.triggerEffects(TriggerOnEnter, card, nil, nil)
+	e.notifyCardEntered(playerID, card, map[string]any{"entered_player": playerID, "equipped": true})
 
 	return nil
 }
@@ -2996,6 +2999,7 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 		},
 	})
 	e.triggerEffects(TriggerOnEnter, skill, nil, nil)
+	e.notifyCardEntered(playerID, skill, map[string]any{"entered_player": playerID, "learned_skill": true})
 
 	return nil
 }
@@ -3070,6 +3074,7 @@ func (e *Engine) learnSkillFromPoolWithoutCost(playerID int, instanceID string, 
 		},
 	})
 	e.triggerEffects(TriggerOnEnter, skill, nil, nil)
+	e.notifyCardEntered(playerID, skill, map[string]any{"entered_player": playerID, "learned_skill": true})
 	return true
 }
 
@@ -3440,6 +3445,7 @@ func (e *Engine) handlePlaceTerrain(playerID int, action ActionMessage) error {
 
 	// Trigger 入场 (on enter) effects for the terrain
 	e.triggerEffects(TriggerOnEnter, card, nil, nil)
+	e.notifyCardEntered(playerID, card, map[string]any{"entered_player": playerID, "terrain": true})
 
 	e.checkWinCondition()
 	return nil

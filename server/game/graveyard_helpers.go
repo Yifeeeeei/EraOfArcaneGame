@@ -49,6 +49,10 @@ func (e *Engine) reviveCompanionFromGraveyardWithLifeAtPosition(playerID int, in
 			"elements": ps.Elements,
 		}})
 		e.triggerEffects(TriggerOnEnter, card, nil, nil)
+		enterData := map[string]any{"entered_player": playerID}
+		e.notifyCardEntered(playerID, card, enterData)
+		e.triggerFieldEffectsWithData(TriggerOnUnitEnter, playerID, card, enterData)
+		e.triggerFieldEffectsWithData(TriggerOnUnitEnter, 1-playerID, card, enterData)
 		return true
 	}
 	return false

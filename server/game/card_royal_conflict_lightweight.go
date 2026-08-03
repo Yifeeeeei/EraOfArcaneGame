@@ -380,6 +380,104 @@ func highestFriendlyLightCompanionLifeAndLoad(e *Engine, playerID int) int {
 	return best
 }
 
+const (
+	collectorEquipTriggeredTurnStatus = "收藏家装备触发回合"
+	collectorItemTriggeredTurnStatus  = "收藏家消耗品触发回合"
+)
+
+type Card1011101CollectorCoralFenlo struct{ AlwaysActive }
+
+func (Card1011101CollectorCoralFenlo) ID() string   { return "1011101" }
+func (Card1011101CollectorCoralFenlo) Name() string { return "收藏家 珊瑚 芬洛" }
+func (Card1011101CollectorCoralFenlo) OnCardEnter(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.Target.Card == nil || ctx.ExtraData == nil {
+		return nil
+	}
+	enteredPlayer, _ := ctx.ExtraData["entered_player"].(int)
+	equipped, _ := ctx.ExtraData["equipped"].(bool)
+	if enteredPlayer != ctx.PlayerID || !equipped || !isEquipmentCard(ctx.Target.Card) || ctx.Source.Statuses[collectorEquipTriggeredTurnStatus] == ctx.Engine.State.TurnNumber {
+		return nil
+	}
+	ctx.Engine.drawCards(ctx.PlayerID, 1)
+	ctx.Source.Statuses[collectorEquipTriggeredTurnStatus] = ctx.Engine.State.TurnNumber
+	return nil
+}
+func (Card1011101CollectorCoralFenlo) OnUseItem(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.Target.Card == nil || ctx.ExtraData == nil {
+		return nil
+	}
+	usedPlayer, _ := ctx.ExtraData["used_player"].(int)
+	if usedPlayer != ctx.PlayerID || !isConsumableCardInstance(ctx.Target) || ctx.Source.Statuses[collectorItemTriggeredTurnStatus] == ctx.Engine.State.TurnNumber {
+		return nil
+	}
+	ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementArcane: 1})
+	ctx.Source.Statuses[collectorItemTriggeredTurnStatus] = ctx.Engine.State.TurnNumber
+	return nil
+}
+
+type Card1521111CouncilConsul struct{ AlwaysActive }
+
+func (Card1521111CouncilConsul) ID() string   { return "1521111" }
+func (Card1521111CouncilConsul) Name() string { return "议庭执政官" }
+func (Card1521111CouncilConsul) OnUnitEnter(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Target == nil || ctx.Target.Card == nil || ctx.ExtraData == nil {
+		return nil
+	}
+	enteredPlayer, _ := ctx.ExtraData["entered_player"].(int)
+	if enteredPlayer != ctx.OpponentID || !ctx.Target.Card.IsCompanion() {
+		return nil
+	}
+	addGeneratedCardsToPlayerDeck(ctx, ctx.OpponentID, "2001102", 3)
+	return nil
+}
+
+type Card4011101PureSpiritOshis struct{ AlwaysActive }
+
+func (Card4011101PureSpiritOshis) ID() string   { return "4011101" }
+func (Card4011101PureSpiritOshis) Name() string { return "纯净灵体 奥希斯" }
+func (Card4011101PureSpiritOshis) OnCardEnter(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Target == nil || ctx.Target.Card == nil || ctx.ExtraData == nil {
+		return nil
+	}
+	enteredPlayer, _ := ctx.ExtraData["entered_player"].(int)
+	if enteredPlayer != ctx.PlayerID || ctx.Target.Card.Category == model.ElementArcane {
+		return nil
+	}
+	for _, skill := range friendlySpellInstancesIncludingBound(ctx.Engine, ctx.PlayerID) {
+		if canInstanceBeWeakened(skill) {
+			ctx.Engine.addStatus(skill, StatusWeaken, 2)
+		}
+	}
+	return nil
+}
+
+func friendlySpellInstancesIncludingBound(e *Engine, playerID int) []*CardInstance {
+	if e == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return nil
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return nil
+	}
+	result := make([]*CardInstance, 0)
+	for _, skill := range ps.Skills {
+		if skill != nil {
+			result = append(result, skill)
+		}
+	}
+	for _, card := range e.getAllFieldCards(ps) {
+		if card == nil {
+			continue
+		}
+		for _, skill := range card.BoundSkills {
+			if skill != nil {
+				result = append(result, skill)
+			}
+		}
+	}
+	return result
+}
+
 type Card3611102ClawOfErebos struct{ AlwaysActive }
 
 func (Card3611102ClawOfErebos) ID() string   { return "3611102" }
@@ -459,6 +557,10 @@ var _ ElementsGainModifier = Card2521103RedAgateChalice{}
 var _ OnUseItemBehavior = Card2221109QuickIceBullet{}
 var _ SkillUsePermissionModifier = Card3511102LastStandLight{}
 var _ SkillContributionModifier = Card3511102LastStandLight{}
+var _ OnCardEnterBehavior = Card1011101CollectorCoralFenlo{}
+var _ OnUseItemBehavior = Card1011101CollectorCoralFenlo{}
+var _ OnUnitEnterBehavior = Card1521111CouncilConsul{}
+var _ OnCardEnterBehavior = Card4011101PureSpiritOshis{}
 var _ SkillLearnPermissionModifier = Card3611102ClawOfErebos{}
 var _ SkillContributionModifier = Card3611102ClawOfErebos{}
 var _ OnSpellCastBehavior = Card3611102ClawOfErebos{}

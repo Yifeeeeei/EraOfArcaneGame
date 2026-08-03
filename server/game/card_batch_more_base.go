@@ -574,6 +574,7 @@ func summonGreatDruidLifeSeedAtPosition(ctx *EffectContext, pos Position) {
 	ps.Units[pos.Col][pos.Row] = seed
 	ctx.Engine.ApplySummonModifiersOnEnter(seed)
 	ctx.Engine.triggerEffects(TriggerOnEnter, seed, nil, nil)
+	ctx.Engine.notifyCardEntered(ctx.PlayerID, seed, map[string]any{"entered_player": ctx.PlayerID})
 	ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.PlayerID, seed, map[string]any{"entered_player": ctx.PlayerID})
 	ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.OpponentID, seed, map[string]any{"entered_player": ctx.PlayerID})
 }

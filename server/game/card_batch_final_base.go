@@ -655,6 +655,7 @@ func (e *Engine) summonWaterPhantomCopy(playerID int, targetID string, pos Posit
 	})
 	e.triggerEffects(TriggerOnEnter, copyUnit, nil, nil)
 	enterData := map[string]any{"entered_player": playerID}
+	e.notifyCardEntered(playerID, copyUnit, enterData)
 	e.triggerFieldEffectsWithData(TriggerOnUnitEnter, playerID, copyUnit, enterData)
 	e.triggerFieldEffectsWithData(TriggerOnUnitEnter, 1-playerID, copyUnit, enterData)
 	return copyUnit

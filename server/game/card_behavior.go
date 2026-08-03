@@ -72,6 +72,7 @@ func (AlwaysActive) HasActiveDrawReveal(*CardInstance) bool                { ret
 func (AlwaysActive) HasActiveDraw(*CardInstance) bool                      { return true }
 func (AlwaysActive) HasActiveLoadGain(*CardInstance) bool                  { return true }
 func (AlwaysActive) HasActiveMasteryAchieved(*CardInstance) bool           { return true }
+func (AlwaysActive) HasActiveCardEnter(*CardInstance) bool                 { return true }
 func (AlwaysActive) HasActivePrayer(*CardInstance) bool                    { return true }
 func (AlwaysActive) HasActiveSkillLearnPermission(*CardInstance) bool      { return true }
 func (AlwaysActive) HasActiveSkillUsability(*CardInstance) bool            { return true }
@@ -140,6 +141,11 @@ type OnTurnEndBehavior interface {
 type OnUnitEnterBehavior interface {
 	HasActiveUnitEnter(*CardInstance) bool
 	OnUnitEnter(*EffectContext) error
+}
+
+type OnCardEnterBehavior interface {
+	HasActiveCardEnter(*CardInstance) bool
+	OnCardEnter(*EffectContext) error
 }
 
 type OnFriendlyDeathBehavior interface {
@@ -538,6 +544,14 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 				return nil
 			}
 			return h.OnUnitEnter(ctx)
+		})
+	}
+	if h, ok := behavior.(OnCardEnterBehavior); ok {
+		r.Register(id, TriggerOnCardEnter, func(ctx *EffectContext) error {
+			if !h.HasActiveCardEnter(ctx.Source) {
+				return nil
+			}
+			return h.OnCardEnter(ctx)
 		})
 	}
 	if h, ok := behavior.(OnFriendlyDeathBehavior); ok {

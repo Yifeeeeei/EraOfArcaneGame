@@ -1526,6 +1526,123 @@ func TestRoyalConflictLightweightSpellAndItemEffects(t *testing.T) {
 		}
 	})
 
+	t.Run("collector draws after equipping and gains arcane after using a consumable once each turn", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		collector := placeUnit(baseCard(t, "1011101"), 0, 0, 0, engine)
+		equipmentA := NewCardInstance(baseCard(t, "2521006"), 0, engine.State.TurnNumber)
+		equipmentB := NewCardInstance(baseCard(t, "2521007"), 0, engine.State.TurnNumber)
+		consumableA := NewCardInstance(baseCard(t, "2221109"), 0, engine.State.TurnNumber)
+		consumableB := NewCardInstance(baseCard(t, "2221109"), 0, engine.State.TurnNumber)
+		p0.Hand = []*CardInstance{equipmentA, equipmentB, consumableA, consumableB}
+		p0.Deck = []*CardInstance{
+			NewCardInstance(baseCard(t, "1021001"), 0, engine.State.TurnNumber),
+			NewCardInstance(baseCard(t, "1021002"), 0, engine.State.TurnNumber),
+		}
+		setAllElements(p0, 99)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "equip", Data: map[string]any{"instance_id": equipmentA.InstanceID}}); err != nil {
+			t.Fatalf("equip first item: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "equip", Data: map[string]any{"instance_id": equipmentB.InstanceID}}); err != nil {
+			t.Fatalf("equip second item: %v", err)
+		}
+		if len(p0.Hand) != 3 || collector.Statuses[collectorEquipTriggeredTurnStatus] != engine.State.TurnNumber {
+			t.Fatalf("1011101 should draw once after friendly equipment enters, hand=%d statuses=%v", len(p0.Hand), collector.Statuses)
+		}
+
+		beforeArcane := p0.Elements[model.ElementArcane]
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{"instance_id": consumableA.InstanceID}}); err != nil {
+			t.Fatalf("use first consumable: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{"instance_id": consumableB.InstanceID}}); err != nil {
+			t.Fatalf("use second consumable: %v", err)
+		}
+		if p0.Elements[model.ElementArcane] != beforeArcane+1 || collector.Statuses[collectorItemTriggeredTurnStatus] != engine.State.TurnNumber {
+			t.Fatalf("1011101 should gain one arcane once after friendly consumable use, elements=%v statuses=%v", p0.Elements, collector.Statuses)
+		}
+	})
+
+	t.Run("council consul shuffles marks when the opponent summons companions", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		placeUnit(baseCard(t, "1521111"), 0, 0, 0, engine)
+		enemy := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		enemyHero := NewCardInstance(baseCard(t, "4611101"), 1, engine.State.TurnNumber)
+
+		engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, 0, enemy, map[string]any{"entered_player": 1})
+		if countCardsByNumber(p1.Deck, "2001102") != 3 {
+			t.Fatalf("1521111 should shuffle three marks into the summoning opponent deck, deck=%v", cardsToInfo(p1.Deck))
+		}
+		engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, 0, enemyHero, map[string]any{"entered_player": 1})
+		if countCardsByNumber(p1.Deck, "2001102") != 3 {
+			t.Fatalf("1521111 should ignore enemy heroes, deck=%v", cardsToInfo(p1.Deck))
+		}
+		own := placeUnit(baseCard(t, "1021002"), 0, 1, 0, engine)
+		engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, 0, own, map[string]any{"entered_player": 0})
+		if countCardsByNumber(p1.Deck, "2001102") != 3 || len(p0.Deck) != 0 {
+			t.Fatalf("1521111 should ignore friendly summons, ownDeck=%v enemyDeck=%v", cardsToInfo(p0.Deck), cardsToInfo(p1.Deck))
+		}
+	})
+
+	t.Run("pure spirit weakens friendly spells when non-arcane cards enter", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p0.Hero = NewCardInstance(baseCard(t, "4011101"), 0, engine.State.TurnNumber)
+		skill := readySkill(baseCard(t, "3121001"), 0)
+		p0.Skills[0] = skill
+		host := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+		bound := readySkill(baseCard(t, "3221003"), 0)
+		host.BoundSkills = []*CardInstance{bound}
+		arcaneCard := NewCardInstance(baseCard(t, "1021112"), 0, engine.State.TurnNumber)
+		fireCard := NewCardInstance(baseCard(t, "1121001"), 0, engine.State.TurnNumber)
+		p0.Hand = []*CardInstance{arcaneCard, fireCard}
+		setAllElements(p0, 99)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{"instance_id": arcaneCard.InstanceID, "col": float64(1), "row": float64(0)}}); err != nil {
+			t.Fatalf("summon arcane card: %v", err)
+		}
+		if skill.Statuses[StatusWeaken] != 0 || bound.Statuses[StatusWeaken] != 0 {
+			t.Fatalf("4011101 should ignore arcane card entry, skill=%v bound=%v", skill.Statuses, bound.Statuses)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{"instance_id": fireCard.InstanceID, "col": float64(2), "row": float64(0)}}); err != nil {
+			t.Fatalf("summon non-arcane card: %v", err)
+		}
+		if skill.Statuses[StatusWeaken] != 2 || bound.Statuses[StatusWeaken] != 2 {
+			t.Fatalf("4011101 should weaken all friendly spell instances after non-arcane entry, skill=%v bound=%v", skill.Statuses, bound.Statuses)
+		}
+		engine.notifyCardEntered(1, fireCard, nil)
+		if skill.Statuses[StatusWeaken] != 2 || bound.Statuses[StatusWeaken] != 2 {
+			t.Fatalf("4011101 should ignore opponent card entry, skill=%v bound=%v", skill.Statuses, bound.Statuses)
+		}
+	})
+
+	t.Run("set counter card entry triggers pure spirit but not collector equipment draw", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p0.Hero = NewCardInstance(baseCard(t, "4011101"), 0, engine.State.TurnNumber)
+		placeUnit(baseCard(t, "1011101"), 0, 0, 0, engine)
+		skill := readySkill(baseCard(t, "3121001"), 0)
+		p0.Skills[0] = skill
+		counter := NewCardInstance(baseCard(t, "2121002"), 0, engine.State.TurnNumber)
+		p0.Hand = []*CardInstance{counter}
+		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, engine.State.TurnNumber)}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{"instance_id": counter.InstanceID}}); err != nil {
+			t.Fatalf("set counter: %v", err)
+		}
+		if p0.Equipment[0] != counter || !counter.IsSetCounter {
+			t.Fatalf("counter should be set into equipment, equipment=%v set=%v", cardToInfo(p0.Equipment[0]), counter.IsSetCounter)
+		}
+		if skill.Statuses[StatusWeaken] != 2 {
+			t.Fatalf("4011101 should see a non-arcane counter enter the equipment area, statuses=%v", skill.Statuses)
+		}
+		if len(p0.Hand) != 0 {
+			t.Fatalf("1011101 should not treat setting a counter as equipping, hand=%v", cardsToInfo(p0.Hand))
+		}
+	})
+
 	t.Run("claw of erebos requires weakened enemy spells and then weakens up to three", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]

@@ -72,6 +72,7 @@ func (e *Engine) placeCounterTrap(playerID int, card *CardInstance, handIdx int)
 			"slot":   slotIdx,
 		},
 	})
+	e.notifyCardEntered(playerID, card, map[string]any{"entered_player": playerID, "set_counter": true})
 	return nil
 }
 

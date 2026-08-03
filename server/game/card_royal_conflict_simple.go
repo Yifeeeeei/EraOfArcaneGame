@@ -3217,6 +3217,7 @@ func (e *Engine) placeExistingCompanionAtPosition(playerID int, card *CardInstan
 	e.ApplySummonModifiersOnEnter(card)
 	if triggerEnter {
 		e.triggerEffects(TriggerOnEnter, card, nil, nil)
+		e.notifyCardEntered(playerID, card, map[string]any{"entered_player": playerID})
 		e.triggerFieldEffectsWithData(TriggerOnUnitEnter, playerID, card, map[string]any{"entered_player": playerID})
 		e.triggerFieldEffectsWithData(TriggerOnUnitEnter, 1-playerID, card, map[string]any{"entered_player": playerID})
 	}
