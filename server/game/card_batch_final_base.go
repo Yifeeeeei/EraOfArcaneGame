@@ -745,7 +745,14 @@ func (e *Engine) spellAffectedUnitsWithExtraTargets(defenderID int, skill *CardI
 		if extraTarget.Type != "unit" || !extraTarget.Position.Valid() {
 			continue
 		}
-		unit := e.State.Players[defenderID].Units[extraTarget.Position.Col][extraTarget.Position.Row]
+		targetOwnerID := defenderID
+		if extraTarget.OwnerID != nil {
+			targetOwnerID = *extraTarget.OwnerID
+		}
+		if targetOwnerID < 0 || targetOwnerID >= len(e.State.Players) {
+			continue
+		}
+		unit := e.State.Players[targetOwnerID].Units[extraTarget.Position.Col][extraTarget.Position.Row]
 		if unit == nil {
 			continue
 		}

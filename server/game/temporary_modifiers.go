@@ -30,12 +30,19 @@ const (
 	TempModDelayedElementGain           = "delayed_element_gain"
 	TempModDelayedShieldGain            = "delayed_shield_gain"
 	TempModResetSkillsOnOpponentTurnEnd = "reset_skills_on_opponent_turn_end"
+	TempModLampusSwordDelayedDamage     = "lampus_sword_delayed_damage"
 	TempModNextEarthSkillLearnCostMinus = "next_earth_skill_learn_cost_minus"
 	TempModAllSpellDamageZero           = "all_spell_attack_zero"
 	TempModFriendlySpellDamageMinus     = "friendly_spell_damage_minus"
 	TempModSkillUseCooldownAdd          = "skill_use_cooldown_add"
 	TempModFriendlyNegativeStatusIgnore = "friendly_negative_status_ignore"
+	TempModPainScreamWeakenOnDamage     = "pain_scream_weaken_on_damage"
+	TempModNextDriveSpellExtraTarget    = "next_drive_spell_extra_target"
+	TempModNextSpellExtraTarget         = "next_spell_extra_target"
+	TempModCannotLearnElementSkill      = "cannot_learn_element_skill"
 )
+
+const skillUseExtraCostStatusPrefix = "使用费用额外"
 
 type TemporaryModifier struct {
 	ID               string `json:"id"`
@@ -184,6 +191,30 @@ func (e *Engine) consumeNextSkillUseModifiersForPurpose(ps *PlayerState, skill *
 			}
 		}
 	}
+	consumeSkillUseExtraCostStatuses(skill)
+}
+
+func skillUseExtraCostStatus(elem string, amount int) string {
+	if amount <= 1 {
+		return skillUseExtraCostStatusPrefix + elem
+	}
+	return fmt.Sprintf("%s%s%d", skillUseExtraCostStatusPrefix, elem, amount)
+}
+
+func consumeSkillUseExtraCostStatuses(skill *CardInstance) {
+	if skill == nil {
+		return
+	}
+	for status, amount := range skill.Statuses {
+		if amount <= 0 || !strings.HasPrefix(status, skillUseExtraCostStatusPrefix) {
+			continue
+		}
+		if amount == 1 {
+			delete(skill.Statuses, status)
+			continue
+		}
+		skill.Statuses[status] = amount - 1
+	}
 }
 
 func (e *Engine) consumeNextCardPlayCostModifiers(ps *PlayerState, card *CardInstance) {
@@ -253,6 +284,45 @@ func (e *Engine) shouldSkipCooldown(ps *PlayerState, skill *CardInstance) bool {
 		}
 	}
 	return false
+}
+
+func (e *Engine) hasNextDriveSpellExtraTarget(ps *PlayerState, skill *CardInstance) bool {
+	if ps == nil || skill == nil || skill.Card == nil {
+		return false
+	}
+	for _, modifier := range ps.TempModifiers {
+		if modifier.Type == TempModNextDriveSpellExtraTarget && modifier.RemainingUses != 0 && hasCardTag(skill.Card, "驱动") {
+			return true
+		}
+		if modifier.Type == TempModNextSpellExtraTarget && modifier.RemainingUses != 0 &&
+			(modifier.TargetInstanceID == "" || modifier.TargetInstanceID == skill.InstanceID) {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Engine) consumeNextDriveSpellExtraTarget(ps *PlayerState, skill *CardInstance) {
+	if ps == nil || skill == nil || skill.Card == nil {
+		return
+	}
+	for i := range ps.TempModifiers {
+		modifier := &ps.TempModifiers[i]
+		switch modifier.Type {
+		case TempModNextDriveSpellExtraTarget:
+			if !hasCardTag(skill.Card, "驱动") || modifier.RemainingUses == 0 {
+				continue
+			}
+		case TempModNextSpellExtraTarget:
+			if modifier.RemainingUses == 0 || (modifier.TargetInstanceID != "" && modifier.TargetInstanceID != skill.InstanceID) {
+				continue
+			}
+		default:
+			continue
+		}
+		modifier.RemainingUses--
+		return
+	}
 }
 
 func (e *Engine) temporarySpellPowerBonus(playerID int, skill *CardInstance) int {

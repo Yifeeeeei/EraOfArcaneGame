@@ -354,7 +354,20 @@ func (e *Engine) availableElementsWithOverexert(ps *PlayerState, units []*CardIn
 	available := cloneElements(ps.Elements)
 	for _, unit := range units {
 		for elem, amount := range e.effectiveElementsGain(unit) {
+			if elem == model.ElementArcane && providesStrictArcaneOnly(unit) {
+				continue
+			}
 			available[elem] += amount
+		}
+	}
+	return available
+}
+
+func (e *Engine) availableStrictArcaneWithOverexert(ps *PlayerState, units []*CardInstance) int {
+	available := ps.StrictArcane
+	for _, unit := range units {
+		if providesStrictArcaneOnly(unit) {
+			available += e.effectiveElementsGain(unit)[model.ElementArcane]
 		}
 	}
 	return available
@@ -370,7 +383,7 @@ func canPayCostWithOverexertOptions(ps *PlayerState, cost map[string]int, units 
 }
 
 func (e *Engine) canPayCostWithOverexertOptions(ps *PlayerState, cost map[string]int, units []*CardInstance, lightWildcard bool) bool {
-	_, ok := calculateElementPaymentWithOptions(e.availableElementsWithOverexert(ps, units), cost, lightWildcard, e.playerHasLightCostWildcard(ps))
+	_, _, ok := e.calculatePaymentPlanFromAvailable(ps, e.availableElementsWithOverexert(ps, units), e.availableStrictArcaneWithOverexert(ps, units), cost, lightWildcard)
 	return ok
 }
 
@@ -406,23 +419,77 @@ func payDefenseCostWithOptions(ps *PlayerState, cost map[string]int, action Acti
 
 func (e *Engine) payDefenseCostWithOptions(ps *PlayerState, cost map[string]int, action ActionMessage, units []*CardInstance, lightWildcard bool) bool {
 	available := e.availableElementsWithOverexert(ps, units)
-	payment := paymentFromAction(action)
-	if payment == nil {
-		var ok bool
-		payment, ok = calculateElementPaymentWithOptions(available, cost, lightWildcard, e.playerHasLightCostWildcard(ps))
-		if !ok {
-			return false
-		}
-	} else if !validateElementPaymentWithOptions(available, cost, payment, lightWildcard, e.playerHasLightCostWildcard(ps)) {
+	strictAvailable := e.availableStrictArcaneWithOverexert(ps, units)
+	payment, strictArcane, ok := e.paymentPlanFromAvailableForAction(ps, available, strictAvailable, cost, action, lightWildcard)
+	if !ok {
 		return false
 	}
 
+	poolSpent := make(map[string]int)
 	for elem, amount := range payment {
-		spendFromPool := min(ps.Elements[elem], amount)
+		poolAmount := amount
+		if elem == model.ElementArcane {
+			poolAmount -= strictArcane
+		}
+		spendFromPool := min(ps.Elements[elem], poolAmount)
 		ps.Elements[elem] -= spendFromPool
+		poolSpent[elem] = spendFromPool
 	}
+	strictFromPool := 0
+	if strictFromPool = min(ps.StrictArcane, strictArcane); strictFromPool > 0 {
+		ps.StrictArcane -= strictFromPool
+	}
+	poolSpent[model.ElementArcane] += strictFromPool
 	for _, unit := range units {
 		unit.IsHorizontal = true
 	}
+	e.rewardAutumnMapleLordOverexertRemainder(ps, units, payment, poolSpent)
 	return true
+}
+
+func (e *Engine) rewardAutumnMapleLordOverexertRemainder(ps *PlayerState, units []*CardInstance, payment map[string]int, poolSpent map[string]int) {
+	if ps == nil || len(units) == 0 || ps.Hero == nil || ps.Hero.Card == nil || ps.Hero.Card.Number != "4411102" || e.hasEffectiveStatus(ps.Hero, StatusPetrify) {
+		return
+	}
+	overexertSpent := make(map[string]int)
+	for elem, amount := range payment {
+		if amount <= 0 {
+			continue
+		}
+		overexertSpent[elem] = amount - poolSpent[elem]
+	}
+	reward := make(map[string]int)
+	for _, unit := range units {
+		if unit == nil || unit.Card == nil || unit.Card.Category != model.ElementEarth {
+			continue
+		}
+		for elem, amount := range e.effectiveElementsGain(unit) {
+			remaining := amount
+			if remaining <= 0 {
+				continue
+			}
+			used := min(overexertSpent[elem], remaining)
+			overexertSpent[elem] -= used
+			remaining -= used
+			if remaining > 0 {
+				reward[elem] += remaining * 2
+			}
+		}
+	}
+	for elem, amount := range reward {
+		if amount > 0 {
+			ps.Elements[elem] += amount
+		}
+	}
+	if len(reward) > 0 {
+		e.emit(GameEvent{
+			Type:   "autumn_maple_lord_overexert_reward",
+			Player: ps.PlayerID,
+			Data: map[string]any{
+				"player": ps.PlayerID,
+				"source": cardToInfo(ps.Hero),
+				"reward": reward,
+			},
+		})
+	}
 }

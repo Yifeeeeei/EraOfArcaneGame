@@ -7,6 +7,7 @@ import (
 )
 
 const redMoonMarkerStatus = "红月标记"
+const bloodShadowBodyRedMoonMarkersStatus = "blood_shadow_body_red_moon_markers"
 
 type Card1611101RedMoonWitchSeviana struct{ AlwaysActive }
 
@@ -21,6 +22,41 @@ func (Card1611101RedMoonWitchSeviana) IsPrayerAbility() bool { return true }
 func (Card1611101RedMoonWitchSeviana) OnPerTurn(ctx *EffectContext) error {
 	ctx.Engine.addRedMoonMarker(ctx.PlayerID, 1)
 	ctx.Engine.updateRedMoonTransformations(ctx.PlayerID)
+	return nil
+}
+
+type Card1601101BloodShadowBody struct{ AlwaysActive }
+
+func (Card1601101BloodShadowBody) ID() string   { return "1601101" }
+func (Card1601101BloodShadowBody) Name() string { return "血影之躯" }
+func (Card1601101BloodShadowBody) HasActivePerTurn(card *CardInstance) bool {
+	return card != nil && card.Statuses[bloodShadowBodyRedMoonMarkersStatus] > 0
+}
+func (Card1601101BloodShadowBody) PerTurnLabel(*CardInstance) string {
+	return "移除红月标记"
+}
+func (Card1601101BloodShadowBody) OnPerTurn(ctx *EffectContext) error {
+	redMoon := ctx.Engine.redMoonSkill(ctx.PlayerID)
+	if redMoon == nil || redMoon.Statuses[redMoonMarkerStatus] <= 0 {
+		return fmt.Errorf("血影之躯需要移除1个红月标记")
+	}
+	redMoon.Statuses[redMoonMarkerStatus]--
+	ctx.Source.Statuses[bloodShadowBodyRedMoonMarkersStatus] = redMoon.Statuses[redMoonMarkerStatus]
+	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
+		Type:             TempModNextSpellExtraTarget,
+		SourceCardNumber: ctx.Source.Card.Number,
+		SourceName:       ctx.Source.Card.Name,
+		RemainingUses:    1,
+	})
+	ctx.Engine.emit(GameEvent{
+		Type:   "blood_shadow_body_extra_target",
+		Player: -1,
+		Data: map[string]any{
+			"player":  ctx.PlayerID,
+			"source":  cardToInfo(ctx.Source),
+			"markers": redMoon.Statuses[redMoonMarkerStatus],
+		},
+	})
 	return nil
 }
 
@@ -66,6 +102,57 @@ func (Card1621111RedMoonProphet) OnEnter(ctx *EffectContext) error {
 func (Card1621111RedMoonProphet) OnDeath(ctx *EffectContext) error {
 	ctx.Engine.reduceCurrentOrNextRedMoonCooldown(ctx.PlayerID, 1)
 	return nil
+}
+
+type Card1621109ScarletWings struct{ AlwaysActive }
+
+func (Card1621109ScarletWings) ID() string   { return "1621109" }
+func (Card1621109ScarletWings) Name() string { return "猩红之翼" }
+
+func (e *Engine) triggerScarletWingsAfterRedMoon(playerID int) {
+	if e == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return
+	}
+	ps := e.State.Players[playerID]
+	for _, source := range append([]*CardInstance(nil), e.getAllFieldCards(ps)...) {
+		if source == nil || source.Card == nil || source.Card.Number != "1621109" || source.Position == nil || e.hasEffectiveStatus(source, StatusPetrify) {
+			continue
+		}
+		candidates := e.enemyUnits(playerID, true, func(card *CardInstance) bool {
+			return card != nil && card.Position != nil && e.IsInSpellRange(playerID, card.Position.Col, card.Position.Row, false)
+		})
+		if len(candidates) == 0 {
+			continue
+		}
+		wing := source
+		e.SetPendingActionWithError(playerID, "scarlet_wings_red_moon_damage",
+			"猩红之翼:选择法力范围内1个单位造成1点伤害", candidates, 1, 1,
+			nil, false, func(selected []string, _ map[string]any) error {
+				target := selectedUnitFromCandidates(e, selected, candidates)
+				if target == nil || target.Position == nil || !e.IsInSpellRange(playerID, target.Position.Col, target.Position.Row, false) {
+					return fmt.Errorf("invalid scarlet wings target")
+				}
+				e.dealDamageWithExtra(target, 1, target.OwnerID, map[string]any{
+					"damage_source":  "scarlet_wings",
+					"damage_element": model.ElementShadow,
+					"source_card":    wing,
+					"attacker":       playerID,
+				})
+				wing.CurrentLife++
+				e.emit(GameEvent{
+					Type:   "scarlet_wings_red_moon_damage",
+					Player: -1,
+					Data: map[string]any{
+						"player": playerID,
+						"source": cardToInfo(wing),
+						"target": cardToInfo(target),
+						"damage": 1,
+					},
+				})
+				return nil
+			})
+		return
+	}
 }
 
 type Card2621105RedMoonPendant struct{ AlwaysActive }
@@ -168,6 +255,7 @@ func (e *Engine) updateRedMoonTransformations(playerID int) {
 		return
 	}
 	active := e.redMoonActive(playerID)
+	markers := e.redMoonMarkers(playerID)
 	for _, unit := range e.getAllFieldCards(e.State.Players[playerID]) {
 		if unit == nil || unit.Card == nil || unit.Position == nil {
 			continue
@@ -176,10 +264,13 @@ func (e *Engine) updateRedMoonTransformations(playerID int) {
 		case "1611101":
 			if active {
 				e.replaceUnitCard(unit, "1601101", false)
+				unit.Statuses[bloodShadowBodyRedMoonMarkersStatus] = markers
 			}
 		case "1601101":
 			if !active {
 				e.replaceUnitCard(unit, "1611101", true)
+			} else {
+				unit.Statuses[bloodShadowBodyRedMoonMarkersStatus] = markers
 			}
 		}
 	}

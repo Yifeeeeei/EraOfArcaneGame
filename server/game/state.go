@@ -52,6 +52,9 @@ type CardInstance struct {
 	UsesRemaining int `json:"uses_remaining"` // for 法宝
 }
 
+const StatusCannotUseSkillUntilTurn = "cannot_use_skill_until_turn"
+const StatusEntryCostNeutralAmount = "entry_cost_neutral_amount"
+
 // NewCardInstance creates a new card instance
 func NewCardInstance(card *model.Card, ownerID int, turn int) *CardInstance {
 	ci := &CardInstance{
@@ -108,7 +111,7 @@ const (
 
 const (
 	BaseSkillSlots     = 5
-	MaxSkillSlots      = 6
+	MaxSkillSlots      = 8
 	BaseEquipmentSlots = 5
 	MaxEquipmentSlots  = 8
 )
@@ -133,6 +136,7 @@ type PlayerState struct {
 	Elements                    map[string]int            `json:"elements"`
 	StrictArcane                int                       `json:"strict_arcane,omitempty"`
 	Shield                      int                       `json:"shield,omitempty"`
+	ShieldBrokenThisTurn        bool                      `json:"shield_broken_this_turn,omitempty"`
 	CannotGainShield            bool                      `json:"cannot_gain_shield,omitempty"`
 	NextCompanionStealth        int                       `json:"next_companion_stealth,omitempty"`
 	NextRedMoonDuration         int                       `json:"next_red_moon_duration,omitempty"`
@@ -141,11 +145,19 @@ type PlayerState struct {
 	TempModifiers               []TemporaryModifier       `json:"temp_modifiers"`
 	SpellsCastThisTurn          map[string]int            `json:"spells_cast_this_turn,omitempty"`
 	SpellsCastByNumberThisTurn  map[string]int            `json:"spells_cast_by_number_this_turn,omitempty"`
+	LastLowCostWaterSpell       *CardInstance             `json:"last_low_cost_water_spell,omitempty"`
+	SpellHitsThisTurn           int                       `json:"spell_hits_this_turn,omitempty"`
+	SpellHitsLastTurn           int                       `json:"spell_hits_last_turn,omitempty"`
+	SpellHitTargetsThisTurn     int                       `json:"spell_hit_targets_this_turn,omitempty"`
+	SpellHitTargetsLastTurn     int                       `json:"spell_hit_targets_last_turn,omitempty"`
+	SpellDamageThisTurn         int                       `json:"spell_damage_this_turn,omitempty"`
+	SpellDamageLastTurn         int                       `json:"spell_damage_last_turn,omitempty"`
 	DiscardAtTurnEnd            map[string]bool           `json:"discard_at_turn_end,omitempty"`
 	LoadGainAtTurnEnd           map[string]map[string]int `json:"load_gain_at_turn_end,omitempty"`
 	RevealedHand                map[string]bool           `json:"revealed_hand,omitempty"`
 	DrawnTurn                   map[string]int            `json:"drawn_turn,omitempty"`
 	DrawCountThisTurn           int                       `json:"draw_count_this_turn,omitempty"`
+	DiscardedHandCountThisTurn  int                       `json:"discarded_hand_count_this_turn,omitempty"`
 	FriendlyUnitDamagedThisTurn bool                      `json:"friendly_unit_damaged_this_turn,omitempty"`
 	FriendlyUnitDamagedLastTurn bool                      `json:"friendly_unit_damaged_last_turn,omitempty"`
 	HeroDamageTakenThisTurn     int                       `json:"hero_damage_taken_this_turn,omitempty"`

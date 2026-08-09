@@ -54,8 +54,76 @@ func TestSlotExpansionItemsAdjustCapacity(t *testing.T) {
 			t.Fatalf("memory necklace should place skill in sixth slot, skills=%v", cardsToInfo(p0.Skills[:]))
 		}
 		info := engine.playerStateToInfo(p0, true)
-		if info["skill_slot_capacity"] != MaxSkillSlots || len(info["skills"].([]any)) != MaxSkillSlots {
+		wantCapacity := BaseSkillSlots + 1
+		if info["skill_slot_capacity"] != wantCapacity || len(info["skills"].([]any)) != wantCapacity {
 			t.Fatalf("player info should expose six skill slots, capacity=%v skills=%v", info["skill_slot_capacity"], info["skills"])
+		}
+	})
+
+	t.Run("2611102 spirit candle opens restricted spirit and mystery slots", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		candle := NewCardInstance(baseCard(t, "2611102"), 0, 1)
+		p0.Equipment[0] = candle
+		if equip, ok := globalRegistry.GetBehavior("2611102").(OnEquipBehavior); ok {
+			if err := equip.OnEquip(&EffectContext{Engine: engine, Source: candle, PlayerID: 0, OpponentID: 1}); err != nil {
+				t.Fatalf("equip spirit candle: %v", err)
+			}
+		}
+		for i := 0; i < BaseSkillSlots; i++ {
+			p0.Skills[i] = readySkill(baseCard(t, "3021102"), 0)
+			p0.Skills[i].SlotIndex = i
+		}
+		normalSkill := NewCardInstance(baseCard(t, "3021102"), 0, 1)
+		mysterySkill := NewCardInstance(baseCard(t, "3111102"), 0, 1)
+		spiritSkill := NewCardInstance(baseCard(t, "3211101"), 0, 1)
+		p0.SkillPool = []*CardInstance{normalSkill, mysterySkill, spiritSkill}
+		for _, elem := range model.AllElements {
+			p0.Elements[elem] = 20
+		}
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "learn_skill", Data: map[string]any{
+			"instance_id": normalSkill.InstanceID,
+		}}); err == nil {
+			t.Fatalf("spirit candle restricted slots should reject non-spirit non-mystery skills")
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "learn_skill", Data: map[string]any{
+			"instance_id": mysterySkill.InstanceID,
+		}}); err != nil {
+			t.Fatalf("spirit candle should allow mystery skill in sixth slot: %v", err)
+		}
+		if p0.Skills[BaseSkillSlots] != mysterySkill {
+			t.Fatalf("mystery skill should occupy first candle slot, skills=%v", cardsToInfo(p0.Skills[:]))
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "learn_skill", Data: map[string]any{
+			"instance_id": spiritSkill.InstanceID,
+		}}); err != nil {
+			t.Fatalf("spirit candle should allow spirit skill in seventh slot: %v", err)
+		}
+		if p0.Skills[BaseSkillSlots+1] != spiritSkill {
+			t.Fatalf("spirit skill should occupy second candle slot, skills=%v", cardsToInfo(p0.Skills[:]))
+		}
+		info := engine.playerStateToInfo(p0, true)
+		wantCapacity := BaseSkillSlots + 2
+		if info["skill_slot_capacity"] != wantCapacity || len(info["skills"].([]any)) != wantCapacity {
+			t.Fatalf("player info should expose candle skill slots, capacity=%v skills=%v", info["skill_slot_capacity"], info["skills"])
+		}
+
+		normalSkill.PowerBonus = 1
+		if got := engine.effectiveSkillPowerForPurposeWithData(0, normalSkill, nil, skillPurposeAttack, map[string]any{"stat": "power"}); got != 3 {
+			t.Fatalf("spirit candle should halve other spell power upward, got=%d", got)
+		}
+		if got := engine.effectiveSkillPowerForPurposeWithData(0, mysterySkill, nil, skillPurposeAttack, map[string]any{"stat": "power"}); got != mysterySkill.Card.Power {
+			t.Fatalf("spirit candle should not halve mystery spell power, got=%d want=%d", got, mysterySkill.Card.Power)
+		}
+
+		candle.Statuses[StatusPetrify] = 1
+		engine.enforceSlotCapacities(p0)
+		if p0.Skills[BaseSkillSlots] != nil || p0.Skills[BaseSkillSlots+1] != nil {
+			t.Fatalf("lost spirit candle should clean up restricted slots, skills=%v", cardsToInfo(p0.Skills[:]))
+		}
+		if !containsCardInstance(p0.SkillPool, mysterySkill) || !containsCardInstance(p0.SkillPool, spiritSkill) {
+			t.Fatalf("lost spirit candle should return restricted-slot skills to pool, pool=%v", cardsToInfo(p0.SkillPool))
 		}
 	})
 
@@ -7236,7 +7304,7 @@ func TestDefenseSpellScrollsCanDefendFromHand(t *testing.T) {
 			}}); err != nil {
 				t.Fatalf("defend with spell scroll: %v", err)
 			}
-			if len(p1.Hand) != 0 || len(p1.Graveyard) != 1 || p1.Graveyard[0] != scroll {
+			if len(p1.Hand) != 0 || !containsCardInstance(p1.Graveyard, scroll) {
 				t.Fatalf("defense scroll should move from hand to graveyard, hand=%d grave=%d", len(p1.Hand), len(p1.Graveyard))
 			}
 			if engine.State.Phase != PhaseMain || engine.State.PendingSpell != nil {

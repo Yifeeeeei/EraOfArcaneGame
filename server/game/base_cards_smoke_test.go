@@ -171,6 +171,29 @@ func attachSourceForEffect(engine *Engine, source *CardInstance) {
 	}
 }
 
+func prepareRedeemerEveSmokeState(engine *Engine, eve *CardInstance) string {
+	if engine == nil || eve == nil {
+		return ""
+	}
+	ps := engine.State.Players[0]
+	opponent := engine.State.Players[1]
+	ps.Hero = eve
+	eve.Position = &Position{Col: 1, Row: 1}
+	ps.Units[1][1] = eve
+	eve.CurrentLife = maxLife(eve) - 1
+	ally := NewCardInstance(cards.PlayableCardDB["1521001"], 0, engine.State.TurnNumber)
+	ally.Position = &Position{Col: 0, Row: 1}
+	ally.CurrentLife = maxLife(ally) - 1
+	ps.Units[0][1] = ally
+	for i, pos := range []Position{{Col: 0, Row: 0}, {Col: 1, Row: 0}} {
+		enemy := NewCardInstance(cards.PlayableCardDB[fmt.Sprintf("102100%d", i+1)], 1, engine.State.TurnNumber)
+		enemy.Position = &Position{Col: pos.Col, Row: pos.Row}
+		opponent.Units[pos.Col][pos.Row] = enemy
+	}
+	ps.Elements[model.ElementLight] = 2
+	return ally.InstanceID
+}
+
 func isConsumableItem(card *model.Card) bool {
 	return cards.IsConsumable(card.Number)
 }
@@ -248,6 +271,9 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 						target.Position = &Position{Col: 1, Row: 0}
 						ps.Units[1][0] = target
 						targetID = target.InstanceID
+					}
+					if card.Number == "4511102" && trigger.typ == TriggerUltimate {
+						targetID = prepareRedeemerEveSmokeState(engine, hero)
 					}
 					if err := engine.HandleAction(0, ActionMessage{
 						Action: "use_ability",
@@ -329,6 +355,14 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 				if ps.Skills[0] == nil || ps.Skills[0].InstanceID != instance.InstanceID {
 					t.Fatalf("learn skill did not place card in skill slot")
 				}
+				if card.Number == "3521104" && engine.State.PendingAction != nil {
+					if err := engine.HandleAction(0, ActionMessage{
+						Action: "resolve_action",
+						Data:   map[string]any{"selected": []any{"巫师"}},
+					}); err != nil {
+						t.Fatalf("resolve sin companion kind failed: %v", err)
+					}
+				}
 				if canUseSkillForPurpose(card, skillPurposeAttack) {
 					ps.Skills[0].IsHorizontal = false
 					if card.Number == "3511010" {
@@ -346,6 +380,11 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 						placeUnit(cards.PlayableCardDB["1021001"], 1, 0, 0, engine)
 						placeUnit(cards.PlayableCardDB["1021002"], 1, 1, 0, engine)
 					}
+					targetRow := float64(1)
+					if card.Number == "3601101" {
+						placeUnit(cards.PlayableCardDB["1021001"], 0, 1, 0, engine)
+						targetRow = 0
+					}
 					setAllElements(ps, 99)
 					err := engine.HandleAction(0, ActionMessage{
 						Action: "cast_spell",
@@ -353,7 +392,7 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 							"instance_id": instance.InstanceID,
 							"target_type": "unit",
 							"target_col":  float64(1),
-							"target_row":  float64(1),
+							"target_row":  targetRow,
 						},
 					})
 					if err != nil {
@@ -431,6 +470,34 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 					if card.Number == "2621109" {
 						ps.Deck = append(ps.Deck, NewCardInstance(cards.PlayableCardDB["1621112"], 0, engine.State.TurnNumber))
 					}
+					if card.Number == "2121105" {
+						sacrifice := NewCardInstance(cards.PlayableCardDB["1121102"], 0, engine.State.TurnNumber)
+						sacrifice.Position = &Position{Col: 0, Row: 0}
+						ps.Units[0][0] = sacrifice
+						data["sacrifice_id"] = sacrifice.InstanceID
+					}
+					if card.Number == "2421105" {
+						first := NewCardInstance(cards.PlayableCardDB["1401101"], 0, engine.State.TurnNumber)
+						first.Position = &Position{Col: 0, Row: 0}
+						ps.Units[0][0] = first
+						second := NewCardInstance(cards.PlayableCardDB["1421001"], 0, engine.State.TurnNumber)
+						second.Position = &Position{Col: 2, Row: 0}
+						ps.Units[2][0] = second
+					}
+					if card.Number == "2521111" {
+						support := NewCardInstance(cards.PlayableCardDB["1021001"], 0, engine.State.TurnNumber)
+						support.Position = &Position{Col: 0, Row: 0}
+						setElementsGain(support, map[string]int{model.ElementArcane: 6})
+						ps.Units[0][0] = support
+						data["support_id"] = support.InstanceID
+					}
+					if card.Number == "2221104" {
+						previous := readySkill(cards.PlayableCardDB["3221001"], 0)
+						ps.LastLowCostWaterSpell = cloneVirtualSpell(previous, 0, engine.State.TurnNumber)
+						enemy := NewCardInstance(cards.PlayableCardDB["1021001"], 1, engine.State.TurnNumber)
+						enemy.Position = &Position{Col: 1, Row: 0}
+						engine.State.Players[1].Units[1][0] = enemy
+					}
 					if isSpellScrollCard(card) && skillNeedsTargetCard(card) {
 						data["target_type"] = "unit"
 						data["target_col"] = float64(1)
@@ -487,6 +554,12 @@ func TestEveryRegisteredCardEffectHandlerRuns(t *testing.T) {
 						target.IsHorizontal = false
 						target.Position = &Position{Col: 1, Row: 0}
 						engine.State.Players[0].Units[1][0] = target
+					}
+					if card.Number == "4511102" && effect.Trigger == TriggerUltimate {
+						targetID := prepareRedeemerEveSmokeState(engine, source)
+						if preparedTarget, _ := engine.findFriendlyCandidate(0, targetID); preparedTarget != nil {
+							target = preparedTarget
+						}
 					}
 					ctx := &EffectContext{
 						Engine:       engine,

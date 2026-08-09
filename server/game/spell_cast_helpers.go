@@ -46,21 +46,39 @@ func isFriendlySpellHit(ctx *EffectContext) bool {
 	return !ok || attacker == ctx.PlayerID
 }
 
+func spellCasterFromData(ctx *EffectContext) (int, bool) {
+	if ctx == nil || ctx.ExtraData == nil {
+		return 0, false
+	}
+	if attacker, ok := ctx.ExtraData["attacker"].(int); ok {
+		return attacker, true
+	}
+	if castPlayer, ok := ctx.ExtraData["cast_player"].(int); ok {
+		return castPlayer, true
+	}
+	return 0, false
+}
+
 func isOwnSpellHit(ctx *EffectContext) bool {
 	return ctx != nil && ctx.ExtraData != nil && ctx.ExtraData["spell_source"] == ctx.Source
 }
 
 func (e *Engine) triggerSpellCastFieldEffectsWithContinuation(casterID int, source *CardInstance, extraData map[string]any, afterDone func()) bool {
 	runFieldEffectsAndCounters := func() bool {
+		suppressesOpponentResponses := spellSuppressesOpponentResponses(source)
 		fieldData := cloneExtraData(extraData)
 		fieldData["skip_counter_traps"] = true
 
 		e.triggerFieldEffectsWithData(TriggerOnSpellCast, casterID, source, fieldData)
-		e.triggerFieldEffectsWithData(TriggerOnSpellCast, 1-casterID, source, fieldData)
+		if !suppressesOpponentResponses {
+			e.triggerFieldEffectsWithData(TriggerOnSpellCast, 1-casterID, source, fieldData)
+		}
 
 		continueAfterFieldEffects := func() {
 			counters := e.eligibleCounterTraps(casterID, TriggerOnSpellCast, source, extraData)
-			counters = append(counters, e.eligibleCounterTraps(1-casterID, TriggerOnSpellCast, source, extraData)...)
+			if !suppressesOpponentResponses {
+				counters = append(counters, e.eligibleCounterTraps(1-casterID, TriggerOnSpellCast, source, extraData)...)
+			}
 			if e.promptCounterTrapQueue(counters, TriggerOnSpellCast, source, extraData, afterDone) {
 				return
 			}
@@ -75,10 +93,7 @@ func (e *Engine) triggerSpellCastFieldEffectsWithContinuation(casterID int, sour
 		}
 
 		if e.promptCounterTrapQueue(
-			append(
-				e.eligibleCounterTraps(casterID, TriggerOnSpellCast, source, extraData),
-				e.eligibleCounterTraps(1-casterID, TriggerOnSpellCast, source, extraData)...,
-			),
+			spellCastCounterCandidates(e, casterID, source, extraData, suppressesOpponentResponses),
 			TriggerOnSpellCast,
 			source,
 			extraData,
@@ -99,6 +114,14 @@ func (e *Engine) triggerSpellCastFieldEffectsWithContinuation(casterID int, sour
 	}
 
 	return runFieldEffectsAndCounters()
+}
+
+func spellCastCounterCandidates(e *Engine, casterID int, source *CardInstance, extraData map[string]any, suppressOpponent bool) []*CardInstance {
+	counters := e.eligibleCounterTraps(casterID, TriggerOnSpellCast, source, extraData)
+	if !suppressOpponent {
+		counters = append(counters, e.eligibleCounterTraps(1-casterID, TriggerOnSpellCast, source, extraData)...)
+	}
+	return counters
 }
 
 func cloneExtraData(data map[string]any) map[string]any {

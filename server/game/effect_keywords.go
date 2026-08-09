@@ -291,6 +291,9 @@ func (e *Engine) applyPlayerShieldDamage(target *CardInstance, damage int, damag
 	}
 	prevented := min(damage, ps.Shield)
 	ps.Shield -= prevented
+	if prevented > 0 && ps.Shield == 0 {
+		ps.ShieldBrokenThisTurn = true
+	}
 	remaining := damage - prevented
 	e.emit(GameEvent{
 		Type:   "shield_block",

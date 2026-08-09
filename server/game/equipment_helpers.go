@@ -12,6 +12,18 @@ func (e *Engine) sacrificeEquipment(playerID int, instanceID string) bool {
 	return false
 }
 
+func equipmentSlotOf(ps *PlayerState, card *CardInstance) int {
+	if ps == nil || card == nil {
+		return -1
+	}
+	for i, equipment := range ps.Equipment {
+		if equipment != nil && equipment.InstanceID == card.InstanceID {
+			return i
+		}
+	}
+	return -1
+}
+
 func (e *Engine) moveEquipmentToGraveyard(playerID int, slot int, card *CardInstance) {
 	if card == nil || playerID < 0 || playerID >= len(e.State.Players) {
 		return

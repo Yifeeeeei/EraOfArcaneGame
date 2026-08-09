@@ -2,6 +2,8 @@ package game
 
 import "eraofarcane/model"
 
+const temporaryDamageAndNegativeImmunityUntilStatus = "temporary_damage_negative_immunity_until"
+
 func isNegativeStatus(status string) bool {
 	for _, candidate := range negativeStatuses {
 		if candidate == status {
@@ -45,6 +47,9 @@ func (e *Engine) rejectsNegativeStatusApplication(card *CardInstance, status str
 func (e *Engine) negativeStatusIneffective(card *CardInstance, status string) bool {
 	if card == nil || card.Card == nil || !isNegativeStatus(status) {
 		return false
+	}
+	if e.temporaryDamageAndNegativeImmunityActive(card) {
+		return true
 	}
 	if card.Statuses[fireNegativeStatusImmunityUntil] >= e.State.TurnNumber && card.Card.Category == model.ElementFire {
 		return true
@@ -96,6 +101,9 @@ func (e *Engine) cardHasNegativeStatusImmunity(card *CardInstance, status string
 	if card == nil || card.Card == nil {
 		return false
 	}
+	if e.temporaryDamageAndNegativeImmunityActive(card) {
+		return true
+	}
 	behavior := behaviorForNumber(card.Card.Number)
 	if immune, ok := behavior.(SpecificNegativeStatusImmunityBehavior); ok && immune.HasActiveNegativeStatusImmunity(card) && immune.HasNegativeStatusImmunity(status) {
 		return true
@@ -104,6 +112,13 @@ func (e *Engine) cardHasNegativeStatusImmunity(card *CardInstance, status string
 		return true
 	}
 	return false
+}
+
+func (e *Engine) temporaryDamageAndNegativeImmunityActive(card *CardInstance) bool {
+	if e == nil || card == nil {
+		return false
+	}
+	return card.Statuses[temporaryDamageAndNegativeImmunityUntilStatus] >= e.State.TurnNumber
 }
 
 func (e *Engine) resetCard(card *CardInstance) {

@@ -70,7 +70,9 @@ func (AlwaysActive) HasActiveSpellArea(*CardInstance) bool                 { ret
 func (AlwaysActive) HasActiveSpellAreaModifier(*CardInstance) bool         { return true }
 func (AlwaysActive) HasActiveDrawReveal(*CardInstance) bool                { return true }
 func (AlwaysActive) HasActiveDraw(*CardInstance) bool                      { return true }
+func (AlwaysActive) HasActiveDiscard(*CardInstance) bool                   { return true }
 func (AlwaysActive) HasActiveLoadGain(*CardInstance) bool                  { return true }
+func (AlwaysActive) HasActiveLoadLoss(*CardInstance) bool                  { return true }
 func (AlwaysActive) HasActiveMasteryAchieved(*CardInstance) bool           { return true }
 func (AlwaysActive) HasActiveCardEnter(*CardInstance) bool                 { return true }
 func (AlwaysActive) HasActivePrayer(*CardInstance) bool                    { return true }
@@ -102,6 +104,9 @@ func (AlwaysActive) HasActiveDamageAmountModifier(*CardInstance) bool {
 }
 func (AlwaysActive) HasActiveAttackCost(*CardInstance) bool { return true }
 func (AlwaysActive) HasActiveFieldDamagePrevention(*CardInstance) bool {
+	return true
+}
+func (AlwaysActive) HasActiveFieldDamageAmountModifier(*CardInstance) bool {
 	return true
 }
 func (AlwaysActive) HasActiveNegativeStatusImmunity(*CardInstance) bool {
@@ -342,6 +347,11 @@ type OnDrawBehavior interface {
 	OnDraw(*EffectContext) error
 }
 
+type OnDiscardBehavior interface {
+	HasActiveDiscard(*CardInstance) bool
+	OnDiscard(*EffectContext) error
+}
+
 type OnSelfDrawBehavior interface {
 	HasActiveDraw(*CardInstance) bool
 	OnSelfDraw(*EffectContext) error
@@ -350,6 +360,11 @@ type OnSelfDrawBehavior interface {
 type OnLoadGainBehavior interface {
 	HasActiveLoadGain(*CardInstance) bool
 	OnLoadGain(*EffectContext) error
+}
+
+type OnLoadLossBehavior interface {
+	HasActiveLoadLoss(*CardInstance) bool
+	OnLoadLoss(*EffectContext) error
 }
 
 type OnMasteryAchievedBehavior interface {
@@ -478,6 +493,11 @@ type DamageAmountModifier interface {
 type FieldDamagePreventionBehavior interface {
 	HasActiveFieldDamagePrevention(*CardInstance) bool
 	PreventsFieldDamage(*EffectContext) bool
+}
+
+type FieldDamageAmountModifier interface {
+	HasActiveFieldDamageAmountModifier(*CardInstance) bool
+	ModifyFieldDamageAmount(*EffectContext, int) int
 }
 
 type NegativeStatusImmunityBehavior interface {
@@ -656,12 +676,28 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 			return h.OnDraw(ctx)
 		})
 	}
+	if h, ok := behavior.(OnDiscardBehavior); ok {
+		r.Register(id, TriggerOnDiscard, func(ctx *EffectContext) error {
+			if !h.HasActiveDiscard(ctx.Source) {
+				return nil
+			}
+			return h.OnDiscard(ctx)
+		})
+	}
 	if h, ok := behavior.(OnLoadGainBehavior); ok {
 		r.Register(id, TriggerOnLoadGain, func(ctx *EffectContext) error {
 			if !h.HasActiveLoadGain(ctx.Source) {
 				return nil
 			}
 			return h.OnLoadGain(ctx)
+		})
+	}
+	if h, ok := behavior.(OnLoadLossBehavior); ok {
+		r.Register(id, TriggerOnLoadLoss, func(ctx *EffectContext) error {
+			if !h.HasActiveLoadLoss(ctx.Source) {
+				return nil
+			}
+			return h.OnLoadLoss(ctx)
 		})
 	}
 	if h, ok := behavior.(OnMasteryAchievedBehavior); ok {

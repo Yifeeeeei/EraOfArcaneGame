@@ -215,6 +215,15 @@ func (e *Engine) findUnitByInstanceID(instanceID string) *CardInstance {
 	return nil
 }
 
+func (e *Engine) findCardByInstanceID(instanceID string) *CardInstance {
+	for i := range e.State.Players {
+		if card := e.findCardInstance(e.State.Players[i], instanceID); card != nil {
+			return card
+		}
+	}
+	return nil
+}
+
 func (e *Engine) discardFriendlyCandidate(playerID int, instanceID string) bool {
 	ps := e.State.Players[playerID]
 	for i, card := range ps.Hand {
@@ -272,6 +281,10 @@ func (e *Engine) searchDeckCardToHandThen(playerID int, instanceID string, after
 }
 
 func (e *Engine) flipDeckMatchesToHand(playerID int, count int, limit int, predicate func(*CardInstance) bool) []*CardInstance {
+	return e.flipDeckMatchesToHandThen(playerID, count, limit, predicate, nil)
+}
+
+func (e *Engine) flipDeckMatchesToHandThen(playerID int, count int, limit int, predicate func(*CardInstance) bool, afterFlip func([]*CardInstance)) []*CardInstance {
 	if count <= 0 {
 		return nil
 	}
@@ -295,7 +308,16 @@ func (e *Engine) flipDeckMatchesToHand(playerID int, count int, limit int, predi
 	for _, card := range drawn {
 		e.notifyCardDrawn(playerID, card)
 	}
-	e.enforceImmediateHandLimitAfterHandGain(playerID)
+	if afterFlip != nil {
+		afterFlip(drawn)
+	}
+	if e.State.PendingAction != nil {
+		e.wrapPendingActionContinuation(func() {
+			e.enforceImmediateHandLimitAfterHandGain(playerID)
+		})
+	} else {
+		e.enforceImmediateHandLimitAfterHandGain(playerID)
+	}
 	e.shuffleDeck(playerID)
 	e.emit(GameEvent{
 		Type:   "flip_deck",
@@ -403,6 +425,7 @@ func (e *Engine) shuffleDeck(playerID int) {
 	rand.Shuffle(len(deck), func(i, j int) {
 		deck[i], deck[j] = deck[j], deck[i]
 	})
+	e.triggerRoseProphetAfterOpponentShuffle(playerID)
 }
 
 func (e *Engine) hasAnyEquipment(playerID int) bool {

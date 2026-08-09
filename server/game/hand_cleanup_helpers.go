@@ -36,7 +36,21 @@ func (e *Engine) discardHandCardToGraveyard(playerID int, card *CardInstance) {
 		return
 	}
 	e.addToGraveyard(playerID, card)
+	ps.DiscardedHandCountThisTurn++
 	delete(ps.RevealedHand, card.InstanceID)
 	e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
+	e.triggerDiscardEffects(playerID, card)
 	e.resolveDiscardedCardEffects(playerID, card)
+}
+
+func (e *Engine) triggerDiscardEffects(playerID int, card *CardInstance) {
+	if e == nil || card == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return
+	}
+	data := map[string]any{
+		"discarded_player": playerID,
+		"discarded_card":   card,
+	}
+	e.triggerFieldEffectsWithData(TriggerOnDiscard, playerID, card, data)
+	e.triggerFieldEffectsWithData(TriggerOnDiscard, 1-playerID, card, data)
 }

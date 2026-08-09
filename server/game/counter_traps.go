@@ -1,11 +1,21 @@
 package game
 
-import "fmt"
+import (
+	"fmt"
+
+	"eraofarcane/model"
+)
 
 var counterTrapTriggers = map[string][]EffectTrigger{
 	"2021018": {TriggerOnSpellCast},
 	"2021022": {TriggerOnUseItem},
 	"2021113": {TriggerOnSpellHitBeforeDamage},
+	"2021114": {TriggerOnDamaged},
+	"2021115": {TriggerOnDefend},
+	"2121104": {TriggerOnTurnEnd},
+	"2221103": {TriggerOnCardEnter},
+	"2221111": {TriggerOnSpellCast},
+	"2221112": {TriggerOnSpellCast},
 	"2121002": {TriggerOnConsume},
 	"2121012": {TriggerOnUnitEnter},
 	"2221002": {TriggerOnConsume},
@@ -15,9 +25,12 @@ var counterTrapTriggers = map[string][]EffectTrigger{
 	"2321002": {TriggerOnConsume},
 	"2321010": {TriggerOnSpellCast},
 	"2321011": {TriggerOnUnitEnter, TriggerOnConsume},
+	"2321111": {TriggerOnSpellMissOrCancelled},
+	"2321108": {TriggerOnDamaged},
 	"2521002": {TriggerOnSpellHitBeforeDamage},
 	"2521004": {TriggerOnSpellCast},
 	"2521011": {TriggerOnSpellCast},
+	"2521109": {TriggerOnSpellCast},
 	"2621003": {TriggerOnUnitEnter},
 	"2621005": {TriggerOnFriendlyDeath, TriggerOnEnemyDeath},
 	"2621010": {TriggerOnFriendlyDeath},
@@ -43,6 +56,8 @@ func hiddenCounterInfo(ci *CardInstance) map[string]any {
 		"slot_index":     ci.SlotIndex,
 	}
 }
+
+const iceSoulSealCancelledBoostStatus = "ice_soul_seal_cancelled_boost"
 
 func (e *Engine) placeCounterTrap(playerID int, card *CardInstance, handIdx int) error {
 	ps := e.State.Players[playerID]
@@ -233,6 +248,8 @@ func triggerLabel(trigger EffectTrigger) string {
 		return "敌方死亡"
 	case TriggerOnSpellHitBeforeDamage:
 		return "法术命中"
+	case TriggerOnCardEnter:
+		return "卡牌入场"
 	default:
 		return fmt.Sprintf("触发%d", trigger)
 	}
@@ -260,6 +277,8 @@ func triggerKey(trigger EffectTrigger) string {
 		return "enemy_death"
 	case TriggerOnSpellHitBeforeDamage:
 		return "spell_hit_before_damage"
+	case TriggerOnCardEnter:
+		return "card_enter"
 	default:
 		return fmt.Sprintf("trigger_%d", trigger)
 	}
@@ -314,8 +333,24 @@ func (e *Engine) counterTrapConditionMet(counter *CardInstance, trigger EffectTr
 		return trigger == TriggerOnUseItem && sourceOwner != ownerID && eventSource != nil && counterRuneCanCancel(eventSource.Card.Number)
 	case "2021113":
 		return trigger == TriggerOnSpellHitBeforeDamage && sourceOwner != ownerID && eventSource != nil && isSpellLikeCard(eventSource.Card)
+	case "2021114":
+		return trigger == TriggerOnDamaged && sourceOwner == ownerID && eventSource != nil &&
+			lethalDamageFromData(extraData, eventSource)
+	case "2021115":
+		return trigger == TriggerOnDefend && ownerID == intFromData(extraData, "defender", -1) &&
+			len(spellInstancesFromData(extraData, "defense_skills"))+len(spellInstancesFromData(extraData, "defense_boosts")) > 0
+	case "2221103":
+		learned, _ := extraData["learned_skill"].(bool)
+		return trigger == TriggerOnCardEnter && sourceOwner != ownerID && learned && eventSource != nil && eventSource.Card.IsSkill()
+	case "2221111":
+		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && eventSource != nil && spellPowerFromData(extraData) > 10
+	case "2221112":
+		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && eventSource != nil &&
+			boolFromData(extraData, "boost_use") && spellPowerFromData(extraData) < 5
 	case "2121002":
 		return trigger == TriggerOnConsume && eventSource != nil && (eventSource.Card.IsHero() || eventSource.Card.IsCompanion())
+	case "2121104":
+		return trigger == TriggerOnTurnEnd && sourceOwner != ownerID && len(e.rebirthScrollReviveCandidates(ownerID)) > 0
 	case "2121012", "2621003":
 		return trigger == TriggerOnUnitEnter && sourceOwner != ownerID && eventSource != nil && eventSource.Card.IsCompanion()
 	case "2221002":
@@ -334,12 +369,28 @@ func (e *Engine) counterTrapConditionMet(counter *CardInstance, trigger EffectTr
 	case "2321011":
 		return eventSource != nil && eventSource.Card.IsCompanion() && eventSource.Position != nil &&
 			len(e.emptyUnitPositionsForPlayer(eventSource.OwnerID, ownerID)) > 0
+	case "2321108":
+		return trigger == TriggerOnDamaged && sourceOwner == ownerID && eventSource != nil &&
+			eventSource.Card != nil && eventSource.Card.IsCompanion() &&
+			eventSource.Card.Category == model.ElementAir &&
+			damageFromData(extraData) > 0
+	case "2321111":
+		return trigger == TriggerOnSpellMissOrCancelled && sourceOwner != ownerID && eventSource != nil &&
+			isSpellLikeCard(eventSource.Card) && e.effectiveSpellArea(eventSource) == SpellAreaSingle &&
+			len(e.enemyUnits(ownerID, false, func(unit *CardInstance) bool { return unit != nil && unit.Card != nil && unit.Card.IsCompanion() })) > 0
 	case "2521002":
 		return trigger == TriggerOnSpellHitBeforeDamage && sourceOwner != ownerID && eventSource != nil && !isSorcerySkill(eventSource.Card) && spellPowerFromData(extraData) < 10
 	case "2521004":
 		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && eventSource != nil && isSorcerySkill(eventSource.Card)
 	case "2521011":
 		return trigger == TriggerOnSpellCast && sourceOwner != ownerID
+	case "2521109":
+		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && eventSource != nil &&
+			eventSource.Card.IsSkill() && canUseSkillForPurpose(eventSource.Card, skillPurposeAttack) &&
+			totalSpellsCastThisTurn(e.State.Players[sourceOwner]) > 2 &&
+			len(e.friendlyUnits(sourceOwner, false, func(unit *CardInstance) bool {
+				return unit != nil && unit.Card != nil && unit.Card.IsCompanion()
+			})) > 0
 	case "2621005":
 		return eventSource != nil && eventSource.Card.IsCompanion()
 	case "2621010":
@@ -422,12 +473,56 @@ func (e *Engine) executeCounterTrap(counter *CardInstance, trigger EffectTrigger
 		e.discardCounterTrap(counter.OwnerID, counter)
 		return
 	}
+	if counter.Card.Number == "2221112" && trigger == TriggerOnSpellCast {
+		e.cancelBoostSpellWithIceSoulSeal(eventSource, extraData)
+		e.emit(GameEvent{Type: "boost_spell_cancelled", Player: -1, Data: map[string]any{
+			"player": counter.OwnerID,
+			"skill":  cardToInfo(eventSource),
+			"source": cardToInfo(counter),
+		}})
+		e.discardCounterTrap(counter.OwnerID, counter)
+		return
+	}
+	if counter.Card.Number == "2321111" && trigger == TriggerOnSpellMissOrCancelled {
+		e.promptCounterWindHoleScroll(counter, eventSource, extraData)
+		e.discardCounterTrap(counter.OwnerID, counter)
+		return
+	}
 	if len(globalRegistry.GetEffects(counter.Card.Number, trigger)) > 0 {
 		e.triggerEffects(trigger, counter, eventSource, extraData)
 	} else {
 		e.triggerEffects(TriggerOnUseItem, counter, eventSource, extraData)
 	}
 	e.discardCounterTrap(counter.OwnerID, counter)
+}
+
+func (e *Engine) cancelBoostSpellWithIceSoulSeal(boost *CardInstance, extraData map[string]any) {
+	if boost == nil {
+		return
+	}
+	if boost.Statuses == nil {
+		boost.Statuses = map[string]int{}
+	}
+	boost.Statuses[iceSoulSealCancelledBoostStatus] = 1
+	if cancelled, ok := extraData["cancel_boost"].(*bool); ok && cancelled != nil {
+		*cancelled = true
+	}
+	if e.State.PendingSpell == nil {
+		return
+	}
+	removed := false
+	kept := e.State.PendingSpell.BoostSkills[:0]
+	for _, skill := range e.State.PendingSpell.BoostSkills {
+		if skill == boost {
+			removed = true
+			continue
+		}
+		kept = append(kept, skill)
+	}
+	if removed {
+		e.State.PendingSpell.BoostSkills = kept
+		e.refreshPendingSpellPowerForModifiedSkill(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
+	}
 }
 
 func (e *Engine) promptOpponentCounterTrap(playerID int, trigger EffectTrigger, eventSource *CardInstance, extraData map[string]any, afterDecline func()) bool {
@@ -466,6 +561,58 @@ func drawCountFromData(data map[string]any) int {
 		return int(f)
 	}
 	return 0
+}
+
+func lethalDamageFromData(data map[string]any, target *CardInstance) bool {
+	if data == nil || target == nil || target.Card == nil {
+		return false
+	}
+	damage := damageFromData(data)
+	return damage > 0 && target.CurrentLife-damage <= 0
+}
+
+func damageFromData(data map[string]any) int {
+	if data == nil {
+		return 0
+	}
+	if n, ok := data["damage"].(int); ok {
+		return n
+	}
+	if f, ok := data["damage"].(float64); ok {
+		return int(f)
+	}
+	return 0
+}
+
+func intFromData(data map[string]any, key string, fallback int) int {
+	if data == nil {
+		return fallback
+	}
+	if n, ok := data[key].(int); ok {
+		return n
+	}
+	if f, ok := data[key].(float64); ok {
+		return int(f)
+	}
+	return fallback
+}
+
+func boolFromData(data map[string]any, key string) bool {
+	if data == nil {
+		return false
+	}
+	value, _ := data[key].(bool)
+	return value
+}
+
+func spellInstancesFromData(data map[string]any, key string) []*CardInstance {
+	if data == nil {
+		return nil
+	}
+	if cards, ok := data[key].([]*CardInstance); ok {
+		return cards
+	}
+	return nil
 }
 
 func spellPowerFromData(data map[string]any) int {

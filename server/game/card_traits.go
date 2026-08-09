@@ -66,9 +66,9 @@ func isSpellScrollCard(card *model.Card) bool {
 		"2421008", "2421009",
 		"2521008", "2521009", "2521013",
 		"2621008", "2621009",
-		"2121109", "2121112",
+		"2121105", "2121109", "2121111", "2121112",
 		"2221110",
-		"2521112":
+		"2521111", "2521112":
 		return true
 	default:
 		return false
@@ -77,6 +77,14 @@ func isSpellScrollCard(card *model.Card) bool {
 
 func isSpellLikeCard(card *model.Card) bool {
 	return card != nil && (card.IsSkill() || isSpellScrollCard(card))
+}
+
+func spellSuppressesOpponentResponses(card *CardInstance) bool {
+	return card != nil && card.Card != nil && card.Card.Number == "2121111"
+}
+
+func providesStrictArcaneOnly(card *CardInstance) bool {
+	return card != nil && card.Card != nil && (card.Card.Number == "2021106" || card.Card.Number == "4011102")
 }
 
 func canCardBeWeakened(card *model.Card) bool {
@@ -137,7 +145,7 @@ func traitsForCardNumber(number string) cardTraits {
 		t.area = SpellAreaAll
 	case "3321011", "3521012":
 		t.area = SpellAreaColumn
-	case "2121112", "3121104":
+	case "2121112", "2321112", "3121104":
 		t.area = SpellAreaColumn
 	case "2521009", "3001001", "3121004", "3521008", "3621003":
 		t.area = SpellAreaFrontRow
@@ -145,7 +153,7 @@ func traitsForCardNumber(number string) cardTraits {
 		t.area = SpellAreaFrontRow
 	case "2221009", "2621009", "3201002", "3221005":
 		t.area = SpellAreaSplashCross
-	case "3421107", "3511102", "3621109":
+	case "2121105", "3421107", "3511102", "3621109":
 		t.area = SpellAreaSplashCross
 	}
 
@@ -178,7 +186,7 @@ func traitsForCardNumber(number string) cardTraits {
 		t.needsTarget = falsePtr()
 	case "2121003", "2121008", "2121011", "2221008", "2221009", "2321003", "2321009", "2421008", "2421009", "2521008", "2521009", "2621008", "2621009", "3021005", "3021008", "3021009", "3121003", "3121005", "3121006", "3121010", "3121011", "3221001", "3221005", "3221006", "3221011", "3221012", "3321003", "3321004", "3321006", "3321009", "3321011", "3321013", "3421002", "3421007", "3421009", "3421010", "3421012", "3421013", "3421014", "3521001", "3521004", "3521005", "3521008", "3521012", "3621003", "3621004", "3621011":
 		t.needsTarget = truePtr()
-	case "2121109", "2121112", "2221110", "2521112", "3011101", "3021102", "3111101", "3121101", "3121102", "3121104", "3121105", "3121106", "3121107", "3121108", "3211101", "3221102", "3221103", "3221104", "3221107", "3221108", "3221110", "3321101", "3321102", "3321103", "3321104", "3411102", "3421102", "3421106", "3421107", "3421108", "3511102", "3521103", "3521106", "3521107", "3621107", "3621109":
+	case "2121105", "2121109", "2121111", "2121112", "2221110", "2321112", "2521112", "3011101", "3021102", "3111101", "3121101", "3121102", "3121104", "3121105", "3121106", "3121107", "3121108", "3211101", "3221102", "3221103", "3221104", "3221107", "3221108", "3221110", "3321101", "3321102", "3321103", "3321104", "3411102", "3421102", "3421106", "3421107", "3421108", "3511102", "3521103", "3521106", "3521107", "3601101", "3621107", "3621109":
 		t.needsTarget = truePtr()
 	case "3421109":
 		t.needsTarget = truePtr()
@@ -235,7 +243,7 @@ func hasPerTurnAbilityNumber(number string) bool {
 
 func isPrayerAbilityNumber(number string) bool {
 	switch number {
-	case "1211001", "1221005", "1221015", "1421009", "1521001", "1521014", "2111002", "2421011":
+	case "1211001", "1221005", "1221015", "1411101", "1421009", "1521001", "1521014", "2111002", "2421011":
 		return true
 	default:
 		return false

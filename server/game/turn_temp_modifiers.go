@@ -35,16 +35,20 @@ func (e *Engine) applyOpponentTurnEndTemporaryModifiers(endedPlayerID int) {
 			continue
 		}
 		for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
-			if modifier.Type != TempModResetSkillsOnOpponentTurnEnd {
+			switch modifier.Type {
+			case TempModResetSkillsOnOpponentTurnEnd:
+				for _, skill := range ps.Skills {
+					resetCard(skill)
+				}
+				e.emit(GameEvent{Type: "effect_trigger", Player: ownerID, Data: map[string]any{
+					"effect": "reset_skills",
+				}})
+				e.removeTemporaryModifier(ownerID, modifier.ID)
+			case TempModLampusSwordDelayedDamage:
+				e.promptLampusSwordDelayedDamage(ownerID, modifier)
+			default:
 				continue
 			}
-			for _, skill := range ps.Skills {
-				resetCard(skill)
-			}
-			e.emit(GameEvent{Type: "effect_trigger", Player: ownerID, Data: map[string]any{
-				"effect": "reset_skills",
-			}})
-			e.removeTemporaryModifier(ownerID, modifier.ID)
 		}
 	}
 }

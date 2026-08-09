@@ -2880,7 +2880,7 @@
             }
 
             function isDeckReorderPending() {
-                return ['water_divination_search', 'okoru_observe'].includes(pendingAction.value?.type);
+                return ['water_divination_search', 'okoru_observe', 'foresight_orb_reorder', 'council_guard_reorder', 'rose_prophet_reorder'].includes(pendingAction.value?.type);
             }
 
             function ensurePendingDeckOrder() {
