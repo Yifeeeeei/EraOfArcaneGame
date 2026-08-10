@@ -218,6 +218,7 @@ func (e *Engine) enforceSlotCapacities(ps *PlayerState) {
 		}
 		ps.Equipment[i] = nil
 		equipment.SlotIndex = -1
+		e.exileTransferredBoundSkills(ps.PlayerID, equipment)
 		equipment.BoundSkills = nil
 		e.addToGraveyard(ps.PlayerID, equipment)
 		e.emit(GameEvent{Type: "discard", Player: ps.PlayerID, Data: map[string]any{"card": cardToInfo(equipment)}})
@@ -1250,7 +1251,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		return err
 	}
 	extraTargets := make([]SpellTarget, 0, 1)
-	if (skill.Card.Number == "3321001" || e.hasNextDriveSpellExtraTarget(ps, skill)) && hasExtraTargetCol && hasExtraTargetRow {
+	if (skill.Card.Number == "3321001" || skill.Card.Number == "3621107" || e.hasNextDriveSpellExtraTarget(ps, skill)) && hasExtraTargetCol && hasExtraTargetRow {
 		extra := SpellTarget{Type: "unit", Position: Position{Col: int(extraTargetColF), Row: int(extraTargetRowF)}}
 		if err := e.validateSpellExtraTargetForSkill(playerID, skill, target, extra); err != nil {
 			return err
@@ -3283,9 +3284,11 @@ func (e *Engine) destroyUnitWithData(unit *CardInstance, ownerID int, deathData 
 		ps.Units[unit.Position.Col][unit.Position.Row] = nil
 	}
 
-	// Bound skills live only while their host is on the battlefield. They do not
-	// enter the graveyard as independent cards.
+	// Printed/generated bound skills live only while their host is on the
+	// battlefield. Learned skills turned into bound skills have their own exile
+	// rule and are handled before clearing the host.
 	e.releaseUnderCardsToGraveyard(ownerID, unit)
+	e.exileTransferredBoundSkills(ownerID, unit)
 	unit.BoundSkills = nil
 
 	// Add to graveyard
@@ -5338,7 +5341,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 		"temp_modifiers":                 ps.TempModifiers,
 		"deck_count":                     len(ps.Deck),
 		"graveyard":                      e.cardsToInfo(ps.Graveyard),
-		"exile":                          e.cardsToInfo(ps.Exile),
+		"exile_count":                    len(ps.Exile),
 		"discarded_hand_count_this_turn": ps.DiscardedHandCountThisTurn,
 	}
 
@@ -5384,6 +5387,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 		// Show full hand
 		info["hand"] = e.cardsToInfoWithEffectiveCosts(ps, ps.Hand, false)
 		info["deck_summary"] = deckSummaryToInfo(ps.Deck)
+		info["exile"] = e.cardsToInfo(ps.Exile)
 		if e.hasForesightOrbActive(ps.PlayerID) {
 			info["top_deck_preview"] = e.cardsToInfo(ps.Deck[:min(3, len(ps.Deck))])
 		}

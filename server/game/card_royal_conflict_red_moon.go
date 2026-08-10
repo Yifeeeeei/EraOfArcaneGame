@@ -263,7 +263,9 @@ func (e *Engine) updateRedMoonTransformations(playerID int) {
 		switch unit.Card.Number {
 		case "1611101":
 			if active {
-				e.replaceUnitCard(unit, "1601101", false)
+				wasHorizontal := unit.IsHorizontal
+				e.replaceUnitCard(unit, "1601101", true)
+				unit.IsHorizontal = wasHorizontal
 				unit.Statuses[bloodShadowBodyRedMoonMarkersStatus] = markers
 			}
 		case "1601101":

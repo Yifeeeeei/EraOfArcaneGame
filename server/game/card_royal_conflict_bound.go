@@ -15,6 +15,38 @@ func (Card1011103Gambler) OnEnter(ctx *EffectContext) error {
 	return nil
 }
 
+func (Card1011103Gambler) OnUltimate(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Source.Card == nil {
+		return nil
+	}
+	for playerID, ps := range ctx.Engine.State.Players {
+		if ps == nil {
+			continue
+		}
+		for col := 0; col < 3; col++ {
+			for row := 0; row < 3; row++ {
+				target := ps.Units[col][row]
+				if target == nil || target.Card == nil || target.Card.Number != "1001101" {
+					continue
+				}
+				ctx.Engine.dealDamageWithExtra(target, 1, playerID, map[string]any{
+					"damage_source": "effect",
+					"source_card":   ctx.Source.Card.Number,
+					"attacker":      ctx.PlayerID,
+				})
+				if target.CurrentLife <= 0 && ctx.Engine.unitInOwnerGrid(target, playerID) {
+					ctx.Engine.destroyUnitWithData(target, playerID, map[string]any{
+						"death_cause": "gambler_ultimate",
+						"attacker":    ctx.PlayerID,
+						"source_card": ctx.Source.Card.Number,
+					})
+				}
+			}
+		}
+	}
+	return nil
+}
+
 type Card2511102FiveRainbowRing struct{ AlwaysActive }
 
 func (Card2511102FiveRainbowRing) ID() string   { return "2511102" }

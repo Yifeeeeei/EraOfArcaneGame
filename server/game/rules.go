@@ -986,8 +986,11 @@ func (e *Engine) validateSpellExtraTarget(playerID int, target SpellTarget) erro
 }
 
 func (e *Engine) validateSpellExtraTargetForSkill(playerID int, skill *CardInstance, mainTarget SpellTarget, extra SpellTarget) error {
-	if e.allowsSameSpellExtraTarget(e.State.Players[playerID], skill) && extra.Type == mainTarget.Type && extra.Position == mainTarget.Position {
-		return e.validateSpellTarget(playerID, skill, extra)
+	if extra.Type == mainTarget.Type && extra.Position == mainTarget.Position {
+		if e.allowsSameSpellExtraTarget(e.State.Players[playerID], skill) {
+			return e.validateSpellTarget(playerID, skill, extra)
+		}
+		return fmt.Errorf("extra target cannot be the same as the main target")
 	}
 	return e.validateSpellExtraTarget(playerID, extra)
 }
@@ -1039,11 +1042,14 @@ func (e *Engine) allowsSameSpellExtraTarget(ps *PlayerState, skill *CardInstance
 	if ps == nil || skill == nil || skill.Card == nil {
 		return false
 	}
+	if skill.Card.Number == "3621107" {
+		return true
+	}
 	for _, modifier := range ps.TempModifiers {
 		if modifier.Type != TempModNextSpellExtraTarget || modifier.RemainingUses == 0 {
 			continue
 		}
-		if modifier.TargetInstanceID == "" || modifier.TargetInstanceID == skill.InstanceID {
+		if (modifier.TargetInstanceID == "" || modifier.TargetInstanceID == skill.InstanceID) && modifier.AllowSameTarget {
 			return true
 		}
 	}

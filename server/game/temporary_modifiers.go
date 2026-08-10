@@ -55,6 +55,7 @@ type TemporaryModifier struct {
 	Amount           int    `json:"amount,omitempty"`
 	RemainingUses    int    `json:"remaining_uses,omitempty"`
 	ExpiresTurn      int    `json:"expires_turn,omitempty"`
+	AllowSameTarget  bool   `json:"allow_same_target,omitempty"`
 }
 
 func (e *Engine) addTemporaryModifier(playerID int, modifier TemporaryModifier) {

@@ -132,6 +132,7 @@ func (e *Engine) removeFieldCardFromGameByID(instanceID string) bool {
 					ps.Units[col][row] = nil
 					unit.Position = nil
 					e.releaseUnderCardsToGraveyard(playerID, unit)
+					e.exileTransferredBoundSkills(playerID, unit)
 					unit.BoundSkills = nil
 					e.emit(GameEvent{Type: "card_removed_from_game", Player: playerID, Data: map[string]any{"card": cardToInfo(unit)}})
 					return true
@@ -160,6 +161,7 @@ func (e *Engine) removeFieldCardFromGameByID(instanceID string) bool {
 			if equipment != nil && equipment.InstanceID == instanceID {
 				ps.Equipment[i] = nil
 				e.releaseUnderCardsToGraveyard(playerID, equipment)
+				e.exileTransferredBoundSkills(playerID, equipment)
 				e.emit(GameEvent{Type: "card_removed_from_game", Player: playerID, Data: map[string]any{"card": cardToInfo(equipment)}})
 				return true
 			}
@@ -179,6 +181,7 @@ func (e *Engine) exileCard(playerID int, card *CardInstance) bool {
 		}
 		if removed := e.detachCardFromKnownZones(ps, card.InstanceID); removed != nil {
 			e.releaseUnderCardsToGraveyard(zoneOwnerID, removed)
+			e.exileTransferredBoundSkills(zoneOwnerID, removed)
 			resetCardForPublicSpecialZone(removed)
 			owner.Exile = append(owner.Exile, removed)
 			e.emit(GameEvent{Type: "card_exiled", Player: playerID, Data: map[string]any{"card": cardToInfo(removed)}})
@@ -207,6 +210,44 @@ func (e *Engine) placeCardUnder(host *CardInstance, card *CardInstance) bool {
 		}
 	}
 	return false
+}
+
+const transferredBoundSkillStatus = "transferred_bound_skill"
+
+func markTransferredBoundSkill(skill *CardInstance) {
+	if skill == nil {
+		return
+	}
+	if skill.Statuses == nil {
+		skill.Statuses = make(map[string]int)
+	}
+	skill.Statuses[transferredBoundSkillStatus] = 1
+}
+
+func isTransferredBoundSkill(skill *CardInstance) bool {
+	return skill != nil && skill.Statuses != nil && skill.Statuses[transferredBoundSkillStatus] > 0
+}
+
+func (e *Engine) exileTransferredBoundSkills(ownerID int, host *CardInstance) {
+	if e == nil || host == nil || len(host.BoundSkills) == 0 {
+		return
+	}
+	remaining := make([]*CardInstance, 0, len(host.BoundSkills))
+	for _, skill := range host.BoundSkills {
+		if skill == nil || !isTransferredBoundSkill(skill) {
+			remaining = append(remaining, skill)
+			continue
+		}
+		exileOwner := skill.OwnerID
+		if exileOwner < 0 || exileOwner >= len(e.State.Players) || e.State.Players[exileOwner] == nil {
+			exileOwner = ownerID
+		}
+		e.releaseUnderCardsToGraveyard(exileOwner, skill)
+		resetCardForPublicSpecialZone(skill)
+		e.State.Players[exileOwner].Exile = append(e.State.Players[exileOwner].Exile, skill)
+		e.emit(GameEvent{Type: "card_exiled", Player: exileOwner, Data: map[string]any{"card": cardToInfo(skill)}})
+	}
+	host.BoundSkills = remaining
 }
 
 func (e *Engine) detachCardFromKnownZones(ps *PlayerState, instanceID string) *CardInstance {

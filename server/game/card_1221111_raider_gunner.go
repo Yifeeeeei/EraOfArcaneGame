@@ -6,11 +6,11 @@ func (Card1221111RaiderGunner) ID() string   { return "1221111" }
 func (Card1221111RaiderGunner) Name() string { return "掠夺者炮手" }
 
 func (Card1221111RaiderGunner) OnSpellHit(ctx *EffectContext) error {
-	if ctx == nil || ctx.Source == nil || !isFriendlySpellHit(ctx) || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) {
+	if ctx == nil || ctx.Source == nil || ctx.Source.UltimateUsed || !isFriendlySpellHit(ctx) {
 		return nil
 	}
 	if ctx.Engine.discardRandomHandCard(ctx.OpponentID) != nil {
-		ctx.Source.UsedThisTurn++
+		ctx.Source.UltimateUsed = true
 	}
 	return nil
 }

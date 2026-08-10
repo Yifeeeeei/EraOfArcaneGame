@@ -30,7 +30,7 @@ type Card1021110RockWallGuard struct{ AlwaysActive }
 func (Card1021110RockWallGuard) ID() string   { return "1021110" }
 func (Card1021110RockWallGuard) Name() string { return "岩壁护卫军" }
 func (Card1021110RockWallGuard) OnSpellHit(ctx *EffectContext) error {
-	if ctx == nil || ctx.Source == nil || isFriendlySpellHit(ctx) {
+	if ctx == nil || ctx.Source == nil || ctx.Source.UltimateUsed || isFriendlySpellHit(ctx) {
 		return nil
 	}
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
@@ -38,6 +38,7 @@ func (Card1021110RockWallGuard) OnSpellHit(ctx *EffectContext) error {
 		return nil
 	}
 	ctx.Engine.gainPlayerShield(ctx.PlayerID, 2)
+	ctx.Source.UltimateUsed = true
 	return nil
 }
 
