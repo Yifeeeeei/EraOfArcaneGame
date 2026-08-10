@@ -54,19 +54,32 @@ func (e *Engine) promptIllusionScrollPosition(playerID int, source *CardInstance
 }
 
 func (e *Engine) promptIllusionScrollRetarget(playerID int, source *CardInstance, extraData map[string]any) {
+	e.promptSpellRetarget(playerID, source, extraData, "illusion_scroll_retarget", "幻术卷轴:重新选择法术攻击目标", "illusion_scroll")
+}
+
+func (e *Engine) promptSpellRetarget(playerID int, source *CardInstance, extraData map[string]any, pendingType string, prompt string, cancelReasonPrefix string) {
 	if e.State.PendingSpell == nil {
 		return
+	}
+	if pendingType == "" {
+		pendingType = "spell_retarget"
+	}
+	if prompt == "" {
+		prompt = "重新选择法术攻击目标"
+	}
+	if cancelReasonPrefix == "" {
+		cancelReasonPrefix = pendingType
 	}
 	spell := e.State.PendingSpell
 	attackerID := spell.AttackerID
 	candidates := e.spellTargetCandidates(attackerID, spell.Skill)
 	if len(candidates) == 0 {
 		markSpellCastCancelled(extraData)
-		e.cancelPendingSpell(playerID, source, "illusion_scroll_no_legal_target")
+		e.cancelPendingSpell(playerID, source, cancelReasonPrefix+"_no_legal_target")
 		return
 	}
-	e.SetPendingAction(attackerID, "illusion_scroll_retarget",
-		"幻术卷轴:重新选择法术攻击目标", candidates, 1, 1,
+	e.SetPendingAction(attackerID, pendingType,
+		prompt, candidates, 1, 1,
 		func(selected []string) {
 			target := selectedUnitFromCandidates(e, selected, candidates)
 			if target == nil || target.Position == nil || e.State.PendingSpell == nil {
@@ -75,7 +88,7 @@ func (e *Engine) promptIllusionScrollRetarget(playerID int, source *CardInstance
 			spellTarget := SpellTarget{Type: "unit", Position: *target.Position}
 			if err := e.validateSpellTarget(attackerID, spell.Skill, spellTarget); err != nil {
 				markSpellCastCancelled(extraData)
-				e.cancelPendingSpell(playerID, source, "illusion_scroll_invalid_retarget")
+				e.cancelPendingSpell(playerID, source, cancelReasonPrefix+"_invalid_retarget")
 				return
 			}
 			e.State.PendingSpell.Target = spellTarget
