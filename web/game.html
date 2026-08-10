@@ -544,6 +544,7 @@
                         <div>
                             <div class="hero-hp">{{ opponent.hero.current_life }}</div>
                             <div class="hero-hp-label">生命值</div>
+                            <div v-if="opponent.shield > 0" class="shield-chip">护盾 {{ opponent.shield }}</div>
                         </div>
                     </div>
                     <div class="player-meta">
@@ -588,6 +589,7 @@
                         <div>
                             <div class="hero-hp">{{ myState.hero.current_life }}</div>
                             <div class="hero-hp-label">生命值</div>
+                            <div v-if="myState.shield > 0" class="shield-chip">护盾 {{ myState.shield }}</div>
                             <div class="hero-abilities" v-if="isMyTurn && gameState.phase === 'main'">
                                 <button v-if="canUsePerTurn(myState.hero)" class="action-btn ability small"
                                         @click.stop="useAbility(myState.hero, 'per_turn')">{{ abilityLabel(myState.hero, 'per_turn') }}</button>
