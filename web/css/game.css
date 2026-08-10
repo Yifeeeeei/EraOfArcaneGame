@@ -202,6 +202,16 @@ body::before {
     color: var(--text-secondary);
     letter-spacing: 1px;
 }
+.shield-chip {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 5px;
+    border: 1px solid rgba(212, 175, 55, 0.45);
+    background: rgba(212, 175, 55, 0.12);
+    color: var(--gold);
+    font-size: 11px;
+    line-height: 1.1;
+}
 
 .player-meta {
     display: flex;

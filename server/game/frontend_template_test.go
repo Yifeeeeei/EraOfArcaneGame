@@ -109,7 +109,7 @@ func TestGameHTMLDefenseWindowClickHandlersAreReturned(t *testing.T) {
 		"function syncDefensePanelVisualState()",
 		"el.classList.toggle('selected', selected)",
 		"submit.classList.toggle('disabled', !canSubmitDefense.value)",
-		"const CLIENT_BUILD = 'defense-ui-20260702-4'",
+		"const CLIENT_BUILD = 'issue133-royal-feedback-20260810-1'",
 		"const pendingSpellView = computed(() => normalizePendingSpell(gameState.value?.pending_spell))",
 		"function normalizePendingSpell(spell)",
 		"spell.power ?? spell.total_power",
@@ -122,7 +122,7 @@ func TestGameHTMLDefenseWindowClickHandlersAreReturned(t *testing.T) {
 		"defense_submit_blocked",
 		"if (!defenseSelected.value.includes(skill.instance_id))",
 		"if (!defenseScrollSelected.value.includes(scroll.instance_id))",
-		"handleDefensePanelClick, showInteractionCardContextMenu, toggleDefenseSkill, toggleDefenseScroll, toggleDefenseBoost, toggleDefenseOverexert, reactSpell, submitDefend",
+		"handleDefensePanelClick, showInteractionCardContextMenu, toggleDefenseSkill, toggleDefenseScroll, toggleDefenseBoost, toggleDefenseOverexert, toggleDefensePowerSacrifice, reactSpell, submitDefend",
 		"canSubmitDefense,",
 		"noDefend,",
 	} {

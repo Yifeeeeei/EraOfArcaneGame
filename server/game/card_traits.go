@@ -59,6 +59,9 @@ func isSpellScrollCard(card *model.Card) bool {
 	if card == nil || !card.IsItem() {
 		return false
 	}
+	if strings.Contains(card.Tag, "法术卷轴") {
+		return true
+	}
 	switch card.Number {
 	case "2121003", "2121008", "2121009", "2121011",
 		"2221008", "2221009",
@@ -68,11 +71,16 @@ func isSpellScrollCard(card *model.Card) bool {
 		"2621008", "2621009",
 		"2121105", "2121109", "2121111", "2121112",
 		"2221110",
+		"2321106",
 		"2521111", "2521112":
 		return true
 	default:
 		return false
 	}
+}
+
+func spellScrollUsesGenericCast(card *model.Card) bool {
+	return isSpellScrollCard(card) && (card.Attack >= 0 || card.Power >= 0)
 }
 
 func isSpellLikeCard(card *model.Card) bool {

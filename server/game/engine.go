@@ -1246,10 +1246,6 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	if err := e.validateSpellTargetWithPierce(playerID, skill, target, hasPierce); err != nil {
 		return err
 	}
-	powerSacrifice, powerSacrificeBonus, err := e.validateSpellPowerSacrifice(playerID, skill, action)
-	if err != nil {
-		return err
-	}
 	extraTargets := make([]SpellTarget, 0, 1)
 	if (skill.Card.Number == "3321001" || skill.Card.Number == "3621107" || e.hasNextDriveSpellExtraTarget(ps, skill)) && hasExtraTargetCol && hasExtraTargetRow {
 		extra := SpellTarget{Type: "unit", Position: Position{Col: int(extraTargetColF), Row: int(extraTargetRowF)}}
@@ -1278,6 +1274,10 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	totalCost := mergeElementCosts(cost, boostCost)
 	if !e.canPayCost(ps, totalCost) {
 		return fmt.Errorf("not enough elements for boost skills")
+	}
+	powerSacrifice, powerSacrificeSource, powerSacrificeBonus, err := e.validateSpellPowerSacrificeForSources(playerID, append([]*CardInstance{skill}, boostSkills...), action)
+	if err != nil {
+		return err
 	}
 
 	// Pay costs and set cards horizontal only after all validation succeeds.
@@ -1319,18 +1319,13 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 
 	if powerSacrifice != nil && powerSacrificeBonus > 0 {
 		e.destroyUnitWithCause(powerSacrifice, playerID, DeathCauseSacrifice)
-		e.addTemporaryModifier(playerID, TemporaryModifier{
-			Type:             TempModNextAttackSpellPowerBonus,
-			SourceCardNumber: skill.Card.Number,
-			SourceName:       skill.Card.Name,
-			TargetInstanceID: skill.InstanceID,
-			Amount:           powerSacrificeBonus,
-			RemainingUses:    1,
-		})
 	}
 	e.applyCoralBellyFirstSpellAttackBonus(playerID, skill)
 	powerTargets := append([]SpellTarget{target}, extraTargets...)
 	totalPower := e.effectiveSpellPower(playerID, skill, boostSkills, powerTargets...)
+	if powerSacrificeSource != nil && powerSacrificeBonus > 0 {
+		totalPower += powerSacrificeBonus
+	}
 	powerSources := e.spellPowerSources(playerID, skill, boostSkills, totalPower, powerTargets...)
 	e.consumeNextSpellPowerBonuses(ps, skill)
 	if len(extraTargets) > 0 {
@@ -1624,12 +1619,21 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 	if !e.canPayCostWithOverexertOptions(ps, totalCost, overexertUnits, e.playerHasLightWildcard(ps)) {
 		return fmt.Errorf("not enough elements for defense")
 	}
+	defensePowerSources := append([]*CardInstance{}, defenseSkills...)
+	defensePowerSources = append(defensePowerSources, boostSkills...)
+	defensePowerSacrifice, defensePowerSacrificeSource, defensePowerSacrificeBonus, err := e.validateSpellPowerSacrificeForSources(playerID, defensePowerSources, action)
+	if err != nil {
+		return err
+	}
 	if len(defenseSkills)+len(defenseScrolls)+len(boostSkills) > 0 {
 		if !e.payDefenseCostWithOptions(ps, totalCost, action, overexertUnits, e.playerHasLightWildcard(ps)) {
 			return fmt.Errorf("invalid payment")
 		}
 		e.triggerErebosSoulChainMarkedOverexert(playerID, overexertUnits)
 		e.destroyFuyeDoomedAfterExert(overexertUnits)
+		if defensePowerSacrifice != nil && defensePowerSacrificeBonus > 0 {
+			e.destroyUnitWithCause(defensePowerSacrifice, playerID, DeathCauseSacrifice)
+		}
 		tapSkills(defenseSkills)
 		tapSkills(boostSkills)
 		e.moveHandConsumablesToGraveyard(ps, append(defenseScrolls, boostScrolls...))
@@ -1653,10 +1657,10 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		if e.State.PendingSpell == nil {
 			return
 		}
-		if e.promptDispelDefenseSpellIfEligible(e.State.PendingSpell.AttackerID, playerID, defenseSources, boostSources, len(overexertUnits)) {
+		if e.promptDispelDefenseSpellIfEligible(e.State.PendingSpell.AttackerID, playerID, defenseSources, boostSources, len(overexertUnits), defensePowerSacrificeSource, defensePowerSacrificeBonus) {
 			return
 		}
-		e.finishDefenseResolution(playerID, defenseSources, boostSources, len(overexertUnits))
+		e.finishDefenseResolution(playerID, defenseSources, boostSources, len(overexertUnits), defensePowerSacrificeSource, defensePowerSacrificeBonus)
 	}
 	if e.promptDefenseSpellCastCounters(e.State.PendingSpell.AttackerID, playerID, defenseSources, boostSources, overexertUnits, continueAfterDefenseSpellCounters) {
 		return nil
@@ -1838,11 +1842,14 @@ func (e *Engine) moveHandConsumablesToGraveyard(ps *PlayerState, cards []*CardIn
 		})
 	}
 }
-func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInstance, boostSkills []*CardInstance, overexerted int) {
+func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInstance, boostSkills []*CardInstance, overexerted int, powerBonusSource *CardInstance, powerBonus int) {
 	defenseSkills = e.filterIceSoulSealCancelledBoosts(defenseSkills)
 	boostSkills = e.filterIceSoulSealCancelledBoosts(boostSkills)
 	totalDefPower := e.totalEffectiveSkillPower(playerID, defenseSkills, skillPurposeDefend) +
 		e.totalEffectiveSkillPower(playerID, boostSkills, skillPurposeDefenseBoost)
+	if powerBonusSource != nil && (cardInstanceInSlice(defenseSkills, powerBonusSource) || cardInstanceInSlice(boostSkills, powerBonusSource)) {
+		totalDefPower += max(powerBonus, 0)
+	}
 
 	attackPower := e.State.PendingSpell.TotalPower
 
@@ -1935,7 +1942,7 @@ func (e *Engine) filterIceSoulSealCancelledBoosts(skills []*CardInstance) []*Car
 	return filtered
 }
 
-func (e *Engine) promptDispelDefenseSpellIfEligible(attackerID int, defenderID int, defenseSkills []*CardInstance, boostSkills []*CardInstance, overexerted int) bool {
+func (e *Engine) promptDispelDefenseSpellIfEligible(attackerID int, defenderID int, defenseSkills []*CardInstance, boostSkills []*CardInstance, overexerted int, powerBonusSource *CardInstance, powerBonus int) bool {
 	defenseOnlySkills := make([]*CardInstance, 0, len(defenseSkills))
 	for _, skill := range defenseSkills {
 		if skill != nil && skill.Card != nil && isDefenseOnlySkill(skill.Card) {
@@ -1965,7 +1972,7 @@ func (e *Engine) promptDispelDefenseSpellIfEligible(attackerID int, defenderID i
 		candidates, 0, 1, cost, true,
 		func(selected []string, data map[string]any) error {
 			if len(selected) == 0 {
-				e.finishDefenseResolution(defenderID, defenseSkills, boostSkills, overexerted)
+				e.finishDefenseResolution(defenderID, defenseSkills, boostSkills, overexerted, powerBonusSource, powerBonus)
 				return nil
 			}
 			cancelledSkill := validTargets[selected[0]]
@@ -1985,7 +1992,7 @@ func (e *Engine) promptDispelDefenseSpellIfEligible(attackerID int, defenderID i
 					"cancelled": cardToInfo(cancelledSkill),
 				},
 			})
-			e.finishDefenseResolution(defenderID, withoutCardInstance(defenseSkills, cancelledSkill), boostSkills, overexerted)
+			e.finishDefenseResolution(defenderID, withoutCardInstance(defenseSkills, cancelledSkill), boostSkills, overexerted, powerBonusSource, powerBonus)
 			return nil
 		})
 	return e.State.PendingAction != nil && e.State.PendingAction.Type == "dispel_defense_spell"
@@ -3699,7 +3706,7 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 			},
 		})
 	}
-	if isSpellScrollCard(card.Card) {
+	if spellScrollUsesGenericCast(card.Card) {
 		return e.handleUseSpellScrollItem(playerID, action, card, handIdx)
 	}
 	if cards.IsEquipment(card.Card.Number) {
@@ -4070,7 +4077,10 @@ func (e *Engine) handleUseAbility(playerID int, action ActionMessage) error {
 	// Find the card with the ability
 	card := e.findCardOnField(ps, instanceID)
 	if card == nil {
-		return fmt.Errorf("card not found on field")
+		card = e.findSkill(ps, instanceID)
+	}
+	if card == nil {
+		return fmt.Errorf("card not found on field or skill area")
 	}
 
 	if e.hasEffectiveStatus(card, StatusPetrify) {
