@@ -8797,7 +8797,10 @@ func (Card1221114JadeFacedSnowFox) OnSpellReaction(ctx *EffectContext, spell *Sp
 					"water":  2,
 				},
 			})
-			ctx.Engine.promptIllusionScrollRetarget(ctx.PlayerID, source, ctx.ExtraData)
+			ctx.Engine.promptSpellRetarget(ctx.PlayerID, source, ctx.ExtraData,
+				"jade_faced_snow_fox_retarget",
+				"玉面雪狐:重新选择法术攻击目标",
+				"jade_faced_snow_fox")
 		})
 	return nil
 }

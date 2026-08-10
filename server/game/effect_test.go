@@ -10291,8 +10291,11 @@ func TestRoyalConflictJadeFacedSnowFoxMovesAndForcesRetarget(t *testing.T) {
 	if p1.Elements[model.ElementWater] != 2 || !fox.UltimateUsed || fox.Position == nil || *fox.Position != (Position{Col: 0, Row: 2}) {
 		t.Fatalf("snow fox should move and gain water, elements=%v used=%v pos=%+v", p1.Elements, fox.UltimateUsed, fox.Position)
 	}
-	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "illusion_scroll_retarget" || engine.State.PendingAction.PlayerID != 0 {
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "jade_faced_snow_fox_retarget" || engine.State.PendingAction.PlayerID != 0 {
 		t.Fatalf("snow fox should ask attacker to retarget, pending=%+v", engine.State.PendingAction)
+	}
+	if engine.State.PendingAction.Prompt != "玉面雪狐:重新选择法术攻击目标" {
+		t.Fatalf("snow fox retarget prompt should name snow fox, prompt=%q", engine.State.PendingAction.Prompt)
 	}
 	resolvePendingSelection(t, engine, 0, other.InstanceID)
 	if engine.State.PendingSpell == nil || engine.State.PendingSpell.Target.Position != *other.Position {
