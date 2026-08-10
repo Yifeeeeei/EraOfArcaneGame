@@ -1808,7 +1808,7 @@ func (Card3601101BloodFeast) ValidateSpellTarget(ctx *EffectContext, target Spel
 	return nil
 }
 func (Card3601101BloodFeast) OnSpellHit(ctx *EffectContext) error {
-	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Source.Card == nil || ctx.Source.Card.Number != "3601101" {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Source.Card == nil || ctx.Source.Card.Number != "3601101" || !isOwnSpellHit(ctx) {
 		return nil
 	}
 	choices := []map[string]any{
@@ -8857,19 +8857,62 @@ func (Card2121104FireRebirthScroll) OnTurnEnd(ctx *EffectContext) error {
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil {
 		return nil
 	}
-	revived := ctx.Engine.reviveRecentFireCompanions(ctx.PlayerID)
-	if revived > 0 {
-		ctx.Engine.emit(GameEvent{
-			Type:   "fire_rebirth_scroll_revive",
-			Player: -1,
-			Data: map[string]any{
-				"player": ctx.PlayerID,
-				"source": cardToInfo(ctx.Source),
-				"count":  revived,
-			},
-		})
+	candidates := ctx.Engine.rebirthScrollReviveCandidates(ctx.PlayerID)
+	if len(candidates) == 0 {
+		return nil
 	}
+	revive := func(instanceID string) {
+		if ctx.Engine.reviveRecentFireCompanion(ctx.PlayerID, instanceID) {
+			ctx.Engine.emit(GameEvent{
+				Type:   "fire_rebirth_scroll_revive",
+				Player: -1,
+				Data: map[string]any{
+					"player":  ctx.PlayerID,
+					"source":  cardToInfo(ctx.Source),
+					"revived": instanceID,
+					"count":   1,
+				},
+			})
+		}
+	}
+	if len(candidates) == 1 {
+		revive(candidates[0].InstanceID)
+		return nil
+	}
+	choices := make([]map[string]any, 0, len(candidates))
+	for _, card := range candidates {
+		info := cardToInfo(card)
+		info["zone"] = "graveyard"
+		info["side"] = "own"
+		choices = append(choices, info)
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "fire_rebirth_scroll",
+		"浴火重生卷轴:选择1个本回合死亡的友方火焰伙伴复活", choices, 1, 1,
+		func(selected []string) {
+			revive(firstSelected(selected))
+		})
 	return nil
+}
+
+func (e *Engine) reviveRecentFireCompanion(playerID int, instanceID string) bool {
+	ps := e.State.Players[playerID]
+	pos := ps.FindEmptyPosition()
+	if pos == nil {
+		return false
+	}
+	for _, card := range e.rebirthScrollReviveCandidates(playerID) {
+		if card == nil || card.InstanceID != instanceID {
+			continue
+		}
+		if e.reviveCompanionFromGraveyardWithLifeAtPosition(playerID, card.InstanceID, 0, false, *pos) {
+			card.IsHorizontal = false
+			if card.Statuses != nil {
+				delete(card.Statuses, enteredGraveyardTurnStatus)
+			}
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Engine) rebirthScrollReviveCandidates(playerID int) []*CardInstance {
@@ -8887,26 +8930,6 @@ func (e *Engine) rebirthScrollReviveCandidates(playerID int) []*CardInstance {
 		}
 	}
 	return candidates
-}
-
-func (e *Engine) reviveRecentFireCompanions(playerID int) int {
-	ps := e.State.Players[playerID]
-	candidates := e.rebirthScrollReviveCandidates(playerID)
-	revived := 0
-	for _, card := range candidates {
-		pos := ps.FindEmptyPosition()
-		if pos == nil {
-			break
-		}
-		if e.reviveCompanionFromGraveyardWithLifeAtPosition(playerID, card.InstanceID, 0, false, *pos) {
-			card.IsHorizontal = false
-			if card.Statuses != nil {
-				delete(card.Statuses, enteredGraveyardTurnStatus)
-			}
-			revived++
-		}
-	}
-	return revived
 }
 
 var _ OnTurnEndBehavior = Card2121104FireRebirthScroll{}

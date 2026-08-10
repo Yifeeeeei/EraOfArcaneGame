@@ -167,6 +167,26 @@
                         </button>
                     </div>
                 </div>
+                <div class="defense-skills-section" v-if="defensePowerSacrificeCandidates.length > 0">
+                    <h3>炎狱怒吼祭献</h3>
+                    <div class="defense-skill-list">
+                        <button v-for="unit in defensePowerSacrificeCandidates" :key="unit.instance_id"
+                             type="button"
+                             class="defense-skill-card interaction-card"
+                             :class="{ selected: defensePowerSacrificeId === unit.instance_id }"
+                             :data-instance-id="unit.instance_id"
+                             data-defense-action="power_sacrifice"
+                             @mouseenter="previewCard(unit)">
+                            <img :src="getCardImage(unit)" class="defense-skill-img">
+                            <div class="defense-skill-info">
+                                <div class="defense-skill-name">{{ unit.name }}</div>
+                                <div class="defense-skill-power">+{{ totalCost(playCost(unit)) }} 威力</div>
+                            </div>
+                            <span class="interaction-detail-link" :data-instance-id="unit.instance_id" data-defense-action="detail">查看</span>
+                        </button>
+                    </div>
+                    <div class="defense-note">可选。选择后提交防御会祭献该火焰伙伴。</div>
+                </div>
 
                 <!-- Boost skills -->
                 <div class="defense-skills-section" v-if="availableDefenseBoostCandidates.length > 0">
@@ -805,7 +825,9 @@
                                                 </div>
                                                 <div v-if="canCastSkill(mySkills[i-1])" class="cast-btn"
                                                      @click.stop="selectSkillToCast(mySkills[i-1])">施放</div>
-                                                <div v-else-if="canShowCostHint(mySkills[i-1])" class="slot-cost-hint">
+                                                <div v-if="canUsePerTurn(mySkills[i-1])" class="cast-btn ability"
+                                                     @click.stop="useAbility(mySkills[i-1], 'per_turn')">{{ abilityLabel(mySkills[i-1], 'per_turn') }}</div>
+                                                <div v-if="canShowCostHint(mySkills[i-1])" class="slot-cost-hint">
                                                     {{ missingCostText(skillUseCost(mySkills[i-1])) }}
                                                 </div>
                                                 <div v-if="selectedSkill && canBoostWith(mySkills[i-1])" class="boost-btn"
@@ -1000,7 +1022,9 @@
             const selectedAttacker = ref(null);
             const selectedSkill = ref(null);
             const selectedItemSpellScroll = ref(null);
+            const selectedSpellScrollSacrificeId = ref('');
             const defenseScrollSelected = ref([]);
+            const defensePowerSacrificeId = ref('');
             const hoveredOpponentCell = ref(null);
             const skillReplaceRequest = ref(null);
             const equipmentReplaceRequest = ref(null);
@@ -1011,7 +1035,7 @@
             const testElement = ref('无');
             const testElementAmount = ref(10);
 
-            const CLIENT_BUILD = 'defense-ui-20260702-4';
+            const CLIENT_BUILD = 'issue133-royal-feedback-20260810-1';
             const IMAGE_BASE = 'https://yifeeeeei.github.io/ArcaneImages/';
             const ELEMENT_ICON_BASE = 'https://yifeeeeei.github.io/ArcaneComposer/resources/placeholders/';
 
@@ -1023,7 +1047,10 @@
             const ELEM_FULL = { '火':'火焰','水':'水纹','地':'地脉','气':'大气','光':'光辉','暗':'暗影','无':'奥术','血':'生命' };
             const ELEM_ICON = { '火':'fire','水':'water','地':'earth','气':'air','光':'light','暗':'dark','无':'none' };
             const ELEMENT_ORDER = ['火','水','地','气','光','暗','无'];
-            const SPELL_SCROLL_NUMBERS = new Set(['2121003','2121008','2121009','2121011','2221008','2221009','2321003','2321009','2421008','2421009','2521008','2521009','2521013','2621008','2621009']);
+            const SPELL_SCROLL_NUMBERS = new Set([
+                '2121003','2121008','2121009','2121011','2221008','2221009','2321003','2321009','2421008','2421009','2521008','2521009','2521013','2621008','2621009',
+                '2121105','2121109','2121111','2121112','2221110','2321112','2521112'
+            ]);
             function elemFull(k) { return ELEM_FULL[k] || k; }
             function getElementIcon(k) { return `${ELEMENT_ICON_BASE}ele_${ELEM_ICON[k] || 'none'}.png`; }
             function costHTML(cost) {
@@ -1325,6 +1352,22 @@
                 return Object.values(cost || {}).reduce((sum, value) => sum + Number(value || 0), 0);
             }
 
+            function isFireCompanion(card) {
+                return !!card && card.type === '伙伴' && card.category === '火';
+            }
+
+            function myUnitCards() {
+                const units = [];
+                if (!myState.value?.units) return units;
+                for (let col = 0; col < 3; col++) {
+                    for (let row = 0; row < 3; row++) {
+                        const unit = getMyUnit(col, row);
+                        if (unit) units.push(unit);
+                    }
+                }
+                return units;
+            }
+
             function isExactPaymentForCost(payment, cost) {
                 const spent = calculatePaymentWithAvailable(payment, cost);
                 if (!spent) return false;
@@ -1428,6 +1471,8 @@
                 selectedHandCard.value = null;
                 selectedAttacker.value = null;
                 selectedSkill.value = null;
+                selectedItemSpellScroll.value = null;
+                selectedSpellScrollSacrificeId.value = '';
                 selectedBoostSkills.value = [];
                 pendingExtraTargetCast.value = null;
                 hoveredOpponentCell.value = null;
@@ -1724,7 +1769,8 @@
                             if (isSpellScrollItem(card) && card.needs_target) {
                                 selectedHandCard.value = null;
                                 selectedItemSpellScroll.value = card;
-                                addLog(`选择 ${card.name}，点击法力范围内目标`);
+                                selectedSpellScrollSacrificeId.value = '';
+                                addLog(card.number === '2121105' ? `选择 ${card.name}，先点击友方火焰伙伴祭献` : `选择 ${card.name}，点击法力范围内目标`);
                             } else if (isConsumable(card)) {
                                 selectedHandCard.value = null;
                                 if (card.is_counter_trap) {
@@ -1856,6 +1902,7 @@
                 selectedAttacker.value = null;
                 selectedSkill.value = null;
                 selectedItemSpellScroll.value = null;
+                selectedSpellScrollSacrificeId.value = '';
                 if (!canPlayHandCard(card)) {
                     addLog(handCardUnavailableText(card));
                     selectedHandCard.value = null;
@@ -1868,7 +1915,8 @@
                                 setCounterCard(card);
                             } else if (isSpellScrollItem(card) && card.needs_target) {
                                 selectedItemSpellScroll.value = card;
-                                addLog(`选择 ${card.name}，点击法力范围内目标`);
+                                selectedSpellScrollSacrificeId.value = '';
+                                addLog(card.number === '2121105' ? `选择 ${card.name}，先点击友方火焰伙伴祭献` : `选择 ${card.name}，点击法力范围内目标`);
                             } else {
                                 sendPaidAction('use_item', { instance_id: card.instance_id }, playCost(card), `使用 ${card.name}`, () => addLog(`使用 ${card.name}`));
                             }
@@ -1887,7 +1935,12 @@
                     }
                     if (card.type === '伙伴') addLog(`选择 ${card.name}，点击空格放置`);
                     else if (card.type === '道具' && card.is_terrain) addLog(`选择地形 ${card.name}，点击空格放置`);
-                    else if (card.type === '道具' && isSpellScrollItem(card) && card.needs_target) { selectedHandCard.value = null; selectedItemSpellScroll.value = card; addLog(`选择 ${card.name}，点击法力范围内目标`); }
+                    else if (card.type === '道具' && isSpellScrollItem(card) && card.needs_target) {
+                        selectedHandCard.value = null;
+                        selectedItemSpellScroll.value = card;
+                        selectedSpellScrollSacrificeId.value = '';
+                        addLog(card.number === '2121105' ? `选择 ${card.name}，先点击友方火焰伙伴祭献` : `选择 ${card.name}，点击法力范围内目标`);
+                    }
                     else if (card.type === '道具' && isConsumable(card)) addLog(`选择 ${card.name}，再次点击使用`);
                     else if (card.type === '道具') addLog(`选择 ${card.name}，再次点击装备`);
                 }
@@ -1922,6 +1975,11 @@
                 }
                 if (ownerSlot === mySlot.value && selectedHandCard.value && selectedHandCard.value.type === '伙伴') {
                     if (!getMyUnit(col, row)) { summonCard(selectedHandCard.value, col, row); return; }
+                }
+                if (ownerSlot === mySlot.value && selectedItemSpellScroll.value?.number === '2121105' && canSacrificeForFlameArray(getMyUnit(col, row))) {
+                    selectedSpellScrollSacrificeId.value = getMyUnit(col, row).instance_id;
+                    addLog(`魔焰阵卷轴：祭献 ${getMyUnit(col, row).name}，再点击敌方目标。`);
+                    return;
                 }
                 if (ownerSlot === mySlot.value && selectedItemSpellScroll.value && isFriendlySpellTarget(col, row)) { useSpellScrollAt(col, row, ownerSlot); return; }
                 if (ownerSlot === mySlot.value && selectedSkill.value && isFriendlySpellTarget(col, row)) { castSpellAt(col, row, ownerSlot); return; }
@@ -2147,7 +2205,7 @@
                 if (selectedAttacker.value) return !!unit && row === opponentFrontRow.value;
                 const spell = activeTargetSpell();
                 if (!spell) return false;
-                if (pendingExtraTargetCast.value && selectedSkill.value?.number === '3321001') return !!unit;
+                if (pendingExtraTargetCast.value && selectedSkillNeedsExtraTarget(selectedSkill.value)) return !!unit;
                 const area = spell.spell_area || 'single';
                 if (area === 'front_row') {
                     return !!unit && row === opponentFrontRow.value;
@@ -2192,6 +2250,9 @@
             function isFriendlySpellTarget(col, row) {
                 const spell = activeTargetSpell();
                 if (!spell || !getMyUnit(col, row)) return false;
+                if (selectedItemSpellScroll.value?.number === '2121105' && !selectedSpellScrollSacrificeId.value) {
+                    return canSacrificeForFlameArray(getMyUnit(col, row));
+                }
                 return !!spell.allows_friendly_target || canAttackSpellTargetFriendlyUnit(spell);
             }
             function isFriendlyHeroSpellTarget() {
@@ -2244,6 +2305,7 @@
                 const chips = [];
                 if (canCastSkill(skill)) chips.push('施');
                 if (selectedSkill.value && canBoostWith(skill)) chips.push('强');
+                if (canUsePerTurn(skill)) chips.push('技');
                 return chips;
             }
             function canShowCostHint(skill) {
@@ -2277,6 +2339,21 @@
             function selectedSkillHasPierce() {
                 return activeTargetSpellHasPierce();
             }
+            function selectedSkillNeedsExtraTarget(skill) {
+                if (!skill) return false;
+                if (['3321001', '3621107'].includes(String(skill.number))) return true;
+                return (myState.value.temp_modifiers || []).some(m => {
+                    if (!m || (m.remaining_uses || 0) === 0) return false;
+                    if (m.type === 'next_spell_extra_target' && (!m.target_instance_id || m.target_instance_id === skill.instance_id)) return true;
+                    if (m.type === 'next_drive_spell_extra_target') {
+                        return String(skill.tag || '').includes('驱动');
+                    }
+                    return false;
+                });
+            }
+            function extraTargetCanRepeatMain(skill) {
+                return !!skill && String(skill.number) === '3621107';
+            }
             function toggleBoostSkill(skill) {
                 const idx = selectedBoostSkills.value.indexOf(skill.instance_id);
                 if (idx >= 0) selectedBoostSkills.value.splice(idx, 1);
@@ -2286,6 +2363,10 @@
             function useSpellScrollAt(col, row, targetOwner = 1 - mySlot.value) {
                 if (!selectedItemSpellScroll.value) return;
                 const card = selectedItemSpellScroll.value;
+                if (card.number === '2121105' && !selectedSpellScrollSacrificeId.value) {
+                    addLog('魔焰阵卷轴：先选择一个入场费用大于4的友方火焰伙伴作为祭献。');
+                    return;
+                }
                 const data = {
                     instance_id: card.instance_id,
                     target_type: 'unit',
@@ -2293,17 +2374,21 @@
                     target_row: row,
                     target_owner: targetOwner,
                 };
+                if (selectedSpellScrollSacrificeId.value) {
+                    data.sacrifice_id = selectedSpellScrollSacrificeId.value;
+                }
                 sendPaidAction('use_item', data, playCost(card), `使用 ${card.name}`, () => {
                     addLog(`使用 ${card.name} → (${col},${row})`);
                     selectedItemSpellScroll.value = null;
                     selectedHandCard.value = null;
+                    selectedSpellScrollSacrificeId.value = '';
                 });
             }
             function castSpellAt(col, row, targetOwner = 1 - mySlot.value) {
                 if (!selectedSkill.value) return;
-                if (pendingExtraTargetCast.value && selectedSkill.value.number === '3321001') {
+                if (pendingExtraTargetCast.value && selectedSkillNeedsExtraTarget(selectedSkill.value)) {
                     const data = { ...pendingExtraTargetCast.value };
-                    if (data.target_col !== col || data.target_row !== row) {
+                    if (extraTargetCanRepeatMain(selectedSkill.value) || data.target_col !== col || data.target_row !== row) {
                         data.extra_target_col = col;
                         data.extra_target_row = row;
                     }
@@ -2330,9 +2415,10 @@
                 if (selectedBoostSkills.value.length > 0) {
                     data.boost_ids = [...selectedBoostSkills.value];
                 }
-                if (selectedSkill.value.number === '3321001') {
+                if (selectedSkillNeedsExtraTarget(selectedSkill.value)) {
                     pendingExtraTargetCast.value = data;
-                    addLog('闪电链：再点击一个敌方单位作为额外目标；再次点击同一目标则不选择额外目标。');
+                    const repeatHint = extraTargetCanRepeatMain(selectedSkill.value) ? '可以再次点击同一目标。' : '再次点击同一目标则不选择额外目标。';
+                    addLog(`${selectedSkill.value.name}：再点击一个敌方单位作为额外目标；${repeatHint}`);
                     return;
                 }
                 const skillName = selectedSkill.value.name;
@@ -2400,6 +2486,10 @@
                 return !!skill.needs_target;
             }
 
+            function canSacrificeForFlameArray(unit) {
+                return isFireCompanion(unit) && totalCost(playCost(unit)) > 4;
+            }
+
             // Defense skill selection state
             const defenseSelected = ref([]);
             const defenseBoostSelected = ref([]);
@@ -2408,6 +2498,13 @@
             const availableDefenseSkills = computed(() => {
                 if (!showDefenseWindow.value) return [];
                 return allMySkills.value.filter(canUseSkillAsDefense);
+            });
+
+            const defensePowerSacrificeCandidates = computed(() => {
+                if (!showDefenseWindow.value || !defenseSelected.value.length) return [];
+                const selected = allMySkills.value.find(s => s && s.instance_id === defenseSelected.value[0]);
+                if (!selected || String(selected.number) !== '3121104') return [];
+                return myUnitCards().filter(isFireCompanion);
             });
 
             const availableDefenseScrolls = computed(() => {
@@ -2593,6 +2690,10 @@
                     const sk = skills.find(s => s && s.instance_id === id) || myHand.value.find(s => s && s.instance_id === id);
                     if (sk) power += defenseBoostPower(sk);
                 }
+                if (defensePowerSacrificeId.value) {
+                    const sacrifice = defensePowerSacrificeCandidates.value.find(unit => unit.instance_id === defensePowerSacrificeId.value);
+                    if (sacrifice) power += totalCost(playCost(sacrifice));
+                }
                 return power;
             });
 
@@ -2633,6 +2734,7 @@
                     ...defenseOverexertUnits.value,
                     ...availableDefenseScrolls.value,
                     ...availableDefenseSkills.value,
+                    ...defensePowerSacrificeCandidates.value,
                     ...availableDefenseBoostCandidates.value,
                     ...availableBoostSkills.value,
                 ].find(card => card && card.instance_id === id) || null;
@@ -2665,6 +2767,10 @@
                     if (card) toggleDefenseSkill(card);
                     return;
                 }
+                if (action === 'power_sacrifice') {
+                    if (card) toggleDefensePowerSacrifice(card);
+                    return;
+                }
                 if (action === 'boost') {
                     if (card) toggleDefenseBoost(card);
                     return;
@@ -2690,6 +2796,7 @@
                             (action === 'skill' && defenseSelected.value.includes(id)) ||
                             (action === 'scroll' && defenseScrollSelected.value.includes(id)) ||
                             (action === 'boost' && defenseBoostSelected.value.includes(id)) ||
+                            (action === 'power_sacrifice' && defensePowerSacrificeId.value === id) ||
                             (action === 'overexert' && defenseOverexertSelected.value.includes(id));
                         el.classList.toggle('selected', selected);
                         if (action === 'boost') {
@@ -2735,6 +2842,7 @@
                     defenseSelected.value = [skill.instance_id];
                     defenseScrollSelected.value = [];
                     defenseBoostSelected.value = [];
+                    defensePowerSacrificeId.value = '';
                 }
                 syncDefensePanelVisualState();
                 logDefenseSelection('defense_skill_toggle', skill);
@@ -2744,9 +2852,16 @@
                     defenseScrollSelected.value = [scroll.instance_id];
                     defenseSelected.value = [];
                     defenseBoostSelected.value = [];
+                    defensePowerSacrificeId.value = '';
                 }
                 syncDefensePanelVisualState();
                 logDefenseSelection('defense_scroll_toggle', scroll);
+            }
+
+            function toggleDefensePowerSacrifice(unit) {
+                defensePowerSacrificeId.value = defensePowerSacrificeId.value === unit.instance_id ? '' : unit.instance_id;
+                syncDefensePanelVisualState();
+                logDefenseSelection('defense_power_sacrifice_toggle', unit);
             }
 
             function toggleDefenseBoost(skill) {
@@ -2771,6 +2886,7 @@
                     defense_scroll_selected: [...defenseScrollSelected.value],
                     defense_boost_selected: [...defenseBoostSelected.value],
                     defense_overexert_selected: [...defenseOverexertSelected.value],
+                    defense_power_sacrifice_id: defensePowerSacrificeId.value || '',
                     can_submit_defense: canSubmitDefense.value,
                     total_defense_cost: totalDefenseCost.value,
                     defense_available_elements: defenseAvailableElements.value,
@@ -2809,6 +2925,9 @@
                     boost_ids: [...defenseBoostSelected.value],
                     overexert_ids: [...defenseOverexertSelected.value],
                 };
+                if (defensePowerSacrificeId.value) {
+                    data.sacrifice_id = defensePowerSacrificeId.value;
+                }
                 const skillCount = defenseSelected.value.length + defenseScrollSelected.value.length;
                 const boostCount = defenseBoostSelected.value.length;
                 const overexertCount = defenseOverexertSelected.value.length;
@@ -2819,6 +2938,7 @@
                 defenseScrollSelected.value = [];
                 defenseBoostSelected.value = [];
                 defenseOverexertSelected.value = [];
+                defensePowerSacrificeId.value = '';
             }
 
             function noDefend() {
@@ -2828,6 +2948,7 @@
                 defenseScrollSelected.value = [];
                 defenseBoostSelected.value = [];
                 defenseOverexertSelected.value = [];
+                defensePowerSacrificeId.value = '';
             }
 
             // Pending action selection
@@ -3166,7 +3287,7 @@
                     return;
                 }
                 sendAction('end_turn', {});
-                selectedHandCard.value = null; selectedAttacker.value = null; selectedSkill.value = null; hoveredOpponentCell.value = null;
+                selectedHandCard.value = null; selectedAttacker.value = null; selectedSkill.value = null; selectedItemSpellScroll.value = null; selectedSpellScrollSacrificeId.value = ''; hoveredOpponentCell.value = null;
                 addLog('结束回合');
             }
 
@@ -3220,7 +3341,7 @@
                     return `再次点击或右键使用 ${name}。`;
                 }
                 if (selectedAttacker.value) return `选择敌方前排目标，让 ${selectedAttacker.value.name} 攻击。`;
-                if (pendingExtraTargetCast.value && selectedSkill.value?.number === '3321001') return '选择闪电链的额外目标；也可以再次点击原目标跳过额外目标。';
+                if (pendingExtraTargetCast.value && selectedSkillNeedsExtraTarget(selectedSkill.value)) return `选择 ${selectedSkill.value.name} 的额外目标。`;
                 if (selectedSkill.value) return `选择敌方目标施放 ${selectedSkill.value.name}。`;
                 return '消耗竖置卡牌获得元素，然后召唤、学习技能、施法或攻击。';
             });
@@ -3762,6 +3883,8 @@
                         defenseScrollSelected,
                         defenseBoostSelected,
                         defenseOverexertSelected,
+                        defensePowerSacrificeId,
+                        defensePowerSacrificeCandidates,
                         canSubmitDefense,
                         availableDefenseBoostCandidates,
                         syncDefensePanelVisualState,
@@ -3780,7 +3903,7 @@
             return {
                 connected, connectionStatus, error,
                 gameState, mySlot, roomID, isSpectator, mulliganSubmitted, detailCard, hoverCard, recentDiscardCard, graveyardFlash, activePreviewCard,
-                selectedHandCard, selectedAttacker, selectedSkill, selectedItemSpellScroll, selectedBoostSkills, pileView, actionLog,
+                selectedHandCard, selectedAttacker, selectedSkill, selectedItemSpellScroll, selectedSpellScrollSacrificeId, selectedBoostSkills, pileView, actionLog,
                 isTestRoom, testCardNumber, testElement, testElementAmount, ELEMENT_ORDER,
                 myState, opponent, myHand, opponentHandCards, mySkills, myEquipment, mySkillSlotCount, myEquipmentSlotCount, opponentSkillSlotCount, opponentEquipmentSlotCount, allMySkills, allMyBoundSkills,
                 isMyTurn, showDefenseWindow, pendingSpellView, myFrontRow, opponentFrontRow,
@@ -3807,8 +3930,8 @@
                 testAddCard, testAddElements,
                 canPlayHandCard, canPayCost,
                 // Defense
-                defenseSelected, defenseScrollSelected, defenseBoostSelected, defenseOverexertSelected, availableDefenseSkills, availableDefenseScrolls, availableReactionSkills, availableDefenseBoostCandidates, availableBoostSkills, defenseOverexertUnits,
-                totalDefensePower, totalDefenseCost, defenseAvailableElements, pendingAttackPower, defenseSummaryText, defenseSummaryClass, defensePower, defenseBoostPower, defensePaymentCost, isDefenseBoostDisabled, handleDefensePanelClick, showInteractionCardContextMenu, toggleDefenseSkill, toggleDefenseScroll, toggleDefenseBoost, toggleDefenseOverexert, reactSpell, submitDefend,
+                defenseSelected, defenseScrollSelected, defenseBoostSelected, defenseOverexertSelected, defensePowerSacrificeId, availableDefenseSkills, availableDefenseScrolls, availableReactionSkills, availableDefenseBoostCandidates, availableBoostSkills, defenseOverexertUnits, defensePowerSacrificeCandidates,
+                totalDefensePower, totalDefenseCost, defenseAvailableElements, pendingAttackPower, defenseSummaryText, defenseSummaryClass, defensePower, defenseBoostPower, defensePaymentCost, isDefenseBoostDisabled, handleDefensePanelClick, showInteractionCardContextMenu, toggleDefenseSkill, toggleDefenseScroll, toggleDefenseBoost, toggleDefenseOverexert, toggleDefensePowerSacrifice, reactSpell, submitDefend,
                 hoverOpponentCell, clearHoverOpponentCell, isSpellAreaPreview,
                 // Pending action
                 pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction, pendingCandidateDetail, pendingContextText,
