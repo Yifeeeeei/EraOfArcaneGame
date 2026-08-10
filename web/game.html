@@ -2341,20 +2341,28 @@
             function selectedSkillHasPierce() {
                 return activeTargetSpellHasPierce();
             }
-            function selectedSkillNeedsExtraTarget(skill) {
-                if (!skill) return false;
-                if (['3321001', '3621107'].includes(String(skill.number))) return true;
-                return (myState.value.temp_modifiers || []).some(m => {
+            function matchingExtraTargetModifier(skill) {
+                if (!skill) return null;
+                return (myState.value.temp_modifiers || []).find(m => {
                     if (!m || (m.remaining_uses || 0) === 0) return false;
-                    if (m.type === 'next_spell_extra_target' && (!m.target_instance_id || m.target_instance_id === skill.instance_id)) return true;
+                    if (m.type === 'next_spell_extra_target') {
+                        return !m.target_instance_id || m.target_instance_id === skill.instance_id;
+                    }
                     if (m.type === 'next_drive_spell_extra_target') {
                         return String(skill.tag || '').includes('驱动');
                     }
                     return false;
-                });
+                }) || null;
+            }
+            function selectedSkillNeedsExtraTarget(skill) {
+                if (!skill) return false;
+                if (['3321001', '3621107'].includes(String(skill.number))) return true;
+                return !!matchingExtraTargetModifier(skill);
             }
             function extraTargetCanRepeatMain(skill) {
-                return !!skill && String(skill.number) === '3621107';
+                if (!skill) return false;
+                if (String(skill.number) === '3621107') return true;
+                return !!matchingExtraTargetModifier(skill)?.allow_same_target;
             }
             function toggleBoostSkill(skill) {
                 const idx = selectedBoostSkills.value.indexOf(skill.instance_id);
