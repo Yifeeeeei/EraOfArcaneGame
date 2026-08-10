@@ -7293,6 +7293,9 @@ func (Card2321106EndlessWindTide) OnSpellHit(ctx *EffectContext) error {
 		}
 	}
 	if !removed {
+		removed = ctx.Engine.removeCardFromGraveyard(ctx.PlayerID, ctx.Source)
+	}
+	if !removed {
 		return nil
 	}
 	ctx.Source.SlotIndex = -1

@@ -8440,36 +8440,42 @@ func TestRoyalConflictEndlessWindTideAndDesertLeggings(t *testing.T) {
 	t.Run("endless wind tide returns to hand and grows only this instance", func(t *testing.T) {
 		engine := setupEffectTest(t)
 		p0 := engine.State.Players[0]
-		skill := readySkill(baseCard(t, "2321106"), 0)
-		p0.Skills[0] = skill
-		baseCost := engine.effectiveCardPlayCost(p0, skill)[model.ElementAir]
+		scroll := NewCardInstance(baseCard(t, "2321106"), 0, engine.State.TurnNumber)
+		p0.Hand = append(p0.Hand, scroll)
+		setAllElements(p0, 9)
+		baseCost := engine.effectiveCardPlayCost(p0, scroll)[model.ElementAir]
+		target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
 
-		behavior := Card2321106EndlessWindTide{}
-		if err := behavior.OnSpellHit(&EffectContext{
-			Engine:     engine,
-			Source:     skill,
-			PlayerID:   0,
-			OpponentID: 1,
-			ExtraData:  map[string]any{"attacker": 0, "spell_source": skill},
-		}); err != nil {
-			t.Fatalf("2321106 hit failed: %v", err)
+		if err := engine.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{
+			"instance_id":  scroll.InstanceID,
+			"target_type":  "unit",
+			"target_col":   float64(target.Position.Col),
+			"target_row":   float64(target.Position.Row),
+			"target_owner": float64(1),
+		}}); err != nil {
+			t.Fatalf("2321106 use item: %v", err)
 		}
-		if p0.Skills[0] != nil || len(p0.Hand) == 0 || p0.Hand[len(p0.Hand)-1] != skill {
-			t.Fatalf("2321106 should move from skill slot to hand, slots=%v hand=%v", cardsToInfo(p0.Skills[:]), cardsToInfo(p0.Hand))
+		if !containsCardInstance(p0.Graveyard, scroll) || containsCardInstance(p0.Hand, scroll) {
+			t.Fatalf("2321106 should wait in graveyard before hit resolves, hand=%v grave=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
 		}
-		if skill.PowerBonus != 2 {
-			t.Fatalf("2321106 should permanently gain +2 power, power_bonus=%d", skill.PowerBonus)
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend"}); err != nil {
+			t.Fatalf("2321106 no defend: %v", err)
 		}
-		if got := engine.effectiveCardPlayCost(p0, skill)[model.ElementAir]; got != baseCost+1 {
-			t.Fatalf("2321106 returned instance should cost +1 air, got=%d base=%d cost=%v", got, baseCost, engine.effectiveCardPlayCost(p0, skill))
+		if containsCardInstance(p0.Graveyard, scroll) || len(p0.Hand) == 0 || p0.Hand[len(p0.Hand)-1] != scroll {
+			t.Fatalf("2321106 should move from graveyard to hand after hit, hand=%v grave=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
+		}
+		if scroll.PowerBonus != 2 {
+			t.Fatalf("2321106 should permanently gain +2 power, power_bonus=%d", scroll.PowerBonus)
+		}
+		if got := engine.effectiveCardPlayCost(p0, scroll)[model.ElementAir]; got != baseCost+1 {
+			t.Fatalf("2321106 returned instance should cost +1 air, got=%d base=%d cost=%v", got, baseCost, engine.effectiveCardPlayCost(p0, scroll))
 		}
 		fresh := NewCardInstance(baseCard(t, "2321106"), 0, engine.State.TurnNumber)
 		if got := engine.effectiveCardPlayCost(p0, fresh)[model.ElementAir]; got != baseCost {
 			t.Fatalf("2321106 should not mutate global card cost, fresh=%d base=%d", got, baseCost)
 		}
-		p0.Skills[0] = skill
-		skill.IsHorizontal = false
-		if err := engine.validateSkillForPurpose(skill, skillPurposeAttack); err == nil {
+		scroll.IsHorizontal = false
+		if err := engine.validateSkillForPurpose(scroll, skillPurposeAttack); err == nil {
 			t.Fatalf("2321106 should not be usable again in the same turn")
 		}
 	})
