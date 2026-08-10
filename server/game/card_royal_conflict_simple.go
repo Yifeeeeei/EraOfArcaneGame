@@ -8021,6 +8021,19 @@ func (e *Engine) validateSpellPowerSacrifice(playerID int, skill *CardInstance, 
 	return target, totalElementCost(target.Card.ElementsCost), nil
 }
 
+func (e *Engine) validateSpellPowerSacrificeForSources(playerID int, sources []*CardInstance, action ActionMessage) (*CardInstance, *CardInstance, int, error) {
+	for _, source := range sources {
+		sacrifice, bonus, err := e.validateSpellPowerSacrifice(playerID, source, action)
+		if err != nil {
+			return nil, nil, 0, err
+		}
+		if sacrifice != nil && bonus > 0 {
+			return sacrifice, source, bonus, nil
+		}
+	}
+	return nil, nil, 0, nil
+}
+
 func (e *Engine) validateOracleGlorySupport(playerID int, scroll *CardInstance, action ActionMessage) (int, error) {
 	if e == nil || scroll == nil || scroll.Card == nil || scroll.Card.Number != "2521111" {
 		return 0, nil
@@ -8861,22 +8874,11 @@ func (Card2121104FireRebirthScroll) OnTurnEnd(ctx *EffectContext) error {
 	if len(candidates) == 0 {
 		return nil
 	}
-	revive := func(instanceID string) {
-		if ctx.Engine.reviveRecentFireCompanion(ctx.PlayerID, instanceID) {
-			ctx.Engine.emit(GameEvent{
-				Type:   "fire_rebirth_scroll_revive",
-				Player: -1,
-				Data: map[string]any{
-					"player":  ctx.PlayerID,
-					"source":  cardToInfo(ctx.Source),
-					"revived": instanceID,
-					"count":   1,
-				},
-			})
-		}
+	if len(ctx.Engine.friendlyEmptyUnitPositions(ctx.PlayerID)) == 0 {
+		return nil
 	}
 	if len(candidates) == 1 {
-		revive(candidates[0].InstanceID)
+		ctx.Engine.promptFireRebirthScrollPosition(ctx.PlayerID, ctx.Source, candidates[0].InstanceID)
 		return nil
 	}
 	choices := make([]map[string]any, 0, len(candidates))
@@ -8889,28 +8891,59 @@ func (Card2121104FireRebirthScroll) OnTurnEnd(ctx *EffectContext) error {
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "fire_rebirth_scroll",
 		"浴火重生卷轴:选择1个本回合死亡的友方火焰伙伴复活", choices, 1, 1,
 		func(selected []string) {
-			revive(firstSelected(selected))
+			ctx.Engine.promptFireRebirthScrollPosition(ctx.PlayerID, ctx.Source, firstSelected(selected))
 		})
 	return nil
 }
 
-func (e *Engine) reviveRecentFireCompanion(playerID int, instanceID string) bool {
-	ps := e.State.Players[playerID]
-	pos := ps.FindEmptyPosition()
-	if pos == nil {
+func (e *Engine) promptFireRebirthScrollPosition(playerID int, source *CardInstance, instanceID string) {
+	positions := e.friendlyEmptyUnitPositions(playerID)
+	if len(positions) == 0 || e.findRecentFireRebirthCandidate(playerID, instanceID) == nil {
+		return
+	}
+	e.SetPendingAction(playerID, "fire_rebirth_scroll_position",
+		"浴火重生卷轴:选择复活位置", positions, 1, 1,
+		func(selected []string) {
+			pos, ok := positionFromSelectionID(firstSelected(selected))
+			if !ok {
+				return
+			}
+			if e.reviveRecentFireCompanionAtPosition(playerID, instanceID, pos) {
+				e.emit(GameEvent{
+					Type:   "fire_rebirth_scroll_revive",
+					Player: -1,
+					Data: map[string]any{
+						"player":   playerID,
+						"source":   cardToInfo(source),
+						"revived":  instanceID,
+						"position": pos,
+						"count":    1,
+					},
+				})
+			}
+		})
+}
+
+func (e *Engine) findRecentFireRebirthCandidate(playerID int, instanceID string) *CardInstance {
+	for _, card := range e.rebirthScrollReviveCandidates(playerID) {
+		if card != nil && card.InstanceID == instanceID {
+			return card
+		}
+	}
+	return nil
+}
+
+func (e *Engine) reviveRecentFireCompanionAtPosition(playerID int, instanceID string, pos Position) bool {
+	card := e.findRecentFireRebirthCandidate(playerID, instanceID)
+	if card == nil || !pos.Valid() || e.State.Players[playerID].Units[pos.Col][pos.Row] != nil {
 		return false
 	}
-	for _, card := range e.rebirthScrollReviveCandidates(playerID) {
-		if card == nil || card.InstanceID != instanceID {
-			continue
+	if e.reviveCompanionFromGraveyardWithLifeAtPosition(playerID, card.InstanceID, 0, false, pos) {
+		card.IsHorizontal = false
+		if card.Statuses != nil {
+			delete(card.Statuses, enteredGraveyardTurnStatus)
 		}
-		if e.reviveCompanionFromGraveyardWithLifeAtPosition(playerID, card.InstanceID, 0, false, *pos) {
-			card.IsHorizontal = false
-			if card.Statuses != nil {
-				delete(card.Statuses, enteredGraveyardTurnStatus)
-			}
-			return true
-		}
+		return true
 	}
 	return false
 }

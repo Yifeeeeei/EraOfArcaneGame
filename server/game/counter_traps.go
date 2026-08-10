@@ -350,7 +350,9 @@ func (e *Engine) counterTrapConditionMet(counter *CardInstance, trigger EffectTr
 	case "2121002":
 		return trigger == TriggerOnConsume && eventSource != nil && (eventSource.Card.IsHero() || eventSource.Card.IsCompanion())
 	case "2121104":
-		return trigger == TriggerOnTurnEnd && sourceOwner != ownerID && len(e.rebirthScrollReviveCandidates(ownerID)) > 0
+		return trigger == TriggerOnTurnEnd && sourceOwner != ownerID &&
+			len(e.rebirthScrollReviveCandidates(ownerID)) > 0 &&
+			len(e.friendlyEmptyUnitPositions(ownerID)) > 0
 	case "2121012", "2621003":
 		return trigger == TriggerOnUnitEnter && sourceOwner != ownerID && eventSource != nil && eventSource.Card.IsCompanion()
 	case "2221002":
