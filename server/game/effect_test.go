@@ -3965,6 +3965,52 @@ func TestRoyalConflictBloodShadowBodySpendsRedMoonMarkerForExtraTarget(t *testin
 	if noExtraEngine.hasNextDriveSpellExtraTarget(noExtraP0, noExtraSpell) {
 		t.Fatalf("blood shadow body next-spell extra target should not persist after next spell, modifiers=%v", noExtraP0.TempModifiers)
 	}
+
+	combinedEngine := setupReportedBugEngine(t)
+	combinedP0 := combinedEngine.State.Players[0]
+	combinedBody := placeUnit(baseCard(t, "1601101"), 0, 0, 0, combinedEngine)
+	combinedChain := placeUnit(baseCard(t, "2321101"), 0, 1, 0, combinedEngine)
+	combinedRedMoon := readySkill(baseCard(t, "3611101"), 0)
+	combinedRedMoon.Statuses[redMoonMarkerStatus] = 1
+	combinedRedMoon.Statuses[StatusAbilityDuration] = 1
+	combinedP0.Skills[0] = combinedRedMoon
+	combinedEngine.refreshRedMoonState(0)
+	combinedDrive := readySkill(baseCard(t, "3121002"), 0)
+	combinedP0.Skills[1] = combinedDrive
+	combinedP0.Elements[model.ElementFire] = 10
+	combinedTarget := placeUnit(baseCard(t, "1021001"), 1, 1, 0, combinedEngine)
+	if err := combinedEngine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+		"instance_id":  combinedChain.InstanceID,
+		"ability_type": "per_turn",
+	}}); err != nil {
+		t.Fatalf("use thunder chain before blood shadow body: %v", err)
+	}
+	if err := combinedEngine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+		"instance_id":  combinedBody.InstanceID,
+		"ability_type": "per_turn",
+	}}); err != nil {
+		t.Fatalf("use blood shadow body with thunder chain armed: %v", err)
+	}
+	if err := combinedEngine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": combinedDrive.InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(combinedTarget.Position.Col),
+		"target_row":  float64(combinedTarget.Position.Row),
+	}}); err != nil {
+		t.Fatalf("cast drive spell without extra target while both modifiers exist: %v", err)
+	}
+	var driveRemaining, spellRemaining int
+	for _, modifier := range combinedP0.TempModifiers {
+		switch modifier.Type {
+		case TempModNextDriveSpellExtraTarget:
+			driveRemaining = modifier.RemainingUses
+		case TempModNextSpellExtraTarget:
+			spellRemaining = modifier.RemainingUses
+		}
+	}
+	if driveRemaining != 1 || spellRemaining != 0 {
+		t.Fatalf("no-extra drive spell should consume only blood shadow body modifier, modifiers=%v", combinedP0.TempModifiers)
+	}
 }
 
 func TestRoyalConflictWillErosionHasInherentSameExtraTarget(t *testing.T) {

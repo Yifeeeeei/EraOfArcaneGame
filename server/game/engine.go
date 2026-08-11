@@ -1329,8 +1329,10 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	}
 	powerSources := e.spellPowerSources(playerID, skill, boostSkills, totalPower, powerTargets...)
 	e.consumeNextSpellPowerBonuses(ps, skill)
-	if consumeNextExtraTargetModifier || len(extraTargets) > 0 {
+	if len(extraTargets) > 0 {
 		e.consumeNextDriveSpellExtraTarget(ps, skill)
+	} else if consumeNextExtraTargetModifier {
+		e.consumeNextSpellExtraTarget(ps, skill)
 	}
 
 	// Check if it's a 咒术 (sorcery - unblockable)

@@ -341,6 +341,23 @@ func (e *Engine) consumeNextDriveSpellExtraTarget(ps *PlayerState, skill *CardIn
 	}
 }
 
+func (e *Engine) consumeNextSpellExtraTarget(ps *PlayerState, skill *CardInstance) {
+	if ps == nil || skill == nil || skill.Card == nil {
+		return
+	}
+	for i := range ps.TempModifiers {
+		modifier := &ps.TempModifiers[i]
+		if modifier.Type != TempModNextSpellExtraTarget || modifier.RemainingUses == 0 {
+			continue
+		}
+		if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != skill.InstanceID {
+			continue
+		}
+		modifier.RemainingUses--
+		return
+	}
+}
+
 func (e *Engine) temporarySpellPowerBonus(playerID int, skill *CardInstance) int {
 	return e.temporarySpellPowerBonusForPurpose(playerID, skill, skillPurposeAttack)
 }
