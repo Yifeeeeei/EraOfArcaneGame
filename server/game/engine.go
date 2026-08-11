@@ -1898,6 +1898,7 @@ func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInst
 			Player: -1,
 			Data:   map[string]any{"defender": playerID},
 		})
+		e.consumeNextSpellAttackBonuses(e.State.Players[e.State.PendingSpell.AttackerID], e.State.PendingSpell.Skill)
 		e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
 		clearFiveRainbowBeamSelection(e.State.PendingSpell.Skill)
 	} else {

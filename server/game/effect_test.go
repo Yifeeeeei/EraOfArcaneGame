@@ -8484,6 +8484,45 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 			t.Fatalf("3621101 next spell modifiers should be consumed together, modifiers=%+v", p0.TempModifiers)
 		}
 
+		defendedEngine := setupEffectTest(t)
+		defendedP0 := defendedEngine.State.Players[0]
+		defendedP1 := defendedEngine.State.Players[1]
+		defendedFriend := placeUnit(baseCard(t, "1021001"), 0, 0, 0, defendedEngine)
+		defendedEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, defendedEngine)
+		defendedBloodPledge := readySkill(baseCard(t, "3621101"), 0)
+		if err := behavior.OnSpellHit(&EffectContext{
+			Engine:     defendedEngine,
+			Source:     defendedBloodPledge,
+			Target:     defendedFriend,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"actual_friendly_damage_by_instance": map[string]int{defendedFriend.InstanceID: 1}, "attacker": 0, "spell_source": defendedBloodPledge},
+		}); err != nil {
+			t.Fatalf("3621101 defended setup: %v", err)
+		}
+		defendedSpell := readySkill(baseCard(t, "3121002"), 0)
+		defenseSpell := readySkill(baseCard(t, "3521013"), 1)
+		defendedP0.Skills[0] = defendedSpell
+		defendedP1.Skills[0] = defenseSpell
+		defendedP0.Elements[model.ElementFire] = 10
+		defendedP1.Elements[model.ElementLight] = 10
+		if err := defendedEngine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": defendedSpell.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(defendedEnemy.Position.Col),
+			"target_row":  float64(defendedEnemy.Position.Row),
+		}}); err != nil {
+			t.Fatalf("cast next spell after 3621101: %v", err)
+		}
+		if err := defendedEngine.HandleAction(1, ActionMessage{Action: "defend", Data: map[string]any{
+			"skill_ids": []any{defenseSpell.InstanceID},
+		}}); err != nil {
+			t.Fatalf("defend next spell after 3621101: %v", err)
+		}
+		if len(defendedP0.TempModifiers) != 0 || defendedEnemy.CurrentLife != defendedEnemy.Card.Life {
+			t.Fatalf("3621101 next spell modifiers should be consumed when the spell is defended, modifiers=%+v enemyLife=%d", defendedP0.TempModifiers, defendedEnemy.CurrentLife)
+		}
+
 		killedEngine := setupEffectTest(t)
 		killedP0 := killedEngine.State.Players[0]
 		killedSkill := readySkill(baseCard(t, "3621101"), 0)
