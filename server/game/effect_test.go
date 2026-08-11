@@ -3881,6 +3881,9 @@ func TestRoyalConflictBloodShadowBodySpendsRedMoonMarkerForExtraTarget(t *testin
 	if redMoon.Statuses[redMoonMarkerStatus] != 0 || len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != TempModNextSpellExtraTarget {
 		t.Fatalf("blood shadow body should spend one marker and arm extra target, markers=%v modifiers=%v", redMoon.Statuses, p0.TempModifiers)
 	}
+	if !p0.TempModifiers[0].AllowSameTarget {
+		t.Fatalf("blood shadow body extra target should allow the same target, modifier=%+v", p0.TempModifiers[0])
+	}
 
 	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
 		"instance_id":      spell.InstanceID,
@@ -3924,8 +3927,89 @@ func TestRoyalConflictBloodShadowBodySpendsRedMoonMarkerForExtraTarget(t *testin
 		"target_row":       float64(sameFront.Position.Row),
 		"extra_target_col": float64(sameFront.Position.Col),
 		"extra_target_row": float64(sameFront.Position.Row),
-	}}); err == nil {
-		t.Fatalf("blood shadow body extra target should not allow choosing the same target")
+	}}); err != nil {
+		t.Fatalf("blood shadow body extra target should allow choosing the same target: %v", err)
+	}
+	if sameTargetEngine.State.PendingSpell == nil || len(sameTargetEngine.State.PendingSpell.ExtraTargets) != 1 {
+		t.Fatalf("blood shadow body should add one same extra target, pending=%+v", sameTargetEngine.State.PendingSpell)
+	}
+
+	noExtraEngine := setupReportedBugEngine(t)
+	noExtraP0 := noExtraEngine.State.Players[0]
+	noExtraBody := placeUnit(baseCard(t, "1601101"), 0, 0, 0, noExtraEngine)
+	noExtraRedMoon := readySkill(baseCard(t, "3611101"), 0)
+	noExtraRedMoon.Statuses[redMoonMarkerStatus] = 1
+	noExtraRedMoon.Statuses[StatusAbilityDuration] = 1
+	noExtraP0.Skills[0] = noExtraRedMoon
+	noExtraEngine.refreshRedMoonState(0)
+	noExtraSpell := readySkill(baseCard(t, "3621101"), 0)
+	noExtraP0.Skills[1] = noExtraSpell
+	noExtraP0.Elements[model.ElementShadow] = 10
+	noExtraFriend := placeUnit(baseCard(t, "1021001"), 0, 1, 0, noExtraEngine)
+	ownerID := 0
+	if err := noExtraEngine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+		"instance_id":  noExtraBody.InstanceID,
+		"ability_type": "per_turn",
+	}}); err != nil {
+		t.Fatalf("use blood shadow body no-extra setup: %v", err)
+	}
+	if err := noExtraEngine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id":  noExtraSpell.InstanceID,
+		"target_type":  "unit",
+		"target_owner": float64(ownerID),
+		"target_col":   float64(noExtraFriend.Position.Col),
+		"target_row":   float64(noExtraFriend.Position.Row),
+	}}); err != nil {
+		t.Fatalf("blood shadow body modifier should be consumed by the next spell even without extra target: %v", err)
+	}
+	if noExtraEngine.hasNextDriveSpellExtraTarget(noExtraP0, noExtraSpell) {
+		t.Fatalf("blood shadow body next-spell extra target should not persist after next spell, modifiers=%v", noExtraP0.TempModifiers)
+	}
+
+	combinedEngine := setupReportedBugEngine(t)
+	combinedP0 := combinedEngine.State.Players[0]
+	combinedBody := placeUnit(baseCard(t, "1601101"), 0, 0, 0, combinedEngine)
+	combinedChain := placeUnit(baseCard(t, "2321101"), 0, 1, 0, combinedEngine)
+	combinedRedMoon := readySkill(baseCard(t, "3611101"), 0)
+	combinedRedMoon.Statuses[redMoonMarkerStatus] = 1
+	combinedRedMoon.Statuses[StatusAbilityDuration] = 1
+	combinedP0.Skills[0] = combinedRedMoon
+	combinedEngine.refreshRedMoonState(0)
+	combinedDrive := readySkill(baseCard(t, "3121002"), 0)
+	combinedP0.Skills[1] = combinedDrive
+	combinedP0.Elements[model.ElementFire] = 10
+	combinedTarget := placeUnit(baseCard(t, "1021001"), 1, 1, 0, combinedEngine)
+	if err := combinedEngine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+		"instance_id":  combinedChain.InstanceID,
+		"ability_type": "per_turn",
+	}}); err != nil {
+		t.Fatalf("use thunder chain before blood shadow body: %v", err)
+	}
+	if err := combinedEngine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+		"instance_id":  combinedBody.InstanceID,
+		"ability_type": "per_turn",
+	}}); err != nil {
+		t.Fatalf("use blood shadow body with thunder chain armed: %v", err)
+	}
+	if err := combinedEngine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": combinedDrive.InstanceID,
+		"target_type": "unit",
+		"target_col":  float64(combinedTarget.Position.Col),
+		"target_row":  float64(combinedTarget.Position.Row),
+	}}); err != nil {
+		t.Fatalf("cast drive spell without extra target while both modifiers exist: %v", err)
+	}
+	var driveRemaining, spellRemaining int
+	for _, modifier := range combinedP0.TempModifiers {
+		switch modifier.Type {
+		case TempModNextDriveSpellExtraTarget:
+			driveRemaining = modifier.RemainingUses
+		case TempModNextSpellExtraTarget:
+			spellRemaining = modifier.RemainingUses
+		}
+	}
+	if driveRemaining != 1 || spellRemaining != 0 {
+		t.Fatalf("no-extra drive spell should consume only blood shadow body modifier, modifiers=%v", combinedP0.TempModifiers)
 	}
 }
 
@@ -5920,8 +6004,12 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 			t.Fatalf("2321110 should not buff unselected rush skill, got=%d", got)
 		}
 		engine.consumeNextSpellPowerBonuses(p0, rushThisTurn)
+		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != TempModNextSkillUseAttackBonus {
+			t.Fatalf("2321110 power consumption should leave attack bonus for damage timing, modifiers=%v", p0.TempModifiers)
+		}
+		engine.consumeNextSpellAttackBonuses(p0, rushThisTurn)
 		if len(p0.TempModifiers) != 0 {
-			t.Fatalf("2321110 next-use power and attack should be consumed together when the skill is used, modifiers=%v", p0.TempModifiers)
+			t.Fatalf("2321110 next-use attack should be consumed at damage timing, modifiers=%v", p0.TempModifiers)
 		}
 	})
 
@@ -8377,11 +8465,62 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		if p0.Elements[model.ElementShadow] != 2 {
 			t.Fatalf("3621101 should gain 2 shadow after damaging friendly unit, elements=%v", p0.Elements)
 		}
-		if len(p0.TempModifiers) != 2 || p0.TempModifiers[0].TargetInstanceID != skill.InstanceID || p0.TempModifiers[1].TargetInstanceID != skill.InstanceID {
-			t.Fatalf("3621101 should add two self next-use modifiers, modifiers=%+v", p0.TempModifiers)
+		if len(p0.TempModifiers) != 2 || p0.TempModifiers[0].TargetInstanceID != "" || p0.TempModifiers[1].TargetInstanceID != "" {
+			t.Fatalf("3621101 should add two next spell modifiers, modifiers=%+v", p0.TempModifiers)
 		}
-		if p0.TempModifiers[0].Type != TempModSkillPowerBonus || p0.TempModifiers[0].Amount != 2 || p0.TempModifiers[1].Type != TempModNextSkillUseAttackBonus || p0.TempModifiers[1].Amount != 1 {
-			t.Fatalf("3621101 should grant +2 power and +1 attack next use, modifiers=%+v", p0.TempModifiers)
+		if p0.TempModifiers[0].Type != TempModNextAttackSpellPowerBonus || p0.TempModifiers[0].Amount != 2 || p0.TempModifiers[1].Type != TempModNextSkillUseAttackBonus || p0.TempModifiers[1].Amount != 1 {
+			t.Fatalf("3621101 should grant +2 power and +1 attack to the next spell, modifiers=%+v", p0.TempModifiers)
+		}
+		nextSpell := readySkill(baseCard(t, "3621107"), 0)
+		if power := engine.effectiveSpellPower(0, nextSpell, nil); power != nextSpell.Card.Power+2 {
+			t.Fatalf("3621101 should grant +2 power to next spell, power=%d want=%d", power, nextSpell.Card.Power+2)
+		}
+		if damage := engine.effectiveSpellDamage(0, nextSpell, nextSpell.Card.Attack, nil); damage != nextSpell.Card.Attack+1 {
+			t.Fatalf("3621101 should grant +1 attack to next spell, damage=%d want=%d", damage, nextSpell.Card.Attack+1)
+		}
+		engine.consumeNextSpellPowerBonuses(p0, nextSpell)
+		engine.consumeNextSpellAttackBonuses(p0, nextSpell)
+		if len(p0.TempModifiers) != 0 {
+			t.Fatalf("3621101 next spell modifiers should be consumed together, modifiers=%+v", p0.TempModifiers)
+		}
+
+		defendedEngine := setupEffectTest(t)
+		defendedP0 := defendedEngine.State.Players[0]
+		defendedP1 := defendedEngine.State.Players[1]
+		defendedFriend := placeUnit(baseCard(t, "1021001"), 0, 0, 0, defendedEngine)
+		defendedEnemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, defendedEngine)
+		defendedBloodPledge := readySkill(baseCard(t, "3621101"), 0)
+		if err := behavior.OnSpellHit(&EffectContext{
+			Engine:     defendedEngine,
+			Source:     defendedBloodPledge,
+			Target:     defendedFriend,
+			PlayerID:   0,
+			OpponentID: 1,
+			ExtraData:  map[string]any{"actual_friendly_damage_by_instance": map[string]int{defendedFriend.InstanceID: 1}, "attacker": 0, "spell_source": defendedBloodPledge},
+		}); err != nil {
+			t.Fatalf("3621101 defended setup: %v", err)
+		}
+		defendedSpell := readySkill(baseCard(t, "3121002"), 0)
+		defenseSpell := readySkill(baseCard(t, "3521013"), 1)
+		defendedP0.Skills[0] = defendedSpell
+		defendedP1.Skills[0] = defenseSpell
+		defendedP0.Elements[model.ElementFire] = 10
+		defendedP1.Elements[model.ElementLight] = 10
+		if err := defendedEngine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": defendedSpell.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(defendedEnemy.Position.Col),
+			"target_row":  float64(defendedEnemy.Position.Row),
+		}}); err != nil {
+			t.Fatalf("cast next spell after 3621101: %v", err)
+		}
+		if err := defendedEngine.HandleAction(1, ActionMessage{Action: "defend", Data: map[string]any{
+			"skill_ids": []any{defenseSpell.InstanceID},
+		}}); err != nil {
+			t.Fatalf("defend next spell after 3621101: %v", err)
+		}
+		if len(defendedP0.TempModifiers) != 0 || defendedEnemy.CurrentLife != defendedEnemy.Card.Life {
+			t.Fatalf("3621101 next spell modifiers should be consumed when the spell is defended, modifiers=%+v enemyLife=%d", defendedP0.TempModifiers, defendedEnemy.CurrentLife)
 		}
 
 		killedEngine := setupEffectTest(t)
@@ -8822,6 +8961,44 @@ func TestRoyalConflictRedMoonDevourDestroysAndFeedsShadowUnit(t *testing.T) {
 	resolvePendingSelection(t, redEngine, 0, shadowAlly.InstanceID)
 	if shadowAlly.CurrentLife != startLife+2 {
 		t.Fatalf("3621106 should grant remaining life to selected shadow ally, life=%d start=%d", shadowAlly.CurrentLife, startLife)
+	}
+
+	multiEngine := setupEffectTest(t)
+	multiP0 := multiEngine.State.Players[0]
+	multiRedMoon := readySkill(baseCard(t, "3611101"), 0)
+	multiRedMoon.Statuses[StatusAbilityDuration] = 1
+	multiP0.Skills[0] = multiRedMoon
+	multiEngine.refreshRedMoonState(0)
+	multiShadowAlly := placeUnit(baseCard(t, "1621001"), 0, 1, 0, multiEngine)
+	multiStartLife := multiShadowAlly.CurrentLife
+	multiSkill := readySkill(baseCard(t, "3621106"), 0)
+	mainTarget := placeUnit(baseCard(t, "1021002"), 1, 0, 0, multiEngine)
+	extraTarget := placeUnit(baseCard(t, "1021001"), 1, 1, 0, multiEngine)
+	mainTarget.CurrentLife = 2
+	extraTarget.CurrentLife = 3
+	if err := (Card3621106RedMoonDevour{}).OnSpellHit(&EffectContext{
+		Engine:     multiEngine,
+		Source:     multiSkill,
+		Target:     mainTarget,
+		PlayerID:   0,
+		OpponentID: 1,
+		ExtraData: map[string]any{
+			"attacker":       0,
+			"spell_source":   multiSkill,
+			"affected_units": []*CardInstance{mainTarget, extraTarget},
+		},
+	}); err != nil {
+		t.Fatalf("3621106 multi hit with red moon: %v", err)
+	}
+	if multiEngine.State.Players[1].Units[0][0] != nil || multiEngine.State.Players[1].Units[1][0] != nil {
+		t.Fatalf("3621106 should destroy all hit enemy companions, units=%v", multiEngine.State.Players[1].Units)
+	}
+	if multiEngine.State.PendingAction == nil || multiEngine.State.PendingAction.Type != "red_moon_devour_life" {
+		t.Fatalf("3621106 multi hit should prompt shadow life gain, pending=%+v", multiEngine.State.PendingAction)
+	}
+	resolvePendingSelection(t, multiEngine, 0, multiShadowAlly.InstanceID)
+	if multiShadowAlly.CurrentLife != multiStartLife+5 {
+		t.Fatalf("3621106 should grant total remaining life from destroyed targets, life=%d start=%d", multiShadowAlly.CurrentLife, multiStartLife)
 	}
 }
 
@@ -9812,6 +9989,10 @@ func TestRoyalConflictBloodThornGardenResummonsAfterFriendlyKill(t *testing.T) {
 		t.Fatalf("blood thorn should ask to resummon after friendly kill, pending=%+v", engine.State.PendingAction)
 	}
 	resolvePendingSelection(t, engine, 0, thorn.InstanceID)
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "blood_thorn_resummon_position" {
+		t.Fatalf("blood thorn should ask for resummon position, pending=%+v", engine.State.PendingAction)
+	}
+	resolvePendingSelection(t, engine, 0, positionSelectionID(Position{Col: 0, Row: 0}))
 	if p0.Units[0][0] != thorn || thorn.CurrentLife != thorn.Card.Life || !thorn.IsHorizontal {
 		t.Fatalf("blood thorn should return fresh at its old position, unit=%v card=%v", p0.Units[0][0], cardToInfo(thorn))
 	}
@@ -9832,6 +10013,58 @@ func TestRoyalConflictBloodThornGardenIgnoresNonFriendlyKill(t *testing.T) {
 	}
 	if engine.State.Players[0].Units[0][0] != nil || !containsCardInstance(engine.State.Players[0].Graveyard, thorn) {
 		t.Fatalf("blood thorn should stay dead after enemy kill, unit=%v grave=%v", engine.State.Players[0].Units[0][0], cardsToInfo(engine.State.Players[0].Graveyard))
+	}
+}
+
+func TestRoyalConflictRebornUnitsCanChooseCurrentEmptyPositions(t *testing.T) {
+	engine := setupEffectTest(t)
+	p0 := engine.State.Players[0]
+	bone := placeUnit(baseCard(t, "1621011"), 0, 0, 0, engine)
+	devourFuel := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+	devourFuel.CurrentLife = 3
+	fearDemon := NewCardInstance(baseCard(t, "1621003"), 0, engine.State.TurnNumber)
+	p0.Hand = append(p0.Hand, fearDemon)
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+		"instance_id": fearDemon.InstanceID,
+		"col":         float64(0),
+		"row":         float64(0),
+		"devour_ids":  []any{bone.InstanceID, devourFuel.InstanceID},
+	}}); err != nil {
+		t.Fatalf("summon fear demon with devour: %v", err)
+	}
+	if p0.Units[0][0] != fearDemon {
+		t.Fatalf("fear demon should occupy bone knight's old position, unit=%v", cardToInfo(p0.Units[0][0]))
+	}
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "bone_knight_reborn" {
+		t.Fatalf("bone knight should ask to reborn after devour, pending=%+v", engine.State.PendingAction)
+	}
+	resolvePendingSelection(t, engine, 0, bone.InstanceID)
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "bone_knight_reborn_position" ||
+		candidateContains(engine.State.PendingAction.Candidates, positionSelectionID(Position{Col: 0, Row: 0})) {
+		t.Fatalf("bone knight should ask for a current empty position, pending=%+v", engine.State.PendingAction)
+	}
+	resolvePendingSelection(t, engine, 0, positionSelectionID(Position{Col: 2, Row: 2}))
+	if p0.Units[2][2] != bone || bone.Statuses[boneKnightRebornStatus] != 1 || containsCardInstance(p0.Graveyard, bone) {
+		t.Fatalf("bone knight should reborn at chosen current empty position, pos=%v grave=%v statuses=%v", bone.Position, cardsToInfo(p0.Graveyard), bone.Statuses)
+	}
+
+	thorn := placeUnit(baseCard(t, "1611102"), 0, 1, 0, engine)
+	thorn.CurrentLife = 0
+	p0.Elements[model.ElementShadow] = 1
+	engine.destroyUnitWithData(thorn, 0, map[string]any{"attacker": 0})
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "blood_thorn_resummon" {
+		t.Fatalf("blood thorn should ask to resummon after friendly kill, pending=%+v", engine.State.PendingAction)
+	}
+	blocker := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+	resolvePendingSelection(t, engine, 0, thorn.InstanceID)
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "blood_thorn_resummon_position" ||
+		candidateContains(engine.State.PendingAction.Candidates, positionSelectionID(Position{Col: 1, Row: 0})) {
+		t.Fatalf("blood thorn should ask for a current empty position, pending=%+v", engine.State.PendingAction)
+	}
+	resolvePendingSelection(t, engine, 0, positionSelectionID(Position{Col: 2, Row: 1}))
+	if p0.Units[2][1] != thorn || containsCardInstance(p0.Graveyard, thorn) || p0.Elements[model.ElementShadow] != 0 {
+		t.Fatalf("blood thorn should spend one shadow and resummon at chosen current empty position, unit=%v blocker=%v grave=%v elements=%v", cardToInfo(p0.Units[2][1]), cardToInfo(blocker), cardsToInfo(p0.Graveyard), p0.Elements)
 	}
 }
 

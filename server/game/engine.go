@@ -1270,6 +1270,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		}
 		extraTargets = append(extraTargets, rainbowTargets...)
 	}
+	consumeNextExtraTargetModifier := e.hasNextSpellExtraTarget(ps, skill)
 	extraTargets = e.addExileSotorAdjacentSpellTargets(playerID, target, extraTargets)
 	totalCost := mergeElementCosts(cost, boostCost)
 	if !e.canPayCost(ps, totalCost) {
@@ -1330,6 +1331,8 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	e.consumeNextSpellPowerBonuses(ps, skill)
 	if len(extraTargets) > 0 {
 		e.consumeNextDriveSpellExtraTarget(ps, skill)
+	} else if consumeNextExtraTargetModifier {
+		e.consumeNextSpellExtraTarget(ps, skill)
 	}
 
 	// Check if it's a 咒术 (sorcery - unblockable)
@@ -1895,6 +1898,7 @@ func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInst
 			Player: -1,
 			Data:   map[string]any{"defender": playerID},
 		})
+		e.consumeNextSpellAttackBonuses(e.State.Players[e.State.PendingSpell.AttackerID], e.State.PendingSpell.Skill)
 		e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
 		clearFiveRainbowBeamSelection(e.State.PendingSpell.Skill)
 	} else {

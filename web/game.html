@@ -236,7 +236,14 @@
                          @contextmenu.prevent.stop="candidate.number && showCardContextMenu($event, candidate, 'interaction')"
                          @click="togglePendingSelect(candidate)">
                         <img v-if="candidate.number" :src="getCardImage(candidate)" class="pending-card-img">
-                        <div v-else class="pending-position-tile">{{ candidate.name }}</div>
+                        <div v-else class="pending-position-tile">
+                            <div v-if="isPendingPositionCandidate(candidate)" class="pending-position-board" :aria-label="pendingPositionLabel(candidate)">
+                                <span v-for="cell in pendingPositionCells(candidate)" :key="cell.key"
+                                      class="pending-position-cell"
+                                      :class="{ active: cell.active, front: cell.row === 0 }"></span>
+                            </div>
+                            <span>{{ pendingPositionLabel(candidate) }}</span>
+                        </div>
                         <span v-if="candidate.number" class="interaction-detail-link" @click.stop="showCardDetail(candidate)">查看</span>
                         <div class="pending-card-name">{{ candidate.name }}</div>
                         <div class="pending-card-side">
@@ -639,7 +646,14 @@
                                 :class="{ selected: pendingSelected.includes(candidate.instance_id), disabled: candidate.can_select === false }"
                                 @click="togglePendingSelect(candidate)">
                             <img v-if="candidate.number" :src="getCardImage(candidate)" :alt="candidate.name">
-                            <span>{{ candidate.name }}</span>
+                            <span v-else-if="isPendingPositionCandidate(candidate)" class="pending-inline-position">
+                                <span class="pending-inline-position-grid">
+                                    <i v-for="cell in pendingPositionCells(candidate)" :key="cell.key"
+                                       :class="{ active: cell.active }"></i>
+                                </span>
+                                <span>{{ pendingPositionLabel(candidate) }}</span>
+                            </span>
+                            <span v-else>{{ candidate.name }}</span>
                         </button>
                     </div>
                     <div class="pending-inline-actions">
@@ -3187,6 +3201,49 @@
                 return ordered;
             }
 
+            function pendingCandidatePosition(candidate) {
+                if (!candidate) return null;
+                const raw = candidate.position;
+                if (raw && typeof raw === 'object') {
+                    const col = Number(raw.col ?? raw.Col);
+                    const row = Number(raw.row ?? raw.Row);
+                    if (Number.isInteger(col) && Number.isInteger(row)) return { col, row };
+                }
+                const match = String(candidate.instance_id || '').match(/^pos:(\d+):(\d+)$/);
+                if (!match) return null;
+                return { col: Number(match[1]), row: Number(match[2]) };
+            }
+
+            function isPendingPositionCandidate(candidate) {
+                return candidate?.zone === 'unit_position' || !!pendingCandidatePosition(candidate);
+            }
+
+            function pendingPositionLabel(candidate) {
+                const pos = pendingCandidatePosition(candidate);
+                if (!pos) return candidate?.name || '位置';
+                const colLabels = ['左列', '中列', '右列'];
+                const rowLabels = ['前排', '中排', '后排'];
+                const col = colLabels[pos.col] || `${pos.col + 1}列`;
+                const row = rowLabels[pos.row] || `${pos.row + 1}排`;
+                return `${row}${col}`;
+            }
+
+            function pendingPositionCells(candidate) {
+                const pos = pendingCandidatePosition(candidate);
+                const cells = [];
+                for (const row of [2, 1, 0]) {
+                    for (const col of [0, 1, 2]) {
+                        cells.push({
+                            key: `${col}-${row}`,
+                            col,
+                            row,
+                            active: !!pos && pos.col === col && pos.row === row
+                        });
+                    }
+                }
+                return cells;
+            }
+
             function isPendingBottom(id) {
                 ensurePendingDeckOrder();
                 return pendingDeckBottom.value.includes(id);
@@ -4038,6 +4095,7 @@
                 hoverOpponentCell, clearHoverOpponentCell, isSpellAreaPreview,
                 // Pending action
                 pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction, pendingCandidateDetail, pendingContextText,
+                isPendingPositionCandidate, pendingPositionLabel, pendingPositionCells,
                 isCounterPending, pendingOverexertUnits, pendingOverexertSelected, togglePendingOverexert,
                 isDeckReorderPending, pendingOrderedCandidates, movePendingCandidate, togglePendingBottom, isPendingBottom,
                 zoneLabel,

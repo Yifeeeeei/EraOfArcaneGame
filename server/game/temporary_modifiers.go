@@ -303,6 +303,21 @@ func (e *Engine) hasNextDriveSpellExtraTarget(ps *PlayerState, skill *CardInstan
 	return false
 }
 
+func (e *Engine) hasNextSpellExtraTarget(ps *PlayerState, skill *CardInstance) bool {
+	if ps == nil || skill == nil || skill.Card == nil {
+		return false
+	}
+	for _, modifier := range ps.TempModifiers {
+		if modifier.Type != TempModNextSpellExtraTarget || modifier.RemainingUses == 0 {
+			continue
+		}
+		if modifier.TargetInstanceID == "" || modifier.TargetInstanceID == skill.InstanceID {
+			return true
+		}
+	}
+	return false
+}
+
 func (e *Engine) consumeNextDriveSpellExtraTarget(ps *PlayerState, skill *CardInstance) {
 	if ps == nil || skill == nil || skill.Card == nil {
 		return
@@ -319,6 +334,23 @@ func (e *Engine) consumeNextDriveSpellExtraTarget(ps *PlayerState, skill *CardIn
 				continue
 			}
 		default:
+			continue
+		}
+		modifier.RemainingUses--
+		return
+	}
+}
+
+func (e *Engine) consumeNextSpellExtraTarget(ps *PlayerState, skill *CardInstance) {
+	if ps == nil || skill == nil || skill.Card == nil {
+		return
+	}
+	for i := range ps.TempModifiers {
+		modifier := &ps.TempModifiers[i]
+		if modifier.Type != TempModNextSpellExtraTarget || modifier.RemainingUses == 0 {
+			continue
+		}
+		if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != skill.InstanceID {
 			continue
 		}
 		modifier.RemainingUses--
@@ -386,13 +418,6 @@ func (e *Engine) consumeNextSpellPowerBonuses(ps *PlayerState, skill *CardInstan
 			if modifier.RemainingUses == 0 || !hasCardTag(skill.Card, modifier.Status) {
 				continue
 			}
-		case TempModNextSkillUseAttackBonus:
-			if modifier.RemainingUses == 0 {
-				continue
-			}
-			if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != skill.InstanceID {
-				continue
-			}
 		default:
 			continue
 		}
@@ -439,7 +464,7 @@ func (e *Engine) temporarySpellDamageBonus(playerID int, skill *CardInstance) in
 
 func (e *Engine) consumeNextSpellAttackBonuses(ps *PlayerState, skill *CardInstance) {
 	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
-		if modifier.Type != TempModSkillAttackBonus {
+		if modifier.Type != TempModSkillAttackBonus && modifier.Type != TempModNextSkillUseAttackBonus {
 			continue
 		}
 		if modifier.RemainingUses == 0 {
