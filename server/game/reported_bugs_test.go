@@ -6050,6 +6050,14 @@ func TestDarkDeathEffects(t *testing.T) {
 			t.Fatalf("bone knight should start with an active deathrattle")
 		}
 		engine.dealDamage(knight, 99, 0)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "bone_knight_reborn" {
+			t.Fatalf("bone knight should ask to reborn, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, knight.InstanceID)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "bone_knight_reborn_position" {
+			t.Fatalf("bone knight should ask for reborn position, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, positionSelectionID(Position{Col: 0, Row: 0}))
 		if engine.State.Players[0].Units[0][0] != knight {
 			t.Fatalf("bone knight should return to its position")
 		}
@@ -6060,7 +6068,7 @@ func TestDarkDeathEffects(t *testing.T) {
 			t.Fatalf("bone knight should no longer count as a deathrattle unit after returning")
 		}
 		engine.dealDamage(knight, 99, 0)
-		if engine.State.Players[0].Units[0][0] != nil {
+		if engine.State.PendingAction != nil || engine.State.Players[0].Units[0][0] != nil {
 			t.Fatalf("bone knight should not return a second time")
 		}
 	})

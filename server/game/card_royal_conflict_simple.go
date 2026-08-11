@@ -4008,10 +4008,9 @@ func (Card3621101BloodPledge) OnSpellHit(ctx *EffectContext) error {
 	}
 	ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementShadow: 2})
 	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
-		Type:             TempModSkillPowerBonus,
+		Type:             TempModNextAttackSpellPowerBonus,
 		SourceCardNumber: ctx.Source.Card.Number,
 		SourceName:       ctx.Source.Card.Name,
-		TargetInstanceID: ctx.Source.InstanceID,
 		Amount:           2,
 		RemainingUses:    1,
 	})
@@ -4019,7 +4018,6 @@ func (Card3621101BloodPledge) OnSpellHit(ctx *EffectContext) error {
 		Type:             TempModNextSkillUseAttackBonus,
 		SourceCardNumber: ctx.Source.Card.Number,
 		SourceName:       ctx.Source.Card.Name,
-		TargetInstanceID: ctx.Source.InstanceID,
 		Amount:           1,
 		RemainingUses:    1,
 	})
@@ -7547,42 +7545,66 @@ type Card1611102BloodThornGarden struct{ AlwaysActive }
 func (Card1611102BloodThornGarden) ID() string   { return "1611102" }
 func (Card1611102BloodThornGarden) Name() string { return "蔷薇花园的血荆棘" }
 func (Card1611102BloodThornGarden) OnDeath(ctx *EffectContext) error {
-	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Source.Position == nil || !bloodThornKilledByFriendlyCard(ctx) {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || !bloodThornKilledByFriendlyCard(ctx) {
 		return nil
 	}
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	if ps == nil || ps.Elements[model.ElementShadow] < 1 {
 		return nil
 	}
-	pos := *ctx.Source.Position
-	if !pos.Valid() || ps.Units[pos.Col][pos.Row] != nil {
-		return nil
-	}
+	sourceID := ctx.Source.InstanceID
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "blood_thorn_resummon",
 		"蔷薇花园的血荆棘:是否支付1暗重新召唤", []map[string]any{candidateInfo(ctx.Source, "graveyard", "own")}, 0, 1,
 		func(selected []string) {
-			if len(selected) == 0 || ps.Elements[model.ElementShadow] < 1 || !pos.Valid() || ps.Units[pos.Col][pos.Row] != nil {
+			if len(selected) == 0 || firstSelected(selected) != sourceID || ps.Elements[model.ElementShadow] < 1 {
 				return
 			}
-			if !ctx.Engine.removeCardFromGraveyard(ctx.PlayerID, ctx.Source) {
+			ctx.Engine.promptBloodThornResummonPosition(ctx.PlayerID, sourceID)
+		})
+	return nil
+}
+
+func (e *Engine) promptBloodThornResummonPosition(playerID int, instanceID string) {
+	positions := e.friendlyEmptyUnitPositions(playerID)
+	if len(positions) == 0 {
+		return
+	}
+	e.SetPendingAction(playerID, "blood_thorn_resummon_position",
+		"蔷薇花园的血荆棘:选择重新召唤位置", positions, 1, 1,
+		func(selected []string) {
+			pos, ok := positionFromSelectionID(firstSelected(selected))
+			if !ok {
+				return
+			}
+			ps := e.State.Players[playerID]
+			var source *CardInstance
+			for _, card := range ps.Graveyard {
+				if card != nil && card.InstanceID == instanceID {
+					source = card
+					break
+				}
+			}
+			if source == nil || !pos.Valid() || ps.Units[pos.Col][pos.Row] != nil || ps.Elements[model.ElementShadow] < 1 {
+				return
+			}
+			if !e.removeCardFromGraveyard(playerID, source) {
 				return
 			}
 			ps.Elements[model.ElementShadow]--
-			resetCardForResummon(ctx.Source)
-			if !ctx.Engine.placeExistingCompanionAtPosition(ctx.PlayerID, ctx.Source, pos, true) {
-				ctx.Engine.addToGraveyard(ctx.PlayerID, ctx.Source)
+			resetCardForResummon(source)
+			if !e.placeExistingCompanionAtPosition(playerID, source, pos, true) {
+				e.addToGraveyard(playerID, source)
 				return
 			}
-			ctx.Engine.emit(GameEvent{
+			e.emit(GameEvent{
 				Type:   "blood_thorn_resummon",
 				Player: -1,
 				Data: map[string]any{
-					"player": ctx.PlayerID,
-					"card":   cardToInfo(ctx.Source),
+					"player": playerID,
+					"card":   cardToInfo(source),
 				},
 			})
 		})
-	return nil
 }
 
 func bloodThornKilledByFriendlyCard(ctx *EffectContext) bool {
@@ -8435,19 +8457,37 @@ type Card3621106RedMoonDevour struct{ AlwaysActive }
 func (Card3621106RedMoonDevour) ID() string   { return "3621106" }
 func (Card3621106RedMoonDevour) Name() string { return "红月吞噬" }
 func (Card3621106RedMoonDevour) OnSpellHit(ctx *EffectContext) error {
-	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || !isOwnSpellHit(ctx) {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || !isOwnSpellHit(ctx) {
 		return nil
 	}
-	if ctx.Target.Card == nil || !ctx.Target.Card.IsCompanion() || ctx.Target.OwnerID == ctx.PlayerID {
+	targets := spellHitAffectedUnitsFromData(ctx)
+	if len(targets) == 0 && ctx.Target != nil {
+		targets = []*CardInstance{ctx.Target}
+	}
+	destroyed := make([]*CardInstance, 0, len(targets))
+	seen := make(map[string]bool, len(targets))
+	totalRemainingLife := 0
+	for _, target := range targets {
+		if target == nil || target.Card == nil || !target.Card.IsCompanion() || target.OwnerID == ctx.PlayerID || seen[target.InstanceID] {
+			continue
+		}
+		if !ctx.Engine.unitInOwnerGrid(target, target.OwnerID) {
+			continue
+		}
+		seen[target.InstanceID] = true
+		totalRemainingLife += max(target.CurrentLife, 0)
+		destroyed = append(destroyed, target)
+	}
+	if len(destroyed) == 0 {
 		return nil
 	}
-	remainingLife := max(ctx.Target.CurrentLife, 0)
-	targetOwner := ctx.Target.OwnerID
-	ctx.Engine.destroyUnitWithData(ctx.Target, targetOwner, map[string]any{
-		"destroyed_by": ctx.Source.InstanceID,
-		"attacker":     ctx.PlayerID,
-	})
-	if remainingLife <= 0 || !ctx.Engine.redMoonActive(ctx.PlayerID) {
+	for _, target := range destroyed {
+		ctx.Engine.destroyUnitWithData(target, target.OwnerID, map[string]any{
+			"destroyed_by": ctx.Source.InstanceID,
+			"attacker":     ctx.PlayerID,
+		})
+	}
+	if totalRemainingLife <= 0 || !ctx.Engine.redMoonActive(ctx.PlayerID) {
 		return nil
 	}
 	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
@@ -8457,13 +8497,13 @@ func (Card3621106RedMoonDevour) OnSpellHit(ctx *EffectContext) error {
 		return nil
 	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "red_moon_devour_life",
-		fmt.Sprintf("红月吞噬:选择1个友方暗影单位获得+%d血", remainingLife), candidates, 1, 1,
+		fmt.Sprintf("红月吞噬:选择1个友方暗影单位获得+%d血", totalRemainingLife), candidates, 1, 1,
 		func(selected []string) {
 			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, firstSelected(selected))
 			if target == nil || zone != "unit" || target.Card == nil || target.Card.Category != model.ElementShadow {
 				return
 			}
-			target.CurrentLife += remainingLife
+			target.CurrentLife += totalRemainingLife
 			ctx.Engine.triggerHolyChildAfterLifeGain(ctx.PlayerID, target)
 			ctx.Engine.emit(GameEvent{
 				Type:   "effect_trigger",
@@ -8472,7 +8512,7 @@ func (Card3621106RedMoonDevour) OnSpellHit(ctx *EffectContext) error {
 					"source": cardToInfo(ctx.Source),
 					"target": cardToInfo(target),
 					"effect": "modify_life",
-					"amount": remainingLife,
+					"amount": totalRemainingLife,
 				},
 			})
 		})

@@ -47,6 +47,7 @@ func (Card1601101BloodShadowBody) OnPerTurn(ctx *EffectContext) error {
 		SourceCardNumber: ctx.Source.Card.Number,
 		SourceName:       ctx.Source.Card.Name,
 		RemainingUses:    1,
+		AllowSameTarget:  true,
 	})
 	ctx.Engine.emit(GameEvent{
 		Type:   "blood_shadow_body_extra_target",

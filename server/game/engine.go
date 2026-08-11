@@ -1270,6 +1270,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		}
 		extraTargets = append(extraTargets, rainbowTargets...)
 	}
+	consumeNextExtraTargetModifier := e.hasNextSpellExtraTarget(ps, skill)
 	extraTargets = e.addExileSotorAdjacentSpellTargets(playerID, target, extraTargets)
 	totalCost := mergeElementCosts(cost, boostCost)
 	if !e.canPayCost(ps, totalCost) {
@@ -1328,7 +1329,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	}
 	powerSources := e.spellPowerSources(playerID, skill, boostSkills, totalPower, powerTargets...)
 	e.consumeNextSpellPowerBonuses(ps, skill)
-	if len(extraTargets) > 0 {
+	if consumeNextExtraTargetModifier || len(extraTargets) > 0 {
 		e.consumeNextDriveSpellExtraTarget(ps, skill)
 	}
 

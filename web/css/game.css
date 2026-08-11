@@ -521,6 +521,35 @@ body::before {
     white-space: nowrap;
     font-size: 10px;
 }
+.pending-inline-card .pending-inline-position {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    overflow: visible;
+    white-space: normal;
+}
+.pending-inline-position-grid {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid rgba(198,174,116,0.28);
+    background: rgba(8,6,5,0.88);
+}
+.pending-inline-position-grid i {
+    display: block;
+    border: 1px solid rgba(198,174,116,0.22);
+    background: rgba(198,174,116,0.05);
+}
+.pending-inline-position-grid i.active {
+    border-color: var(--gold);
+    background: rgba(211,180,106,0.78);
+    box-shadow: 0 0 5px rgba(211,180,106,0.4);
+}
 .pending-inline-more {
     align-self: center;
     color: var(--text-muted);
@@ -2686,13 +2715,40 @@ body::before {
 .pending-position-tile {
     width: 100px;
     height: 140px;
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
     border: 1px solid rgba(198,174,116,0.3);
     background: rgba(8,6,5,0.8);
     color: var(--gold);
     font-size: 12px;
     line-height: 1.35;
+}
+.pending-position-board {
+    width: 64px;
+    height: 64px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 3px;
+    padding: 4px;
+    border: 1px solid rgba(198,174,116,0.34);
+    background: linear-gradient(180deg, rgba(22,16,10,0.95), rgba(8,6,5,0.9));
+}
+.pending-position-cell {
+    display: block;
+    border: 1px solid rgba(198,174,116,0.22);
+    background: rgba(198,174,116,0.05);
+}
+.pending-position-cell.front {
+    border-color: rgba(137,49,37,0.32);
+}
+.pending-position-cell.active {
+    border-color: var(--gold);
+    background: rgba(211,180,106,0.72);
+    box-shadow: 0 0 8px rgba(211,180,106,0.42);
 }
 .pending-card-name {
     font-size: 11px;
