@@ -8680,6 +8680,29 @@ func TestRoyalConflictPrimalDivineFlameLopsius(t *testing.T) {
 	if lopsius.AttackBonus != 1 || lopsius.PowerBonus != 2 || lopsius.UsedThisTurn != 1 {
 		t.Fatalf("3111102 should gain +1 attack +2 power and spend use, attack=%d power=%d used=%d", lopsius.AttackBonus, lopsius.PowerBonus, lopsius.UsedThisTurn)
 	}
+
+	actionEngine := setupEffectTest(t)
+	actionP0 := actionEngine.State.Players[0]
+	actionLopsius := readySkill(baseCard(t, "3111102"), 0)
+	actionFireSpell := readySkill(baseCard(t, "3121103"), 0)
+	actionP0.Skills[0] = actionLopsius
+	actionP0.Skills[1] = actionFireSpell
+	if err := actionEngine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+		"instance_id":  actionLopsius.InstanceID,
+		"ability_type": "per_turn",
+	}}); err != nil {
+		t.Fatalf("3111102 handle action per-turn failed: %v", err)
+	}
+	if actionLopsius.UsedThisTurn != 1 {
+		t.Fatalf("3111102 should be marked used after opening pending action, used=%d", actionLopsius.UsedThisTurn)
+	}
+	resolvePendingSelection(t, actionEngine, 0, actionFireSpell.InstanceID)
+	if actionP0.Skills[1] != nil || len(actionP0.Exile) != 1 || actionP0.Exile[0] != actionFireSpell {
+		t.Fatalf("3111102 handle action path should exile selected fire skill, skills=%v exile=%v", cardsToInfo(actionP0.Skills[:]), cardsToInfo(actionP0.Exile))
+	}
+	if actionLopsius.AttackBonus != 1 || actionLopsius.PowerBonus != 2 || actionLopsius.UsedThisTurn != 1 {
+		t.Fatalf("3111102 handle action path should grow once without double-counting use, attack=%d power=%d used=%d", actionLopsius.AttackBonus, actionLopsius.PowerBonus, actionLopsius.UsedThisTurn)
+	}
 }
 
 func TestRoyalConflictMindSeaMazeStacksAfterUse(t *testing.T) {

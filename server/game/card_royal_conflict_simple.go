@@ -7892,10 +7892,11 @@ func (Card3111102PrimalDivineFlameLopsius) OnPerTurn(ctx *EffectContext) error {
 	if len(candidates) == 0 {
 		return nil
 	}
+	usedAtActivation := ctx.Source.UsedThisTurn
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "primal_divine_flame_exile",
 		"原初神炎 洛普修斯:选择1个火焰技能移出游戏", candidates, 1, 1,
 		func(selected []string) {
-			if ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) {
+			if ctx.Source.UsedThisTurn > usedAtActivation+1 {
 				return
 			}
 			target := findFriendlySkillIncludingBound(ctx.Engine, ctx.PlayerID, firstSelected(selected))
@@ -7907,7 +7908,9 @@ func (Card3111102PrimalDivineFlameLopsius) OnPerTurn(ctx *EffectContext) error {
 			}
 			ctx.Source.AttackBonus++
 			ctx.Source.PowerBonus += 2
-			ctx.Source.UsedThisTurn++
+			if ctx.Source.UsedThisTurn == usedAtActivation {
+				ctx.Source.UsedThisTurn++
+			}
 			ctx.Engine.emit(GameEvent{
 				Type:   "primal_divine_flame_growth",
 				Player: -1,
