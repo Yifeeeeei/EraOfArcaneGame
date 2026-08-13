@@ -4567,6 +4567,13 @@ func (e *Engine) finishEndTurnAfterOpponentTemp(ps *PlayerState) {
 	e.rollFriendlyUnitDamageHistory()
 	for _, player := range e.State.Players {
 		if player != nil {
+			kept := player.TempModifiers[:0]
+			for _, modifier := range player.TempModifiers {
+				if modifier.Type != TempModLavaArmorYeYanShieldBreak {
+					kept = append(kept, modifier)
+				}
+			}
+			player.TempModifiers = kept
 			player.ShieldBrokenThisTurn = false
 		}
 	}
@@ -5137,6 +5144,13 @@ func cardToInfo(ci *CardInstance) map[string]any {
 	if ci == nil {
 		return nil
 	}
+	currentAttack := ci.CurrentAttack
+	if ci.AttackBonus != 0 {
+		currentAttack += ci.AttackBonus
+		if currentAttack < 0 {
+			currentAttack = 0
+		}
+	}
 	info := map[string]any{
 		"instance_id":               ci.InstanceID,
 		"owner":                     ci.OwnerID,
@@ -5154,7 +5168,7 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		"elements_gain":             effectiveElementsGain(ci),
 		"elements_expense":          ci.Card.ElementsExpense,
 		"current_life":              ci.CurrentLife,
-		"current_attack":            ci.CurrentAttack,
+		"current_attack":            currentAttack,
 		"is_horizontal":             ci.IsHorizontal,
 		"is_terrain":                cards.IsTerrain(ci.Card.Number),
 		"is_companion":              ci.Card.IsCompanion(),

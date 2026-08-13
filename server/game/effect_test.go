@@ -8680,6 +8680,17 @@ func TestRoyalConflictPrimalDivineFlameLopsius(t *testing.T) {
 	if lopsius.AttackBonus != 1 || lopsius.PowerBonus != 2 || lopsius.UsedThisTurn != 1 {
 		t.Fatalf("3111102 should gain +1 attack +2 power and spend use, attack=%d power=%d used=%d", lopsius.AttackBonus, lopsius.PowerBonus, lopsius.UsedThisTurn)
 	}
+	lopsius.UsedThisTurn = 0
+	secondFireSpell := readySkill(baseCard(t, "3121002"), 0)
+	p0.Skills[1] = secondFireSpell
+	if err := behavior.OnPerTurn(&EffectContext{Engine: engine, Source: lopsius, PlayerID: 0, OpponentID: 1}); err != nil {
+		t.Fatalf("3111102 second per-turn failed: %v", err)
+	}
+	resolvePendingSelection(t, engine, 0, secondFireSpell.InstanceID)
+	info := engine.cardToInfoForPlayer(p0, lopsius)
+	if info["attack"] != 4 || info["current_attack"] != 4 || info["power"] != 10 {
+		t.Fatalf("3111102 serialized stats should include repeated growth, info=%v", info)
+	}
 
 	actionEngine := setupEffectTest(t)
 	actionP0 := actionEngine.State.Players[0]
@@ -10736,10 +10747,12 @@ func TestRoyalConflictLavaArmorYeYanSacrificesAndEquipsMoltenArmorAfterShieldBre
 
 	noBreakEngine := setupEffectTest(t)
 	noBreakP0 := noBreakEngine.State.Players[0]
+	noBreakTarget := placeUnit(baseCard(t, "1021001"), 0, 0, 0, noBreakEngine)
 	noBreakArmor := NewCardInstance(baseCard(t, "2111102"), 0, noBreakEngine.State.TurnNumber)
 	noBreakArmor.SlotIndex = 0
 	noBreakP0.Equipment[0] = noBreakArmor
-	noBreakP0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "2121013"), 0, noBreakEngine.State.TurnNumber)}
+	deckMolten := NewCardInstance(baseCard(t, "2121013"), 0, noBreakEngine.State.TurnNumber)
+	noBreakP0.Deck = []*CardInstance{deckMolten}
 	if err := (Card2111102LavaArmorYeYan{}).OnSpellHit(&EffectContext{
 		Engine:     noBreakEngine,
 		Source:     noBreakArmor,
@@ -10750,8 +10763,12 @@ func TestRoyalConflictLavaArmorYeYanSacrificesAndEquipsMoltenArmorAfterShieldBre
 		t.Fatalf("2111102 no-break spell hit: %v", err)
 	}
 	resolvePendingSelection(t, noBreakEngine, 0, noBreakArmor.InstanceID)
-	if noBreakP0.Equipment[0] != nil || len(noBreakP0.Deck) != 1 || noBreakP0.Shield != 2 {
-		t.Fatalf("2111102 should not equip molten armor without prior shield break, equipment=%v deck=%v shield=%d", cardToInfo(noBreakP0.Equipment[0]), cardsToInfo(noBreakP0.Deck), noBreakP0.Shield)
+	if noBreakP0.Equipment[0] != nil || len(noBreakP0.Deck) != 1 || noBreakP0.Shield != 2 || len(noBreakP0.TempModifiers) != 1 || noBreakP0.TempModifiers[0].Type != TempModLavaArmorYeYanShieldBreak {
+		t.Fatalf("2111102 should wait for later shield break after sacrifice, equipment=%v deck=%v shield=%d modifiers=%+v", cardToInfo(noBreakP0.Equipment[0]), cardsToInfo(noBreakP0.Deck), noBreakP0.Shield, noBreakP0.TempModifiers)
+	}
+	laterRemaining := noBreakEngine.applyPlayerShieldDamage(noBreakTarget, 3, map[string]any{"damage_source": "spell", "attacker": 1})
+	if laterRemaining != 1 || !noBreakP0.ShieldBrokenThisTurn || noBreakP0.Equipment[0] != deckMolten || len(noBreakP0.Deck) != 0 || len(noBreakP0.TempModifiers) != 0 {
+		t.Fatalf("2111102 should equip molten armor from deck after later shield break, remaining=%d broken=%v equipment=%v deck=%v modifiers=%+v", laterRemaining, noBreakP0.ShieldBrokenThisTurn, cardToInfo(noBreakP0.Equipment[0]), cardsToInfo(noBreakP0.Deck), noBreakP0.TempModifiers)
 	}
 }
 

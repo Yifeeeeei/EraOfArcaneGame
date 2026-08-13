@@ -294,6 +294,7 @@ func (e *Engine) applyPlayerShieldDamage(target *CardInstance, damage int, damag
 	if prevented > 0 && ps.Shield == 0 {
 		ps.ShieldBrokenThisTurn = true
 		e.triggerAshKeltAfterOpponentShieldBreak(target.OwnerID, damageData)
+		e.resolveLavaArmorYeYanShieldBreak(target.OwnerID)
 	}
 	remaining := damage - prevented
 	e.emit(GameEvent{
