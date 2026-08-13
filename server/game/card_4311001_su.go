@@ -26,8 +26,7 @@ func (Card4311001Su) OnUltimate(ctx *EffectContext) error {
 					if card == nil || card.InstanceID != id || card.Card.Category != model.ElementAir {
 						continue
 					}
-					ps.Graveyard = append(ps.Graveyard, card)
-					ps.Hand = append(ps.Hand[:i], ps.Hand[i+1:]...)
+					ctx.Engine.discardHandCardAt(ctx.PlayerID, i)
 					break
 				}
 			}

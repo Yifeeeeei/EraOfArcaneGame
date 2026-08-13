@@ -7,16 +7,32 @@ func (e *Engine) ApplyKeywordOnEnter(card *CardInstance) {
 	}
 
 	if stealthLayers := cardStealthLayers(card); stealthLayers > 0 {
-		card.Statuses["隐蔽"] = stealthLayers
+		card.Statuses[StatusStealth] = stealthLayers
+	}
+
+	if shieldLayers := cardShieldLayers(card); shieldLayers > 0 {
+		e.gainPlayerShield(card.OwnerID, shieldLayers)
 	}
 
 	if cardHasTaunt(card) {
 		card.Statuses["引魔"] = 1
 	}
+}
 
-	if shieldVal := cardShieldLayers(card); shieldVal > 0 {
-		card.Statuses["护盾"] = shieldVal
+func (e *Engine) ApplySummonModifiersOnEnter(card *CardInstance) {
+	if card == nil || card.Card == nil || !card.Card.IsCompanion() || card.OwnerID < 0 || card.OwnerID >= len(e.State.Players) {
+		return
 	}
+	ps := e.State.Players[card.OwnerID]
+	if ps.NextCompanionStealth <= 0 {
+		return
+	}
+	e.grantStealth(card, ps.NextCompanionStealth)
+	ps.NextCompanionStealth = 0
+}
+
+func (e *Engine) grantStealth(card *CardInstance, amount int) bool {
+	return e.addStatus(card, StatusStealth, amount)
 }
 
 // ApplyKeywordOnSkillUse applies keyword effects when a skill is used
@@ -32,12 +48,17 @@ func (e *Engine) ApplyKeywordOnSkillUse(skill *CardInstance) {
 // IsInSpellRange checks if a target position is in the caster's spell range
 // Default spell range: all friendly units + enemy front row
 // 穿透 (Pierce): can target any unit
-// 隐蔽 (Stealth): can't be targeted unless caster has 穿透
+// 隐蔽 (Stealth): can't be targeted by opponents unless explicitly allowed
 // 引魔 (Taunt): always in range
 // 屏蔽 (Shielding): blocks enemy pierce
 func (e *Engine) IsInSpellRange(casterID int, targetCol, targetRow int, hasPierce bool) bool {
 	opponent := e.State.Players[1-casterID]
 	caster := e.State.Players[casterID]
+
+	target := opponent.Units[targetCol][targetRow]
+	if target != nil && e.hasStealthFromOpponent(casterID, target) {
+		return false
+	}
 
 	for _, card := range e.getAllFieldCards(caster) {
 		if card != nil && card.Card != nil && !e.hasEffectiveStatus(card, StatusPetrify) {
@@ -59,16 +80,15 @@ func (e *Engine) IsInSpellRange(casterID int, targetCol, targetRow int, hasPierc
 	}
 
 	if hasPierce {
-		return true // pierce can target anything
+		return true // pierce can target any non-stealth unit or area
 	}
 
-	// Default: enemy front row only
-	frontRow := opponent.GetFrontRow()
+	// Default: enemy front row only. Stealth units do not block spell range.
+	frontRow := e.spellRangeFrontRowAgainst(opponent, casterID)
 	if frontRow == -1 {
 		return true // no enemy units, any position is valid
 	}
 
-	target := opponent.Units[targetCol][targetRow]
 	if target == nil {
 		return false
 	}
@@ -76,11 +96,6 @@ func (e *Engine) IsInSpellRange(casterID int, targetCol, targetRow int, hasPierc
 	// 引魔 (Taunt) units are always in range
 	if target.Statuses["引魔"] > 0 || cardHasTaunt(target) {
 		return true
-	}
-
-	// 隐蔽 (Stealth) units can't be targeted
-	if target.Statuses["隐蔽"] > 0 {
-		return false
 	}
 
 	return targetRow == frontRow
@@ -92,9 +107,9 @@ func (e *Engine) IsInAttackRange(attackerID int, attacker *CardInstance, targetC
 	ps := e.State.Players[attackerID]
 	opponent := e.State.Players[1-attackerID]
 
-	// Attacker must be in front row
+	// Attacker must be in front row unless its own rule says otherwise.
 	frontRow := ps.GetFrontRow()
-	if attacker.Position == nil || attacker.Position.Row != frontRow {
+	if attacker.Position == nil || (attacker.Position.Row != frontRow && (e.hasEffectiveStatus(attacker, StatusPetrify) || !cardCanAttackFromNonFront(attacker))) {
 		return false
 	}
 
@@ -109,11 +124,9 @@ func (e *Engine) IsInAttackRange(attackerID int, attacker *CardInstance, targetC
 		return false
 	}
 
-	// 隐蔽 units can't be attacked unless attacker has 穿透
-	if target.Statuses["隐蔽"] > 0 {
-		if !cardHasPierce(attacker) {
-			return false
-		}
+	// 隐蔽 has priority over pierce and blocks opposing direct attacks.
+	if e.hasStealthFromOpponent(attackerID, target) {
+		return false
 	}
 
 	return targetRow == enemyFront
@@ -131,31 +144,170 @@ func (e *Engine) HandleTemporaryUnits(ps *PlayerState) {
 	}
 }
 
-// HandleShieldDecay reduces shield by 1 at end of turn
+// HandleShieldDecay reduces player shield and stealth by 1 at end of turn.
 func (e *Engine) HandleShieldDecay(ps *PlayerState) {
+	if ps.Shield > 0 && !e.playerShieldDecayPrevented(ps) {
+		ps.Shield--
+	}
 	allCards := e.getAllFieldCards(ps)
 	for _, card := range allCards {
-		if card.Statuses["护盾"] > 0 {
-			card.Statuses["护盾"]--
-		}
-		// Stealth decays too
-		if card.Statuses["隐蔽"] > 0 {
-			card.Statuses["隐蔽"]--
+		if card.Statuses[StatusStealth] > 0 {
+			card.Statuses[StatusStealth]--
 		}
 	}
 }
 
-// ApplyShieldDamage reduces damage by shield amount
-// Returns remaining damage after shield
-func ApplyShieldDamage(target *CardInstance, damage int) int {
-	shield := target.Statuses["护盾"]
-	if shield <= 0 {
+func (e *Engine) playerShieldDecayPrevented(ps *PlayerState) bool {
+	if ps == nil {
+		return false
+	}
+	if e.playerHasActiveCard(ps, "2011101") {
+		return true
+	}
+	if ps.Shield >= 3 {
+		return false
+	}
+	return e.playerHasActiveCard(ps, "4411101")
+}
+
+func (e *Engine) playerHasActiveCard(ps *PlayerState, number string) bool {
+	if ps == nil || number == "" {
+		return false
+	}
+	for _, card := range e.getAllFieldCards(ps) {
+		if card != nil && card.Card != nil && card.Card.Number == number && !e.hasEffectiveStatus(card, StatusPetrify) {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Engine) hasStealthFromOpponent(playerID int, target *CardInstance) bool {
+	if target == nil || target.OwnerID == playerID {
+		return false
+	}
+	return e.hasActiveStealth(target)
+}
+
+func (e *Engine) hasActiveStealth(card *CardInstance) bool {
+	return card != nil && !e.hasEffectiveStatus(card, StatusPetrify) && e.hasEffectiveStatus(card, StatusStealth)
+}
+
+func (e *Engine) spellRangeFrontRowAgainst(ps *PlayerState, casterID int) int {
+	if ps == nil {
+		return -1
+	}
+	for row := 0; row < 3; row++ {
+		for col := 0; col < 3; col++ {
+			unit := ps.Units[col][row]
+			if unit == nil {
+				continue
+			}
+			if unit.OwnerID != casterID && e.hasActiveStealth(unit) {
+				continue
+			}
+			return row
+		}
+	}
+	return -1
+}
+
+func (e *Engine) gainPlayerShield(playerID int, amount int) {
+	if amount <= 0 || playerID < 0 || playerID >= len(e.State.Players) {
+		return
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil || ps.CannotGainShield {
+		return
+	}
+	ps.Shield += amount
+	e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
+		"effect": "gain_shield",
+		"amount": amount,
+		"shield": ps.Shield,
+	}})
+}
+
+func (e *Engine) losePlayerShield(playerID int, amount int) {
+	if amount <= 0 || playerID < 0 || playerID >= len(e.State.Players) {
+		return
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil || ps.Shield <= 0 {
+		return
+	}
+	lost := min(amount, ps.Shield)
+	ps.Shield -= lost
+	e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
+		"effect": "lose_shield",
+		"amount": lost,
+		"shield": ps.Shield,
+	}})
+}
+
+func (e *Engine) gainStrictArcane(playerID int, amount int) {
+	if amount <= 0 || playerID < 0 || playerID >= len(e.State.Players) {
+		return
+	}
+	e.State.Players[playerID].StrictArcane += amount
+	e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
+		"effect":        "gain_strict_arcane",
+		"amount":        amount,
+		"strict_arcane": e.State.Players[playerID].StrictArcane,
+	}})
+}
+
+func (e *Engine) spendStrictArcane(playerID int, amount int) bool {
+	if amount < 0 || playerID < 0 || playerID >= len(e.State.Players) {
+		return false
+	}
+	ps := e.State.Players[playerID]
+	if ps.StrictArcane < amount {
+		return false
+	}
+	ps.StrictArcane -= amount
+	e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
+		"effect":        "spend_strict_arcane",
+		"amount":        amount,
+		"strict_arcane": ps.StrictArcane,
+	}})
+	return true
+}
+
+func (e *Engine) applyPlayerShieldDamage(target *CardInstance, damage int, damageData map[string]any) int {
+	if target == nil || damage <= 0 || damageData == nil || damageData["damage_source"] != "spell" {
 		return damage
 	}
-	if damage <= shield {
-		target.Statuses["护盾"] -= 1 // shield absorbs hit, lose 1 layer
-		return 0
+	if skip, _ := damageData["skip_player_shield"].(bool); skip {
+		return damage
 	}
-	target.Statuses["护盾"] = 0
-	return damage - shield
+	attacker, ok := damageData["attacker"].(int)
+	if !ok || attacker == target.OwnerID {
+		return damage
+	}
+	ps := e.State.Players[target.OwnerID]
+	if ps == nil || ps.Shield <= 0 {
+		return damage
+	}
+	prevented := min(damage, ps.Shield)
+	ps.Shield -= prevented
+	if prevented > 0 && ps.Shield == 0 {
+		ps.ShieldBrokenThisTurn = true
+		e.triggerAshKeltAfterOpponentShieldBreak(target.OwnerID, damageData)
+		e.resolveLavaArmorYeYanShieldBreak(target.OwnerID)
+	}
+	remaining := damage - prevented
+	e.emit(GameEvent{
+		Type:   "shield_block",
+		Player: -1,
+		Data: map[string]any{
+			"target":    cardToInfo(target),
+			"owner":     target.OwnerID,
+			"attacker":  attacker,
+			"prevented": prevented,
+			"shield":    ps.Shield,
+			"broken":    ps.Shield == 0,
+		},
+	})
+	return remaining
 }

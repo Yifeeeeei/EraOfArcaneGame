@@ -36,7 +36,7 @@ func setupBaseCardSmokeSuite(t *testing.T) {
 	})
 }
 
-func sortedBaseCards(t *testing.T) []*model.Card {
+func sortedSupportedCards(t *testing.T) []*model.Card {
 	t.Helper()
 	result := make([]*model.Card, 0, len(cards.PlayableCardDB))
 	for _, card := range cards.PlayableCardDB {
@@ -44,6 +44,45 @@ func sortedBaseCards(t *testing.T) []*model.Card {
 	}
 	sort.Slice(result, func(i, j int) bool { return result[i].Number < result[j].Number })
 	return result
+}
+
+func smokeDevourCardRequirementFood(source *model.Card, requirement DevourCardRequirement, index int) *model.Card {
+	cardType := model.CardTypeCompanion
+	if !requirement.CompanionOnly && source != nil && source.Type != "" {
+		cardType = source.Type
+	}
+	category := requirement.Category
+	if category == "" && source != nil {
+		category = source.Category
+	}
+	return &model.Card{
+		Number:       fmt.Sprintf("%s_devour_card_food_%d", source.Number, index),
+		Type:         cardType,
+		Name:         "吞噬测试伙伴",
+		Category:     category,
+		ElementsCost: map[string]int{},
+		ElementsGain: map[string]int{},
+		Attack:       0,
+		Life:         1,
+		Duration:     -1,
+		Power:        -1,
+	}
+}
+
+func smokeDevourFoodSlot(index int) (int, int) {
+	slots := [][2]int{
+		{2, 0},
+		{0, 2},
+		{2, 1},
+		{1, 0},
+		{0, 1},
+		{1, 2},
+		{2, 2},
+	}
+	if index < len(slots) {
+		return slots[index][0], slots[index][1]
+	}
+	return 2, 2
 }
 
 func baseSmokeEngine(t *testing.T) *Engine {
@@ -132,27 +171,50 @@ func attachSourceForEffect(engine *Engine, source *CardInstance) {
 	}
 }
 
+func prepareRedeemerEveSmokeState(engine *Engine, eve *CardInstance) string {
+	if engine == nil || eve == nil {
+		return ""
+	}
+	ps := engine.State.Players[0]
+	opponent := engine.State.Players[1]
+	ps.Hero = eve
+	eve.Position = &Position{Col: 1, Row: 1}
+	ps.Units[1][1] = eve
+	eve.CurrentLife = maxLife(eve) - 1
+	ally := NewCardInstance(cards.PlayableCardDB["1521001"], 0, engine.State.TurnNumber)
+	ally.Position = &Position{Col: 0, Row: 1}
+	ally.CurrentLife = maxLife(ally) - 1
+	ps.Units[0][1] = ally
+	for i, pos := range []Position{{Col: 0, Row: 0}, {Col: 1, Row: 0}} {
+		enemy := NewCardInstance(cards.PlayableCardDB[fmt.Sprintf("102100%d", i+1)], 1, engine.State.TurnNumber)
+		enemy.Position = &Position{Col: pos.Col, Row: pos.Row}
+		opponent.Units[pos.Col][pos.Row] = enemy
+	}
+	ps.Elements[model.ElementLight] = 2
+	return ally.InstanceID
+}
+
 func isConsumableItem(card *model.Card) bool {
 	return cards.IsConsumable(card.Number)
 }
 
-func TestBaseCardPoolRejectsEveryNonBaseCard(t *testing.T) {
+func TestSupportedCardPoolRejectsUnsupportedVersions(t *testing.T) {
 	setupBaseCardSmokeSuite(t)
 
 	for id, card := range cards.CardDB {
-		if card.VersionName == cards.BaseVersionName {
+		if cards.IsSupportedVersion(card.VersionName) {
 			continue
 		}
 		if _, ok := cards.PlayableCardDB[id]; ok {
-			t.Fatalf("non-base card %s (%s/%s) is present in playable DB", id, card.VersionName, card.Name)
+			t.Fatalf("unsupported card %s (%s/%s) is present in playable DB", id, card.VersionName, card.Name)
 		}
 	}
 }
 
-func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
+func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 	setupBaseCardSmokeSuite(t)
 
-	for _, card := range sortedBaseCards(t) {
+	for _, card := range sortedSupportedCards(t) {
 		card := card
 		t.Run(card.Number+"_"+card.Name, func(t *testing.T) {
 			engine := baseSmokeEngine(t)
@@ -210,6 +272,9 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 						ps.Units[1][0] = target
 						targetID = target.InstanceID
 					}
+					if card.Number == "4511102" && trigger.typ == TriggerUltimate {
+						targetID = prepareRedeemerEveSmokeState(engine, hero)
+					}
 					if err := engine.HandleAction(0, ActionMessage{
 						Action: "use_ability",
 						Data: map[string]any{
@@ -230,13 +295,36 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 					"col":         float64(0),
 					"row":         float64(0),
 				}
+				devourIDs := []any{}
+				devourFoodCount := 0
 				if requirement := summonDevourRequirement(instance); len(requirement) > 0 {
 					foodCard := *card
 					foodCard.Number = card.Number + "_devour_food"
 					foodCard.Name = "吞噬测试负载"
 					foodCard.ElementsGain = requirement
 					food := placeUnit(&foodCard, 0, 2, 0, engine)
-					data["devour_id"] = food.InstanceID
+					devourIDs = append(devourIDs, food.InstanceID)
+					devourFoodCount++
+				}
+				if requirement := summonDevourCardRequirement(instance); requirement.Count > 0 {
+					satisfied := 0
+					for _, id := range devourIDs {
+						unit := engine.findUnitOnGrid(ps, fmt.Sprint(id))
+						if cardSatisfiesDevourCardRequirement(unit, requirement) {
+							satisfied++
+						}
+					}
+					for satisfied < requirement.Count {
+						foodCard := smokeDevourCardRequirementFood(card, requirement, devourFoodCount)
+						slotCol, slotRow := smokeDevourFoodSlot(devourFoodCount)
+						food := placeUnit(foodCard, 0, slotCol, slotRow, engine)
+						devourIDs = append(devourIDs, food.InstanceID)
+						devourFoodCount++
+						satisfied++
+					}
+				}
+				if len(devourIDs) > 0 {
+					data["devour_ids"] = devourIDs
 				}
 				if err := engine.HandleAction(0, ActionMessage{
 					Action: "summon",
@@ -251,6 +339,13 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 			case card.IsSkill():
 				instance := NewCardInstance(card, 0, engine.State.TurnNumber)
 				ps.SkillPool = append(ps.SkillPool, instance)
+				if card.Number == "3611102" {
+					enemy := engine.State.Players[1]
+					enemy.Skills[0] = readySkill(cards.PlayableCardDB["3121001"], 1)
+					enemy.Skills[1] = readySkill(cards.PlayableCardDB["3221003"], 1)
+					enemy.Skills[0].Statuses[StatusWeaken] = 2
+					enemy.Skills[1].Statuses[StatusWeaken] = 1
+				}
 				if err := engine.HandleAction(0, ActionMessage{
 					Action: "learn_skill",
 					Data:   map[string]any{"instance_id": instance.InstanceID},
@@ -259,6 +354,14 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 				}
 				if ps.Skills[0] == nil || ps.Skills[0].InstanceID != instance.InstanceID {
 					t.Fatalf("learn skill did not place card in skill slot")
+				}
+				if card.Number == "3521104" && engine.State.PendingAction != nil {
+					if err := engine.HandleAction(0, ActionMessage{
+						Action: "resolve_action",
+						Data:   map[string]any{"selected": []any{"巫师"}},
+					}); err != nil {
+						t.Fatalf("resolve sin companion kind failed: %v", err)
+					}
 				}
 				if canUseSkillForPurpose(card, skillPurposeAttack) {
 					ps.Skills[0].IsHorizontal = false
@@ -270,6 +373,18 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 						bow.Statuses[winterBowWaterMark] = 5
 						ps.Equipment[0] = bow
 					}
+					if card.Number == "3021108" {
+						engine.State.Players[1].Skills[0] = readySkill(cards.PlayableCardDB["3021005"], 1)
+					}
+					if card.Number == "3511102" {
+						placeUnit(cards.PlayableCardDB["1021001"], 1, 0, 0, engine)
+						placeUnit(cards.PlayableCardDB["1021002"], 1, 1, 0, engine)
+					}
+					targetRow := float64(1)
+					if card.Number == "3601101" {
+						placeUnit(cards.PlayableCardDB["1021001"], 0, 1, 0, engine)
+						targetRow = 0
+					}
 					setAllElements(ps, 99)
 					err := engine.HandleAction(0, ActionMessage{
 						Action: "cast_spell",
@@ -277,7 +392,7 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 							"instance_id": instance.InstanceID,
 							"target_type": "unit",
 							"target_col":  float64(1),
-							"target_row":  float64(1),
+							"target_row":  targetRow,
 						},
 					})
 					if err != nil {
@@ -314,6 +429,31 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 							engine.State.Players[1].Skills[i] = readySkill(cards.PlayableCardDB["3021005"], 1)
 						}
 					}
+					if card.Number == "2221101" {
+						ps.Skills[0] = readySkill(cards.PlayableCardDB["3221103"], 0)
+					}
+					if card.Number == "2221105" {
+						ps.Deck = append(ps.Deck, NewCardInstance(cards.PlayableCardDB["1221101"], 0, engine.State.TurnNumber))
+					}
+					if card.Number == "2121108" {
+						target := NewCardInstance(cards.PlayableCardDB["1121101"], 0, engine.State.TurnNumber)
+						target.Position = &Position{Col: 0, Row: 0}
+						target.IsHorizontal = false
+						ps.Units[0][0] = target
+					}
+					if card.Number == "2121101" {
+						ps.SkillPool = append(ps.SkillPool, readySkill(cards.PlayableCardDB["3121001"], 0))
+						ps.Deck = append(ps.Deck, NewCardInstance(cards.PlayableCardDB["1121114"], 0, engine.State.TurnNumber))
+					}
+					if card.Number == "2121110" {
+						ps.Skills[0] = readySkill(cards.PlayableCardDB["3121001"], 0)
+						ps.Skills[1] = readySkill(cards.PlayableCardDB["3121002"], 0)
+					}
+					if card.Number == "2521102" {
+						counter := NewCardInstance(cards.PlayableCardDB["2021113"], 1, engine.State.TurnNumber)
+						counter.IsSetCounter = true
+						engine.State.Players[1].Equipment[0] = counter
+					}
 					if card.Number == "2611002" {
 						sacrifice := NewCardInstance(cards.PlayableCardDB["1021001"], 0, engine.State.TurnNumber)
 						sacrifice.Position = &Position{Col: 0, Row: 0}
@@ -321,6 +461,42 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 						target := NewCardInstance(cards.PlayableCardDB["1021002"], 1, engine.State.TurnNumber)
 						target.Position = &Position{Col: 1, Row: 0}
 						engine.State.Players[1].Units[1][0] = target
+					}
+					if card.Number == "2621111" {
+						for i := 0; i < 5; i++ {
+							ps.Graveyard = append(ps.Graveyard, NewCardInstance(cards.PlayableCardDB["1621103"], 0, engine.State.TurnNumber))
+						}
+					}
+					if card.Number == "2621109" {
+						ps.Deck = append(ps.Deck, NewCardInstance(cards.PlayableCardDB["1621112"], 0, engine.State.TurnNumber))
+					}
+					if card.Number == "2121105" {
+						sacrifice := NewCardInstance(cards.PlayableCardDB["1121102"], 0, engine.State.TurnNumber)
+						sacrifice.Position = &Position{Col: 0, Row: 0}
+						ps.Units[0][0] = sacrifice
+						data["sacrifice_id"] = sacrifice.InstanceID
+					}
+					if card.Number == "2421105" {
+						first := NewCardInstance(cards.PlayableCardDB["1401101"], 0, engine.State.TurnNumber)
+						first.Position = &Position{Col: 0, Row: 0}
+						ps.Units[0][0] = first
+						second := NewCardInstance(cards.PlayableCardDB["1421001"], 0, engine.State.TurnNumber)
+						second.Position = &Position{Col: 2, Row: 0}
+						ps.Units[2][0] = second
+					}
+					if card.Number == "2521111" {
+						support := NewCardInstance(cards.PlayableCardDB["1021001"], 0, engine.State.TurnNumber)
+						support.Position = &Position{Col: 0, Row: 0}
+						setElementsGain(support, map[string]int{model.ElementArcane: 6})
+						ps.Units[0][0] = support
+						data["support_id"] = support.InstanceID
+					}
+					if card.Number == "2221104" {
+						previous := readySkill(cards.PlayableCardDB["3221001"], 0)
+						ps.LastLowCostWaterSpell = cloneVirtualSpell(previous, 0, engine.State.TurnNumber)
+						enemy := NewCardInstance(cards.PlayableCardDB["1021001"], 1, engine.State.TurnNumber)
+						enemy.Position = &Position{Col: 1, Row: 0}
+						engine.State.Players[1].Units[1][0] = enemy
 					}
 					if isSpellScrollCard(card) && skillNeedsTargetCard(card) {
 						data["target_type"] = "unit"
@@ -341,10 +517,10 @@ func TestEveryBaseCardHasRunnablePrimaryAction(t *testing.T) {
 	}
 }
 
-func TestEveryRegisteredBaseCardEffectHandlerRuns(t *testing.T) {
+func TestEveryRegisteredCardEffectHandlerRuns(t *testing.T) {
 	setupBaseCardSmokeSuite(t)
 
-	for _, card := range sortedBaseCards(t) {
+	for _, card := range sortedSupportedCards(t) {
 		effects := globalRegistry.GetAllEffects(card.Number)
 		if len(effects) == 0 {
 			continue
@@ -365,12 +541,25 @@ func TestEveryRegisteredBaseCardEffectHandlerRuns(t *testing.T) {
 					if card.Number == "1121003" && effect.Trigger == TriggerPerTurn {
 						engine.State.Players[0].Skills[0] = readySkill(cards.PlayableCardDB["3321005"], 0)
 					}
+					if card.Number == "2621107" && effect.Trigger == TriggerPerTurn {
+						source.Statuses[curseBoxMarkerStatus] = 1
+						engine.State.Players[1].Skills[0] = readySkill(cards.PlayableCardDB["3321005"], 1)
+					}
+					if card.Number == "2621103" && effect.Trigger == TriggerPerTurn {
+						source.Statuses[bloodGuMarkerStatus] = 2
+					}
 					target := engine.State.Players[1].Hero
 					if card.Number == "4611002" && effect.Trigger == TriggerUltimate {
 						target = NewCardInstance(cards.PlayableCardDB["1011002"], 0, engine.State.TurnNumber)
 						target.IsHorizontal = false
 						target.Position = &Position{Col: 1, Row: 0}
 						engine.State.Players[0].Units[1][0] = target
+					}
+					if card.Number == "4511102" && effect.Trigger == TriggerUltimate {
+						targetID := prepareRedeemerEveSmokeState(engine, source)
+						if preparedTarget, _ := engine.findFriendlyCandidate(0, targetID); preparedTarget != nil {
+							target = preparedTarget
+						}
 					}
 					ctx := &EffectContext{
 						Engine:       engine,

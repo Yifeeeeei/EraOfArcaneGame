@@ -13,10 +13,31 @@ var CardDB map[string]*model.Card
 // It is the source for interface-based category checks outside this package.
 var DefinitionDB map[string]CardDefinition
 
-const BaseVersionName = "基础包"
+const (
+	BaseVersionName          = "基础包"
+	RoyalConflictVersionName = "王权纷争"
+)
 
-// BaseCardDB holds only cards from the base set. This is the current playable
-// card pool while the rest of the game is being finished.
+var SupportedVersionNames = []string{
+	BaseVersionName,
+	RoyalConflictVersionName,
+}
+
+var supportedVersionNameSet = func() map[string]struct{} {
+	set := make(map[string]struct{}, len(SupportedVersionNames))
+	for _, version := range SupportedVersionNames {
+		set[version] = struct{}{}
+	}
+	return set
+}()
+
+func IsSupportedVersion(versionName string) bool {
+	_, ok := supportedVersionNameSet[versionName]
+	return ok
+}
+
+// BaseCardDB holds only cards from the base set for compatibility checks and
+// release comparisons.
 var BaseCardDB map[string]*model.Card
 
 // PlayableCardDB is the active card pool used by deck validation and games.
@@ -27,6 +48,7 @@ func LoadCards() error {
 	CardDB = make(map[string]*model.Card, len(compiledCardDefinitions))
 	DefinitionDB = make(map[string]CardDefinition, len(compiledCardDefinitions))
 	BaseCardDB = make(map[string]*model.Card)
+	PlayableCardDB = make(map[string]*model.Card)
 	for _, definition := range compiledCardDefinitions {
 		card := definition.Card()
 		c := normalizeCard(card)
@@ -35,10 +57,12 @@ func LoadCards() error {
 		if c.VersionName == BaseVersionName {
 			BaseCardDB[c.Number] = c
 		}
+		if IsSupportedVersion(c.VersionName) {
+			PlayableCardDB[c.Number] = c
+		}
 	}
-	PlayableCardDB = BaseCardDB
 
-	fmt.Printf("Loaded %d cards (%d playable base cards)\n", len(CardDB), len(PlayableCardDB))
+	fmt.Printf("Loaded %d cards (%d playable supported cards)\n", len(CardDB), len(PlayableCardDB))
 	return nil
 }
 

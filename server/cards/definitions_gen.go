@@ -13,6 +13,36 @@ type CardDefinition interface {
 	Card() model.Card
 }
 
+type CardDef1001101 struct{}
+
+func (CardDef1001101) ID() string      { return "1001101" }
+func (CardDef1001101) Name() string    { return "弃子" }
+func (CardDef1001101) Kind() string    { return "伙伴" }
+func (CardDef1001101) Element() string { return "无" }
+
+func (CardDef1001101) Card() model.Card {
+	return model.Card{
+		Number:          "1001101",
+		Type:            "伙伴",
+		Name:            "弃子",
+		Category:        "无",
+		Tag:             "衍生-造物",
+		Description:     "遗言:对周围单位造成1点伤害,如果有单位因此死亡,在该位置召唤1个弃子",
+		Quote:           "弃子非懦,舍得非怯",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1001101.jpg",
+	}
+}
+
 type CardDef1011001 struct{}
 
 func (CardDef1011001) ID() string      { return "1011001" }
@@ -100,6 +130,96 @@ func (CardDef1011003) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{"3001002"},
 		OutputPath:      "output\\基础包\\伙伴\\无\\1011003.jpg",
+	}
+}
+
+type CardDef1011101 struct{}
+
+func (CardDef1011101) ID() string      { return "1011101" }
+func (CardDef1011101) Name() string    { return "收藏家 珊瑚 芬洛" }
+func (CardDef1011101) Kind() string    { return "伙伴" }
+func (CardDef1011101) Element() string { return "无" }
+
+func (CardDef1011101) Card() model.Card {
+	return model.Card{
+		Number:          "1011101",
+		Type:            "伙伴",
+		Name:            "收藏家 珊瑚 芬洛",
+		Category:        "无",
+		Tag:             "传奇-人类",
+		Description:     "诱发回合技:每当你装备1个道具,抽1张牌.诱发回合技:每当你打出1个消耗品,获得1\\无",
+		Quote:           "\"没错啊,小岛上全是我的收藏品,不过这些东西加一起都比不上我的宝贝女儿\"",
+		ElementsCost:    map[string]int{"无": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1011101.jpg",
+	}
+}
+
+type CardDef1011102 struct{}
+
+func (CardDef1011102) ID() string      { return "1011102" }
+func (CardDef1011102) Name() string    { return "\"指挥家\" 洛斯" }
+func (CardDef1011102) Kind() string    { return "伙伴" }
+func (CardDef1011102) Element() string { return "无" }
+
+func (CardDef1011102) Card() model.Card {
+	return model.Card{
+		Number:          "1011102",
+		Type:            "伙伴",
+		Name:            "\"指挥家\" 洛斯",
+		Category:        "无",
+		Tag:             "传奇-人类",
+		Description:     "引魔.诱发:每当场上4张卡牌被消耗,可以为你装备一个落幕提琴.主动:消耗此卡才能发动,重置你的所有落幕提琴",
+		Quote:           "在曾经辉煌的大厅,一人继续排练着无人能听到的乐章",
+		ElementsCost:    map[string]int{"无": 8},
+		ElementsGain:    map[string]int{"无": 3},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{"2001101"},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1011102.jpg",
+	}
+}
+
+type CardDef1011103 struct{}
+
+func (CardDef1011103) ID() string      { return "1011103" }
+func (CardDef1011103) Name() string    { return "\"弈者\"" }
+func (CardDef1011103) Kind() string    { return "伙伴" }
+func (CardDef1011103) Element() string { return "无" }
+
+func (CardDef1011103) Card() model.Card {
+	return model.Card{
+		Number:          "1011103",
+		Type:            "伙伴",
+		Name:            "\"弈者\"",
+		Category:        "无",
+		Tag:             "传奇-人类",
+		Description:     "引魔.绑定技能:入局.主动绝技:对场上所有弃子造成1点伤害",
+		Quote:           "世事如棋,步步谋局;权争似弈,胜负难明",
+		ElementsCost:    map[string]int{"无": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{"1001101", "3001101"},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1011103.jpg",
 	}
 }
 
@@ -643,6 +763,456 @@ func (CardDef1021018) Card() model.Card {
 	}
 }
 
+type CardDef1021101 struct{}
+
+func (CardDef1021101) ID() string      { return "1021101" }
+func (CardDef1021101) Name() string    { return "私家教师" }
+func (CardDef1021101) Kind() string    { return "伙伴" }
+func (CardDef1021101) Element() string { return "无" }
+
+func (CardDef1021101) Card() model.Card {
+	return model.Card{
+		Number:          "1021101",
+		Type:            "伙伴",
+		Name:            "私家教师",
+		Category:        "无",
+		Tag:             "巫师",
+		Description:     "入场:学习1个学习花费小于4的法术,无需花费",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 3, "水": 1},
+		ElementsGain:    map[string]int{"无": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1021101.jpg",
+	}
+}
+
+type CardDef1021102 struct{}
+
+func (CardDef1021102) ID() string      { return "1021102" }
+func (CardDef1021102) Name() string    { return "剑术师傅" }
+func (CardDef1021102) Kind() string    { return "伙伴" }
+func (CardDef1021102) Element() string { return "无" }
+
+func (CardDef1021102) Card() model.Card {
+	return model.Card{
+		Number:          "1021102",
+		Type:            "伙伴",
+		Name:            "剑术师傅",
+		Category:        "无",
+		Tag:             "人类",
+		Description:     "入场:使1个相邻友方伙伴获得+1\\攻",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 2, "火": 1},
+		ElementsGain:    map[string]int{"无": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1021102.jpg",
+	}
+}
+
+type CardDef1021103 struct{}
+
+func (CardDef1021103) ID() string      { return "1021103" }
+func (CardDef1021103) Name() string    { return "皇城结界兽" }
+func (CardDef1021103) Kind() string    { return "伙伴" }
+func (CardDef1021103) Element() string { return "无" }
+
+func (CardDef1021103) Card() model.Card {
+	return model.Card{
+		Number:          "1021103",
+		Type:            "伙伴",
+		Name:            "皇城结界兽",
+		Category:        "无",
+		Tag:             "异兽",
+		Description:     "入场:获得护盾2",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 3},
+		ElementsGain:    map[string]int{"无": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1021103.jpg",
+	}
+}
+
+type CardDef1021104 struct{}
+
+func (CardDef1021104) ID() string      { return "1021104" }
+func (CardDef1021104) Name() string    { return "次元撕裂兽" }
+func (CardDef1021104) Kind() string    { return "伙伴" }
+func (CardDef1021104) Element() string { return "无" }
+
+func (CardDef1021104) Card() model.Card {
+	return model.Card{
+		Number:          "1021104",
+		Type:            "伙伴",
+		Name:            "次元撕裂兽",
+		Category:        "无",
+		Tag:             "异兽",
+		Description:     "入场:将法力范围内的1个敌方伙伴移出游戏",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 1, "无": 5, "暗": 1},
+		ElementsGain:    map[string]int{"光": 1, "暗": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1021104.jpg",
+	}
+}
+
+type CardDef1021105 struct{}
+
+func (CardDef1021105) ID() string      { return "1021105" }
+func (CardDef1021105) Name() string    { return "皇城征税员" }
+func (CardDef1021105) Kind() string    { return "伙伴" }
+func (CardDef1021105) Element() string { return "无" }
+
+func (CardDef1021105) Card() model.Card {
+	return model.Card{
+		Number:          "1021105",
+		Type:            "伙伴",
+		Name:            "皇城征税员",
+		Category:        "无",
+		Tag:             "人类",
+		Description:     "入场:直到对手的下个回合结束,对手每抽1张牌,你获得1\\无",
+		Quote:           "内政大臣们正在考虑取消税负政策,具体做法是:将税金更名为\"义务奉献\"",
+		ElementsCost:    map[string]int{"无": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1021105.jpg",
+	}
+}
+
+type CardDef1021106 struct{}
+
+func (CardDef1021106) ID() string      { return "1021106" }
+func (CardDef1021106) Name() string    { return "云霄城富豪" }
+func (CardDef1021106) Kind() string    { return "伙伴" }
+func (CardDef1021106) Element() string { return "无" }
+
+func (CardDef1021106) Card() model.Card {
+	return model.Card{
+		Number:          "1021106",
+		Type:            "伙伴",
+		Name:            "云霄城富豪",
+		Category:        "无",
+		Tag:             "人类",
+		Description:     "主动:消耗此卡才能发动,双方各抽1张牌(次序由你选择)",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 1, "气": 1},
+		ElementsGain:    map[string]int{"无": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1021106.jpg",
+	}
+}
+
+type CardDef1021107 struct{}
+
+func (CardDef1021107) ID() string      { return "1021107" }
+func (CardDef1021107) Name() string    { return "天才少年" }
+func (CardDef1021107) Kind() string    { return "伙伴" }
+func (CardDef1021107) Element() string { return "无" }
+
+func (CardDef1021107) Card() model.Card {
+	return model.Card{
+		Number:          "1021107",
+		Type:            "伙伴",
+		Name:            "天才少年",
+		Category:        "无",
+		Tag:             "人类",
+		Description:     "精通2:此卡获得任意1点奥术元素以外的负载",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 2},
+		ElementsGain:    map[string]int{"无": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1021107.jpg",
+	}
+}
+
+type CardDef1021108 struct{}
+
+func (CardDef1021108) ID() string      { return "1021108" }
+func (CardDef1021108) Name() string    { return "炼金术学徒" }
+func (CardDef1021108) Kind() string    { return "伙伴" }
+func (CardDef1021108) Element() string { return "无" }
+
+func (CardDef1021108) Card() model.Card {
+	return model.Card{
+		Number:          "1021108",
+		Type:            "伙伴",
+		Name:            "炼金术学徒",
+		Category:        "无",
+		Tag:             "巫师",
+		Description:     "主动:消耗此卡才能发动,将1\\无转化为任意2点奥术元素以外的元素",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1021108.jpg",
+	}
+}
+
+type CardDef1021109 struct{}
+
+func (CardDef1021109) ID() string      { return "1021109" }
+func (CardDef1021109) Name() string    { return "教廷特使" }
+func (CardDef1021109) Kind() string    { return "伙伴" }
+func (CardDef1021109) Element() string { return "无" }
+
+func (CardDef1021109) Card() model.Card {
+	return model.Card{
+		Number:          "1021109",
+		Type:            "伙伴",
+		Name:            "教廷特使",
+		Category:        "无",
+		Tag:             "人类",
+		Description:     "主动绝技:移除1张友方卡牌全部负面效果",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 1, "无": 1},
+		ElementsGain:    map[string]int{"无": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1021109.jpg",
+	}
+}
+
+type CardDef1021110 struct{}
+
+func (CardDef1021110) ID() string      { return "1021110" }
+func (CardDef1021110) Name() string    { return "岩壁护卫军" }
+func (CardDef1021110) Kind() string    { return "伙伴" }
+func (CardDef1021110) Element() string { return "无" }
+
+func (CardDef1021110) Card() model.Card {
+	return model.Card{
+		Number:          "1021110",
+		Type:            "伙伴",
+		Name:            "岩壁护卫军",
+		Category:        "无",
+		Tag:             "造物",
+		Description:     "引魔.诱发绝技:当敌方法术命中且你没有护盾时,获得护盾2",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 1, "无": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1021110.jpg",
+	}
+}
+
+type CardDef1021111 struct{}
+
+func (CardDef1021111) ID() string      { return "1021111" }
+func (CardDef1021111) Name() string    { return "孤星勇者" }
+func (CardDef1021111) Kind() string    { return "伙伴" }
+func (CardDef1021111) Element() string { return "无" }
+
+func (CardDef1021111) Card() model.Card {
+	return model.Card{
+		Number:          "1021111",
+		Type:            "伙伴",
+		Name:            "孤星勇者",
+		Category:        "无",
+		Tag:             "人类",
+		Description:     "你每有1张其他手牌,此卡的入场花费+1\\无",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 3},
+		ElementsGain:    map[string]int{"无": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1021111.jpg",
+	}
+}
+
+type CardDef1021112 struct{}
+
+func (CardDef1021112) ID() string      { return "1021112" }
+func (CardDef1021112) Name() string    { return "奥术纯净体" }
+func (CardDef1021112) Kind() string    { return "伙伴" }
+func (CardDef1021112) Element() string { return "无" }
+
+func (CardDef1021112) Card() model.Card {
+	return model.Card{
+		Number:          "1021112",
+		Type:            "伙伴",
+		Name:            "奥术纯净体",
+		Category:        "无",
+		Tag:             "造物",
+		Description:     "此卡的入场花费必须严格为奥术元素",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 4},
+		ElementsGain:    map[string]int{"无": 3},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1021112.jpg",
+	}
+}
+
+type CardDef1021113 struct{}
+
+func (CardDef1021113) ID() string      { return "1021113" }
+func (CardDef1021113) Name() string    { return "魔法飞蛾" }
+func (CardDef1021113) Kind() string    { return "伙伴" }
+func (CardDef1021113) Element() string { return "无" }
+
+func (CardDef1021113) Card() model.Card {
+	return model.Card{
+		Number:          "1021113",
+		Type:            "伙伴",
+		Name:            "魔法飞蛾",
+		Category:        "无",
+		Tag:             "野兽",
+		Description:     "诱发:在你施放一个聚能技能后,可以从卡组抽取本卡",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 1, "地": 1, "气": 1, "水": 1, "火": 1},
+		ElementsGain:    map[string]int{"无": 3},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1021113.jpg",
+	}
+}
+
+type CardDef1021114 struct{}
+
+func (CardDef1021114) ID() string      { return "1021114" }
+func (CardDef1021114) Name() string    { return "蛰蛙" }
+func (CardDef1021114) Kind() string    { return "伙伴" }
+func (CardDef1021114) Element() string { return "无" }
+
+func (CardDef1021114) Card() model.Card {
+	return model.Card{
+		Number:          "1021114",
+		Type:            "伙伴",
+		Name:            "蛰蛙",
+		Category:        "无",
+		Tag:             "野兽",
+		Description:     "诱发:每当你使用一个驱动或聚能技能后,本回合你的法术+1\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 4, "气": 1},
+		ElementsGain:    map[string]int{"无": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1021114.jpg",
+	}
+}
+
+type CardDef1021115 struct{}
+
+func (CardDef1021115) ID() string      { return "1021115" }
+func (CardDef1021115) Name() string    { return "九霄刺客" }
+func (CardDef1021115) Kind() string    { return "伙伴" }
+func (CardDef1021115) Element() string { return "无" }
+
+func (CardDef1021115) Card() model.Card {
+	return model.Card{
+		Number:          "1021115",
+		Type:            "伙伴",
+		Name:            "九霄刺客",
+		Category:        "无",
+		Tag:             "人类",
+		Description:     "入场:将1张九霄印记加入对手手牌.遗言:将4张九霄印记洗入对手卡组",
+		Quote:           "\"想看看云霄城的夜色吗,可能是最后一次了哦\"",
+		ElementsCost:    map[string]int{"无": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{"2001102"},
+		OutputPath:      "output\\王权纷争\\伙伴\\无\\1021115.jpg",
+	}
+}
+
 type CardDef1111001 struct{}
 
 func (CardDef1111001) ID() string      { return "1111001" }
@@ -730,6 +1300,96 @@ func (CardDef1111003) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\伙伴\\火\\1111003.jpg",
+	}
+}
+
+type CardDef1111101 struct{}
+
+func (CardDef1111101) ID() string      { return "1111101" }
+func (CardDef1111101) Name() string    { return "无上女王 黛琳 凯尔特" }
+func (CardDef1111101) Kind() string    { return "伙伴" }
+func (CardDef1111101) Element() string { return "火" }
+
+func (CardDef1111101) Card() model.Card {
+	return model.Card{
+		Number:          "1111101",
+		Type:            "伙伴",
+		Name:            "无上女王 黛琳 凯尔特",
+		Category:        "火",
+		Tag:             "传奇-巫师",
+		Description:     "入场:从手牌召唤任意数量火焰伙伴到此卡相邻位置,无需花费,直到下个回合结束此卡和此卡召唤的卡牌免疫所有伤害和负面效果",
+		Quote:           "我心即是无上意志,我行即是万物准则",
+		ElementsCost:    map[string]int{"无": 3, "火": 9},
+		ElementsGain:    map[string]int{"无": 1, "火": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1111101.jpg",
+	}
+}
+
+type CardDef1111102 struct{}
+
+func (CardDef1111102) ID() string      { return "1111102" }
+func (CardDef1111102) Name() string    { return "\"流放者\" 索拓尔" }
+func (CardDef1111102) Kind() string    { return "伙伴" }
+func (CardDef1111102) Element() string { return "火" }
+
+func (CardDef1111102) Card() model.Card {
+	return model.Card{
+		Number:          "1111102",
+		Type:            "伙伴",
+		Name:            "\"流放者\" 索拓尔",
+		Category:        "火",
+		Tag:             "传奇-巫师",
+		Description:     "光环:你的所有法术额外选择与原本目标相邻的所有单位为目标",
+		Quote:           "传说凯尔特草原曾是繁茂的森林,直到索拓尔用漫天的火焰将其焚烧殆尽,尔后万物复苏,草原遂成",
+		ElementsCost:    map[string]int{"无": 1, "气": 2, "火": 4},
+		ElementsGain:    map[string]int{"气": 1, "火": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1111102.jpg",
+	}
+}
+
+type CardDef1111103 struct{}
+
+func (CardDef1111103) ID() string      { return "1111103" }
+func (CardDef1111103) Name() string    { return "贪婪暴君 卡姆 弗卡莱诺" }
+func (CardDef1111103) Kind() string    { return "伙伴" }
+func (CardDef1111103) Element() string { return "火" }
+
+func (CardDef1111103) Card() model.Card {
+	return model.Card{
+		Number:          "1111103",
+		Type:            "伙伴",
+		Name:            "贪婪暴君 卡姆 弗卡莱诺",
+		Category:        "火",
+		Tag:             "传奇-人类",
+		Description:     "引魔.光环:双方手牌里的卡牌入场花费+1\\无",
+		Quote:           "至少,他境内的岩浆比谁都多",
+		ElementsCost:    map[string]int{"火": 3},
+		ElementsGain:    map[string]int{"火": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1111103.jpg",
 	}
 }
 
@@ -1213,6 +1873,486 @@ func (CardDef1121016) Card() model.Card {
 	}
 }
 
+type CardDef1121101 struct{}
+
+func (CardDef1121101) ID() string      { return "1121101" }
+func (CardDef1121101) Name() string    { return "火山蝾螈" }
+func (CardDef1121101) Kind() string    { return "伙伴" }
+func (CardDef1121101) Element() string { return "火" }
+
+func (CardDef1121101) Card() model.Card {
+	return model.Card{
+		Number:          "1121101",
+		Type:            "伙伴",
+		Name:            "火山蝾螈",
+		Category:        "火",
+		Tag:             "野兽",
+		Description:     "精通2:献祭此卡并从手牌召唤1个入场费用小于8的火焰伙伴,无需花费.",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1121101.jpg",
+	}
+}
+
+type CardDef1121102 struct{}
+
+func (CardDef1121102) ID() string      { return "1121102" }
+func (CardDef1121102) Name() string    { return "火山谷底巨兽" }
+func (CardDef1121102) Kind() string    { return "伙伴" }
+func (CardDef1121102) Element() string { return "火" }
+
+func (CardDef1121102) Card() model.Card {
+	return model.Card{
+		Number:          "1121102",
+		Type:            "伙伴",
+		Name:            "火山谷底巨兽",
+		Category:        "火",
+		Tag:             "异兽",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 6},
+		ElementsGain:    map[string]int{"地": 1, "火": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            5,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1121102.jpg",
+	}
+}
+
+type CardDef1121103 struct{}
+
+func (CardDef1121103) ID() string      { return "1121103" }
+func (CardDef1121103) Name() string    { return "烽火台守卫" }
+func (CardDef1121103) Kind() string    { return "伙伴" }
+func (CardDef1121103) Element() string { return "火" }
+
+func (CardDef1121103) Card() model.Card {
+	return model.Card{
+		Number:          "1121103",
+		Type:            "伙伴",
+		Name:            "烽火台守卫",
+		Category:        "火",
+		Tag:             "人类",
+		Description:     "入场:如果你场上的单位数量少于敌方,获得护盾3",
+		Quote:           "时刻保持警戒!",
+		ElementsCost:    map[string]int{"无": 1, "火": 1},
+		ElementsGain:    map[string]int{"火": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1121103.jpg",
+	}
+}
+
+type CardDef1121104 struct{}
+
+func (CardDef1121104) ID() string      { return "1121104" }
+func (CardDef1121104) Name() string    { return "熔岩堡战车" }
+func (CardDef1121104) Kind() string    { return "伙伴" }
+func (CardDef1121104) Element() string { return "火" }
+
+func (CardDef1121104) Card() model.Card {
+	return model.Card{
+		Number:          "1121104",
+		Type:            "伙伴",
+		Name:            "熔岩堡战车",
+		Category:        "火",
+		Tag:             "机械",
+		Description:     "此卡攻击附加点燃1",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            4,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1121104.jpg",
+	}
+}
+
+type CardDef1121105 struct{}
+
+func (CardDef1121105) ID() string      { return "1121105" }
+func (CardDef1121105) Name() string    { return "弗卡莱诺近卫" }
+func (CardDef1121105) Kind() string    { return "伙伴" }
+func (CardDef1121105) Element() string { return "火" }
+
+func (CardDef1121105) Card() model.Card {
+	return model.Card{
+		Number:          "1121105",
+		Type:            "伙伴",
+		Name:            "弗卡莱诺近卫",
+		Category:        "火",
+		Tag:             "人类",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 4},
+		ElementsGain:    map[string]int{"火": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1121105.jpg",
+	}
+}
+
+type CardDef1121106 struct{}
+
+func (CardDef1121106) ID() string      { return "1121106" }
+func (CardDef1121106) Name() string    { return "弗卡莱诺皇家驯兽师" }
+func (CardDef1121106) Kind() string    { return "伙伴" }
+func (CardDef1121106) Element() string { return "火" }
+
+func (CardDef1121106) Card() model.Card {
+	return model.Card{
+		Number:          "1121106",
+		Type:            "伙伴",
+		Name:            "弗卡莱诺皇家驯兽师",
+		Category:        "火",
+		Tag:             "人类",
+		Description:     "入场:你的下一个野兽或异兽火焰伙伴花费-2",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 2},
+		ElementsGain:    map[string]int{"火": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1121106.jpg",
+	}
+}
+
+type CardDef1121107 struct{}
+
+func (CardDef1121107) ID() string      { return "1121107" }
+func (CardDef1121107) Name() string    { return "失控的神火兽" }
+func (CardDef1121107) Kind() string    { return "伙伴" }
+func (CardDef1121107) Element() string { return "火" }
+
+func (CardDef1121107) Card() model.Card {
+	return model.Card{
+		Number:          "1121107",
+		Type:            "伙伴",
+		Name:            "失控的神火兽",
+		Category:        "火",
+		Tag:             "异兽",
+		Description:     "光环:双方法术在攻击时+2\\威",
+		Quote:           "通常神火军团不会雨天出动,不是因为害怕雨水,而是害怕闪电让他们的坐骑彻底失控",
+		ElementsCost:    map[string]int{"气": 1, "火": 4},
+		ElementsGain:    map[string]int{"气": 1, "火": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1121107.jpg",
+	}
+}
+
+type CardDef1121108 struct{}
+
+func (CardDef1121108) ID() string      { return "1121108" }
+func (CardDef1121108) Name() string    { return "火蝴蝶" }
+func (CardDef1121108) Kind() string    { return "伙伴" }
+func (CardDef1121108) Element() string { return "火" }
+
+func (CardDef1121108) Card() model.Card {
+	return model.Card{
+		Number:          "1121108",
+		Type:            "伙伴",
+		Name:            "火蝴蝶",
+		Category:        "火",
+		Tag:             "野兽",
+		Description:     "主动回合技:负载临时改为1\\气",
+		Quote:           "想在熔岩堡这么恶劣的环境下生存,各种生灵也得有些自己的绝活",
+		ElementsCost:    map[string]int{"火": 1},
+		ElementsGain:    map[string]int{"火": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1121108.jpg",
+	}
+}
+
+type CardDef1121109 struct{}
+
+func (CardDef1121109) ID() string      { return "1121109" }
+func (CardDef1121109) Name() string    { return "神火兽骑手" }
+func (CardDef1121109) Kind() string    { return "伙伴" }
+func (CardDef1121109) Element() string { return "火" }
+
+func (CardDef1121109) Card() model.Card {
+	return model.Card{
+		Number:          "1121109",
+		Type:            "伙伴",
+		Name:            "神火兽骑手",
+		Category:        "火",
+		Tag:             "人类",
+		Description:     "主动绝技:消耗1个友方其他火焰伙伴才能发动,下一次你的火焰法术\\威上升其入场花费元素的数值",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 5},
+		ElementsGain:    map[string]int{"气": 1, "火": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1121109.jpg",
+	}
+}
+
+type CardDef1121110 struct{}
+
+func (CardDef1121110) ID() string      { return "1121110" }
+func (CardDef1121110) Name() string    { return "熔岩堡档案员" }
+func (CardDef1121110) Kind() string    { return "伙伴" }
+func (CardDef1121110) Element() string { return "火" }
+
+func (CardDef1121110) Card() model.Card {
+	return model.Card{
+		Number:          "1121110",
+		Type:            "伙伴",
+		Name:            "熔岩堡档案员",
+		Category:        "火",
+		Tag:             "巫师",
+		Description:     "诱发绝技:在你使用1个创造法术后,翻取1个卷轴或符文",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 2},
+		ElementsGain:    map[string]int{"火": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1121110.jpg",
+	}
+}
+
+type CardDef1121111 struct{}
+
+func (CardDef1121111) ID() string      { return "1121111" }
+func (CardDef1121111) Name() string    { return "孤星火种" }
+func (CardDef1121111) Kind() string    { return "伙伴" }
+func (CardDef1121111) Element() string { return "火" }
+
+func (CardDef1121111) Card() model.Card {
+	return model.Card{
+		Number:          "1121111",
+		Type:            "伙伴",
+		Name:            "孤星火种",
+		Category:        "火",
+		Tag:             "精灵",
+		Description:     "诱发绝技:在场上其他伙伴牌受到火焰伤害后,此卡获得负载+1\\火",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 2},
+		ElementsGain:    map[string]int{"火": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1121111.jpg",
+	}
+}
+
+type CardDef1121112 struct{}
+
+func (CardDef1121112) ID() string      { return "1121112" }
+func (CardDef1121112) Name() string    { return "火花飞蛾" }
+func (CardDef1121112) Kind() string    { return "伙伴" }
+func (CardDef1121112) Element() string { return "火" }
+
+func (CardDef1121112) Card() model.Card {
+	return model.Card{
+		Number:          "1121112",
+		Type:            "伙伴",
+		Name:            "火花飞蛾",
+		Category:        "火",
+		Tag:             "野兽",
+		Description:     "诱发:在一个火焰法术命中后,可以展示手牌中的此卡并-1入场花费",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 2},
+		ElementsGain:    map[string]int{"火": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1121112.jpg",
+	}
+}
+
+type CardDef1121113 struct{}
+
+func (CardDef1121113) ID() string      { return "1121113" }
+func (CardDef1121113) Name() string    { return "熔岩堡地狱犬" }
+func (CardDef1121113) Kind() string    { return "伙伴" }
+func (CardDef1121113) Element() string { return "火" }
+
+func (CardDef1121113) Card() model.Card {
+	return model.Card{
+		Number:          "1121113",
+		Type:            "伙伴",
+		Name:            "熔岩堡地狱犬",
+		Category:        "火",
+		Tag:             "异兽",
+		Description:     "诱发回合技:此卡被其他卡牌效果消耗后,必须选择法力范围内2个不同单位造成1点伤害",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 5},
+		ElementsGain:    map[string]int{"火": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            4,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1121113.jpg",
+	}
+}
+
+type CardDef1121114 struct{}
+
+func (CardDef1121114) ID() string      { return "1121114" }
+func (CardDef1121114) Name() string    { return "军团将星" }
+func (CardDef1121114) Kind() string    { return "伙伴" }
+func (CardDef1121114) Element() string { return "火" }
+
+func (CardDef1121114) Card() model.Card {
+	return model.Card{
+		Number:          "1121114",
+		Type:            "伙伴",
+		Name:            "军团将星",
+		Category:        "火",
+		Tag:             "人类",
+		Description:     "引魔.祈咒:直到下个回合结束,你的所有火焰法术获得+2\\威或+1\\攻",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 1, "气": 1, "火": 6},
+		ElementsGain:    map[string]int{"无": 1, "火": 3},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            5,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1121114.jpg",
+	}
+}
+
+type CardDef1121115 struct{}
+
+func (CardDef1121115) ID() string      { return "1121115" }
+func (CardDef1121115) Name() string    { return "军团参谋" }
+func (CardDef1121115) Kind() string    { return "伙伴" }
+func (CardDef1121115) Element() string { return "火" }
+
+func (CardDef1121115) Card() model.Card {
+	return model.Card{
+		Number:          "1121115",
+		Type:            "伙伴",
+		Name:            "军团参谋",
+		Category:        "火",
+		Tag:             "巫师",
+		Description:     "诱发回合技:在你使用1个创造种类的技能后,可以翻取1个火焰属性消耗品道具但在回合结束时丢弃",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 4},
+		ElementsGain:    map[string]int{"火": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\火\\1121115.jpg",
+	}
+}
+
+type CardDef1201101 struct{}
+
+func (CardDef1201101) ID() string      { return "1201101" }
+func (CardDef1201101) Name() string    { return "凛冰之龙" }
+func (CardDef1201101) Kind() string    { return "伙伴" }
+func (CardDef1201101) Element() string { return "水" }
+
+func (CardDef1201101) Card() model.Card {
+	return model.Card{
+		Number:          "1201101",
+		Type:            "伙伴",
+		Name:            "凛冰之龙",
+		Category:        "水",
+		Tag:             "衍生-龙",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{"水": 3},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1201101.jpg",
+	}
+}
+
 type CardDef1211001 struct{}
 
 func (CardDef1211001) ID() string      { return "1211001" }
@@ -1300,6 +2440,96 @@ func (CardDef1211003) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\伙伴\\水\\1211003.jpg",
+	}
+}
+
+type CardDef1211101 struct{}
+
+func (CardDef1211101) ID() string      { return "1211101" }
+func (CardDef1211101) Name() string    { return "雾之国主 那兰提" }
+func (CardDef1211101) Kind() string    { return "伙伴" }
+func (CardDef1211101) Element() string { return "水" }
+
+func (CardDef1211101) Card() model.Card {
+	return model.Card{
+		Number:          "1211101",
+		Type:            "伙伴",
+		Name:            "雾之国主 那兰提",
+		Category:        "水",
+		Tag:             "传奇-巫师",
+		Description:     "入场:所有友方没有隐蔽的单位获得隐蔽2",
+		Quote:           "如果你妄想进犯我的国度,我的子民将会让你看到他们在迷雾中的另一面",
+		ElementsCost:    map[string]int{"气": 2, "水": 4},
+		ElementsGain:    map[string]int{"气": 1, "水": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1211101.jpg",
+	}
+}
+
+type CardDef1211102 struct{}
+
+func (CardDef1211102) ID() string      { return "1211102" }
+func (CardDef1211102) Name() string    { return "花海梦鲸" }
+func (CardDef1211102) Kind() string    { return "伙伴" }
+func (CardDef1211102) Element() string { return "水" }
+
+func (CardDef1211102) Card() model.Card {
+	return model.Card{
+		Number:          "1211102",
+		Type:            "伙伴",
+		Name:            "花海梦鲸",
+		Category:        "水",
+		Tag:             "传奇-野兽",
+		Description:     "入场:将3种不同的衍生卡牌幻创之梦洗入你的卡组.诱发:当你累计使用2次创造法术后,检索1张幻创之梦",
+		Quote:           "亦真亦幻,如痴如梦",
+		ElementsCost:    map[string]int{"水": 5},
+		ElementsGain:    map[string]int{"水": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{"2201101", "2201102", "2201103"},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1211102.jpg",
+	}
+}
+
+type CardDef1211103 struct{}
+
+func (CardDef1211103) ID() string      { return "1211103" }
+func (CardDef1211103) Name() string    { return "海上巾帼 珊瑚 雯迪" }
+func (CardDef1211103) Kind() string    { return "伙伴" }
+func (CardDef1211103) Element() string { return "水" }
+
+func (CardDef1211103) Card() model.Card {
+	return model.Card{
+		Number:          "1211103",
+		Type:            "伙伴",
+		Name:            "海上巾帼 珊瑚 雯迪",
+		Category:        "水",
+		Tag:             "传奇-人类",
+		Description:     "回合技2:在你使用1个使用花费小于3的法术后,可以花费2\\水将其重置",
+		Quote:           "\"忘了那个老头吧,现在是年轻人的时代\"",
+		ElementsCost:    map[string]int{"水": 6},
+		ElementsGain:    map[string]int{"水": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1211103.jpg",
 	}
 }
 
@@ -1783,6 +3013,456 @@ func (CardDef1221016) Card() model.Card {
 	}
 }
 
+type CardDef1221101 struct{}
+
+func (CardDef1221101) ID() string      { return "1221101" }
+func (CardDef1221101) Name() string    { return "掠夺者海盗船" }
+func (CardDef1221101) Kind() string    { return "伙伴" }
+func (CardDef1221101) Element() string { return "水" }
+
+func (CardDef1221101) Card() model.Card {
+	return model.Card{
+		Number:          "1221101",
+		Type:            "伙伴",
+		Name:            "掠夺者海盗船",
+		Category:        "水",
+		Tag:             "机械",
+		Description:     "",
+		Quote:           "追寻宝藏的海盗,永远无法见到海洋最珍贵的宝物",
+		ElementsCost:    map[string]int{"暗": 1, "水": 4},
+		ElementsGain:    map[string]int{"暗": 1, "水": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1221101.jpg",
+	}
+}
+
+type CardDef1221102 struct{}
+
+func (CardDef1221102) ID() string      { return "1221102" }
+func (CardDef1221102) Name() string    { return "雾之国法师" }
+func (CardDef1221102) Kind() string    { return "伙伴" }
+func (CardDef1221102) Element() string { return "水" }
+
+func (CardDef1221102) Card() model.Card {
+	return model.Card{
+		Number:          "1221102",
+		Type:            "伙伴",
+		Name:            "雾之国法师",
+		Category:        "水",
+		Tag:             "巫师",
+		Description:     "回合技:使1个没有隐蔽的其他友方单位隐蔽2",
+		Quote:           "\"没错,我之前只是在保存实力\"",
+		ElementsCost:    map[string]int{"气": 1, "水": 4},
+		ElementsGain:    map[string]int{"气": 1, "水": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1221102.jpg",
+	}
+}
+
+type CardDef1221103 struct{}
+
+func (CardDef1221103) ID() string      { return "1221103" }
+func (CardDef1221103) Name() string    { return "凛冬城射手" }
+func (CardDef1221103) Kind() string    { return "伙伴" }
+func (CardDef1221103) Element() string { return "水" }
+
+func (CardDef1221103) Card() model.Card {
+	return model.Card{
+		Number:          "1221103",
+		Type:            "伙伴",
+		Name:            "凛冬城射手",
+		Category:        "水",
+		Tag:             "人类",
+		Description:     "引魔.此卡不位于前排也能进行攻击",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1221103.jpg",
+	}
+}
+
+type CardDef1221104 struct{}
+
+func (CardDef1221104) ID() string      { return "1221104" }
+func (CardDef1221104) Name() string    { return "冰原猛犸" }
+func (CardDef1221104) Kind() string    { return "伙伴" }
+func (CardDef1221104) Element() string { return "水" }
+
+func (CardDef1221104) Card() model.Card {
+	return model.Card{
+		Number:          "1221104",
+		Type:            "伙伴",
+		Name:            "冰原猛犸",
+		Category:        "水",
+		Tag:             "野兽",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 5},
+		ElementsGain:    map[string]int{"水": 3},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1221104.jpg",
+	}
+}
+
+type CardDef1221105 struct{}
+
+func (CardDef1221105) ID() string      { return "1221105" }
+func (CardDef1221105) Name() string    { return "雾之国舞女" }
+func (CardDef1221105) Kind() string    { return "伙伴" }
+func (CardDef1221105) Element() string { return "水" }
+
+func (CardDef1221105) Card() model.Card {
+	return model.Card{
+		Number:          "1221105",
+		Type:            "伙伴",
+		Name:            "雾之国舞女",
+		Category:        "水",
+		Tag:             "精灵",
+		Description:     "入场:使法力范围内1个伙伴隐蔽2",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 1, "水": 2},
+		ElementsGain:    map[string]int{"气": 1, "水": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1221105.jpg",
+	}
+}
+
+type CardDef1221106 struct{}
+
+func (CardDef1221106) ID() string      { return "1221106" }
+func (CardDef1221106) Name() string    { return "镜花海之莲" }
+func (CardDef1221106) Kind() string    { return "伙伴" }
+func (CardDef1221106) Element() string { return "水" }
+
+func (CardDef1221106) Card() model.Card {
+	return model.Card{
+		Number:          "1221106",
+		Type:            "伙伴",
+		Name:            "镜花海之莲",
+		Category:        "水",
+		Tag:             "植物",
+		Description:     "引魔.祈咒:获得负载+1\\水",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 3},
+		ElementsGain:    map[string]int{"水": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1221106.jpg",
+	}
+}
+
+type CardDef1221107 struct{}
+
+func (CardDef1221107) ID() string      { return "1221107" }
+func (CardDef1221107) Name() string    { return "心莲守护者" }
+func (CardDef1221107) Kind() string    { return "伙伴" }
+func (CardDef1221107) Element() string { return "水" }
+
+func (CardDef1221107) Card() model.Card {
+	return model.Card{
+		Number:          "1221107",
+		Type:            "伙伴",
+		Name:            "心莲守护者",
+		Category:        "水",
+		Tag:             "巫师",
+		Description:     "入场:获得护盾2",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 4},
+		ElementsGain:    map[string]int{"水": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1221107.jpg",
+	}
+}
+
+type CardDef1221108 struct{}
+
+func (CardDef1221108) ID() string      { return "1221108" }
+func (CardDef1221108) Name() string    { return "心莲镜魔师" }
+func (CardDef1221108) Kind() string    { return "伙伴" }
+func (CardDef1221108) Element() string { return "水" }
+
+func (CardDef1221108) Card() model.Card {
+	return model.Card{
+		Number:          "1221108",
+		Type:            "伙伴",
+		Name:            "心莲镜魔师",
+		Category:        "水",
+		Tag:             "巫师",
+		Description:     "引魔.回合技:在你使用1个创造种类的技能后,可以翻取1张水纹属性道具牌,如果是反制卡牌可以立刻盖放在场上并且入场费用变为0",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 5},
+		ElementsGain:    map[string]int{"水": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1221108.jpg",
+	}
+}
+
+type CardDef1221109 struct{}
+
+func (CardDef1221109) ID() string      { return "1221109" }
+func (CardDef1221109) Name() string    { return "雾霭幽魂" }
+func (CardDef1221109) Kind() string    { return "伙伴" }
+func (CardDef1221109) Element() string { return "水" }
+
+func (CardDef1221109) Card() model.Card {
+	return model.Card{
+		Number:          "1221109",
+		Type:            "伙伴",
+		Name:            "雾霭幽魂",
+		Category:        "水",
+		Tag:             "造物",
+		Description:     "入场:获得隐蔽3.光环:此卡具有隐蔽时获得负载+2\\水",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1221109.jpg",
+	}
+}
+
+type CardDef1221110 struct{}
+
+func (CardDef1221110) ID() string      { return "1221110" }
+func (CardDef1221110) Name() string    { return "掠夺者幽灵船长" }
+func (CardDef1221110) Kind() string    { return "伙伴" }
+func (CardDef1221110) Element() string { return "水" }
+
+func (CardDef1221110) Card() model.Card {
+	return model.Card{
+		Number:          "1221110",
+		Type:            "伙伴",
+		Name:            "掠夺者幽灵船长",
+		Category:        "水",
+		Tag:             "人类",
+		Description:     "光环:你的其他名字带有\"掠夺者\"的伙伴牌获得负载+1\\水",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 1, "水": 3},
+		ElementsGain:    map[string]int{"暗": 1, "水": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1221110.jpg",
+	}
+}
+
+type CardDef1221111 struct{}
+
+func (CardDef1221111) ID() string      { return "1221111" }
+func (CardDef1221111) Name() string    { return "掠夺者炮手" }
+func (CardDef1221111) Kind() string    { return "伙伴" }
+func (CardDef1221111) Element() string { return "水" }
+
+func (CardDef1221111) Card() model.Card {
+	return model.Card{
+		Number:          "1221111",
+		Type:            "伙伴",
+		Name:            "掠夺者炮手",
+		Category:        "水",
+		Tag:             "人类",
+		Description:     "诱发绝技:在你的法术命中后,随机弃置敌方1张手牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 1, "水": 1},
+		ElementsGain:    map[string]int{"暗": 1, "水": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1221111.jpg",
+	}
+}
+
+type CardDef1221112 struct{}
+
+func (CardDef1221112) ID() string      { return "1221112" }
+func (CardDef1221112) Name() string    { return "水魔导师" }
+func (CardDef1221112) Kind() string    { return "伙伴" }
+func (CardDef1221112) Element() string { return "水" }
+
+func (CardDef1221112) Card() model.Card {
+	return model.Card{
+		Number:          "1221112",
+		Type:            "伙伴",
+		Name:            "水魔导师",
+		Category:        "水",
+		Tag:             "巫师",
+		Description:     "主动绝技:重置你的1个使用花费小于3的水纹法术",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 3},
+		ElementsGain:    map[string]int{"水": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1221112.jpg",
+	}
+}
+
+type CardDef1221113 struct{}
+
+func (CardDef1221113) ID() string      { return "1221113" }
+func (CardDef1221113) Name() string    { return "凛冬城象骑兵" }
+func (CardDef1221113) Kind() string    { return "伙伴" }
+func (CardDef1221113) Element() string { return "水" }
+
+func (CardDef1221113) Card() model.Card {
+	return model.Card{
+		Number:          "1221113",
+		Type:            "伙伴",
+		Name:            "凛冬城象骑兵",
+		Category:        "水",
+		Tag:             "人类",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 1, "水": 5},
+		ElementsGain:    map[string]int{"水": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            5,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1221113.jpg",
+	}
+}
+
+type CardDef1221114 struct{}
+
+func (CardDef1221114) ID() string      { return "1221114" }
+func (CardDef1221114) Name() string    { return "玉面雪狐" }
+func (CardDef1221114) Kind() string    { return "伙伴" }
+func (CardDef1221114) Element() string { return "水" }
+
+func (CardDef1221114) Card() model.Card {
+	return model.Card{
+		Number:          "1221114",
+		Type:            "伙伴",
+		Name:            "玉面雪狐",
+		Category:        "水",
+		Tag:             "野兽",
+		Description:     "诱发绝技:当敌方使用法术攻击时,你可以立刻移动此卡并获得2\\水,敌方需要重新选择目标",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 2},
+		ElementsGain:    map[string]int{"水": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1221114.jpg",
+	}
+}
+
+type CardDef1221115 struct{}
+
+func (CardDef1221115) ID() string      { return "1221115" }
+func (CardDef1221115) Name() string    { return "凛冬城御魔师" }
+func (CardDef1221115) Kind() string    { return "伙伴" }
+func (CardDef1221115) Element() string { return "水" }
+
+func (CardDef1221115) Card() model.Card {
+	return model.Card{
+		Number:          "1221115",
+		Type:            "伙伴",
+		Name:            "凛冬城御魔师",
+		Category:        "水",
+		Tag:             "巫师",
+		Description:     "祈咒:使你已学习的所有技能下一次使用花费-1\\水",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 7},
+		ElementsGain:    map[string]int{"水": 3},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            4,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\水\\1221115.jpg",
+	}
+}
+
 type CardDef1311001 struct{}
 
 func (CardDef1311001) ID() string      { return "1311001" }
@@ -1870,6 +3550,96 @@ func (CardDef1311003) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\伙伴\\气\\1311003.jpg",
+	}
+}
+
+type CardDef1311101 struct{}
+
+func (CardDef1311101) ID() string      { return "1311101" }
+func (CardDef1311101) Name() string    { return "斯帕罗 银叶" }
+func (CardDef1311101) Kind() string    { return "伙伴" }
+func (CardDef1311101) Element() string { return "气" }
+
+func (CardDef1311101) Card() model.Card {
+	return model.Card{
+		Number:          "1311101",
+		Type:            "伙伴",
+		Name:            "斯帕罗 银叶",
+		Category:        "气",
+		Tag:             "传奇-巫师",
+		Description:     "入场:对法力范围内1名敌人造成等同于你本回合丢弃手牌数量的伤害,最高3点",
+		Quote:           "\"好久不见,我的哥哥.上次还是...还是你把我送进这间牢房的时候\"",
+		ElementsCost:    map[string]int{"无": 1, "气": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1311101.jpg",
+	}
+}
+
+type CardDef1311102 struct{}
+
+func (CardDef1311102) ID() string      { return "1311102" }
+func (CardDef1311102) Name() string    { return "云顶商行 克罗斯" }
+func (CardDef1311102) Kind() string    { return "伙伴" }
+func (CardDef1311102) Element() string { return "气" }
+
+func (CardDef1311102) Card() model.Card {
+	return model.Card{
+		Number:          "1311102",
+		Type:            "伙伴",
+		Name:            "云顶商行 克罗斯",
+		Category:        "气",
+		Tag:             "传奇-人类",
+		Description:     "光环:如果你的卡组为空,你可以从对手的卡组抽牌,那些卡牌的入场花费和负载全部变为等量的\\无",
+		Quote:           "\"我有的赚,大家都有的赚\"",
+		ElementsCost:    map[string]int{"气": 3},
+		ElementsGain:    map[string]int{"气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1311102.jpg",
+	}
+}
+
+type CardDef1311103 struct{}
+
+func (CardDef1311103) ID() string      { return "1311103" }
+func (CardDef1311103) Name() string    { return "九霄议庭言主 麦阿提" }
+func (CardDef1311103) Kind() string    { return "伙伴" }
+func (CardDef1311103) Element() string { return "气" }
+
+func (CardDef1311103) Card() model.Card {
+	return model.Card{
+		Number:          "1311103",
+		Type:            "伙伴",
+		Name:            "九霄议庭言主 麦阿提",
+		Category:        "气",
+		Tag:             "传奇-人类",
+		Description:     "光环:对方手牌上限-1,每当对方手牌超过上限必须立刻弃牌至手牌上限",
+		Quote:           "\"我们会照顾所有人的需求,在有序的前提下\"",
+		ElementsCost:    map[string]int{"气": 5},
+		ElementsGain:    map[string]int{"光": 1, "气": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1311103.jpg",
 	}
 }
 
@@ -2353,6 +4123,456 @@ func (CardDef1321016) Card() model.Card {
 	}
 }
 
+type CardDef1321101 struct{}
+
+func (CardDef1321101) ID() string      { return "1321101" }
+func (CardDef1321101) Name() string    { return "翱翔者E2型运输舰" }
+func (CardDef1321101) Kind() string    { return "伙伴" }
+func (CardDef1321101) Element() string { return "气" }
+
+func (CardDef1321101) Card() model.Card {
+	return model.Card{
+		Number:          "1321101",
+		Type:            "伙伴",
+		Name:            "翱翔者E2型运输舰",
+		Category:        "气",
+		Tag:             "机械",
+		Description:     "祈咒:抽2张牌,或挑选弃牌堆的2张大气卡牌洗回牌组",
+		Quote:           "西部重工负责制造以及保修期内的维修,商品使用期间造成的连带损害由使用者承担.",
+		ElementsCost:    map[string]int{"气": 6},
+		ElementsGain:    map[string]int{"气": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1321101.jpg",
+	}
+}
+
+type CardDef1321102 struct{}
+
+func (CardDef1321102) ID() string      { return "1321102" }
+func (CardDef1321102) Name() string    { return "花斑麻雀" }
+func (CardDef1321102) Kind() string    { return "伙伴" }
+func (CardDef1321102) Element() string { return "气" }
+
+func (CardDef1321102) Card() model.Card {
+	return model.Card{
+		Number:          "1321102",
+		Type:            "伙伴",
+		Name:            "花斑麻雀",
+		Category:        "气",
+		Tag:             "野兽",
+		Description:     "诱发:如果本卡被从手牌弃掉,可以花费1\\气召唤本卡",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 1},
+		ElementsGain:    map[string]int{"气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1321102.jpg",
+	}
+}
+
+type CardDef1321103 struct{}
+
+func (CardDef1321103) ID() string      { return "1321103" }
+func (CardDef1321103) Name() string    { return "孤星塔守望者" }
+func (CardDef1321103) Kind() string    { return "伙伴" }
+func (CardDef1321103) Element() string { return "气" }
+
+func (CardDef1321103) Card() model.Card {
+	return model.Card{
+		Number:          "1321103",
+		Type:            "伙伴",
+		Name:            "孤星塔守望者",
+		Category:        "气",
+		Tag:             "人类",
+		Description:     "主动绝技:丢弃至多3张手牌并获得等量护盾",
+		Quote:           "放下尘世因缘,方能成为守望者",
+		ElementsCost:    map[string]int{"无": 1, "气": 1},
+		ElementsGain:    map[string]int{"气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1321103.jpg",
+	}
+}
+
+type CardDef1321104 struct{}
+
+func (CardDef1321104) ID() string      { return "1321104" }
+func (CardDef1321104) Name() string    { return "织雾者" }
+func (CardDef1321104) Kind() string    { return "伙伴" }
+func (CardDef1321104) Element() string { return "气" }
+
+func (CardDef1321104) Card() model.Card {
+	return model.Card{
+		Number:          "1321104",
+		Type:            "伙伴",
+		Name:            "织雾者",
+		Category:        "气",
+		Tag:             "巫师",
+		Description:     "入场:使任意1个敌方单位隐蔽2",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 3},
+		ElementsGain:    map[string]int{"气": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1321104.jpg",
+	}
+}
+
+type CardDef1321105 struct{}
+
+func (CardDef1321105) ID() string      { return "1321105" }
+func (CardDef1321105) Name() string    { return "幻术师" }
+func (CardDef1321105) Kind() string    { return "伙伴" }
+func (CardDef1321105) Element() string { return "气" }
+
+func (CardDef1321105) Card() model.Card {
+	return model.Card{
+		Number:          "1321105",
+		Type:            "伙伴",
+		Name:            "幻术师",
+		Category:        "气",
+		Tag:             "巫师",
+		Description:     "主动绝技:将你的1个入场花费小于6的伙伴移回手牌,并获得等同于其负载的元素费用",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 1, "气": 2},
+		ElementsGain:    map[string]int{"无": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1321105.jpg",
+	}
+}
+
+type CardDef1321106 struct{}
+
+func (CardDef1321106) ID() string      { return "1321106" }
+func (CardDef1321106) Name() string    { return "银叶游侠" }
+func (CardDef1321106) Kind() string    { return "伙伴" }
+func (CardDef1321106) Element() string { return "气" }
+
+func (CardDef1321106) Card() model.Card {
+	return model.Card{
+		Number:          "1321106",
+		Type:            "伙伴",
+		Name:            "银叶游侠",
+		Category:        "气",
+		Tag:             "人类",
+		Description:     "主动:消耗此卡才能发动,你的下一次法术+1\\攻",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 2},
+		ElementsGain:    map[string]int{"气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1321106.jpg",
+	}
+}
+
+type CardDef1321107 struct{}
+
+func (CardDef1321107) ID() string      { return "1321107" }
+func (CardDef1321107) Name() string    { return "云霄城大盗" }
+func (CardDef1321107) Kind() string    { return "伙伴" }
+func (CardDef1321107) Element() string { return "气" }
+
+func (CardDef1321107) Card() model.Card {
+	return model.Card{
+		Number:          "1321107",
+		Type:            "伙伴",
+		Name:            "云霄城大盗",
+		Category:        "气",
+		Tag:             "人类",
+		Description:     "入场:双方各自随机丢弃1张手牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 1},
+		ElementsGain:    map[string]int{"气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1321107.jpg",
+	}
+}
+
+type CardDef1321108 struct{}
+
+func (CardDef1321108) ID() string      { return "1321108" }
+func (CardDef1321108) Name() string    { return "翡翠蜂鸟" }
+func (CardDef1321108) Kind() string    { return "伙伴" }
+func (CardDef1321108) Element() string { return "气" }
+
+func (CardDef1321108) Card() model.Card {
+	return model.Card{
+		Number:          "1321108",
+		Type:            "伙伴",
+		Name:            "翡翠蜂鸟",
+		Category:        "气",
+		Tag:             "野兽",
+		Description:     "入场:如果你的手牌数量小于2张,抽2张牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 2},
+		ElementsGain:    map[string]int{"气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1321108.jpg",
+	}
+}
+
+type CardDef1321109 struct{}
+
+func (CardDef1321109) ID() string      { return "1321109" }
+func (CardDef1321109) Name() string    { return "风暴之角" }
+func (CardDef1321109) Kind() string    { return "伙伴" }
+func (CardDef1321109) Element() string { return "气" }
+
+func (CardDef1321109) Card() model.Card {
+	return model.Card{
+		Number:          "1321109",
+		Type:            "伙伴",
+		Name:            "风暴之角",
+		Category:        "气",
+		Tag:             "异兽",
+		Description:     "绝技:丢弃1张手牌,翻取1张大气装备",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 4},
+		ElementsGain:    map[string]int{"气": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1321109.jpg",
+	}
+}
+
+type CardDef1321110 struct{}
+
+func (CardDef1321110) ID() string      { return "1321110" }
+func (CardDef1321110) Name() string    { return "银叶信使" }
+func (CardDef1321110) Kind() string    { return "伙伴" }
+func (CardDef1321110) Element() string { return "气" }
+
+func (CardDef1321110) Card() model.Card {
+	return model.Card{
+		Number:          "1321110",
+		Type:            "伙伴",
+		Name:            "银叶信使",
+		Category:        "气",
+		Tag:             "人类",
+		Description:     "入场:检索1张失落的银叶花",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 2},
+		ElementsGain:    map[string]int{"气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1321110.jpg",
+	}
+}
+
+type CardDef1321111 struct{}
+
+func (CardDef1321111) ID() string      { return "1321111" }
+func (CardDef1321111) Name() string    { return "雷光战士" }
+func (CardDef1321111) Kind() string    { return "伙伴" }
+func (CardDef1321111) Element() string { return "气" }
+
+func (CardDef1321111) Card() model.Card {
+	return model.Card{
+		Number:          "1321111",
+		Type:            "伙伴",
+		Name:            "雷光战士",
+		Category:        "气",
+		Tag:             "人类",
+		Description:     "入场:你每装备有1件雷光道具(同时具有\\气和\\光负载),此卡可以获得以下1项:+2\\血,+1\\攻,负载+1\\气,负载+1\\光",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 1, "气": 4},
+		ElementsGain:    map[string]int{"光": 1, "气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1321111.jpg",
+	}
+}
+
+type CardDef1321112 struct{}
+
+func (CardDef1321112) ID() string      { return "1321112" }
+func (CardDef1321112) Name() string    { return "九霄接头人" }
+func (CardDef1321112) Kind() string    { return "伙伴" }
+func (CardDef1321112) Element() string { return "气" }
+
+func (CardDef1321112) Card() model.Card {
+	return model.Card{
+		Number:          "1321112",
+		Type:            "伙伴",
+		Name:            "九霄接头人",
+		Category:        "气",
+		Tag:             "人类",
+		Description:     "引魔.祈咒:如果对方手牌未达上限,将1张九霄印记加入对手的手牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 3},
+		ElementsGain:    map[string]int{"气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{"2001102"},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1321112.jpg",
+	}
+}
+
+type CardDef1321113 struct{}
+
+func (CardDef1321113) ID() string      { return "1321113" }
+func (CardDef1321113) Name() string    { return "议庭传信鸽" }
+func (CardDef1321113) Kind() string    { return "伙伴" }
+func (CardDef1321113) Element() string { return "气" }
+
+func (CardDef1321113) Card() model.Card {
+	return model.Card{
+		Number:          "1321113",
+		Type:            "伙伴",
+		Name:            "议庭传信鸽",
+		Category:        "气",
+		Tag:             "野兽",
+		Description:     "入场:将1张九霄印记加入对手手牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 1},
+		ElementsGain:    map[string]int{"气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{"2001102"},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1321113.jpg",
+	}
+}
+
+type CardDef1321114 struct{}
+
+func (CardDef1321114) ID() string      { return "1321114" }
+func (CardDef1321114) Name() string    { return "议庭执行者" }
+func (CardDef1321114) Kind() string    { return "伙伴" }
+func (CardDef1321114) Element() string { return "气" }
+
+func (CardDef1321114) Card() model.Card {
+	return model.Card{
+		Number:          "1321114",
+		Type:            "伙伴",
+		Name:            "议庭执行者",
+		Category:        "气",
+		Tag:             "巫师",
+		Description:     "入场:随机丢弃敌方1张手牌,如果是九霄印记再随机丢弃1张",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 5},
+		ElementsGain:    map[string]int{"气": 3},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1321114.jpg",
+	}
+}
+
+type CardDef1321115 struct{}
+
+func (CardDef1321115) ID() string      { return "1321115" }
+func (CardDef1321115) Name() string    { return "苍穹描摹者" }
+func (CardDef1321115) Kind() string    { return "伙伴" }
+func (CardDef1321115) Element() string { return "气" }
+
+func (CardDef1321115) Card() model.Card {
+	return model.Card{
+		Number:          "1321115",
+		Type:            "伙伴",
+		Name:            "苍穹描摹者",
+		Category:        "气",
+		Tag:             "巫师",
+		Description:     "入场:复制你场上另一个使用花费小于6的大气卡牌的入场效果",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 5},
+		ElementsGain:    map[string]int{"气": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\气\\1321115.jpg",
+	}
+}
+
 type CardDef1401001 struct{}
 
 func (CardDef1401001) ID() string      { return "1401001" }
@@ -2410,6 +4630,36 @@ func (CardDef1401002) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\伙伴\\地\\1401002.jpg",
+	}
+}
+
+type CardDef1401101 struct{}
+
+func (CardDef1401101) ID() string      { return "1401101" }
+func (CardDef1401101) Name() string    { return "普通蜥蜴" }
+func (CardDef1401101) Kind() string    { return "伙伴" }
+func (CardDef1401101) Element() string { return "地" }
+
+func (CardDef1401101) Card() model.Card {
+	return model.Card{
+		Number:          "1401101",
+		Type:            "伙伴",
+		Name:            "普通蜥蜴",
+		Category:        "地",
+		Tag:             "衍生-野兽",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 1},
+		ElementsGain:    map[string]int{"地": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1401101.jpg",
 	}
 }
 
@@ -2500,6 +4750,96 @@ func (CardDef1411003) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\伙伴\\地\\1411003.jpg",
+	}
+}
+
+type CardDef1411101 struct{}
+
+func (CardDef1411101) ID() string      { return "1411101" }
+func (CardDef1411101) Name() string    { return "苍老者 弗兰肯 拜利兰" }
+func (CardDef1411101) Kind() string    { return "伙伴" }
+func (CardDef1411101) Element() string { return "地" }
+
+func (CardDef1411101) Card() model.Card {
+	return model.Card{
+		Number:          "1411101",
+		Type:            "伙伴",
+		Name:            "苍老者 弗兰肯 拜利兰",
+		Category:        "地",
+		Tag:             "传奇-巫师",
+		Description:     "祈咒:此卡失去1点负载.诱发:每当此卡失去1点负载,选择1个敌方法术永久减少2\\威",
+		Quote:           "日月轮换,朽与不朽皆在一念间",
+		ElementsCost:    map[string]int{"地": 7, "无": 2},
+		ElementsGain:    map[string]int{"地": 3, "无": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            4,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1411101.jpg",
+	}
+}
+
+type CardDef1411102 struct{}
+
+func (CardDef1411102) ID() string      { return "1411102" }
+func (CardDef1411102) Name() string    { return "谧语精灵王 辛达瑞尔" }
+func (CardDef1411102) Kind() string    { return "伙伴" }
+func (CardDef1411102) Element() string { return "地" }
+
+func (CardDef1411102) Card() model.Card {
+	return model.Card{
+		Number:          "1411102",
+		Type:            "伙伴",
+		Name:            "谧语精灵王 辛达瑞尔",
+		Category:        "地",
+		Tag:             "传奇-精灵",
+		Description:     "入场:在上个回合里,敌方法术每满足以下一项(命中3次及以上,命中3个目标及以上,造成3点伤害及以上)可以选择任意1个不同的敌人,对那些敌人造成2点伤害",
+		Quote:           "\"凡事不过三,否则我们必将以牙还牙,以眼还眼\"",
+		ElementsCost:    map[string]int{"地": 4, "无": 1},
+		ElementsGain:    map[string]int{"地": 1, "暗": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1411102.jpg",
+	}
+}
+
+type CardDef1411103 struct{}
+
+func (CardDef1411103) ID() string      { return "1411103" }
+func (CardDef1411103) Name() string    { return "百兽之王 莱恩克塞斯" }
+func (CardDef1411103) Kind() string    { return "伙伴" }
+func (CardDef1411103) Element() string { return "地" }
+
+func (CardDef1411103) Card() model.Card {
+	return model.Card{
+		Number:          "1411103",
+		Type:            "伙伴",
+		Name:            "百兽之王 莱恩克塞斯",
+		Category:        "地",
+		Tag:             "传奇-野兽",
+		Description:     "入场:翻取1个伙伴,如果是地脉伙伴则将其召唤,无需花费",
+		Quote:           "\"该死的杂种...不好,怎么还有这么多\"",
+		ElementsCost:    map[string]int{"地": 8},
+		ElementsGain:    map[string]int{"地": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1411103.jpg",
 	}
 }
 
@@ -2983,6 +5323,456 @@ func (CardDef1421016) Card() model.Card {
 	}
 }
 
+type CardDef1421101 struct{}
+
+func (CardDef1421101) ID() string      { return "1421101" }
+func (CardDef1421101) Name() string    { return "岩壁刺球" }
+func (CardDef1421101) Kind() string    { return "伙伴" }
+func (CardDef1421101) Element() string { return "地" }
+
+func (CardDef1421101) Card() model.Card {
+	return model.Card{
+		Number:          "1421101",
+		Type:            "伙伴",
+		Name:            "岩壁刺球",
+		Category:        "地",
+		Tag:             "异兽",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 3},
+		ElementsGain:    map[string]int{"地": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1421101.jpg",
+	}
+}
+
+type CardDef1421102 struct{}
+
+func (CardDef1421102) ID() string      { return "1421102" }
+func (CardDef1421102) Name() string    { return "翡翠守卫" }
+func (CardDef1421102) Kind() string    { return "伙伴" }
+func (CardDef1421102) Element() string { return "地" }
+
+func (CardDef1421102) Card() model.Card {
+	return model.Card{
+		Number:          "1421102",
+		Type:            "伙伴",
+		Name:            "翡翠守卫",
+		Category:        "地",
+		Tag:             "造物",
+		Description:     "入场:如果你没有护盾,获得护盾2",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 2, "无": 1},
+		ElementsGain:    map[string]int{"地": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1421102.jpg",
+	}
+}
+
+type CardDef1421103 struct{}
+
+func (CardDef1421103) ID() string      { return "1421103" }
+func (CardDef1421103) Name() string    { return "寄生虫" }
+func (CardDef1421103) Kind() string    { return "伙伴" }
+func (CardDef1421103) Element() string { return "地" }
+
+func (CardDef1421103) Card() model.Card {
+	return model.Card{
+		Number:          "1421103",
+		Type:            "伙伴",
+		Name:            "寄生虫",
+		Category:        "地",
+		Tag:             "野兽",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 2},
+		ElementsGain:    map[string]int{"地": 1, "暗": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1421103.jpg",
+	}
+}
+
+type CardDef1421104 struct{}
+
+func (CardDef1421104) ID() string      { return "1421104" }
+func (CardDef1421104) Name() string    { return "拜利兰森林熊" }
+func (CardDef1421104) Kind() string    { return "伙伴" }
+func (CardDef1421104) Element() string { return "地" }
+
+func (CardDef1421104) Card() model.Card {
+	return model.Card{
+		Number:          "1421104",
+		Type:            "伙伴",
+		Name:            "拜利兰森林熊",
+		Category:        "地",
+		Tag:             "野兽",
+		Description:     "引魔.入场:获得护盾3",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 6},
+		ElementsGain:    map[string]int{"地": 3},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1421104.jpg",
+	}
+}
+
+type CardDef1421105 struct{}
+
+func (CardDef1421105) ID() string      { return "1421105" }
+func (CardDef1421105) Name() string    { return "失活的根须" }
+func (CardDef1421105) Kind() string    { return "伙伴" }
+func (CardDef1421105) Element() string { return "地" }
+
+func (CardDef1421105) Card() model.Card {
+	return model.Card{
+		Number:          "1421105",
+		Type:            "伙伴",
+		Name:            "失活的根须",
+		Category:        "地",
+		Tag:             "植物",
+		Description:     "祈咒:若此卡没有负载,获得负载1\\地",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1421105.jpg",
+	}
+}
+
+type CardDef1421106 struct{}
+
+func (CardDef1421106) ID() string      { return "1421106" }
+func (CardDef1421106) Name() string    { return "幻影蜥蜴" }
+func (CardDef1421106) Kind() string    { return "伙伴" }
+func (CardDef1421106) Element() string { return "地" }
+
+func (CardDef1421106) Card() model.Card {
+	return model.Card{
+		Number:          "1421106",
+		Type:            "伙伴",
+		Name:            "幻影蜥蜴",
+		Category:        "地",
+		Tag:             "野兽",
+		Description:     "诱发绝技:在你使用一个灵媒技能后消耗此卡才能发动,此卡分裂为两个普通蜥蜴",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 1},
+		ElementsGain:    map[string]int{"地": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{"1401101"},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1421106.jpg",
+	}
+}
+
+type CardDef1421107 struct{}
+
+func (CardDef1421107) ID() string      { return "1421107" }
+func (CardDef1421107) Name() string    { return "龙血树精" }
+func (CardDef1421107) Kind() string    { return "伙伴" }
+func (CardDef1421107) Element() string { return "地" }
+
+func (CardDef1421107) Card() model.Card {
+	return model.Card{
+		Number:          "1421107",
+		Type:            "伙伴",
+		Name:            "龙血树精",
+		Category:        "地",
+		Tag:             "精灵",
+		Description:     "入场:使1个友方卡牌失去1点负载,此卡获得负载+1\\暗",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 3},
+		ElementsGain:    map[string]int{"地": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1421107.jpg",
+	}
+}
+
+type CardDef1421108 struct{}
+
+func (CardDef1421108) ID() string      { return "1421108" }
+func (CardDef1421108) Name() string    { return "凯尔特灵鹿" }
+func (CardDef1421108) Kind() string    { return "伙伴" }
+func (CardDef1421108) Element() string { return "地" }
+
+func (CardDef1421108) Card() model.Card {
+	return model.Card{
+		Number:          "1421108",
+		Type:            "伙伴",
+		Name:            "凯尔特灵鹿",
+		Category:        "地",
+		Tag:             "野兽",
+		Description:     "诱发回合技:在一个灵媒技能被使用后,重置本卡",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 6},
+		ElementsGain:    map[string]int{"地": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1421108.jpg",
+	}
+}
+
+type CardDef1421109 struct{}
+
+func (CardDef1421109) ID() string      { return "1421109" }
+func (CardDef1421109) Name() string    { return "地穴巨蝠" }
+func (CardDef1421109) Kind() string    { return "伙伴" }
+func (CardDef1421109) Element() string { return "地" }
+
+func (CardDef1421109) Card() model.Card {
+	return model.Card{
+		Number:          "1421109",
+		Type:            "伙伴",
+		Name:            "地穴巨蝠",
+		Category:        "地",
+		Tag:             "野兽",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 4},
+		ElementsGain:    map[string]int{"地": 2, "暗": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1421109.jpg",
+	}
+}
+
+type CardDef1421110 struct{}
+
+func (CardDef1421110) ID() string      { return "1421110" }
+func (CardDef1421110) Name() string    { return "岩壁巨像" }
+func (CardDef1421110) Kind() string    { return "伙伴" }
+func (CardDef1421110) Element() string { return "地" }
+
+func (CardDef1421110) Card() model.Card {
+	return model.Card{
+		Number:          "1421110",
+		Type:            "伙伴",
+		Name:            "岩壁巨像",
+		Category:        "地",
+		Tag:             "造物",
+		Description:     "光环:如果你没有学习任何法术,你召唤的每个地脉伙伴+1\\血",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 3},
+		ElementsGain:    map[string]int{"地": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1421110.jpg",
+	}
+}
+
+type CardDef1421111 struct{}
+
+func (CardDef1421111) ID() string      { return "1421111" }
+func (CardDef1421111) Name() string    { return "岩壁魔怪" }
+func (CardDef1421111) Kind() string    { return "伙伴" }
+func (CardDef1421111) Element() string { return "地" }
+
+func (CardDef1421111) Card() model.Card {
+	return model.Card{
+		Number:          "1421111",
+		Type:            "伙伴",
+		Name:            "岩壁魔怪",
+		Category:        "地",
+		Tag:             "造物",
+		Description:     "光环:如果你没有学习任何法术,此卡每次最多受到1点伤害",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1421111.jpg",
+	}
+}
+
+type CardDef1421112 struct{}
+
+func (CardDef1421112) ID() string      { return "1421112" }
+func (CardDef1421112) Name() string    { return "沙尘恶魔" }
+func (CardDef1421112) Kind() string    { return "伙伴" }
+func (CardDef1421112) Element() string { return "地" }
+
+func (CardDef1421112) Card() model.Card {
+	return model.Card{
+		Number:          "1421112",
+		Type:            "伙伴",
+		Name:            "沙尘恶魔",
+		Category:        "地",
+		Tag:             "恶魔",
+		Description:     "引魔.祈咒:使前排敌人石化1",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 4},
+		ElementsGain:    map[string]int{"地": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1421112.jpg",
+	}
+}
+
+type CardDef1421113 struct{}
+
+func (CardDef1421113) ID() string      { return "1421113" }
+func (CardDef1421113) Name() string    { return "岩壁修道士" }
+func (CardDef1421113) Kind() string    { return "伙伴" }
+func (CardDef1421113) Element() string { return "地" }
+
+func (CardDef1421113) Card() model.Card {
+	return model.Card{
+		Number:          "1421113",
+		Type:            "伙伴",
+		Name:            "岩壁修道士",
+		Category:        "地",
+		Tag:             "巫师",
+		Description:     "光环:如果你没有学习任何法术,每回合命中的第一个敌方法术\\攻变为0",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 4},
+		ElementsGain:    map[string]int{"地": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1421113.jpg",
+	}
+}
+
+type CardDef1421114 struct{}
+
+func (CardDef1421114) ID() string      { return "1421114" }
+func (CardDef1421114) Name() string    { return "巨型沙虫" }
+func (CardDef1421114) Kind() string    { return "伙伴" }
+func (CardDef1421114) Element() string { return "地" }
+
+func (CardDef1421114) Card() model.Card {
+	return model.Card{
+		Number:          "1421114",
+		Type:            "伙伴",
+		Name:            "巨型沙虫",
+		Category:        "地",
+		Tag:             "野兽",
+		Description:     "诱发:每当此卡受到伤害,获得隐蔽1",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 6},
+		ElementsGain:    map[string]int{"地": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            4,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1421114.jpg",
+	}
+}
+
+type CardDef1421115 struct{}
+
+func (CardDef1421115) ID() string      { return "1421115" }
+func (CardDef1421115) Name() string    { return "地卜行者" }
+func (CardDef1421115) Kind() string    { return "伙伴" }
+func (CardDef1421115) Element() string { return "地" }
+
+func (CardDef1421115) Card() model.Card {
+	return model.Card{
+		Number:          "1421115",
+		Type:            "伙伴",
+		Name:            "地卜行者",
+		Category:        "地",
+		Tag:             "巫师",
+		Description:     "入场:抽1张牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 4},
+		ElementsGain:    map[string]int{"地": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\地\\1421115.jpg",
+	}
+}
+
 type CardDef1501001 struct{}
 
 func (CardDef1501001) ID() string      { return "1501001" }
@@ -3100,6 +5890,96 @@ func (CardDef1511003) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\伙伴\\光\\1511003.jpg",
+	}
+}
+
+type CardDef1511101 struct{}
+
+func (CardDef1511101) ID() string      { return "1511101" }
+func (CardDef1511101) Name() string    { return "末路的王子 灰烬 凯尔特" }
+func (CardDef1511101) Kind() string    { return "伙伴" }
+func (CardDef1511101) Element() string { return "光" }
+
+func (CardDef1511101) Card() model.Card {
+	return model.Card{
+		Number:          "1511101",
+		Type:            "伙伴",
+		Name:            "末路的王子 灰烬 凯尔特",
+		Category:        "光",
+		Tag:             "传奇-人类",
+		Description:     "诱发:当你的护盾被对方打破时,抽2张牌并获得2\\光.入场:获得护盾2",
+		Quote:           "\"既然神无动于衷,那拯救只好由我代劳\"",
+		ElementsCost:    map[string]int{"光": 3},
+		ElementsGain:    map[string]int{"光": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1511101.jpg",
+	}
+}
+
+type CardDef1511102 struct{}
+
+func (CardDef1511102) ID() string      { return "1511102" }
+func (CardDef1511102) Name() string    { return "孤星之魂 凯拉莫将军" }
+func (CardDef1511102) Kind() string    { return "伙伴" }
+func (CardDef1511102) Element() string { return "光" }
+
+func (CardDef1511102) Card() model.Card {
+	return model.Card{
+		Number:          "1511102",
+		Type:            "伙伴",
+		Name:            "孤星之魂 凯拉莫将军",
+		Category:        "光",
+		Tag:             "传奇-人类",
+		Description:     "诱发:每当此卡受到1次敌方伤害,如果此卡没有任何相邻伙伴,获得护盾1和+1\\攻",
+		Quote:           "\"我从不介意与鼠辈为敌\"",
+		ElementsCost:    map[string]int{"光": 6, "无": 1},
+		ElementsGain:    map[string]int{"光": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            4,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1511102.jpg",
+	}
+}
+
+type CardDef1511103 struct{}
+
+func (CardDef1511103) ID() string      { return "1511103" }
+func (CardDef1511103) Name() string    { return "\"玫瑰先知\" 洛莉" }
+func (CardDef1511103) Kind() string    { return "伙伴" }
+func (CardDef1511103) Element() string { return "光" }
+
+func (CardDef1511103) Card() model.Card {
+	return model.Card{
+		Number:          "1511103",
+		Type:            "伙伴",
+		Name:            "\"玫瑰先知\" 洛莉",
+		Category:        "光",
+		Tag:             "传奇-巫师",
+		Description:     "诱发:每当对方洗切卡组,观看敌方卡组顶3张牌,将其以任意顺序放回卡组顶或卡组底",
+		Quote:           "我看到了玫瑰被鲜血侵染,却无法将这罪孽斩断",
+		ElementsCost:    map[string]int{"光": 2},
+		ElementsGain:    map[string]int{"光": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1511103.jpg",
 	}
 }
 
@@ -3583,6 +6463,486 @@ func (CardDef1521016) Card() model.Card {
 	}
 }
 
+type CardDef1521101 struct{}
+
+func (CardDef1521101) ID() string      { return "1521101" }
+func (CardDef1521101) Name() string    { return "月霞之灵" }
+func (CardDef1521101) Kind() string    { return "伙伴" }
+func (CardDef1521101) Element() string { return "光" }
+
+func (CardDef1521101) Card() model.Card {
+	return model.Card{
+		Number:          "1521101",
+		Type:            "伙伴",
+		Name:            "月霞之灵",
+		Category:        "光",
+		Tag:             "精灵",
+		Description:     "引魔.光环:你的法术+2\\威,在你使用法术攻击后失去此光环效果",
+		Quote:           "冷月孤光,夜灵幽守",
+		ElementsCost:    map[string]int{"光": 5},
+		ElementsGain:    map[string]int{"光": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1521101.jpg",
+	}
+}
+
+type CardDef1521102 struct{}
+
+func (CardDef1521102) ID() string      { return "1521102" }
+func (CardDef1521102) Name() string    { return "神圣之子" }
+func (CardDef1521102) Kind() string    { return "伙伴" }
+func (CardDef1521102) Element() string { return "光" }
+
+func (CardDef1521102) Card() model.Card {
+	return model.Card{
+		Number:          "1521102",
+		Type:            "伙伴",
+		Name:            "神圣之子",
+		Category:        "光",
+		Tag:             "造物",
+		Description:     "诱发绝技:此卡获得生命或负载时,额外获得负载+1\\光或+1\\血",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 2},
+		ElementsGain:    map[string]int{"光": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1521102.jpg",
+	}
+}
+
+type CardDef1521103 struct{}
+
+func (CardDef1521103) ID() string      { return "1521103" }
+func (CardDef1521103) Name() string    { return "孤星城的守护灵" }
+func (CardDef1521103) Kind() string    { return "伙伴" }
+func (CardDef1521103) Element() string { return "光" }
+
+func (CardDef1521103) Card() model.Card {
+	return model.Card{
+		Number:          "1521103",
+		Type:            "伙伴",
+		Name:            "孤星城的守护灵",
+		Category:        "光",
+		Tag:             "造物",
+		Description:     "入场:使1个友方伙伴+1\\血.遗言:使1个友方伙伴负载+1\\光",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 2},
+		ElementsGain:    map[string]int{"光": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1521103.jpg",
+	}
+}
+
+type CardDef1521104 struct{}
+
+func (CardDef1521104) ID() string      { return "1521104" }
+func (CardDef1521104) Name() string    { return "旭日之龙" }
+func (CardDef1521104) Kind() string    { return "伙伴" }
+func (CardDef1521104) Element() string { return "光" }
+
+func (CardDef1521104) Card() model.Card {
+	return model.Card{
+		Number:          "1521104",
+		Type:            "伙伴",
+		Name:            "旭日之龙",
+		Category:        "光",
+		Tag:             "龙",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 5},
+		ElementsGain:    map[string]int{"光": 3},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1521104.jpg",
+	}
+}
+
+type CardDef1521105 struct{}
+
+func (CardDef1521105) ID() string      { return "1521105" }
+func (CardDef1521105) Name() string    { return "辉之都祭司" }
+func (CardDef1521105) Kind() string    { return "伙伴" }
+func (CardDef1521105) Element() string { return "光" }
+
+func (CardDef1521105) Card() model.Card {
+	return model.Card{
+		Number:          "1521105",
+		Type:            "伙伴",
+		Name:            "辉之都祭司",
+		Category:        "光",
+		Tag:             "巫师",
+		Description:     "诱发绝技:敌方法术命中时可以发动,将该法术即将造成的伤害变为目标获得等量的点燃",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 3, "火": 1},
+		ElementsGain:    map[string]int{"光": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1521105.jpg",
+	}
+}
+
+type CardDef1521106 struct{}
+
+func (CardDef1521106) ID() string      { return "1521106" }
+func (CardDef1521106) Name() string    { return "教廷驱魔师" }
+func (CardDef1521106) Kind() string    { return "伙伴" }
+func (CardDef1521106) Element() string { return "光" }
+
+func (CardDef1521106) Card() model.Card {
+	return model.Card{
+		Number:          "1521106",
+		Type:            "伙伴",
+		Name:            "教廷驱魔师",
+		Category:        "光",
+		Tag:             "巫师",
+		Description:     "入场:移除1张友方卡牌上的所有负面状态,每移除1层获得1\\光",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 3},
+		ElementsGain:    map[string]int{"光": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1521106.jpg",
+	}
+}
+
+type CardDef1521107 struct{}
+
+func (CardDef1521107) ID() string      { return "1521107" }
+func (CardDef1521107) Name() string    { return "辉之圣防军" }
+func (CardDef1521107) Kind() string    { return "伙伴" }
+func (CardDef1521107) Element() string { return "光" }
+
+func (CardDef1521107) Card() model.Card {
+	return model.Card{
+		Number:          "1521107",
+		Type:            "伙伴",
+		Name:            "辉之圣防军",
+		Category:        "光",
+		Tag:             "人类",
+		Description:     "如果上个回合友方单位受到过伤害,此卡无需入场花费",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 2},
+		ElementsGain:    map[string]int{"光": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1521107.jpg",
+	}
+}
+
+type CardDef1521108 struct{}
+
+func (CardDef1521108) ID() string      { return "1521108" }
+func (CardDef1521108) Name() string    { return "矛盾的骑士" }
+func (CardDef1521108) Kind() string    { return "伙伴" }
+func (CardDef1521108) Element() string { return "光" }
+
+func (CardDef1521108) Card() model.Card {
+	return model.Card{
+		Number:          "1521108",
+		Type:            "伙伴",
+		Name:            "矛盾的骑士",
+		Category:        "光",
+		Tag:             "人类",
+		Description:     "遗言:为对手召唤本卡,本卡生命上限永久-1(由对手决定位置)",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 1, "无": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            4,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1521108.jpg",
+	}
+}
+
+type CardDef1521109 struct{}
+
+func (CardDef1521109) ID() string      { return "1521109" }
+func (CardDef1521109) Name() string    { return "辉之天使" }
+func (CardDef1521109) Kind() string    { return "伙伴" }
+func (CardDef1521109) Element() string { return "光" }
+
+func (CardDef1521109) Card() model.Card {
+	return model.Card{
+		Number:          "1521109",
+		Type:            "伙伴",
+		Name:            "辉之天使",
+		Category:        "光",
+		Tag:             "精灵",
+		Description:     "你可以把其他任意元素当做光辉元素使用",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 2},
+		ElementsGain:    map[string]int{"光": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1521109.jpg",
+	}
+}
+
+type CardDef1521110 struct{}
+
+func (CardDef1521110) ID() string      { return "1521110" }
+func (CardDef1521110) Name() string    { return "议庭言客" }
+func (CardDef1521110) Kind() string    { return "伙伴" }
+func (CardDef1521110) Element() string { return "光" }
+
+func (CardDef1521110) Card() model.Card {
+	return model.Card{
+		Number:          "1521110",
+		Type:            "伙伴",
+		Name:            "议庭言客",
+		Category:        "光",
+		Tag:             "人类",
+		Description:     "入场:将4张九霄印记洗入对手的卡组.遗言:对方将卡组里1张九霄印记洗放在卡组顶端",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 2},
+		ElementsGain:    map[string]int{"光": 1, "气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{"2001102"},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1521110.jpg",
+	}
+}
+
+type CardDef1521111 struct{}
+
+func (CardDef1521111) ID() string      { return "1521111" }
+func (CardDef1521111) Name() string    { return "议庭执政官" }
+func (CardDef1521111) Kind() string    { return "伙伴" }
+func (CardDef1521111) Element() string { return "光" }
+
+func (CardDef1521111) Card() model.Card {
+	return model.Card{
+		Number:          "1521111",
+		Type:            "伙伴",
+		Name:            "议庭执政官",
+		Category:        "光",
+		Tag:             "巫师",
+		Description:     "诱发:每当敌方召唤1个伙伴,将3张九霄印记洗入对手卡组",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 5},
+		ElementsGain:    map[string]int{"光": 2, "气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{"2001102"},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1521111.jpg",
+	}
+}
+
+type CardDef1521112 struct{}
+
+func (CardDef1521112) ID() string      { return "1521112" }
+func (CardDef1521112) Name() string    { return "议庭护法" }
+func (CardDef1521112) Kind() string    { return "伙伴" }
+func (CardDef1521112) Element() string { return "光" }
+
+func (CardDef1521112) Card() model.Card {
+	return model.Card{
+		Number:          "1521112",
+		Type:            "伙伴",
+		Name:            "议庭护法",
+		Category:        "光",
+		Tag:             "巫师",
+		Description:     "主动回合技:翻开对手卡组顶5张牌,如果其中有九霄印记则你可以调整这5张牌的顺序并放回卡组顶,否则对方洗混卡组",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 3, "气": 1},
+		ElementsGain:    map[string]int{"光": 1, "气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{"2001102"},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1521112.jpg",
+	}
+}
+
+type CardDef1521113 struct{}
+
+func (CardDef1521113) ID() string      { return "1521113" }
+func (CardDef1521113) Name() string    { return "辉之都戒卫犬" }
+func (CardDef1521113) Kind() string    { return "伙伴" }
+func (CardDef1521113) Element() string { return "光" }
+
+func (CardDef1521113) Card() model.Card {
+	return model.Card{
+		Number:          "1521113",
+		Type:            "伙伴",
+		Name:            "辉之都戒卫犬",
+		Category:        "光",
+		Tag:             "野兽",
+		Description:     "遗言:如果此卡是被敌方杀死,翻取1个伙伴牌并使其入场花费-1\\光",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 1},
+		ElementsGain:    map[string]int{"光": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1521113.jpg",
+	}
+}
+
+type CardDef1521114 struct{}
+
+func (CardDef1521114) ID() string      { return "1521114" }
+func (CardDef1521114) Name() string    { return "辉之都祈祷者" }
+func (CardDef1521114) Kind() string    { return "伙伴" }
+func (CardDef1521114) Element() string { return "光" }
+
+func (CardDef1521114) Card() model.Card {
+	return model.Card{
+		Number:          "1521114",
+		Type:            "伙伴",
+		Name:            "辉之都祈祷者",
+		Category:        "光",
+		Tag:             "人类",
+		Description:     "入场:每有1个受伤的友方单位,获得1\\光",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 2},
+		ElementsGain:    map[string]int{"光": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1521114.jpg",
+	}
+}
+
+type CardDef1521115 struct{}
+
+func (CardDef1521115) ID() string      { return "1521115" }
+func (CardDef1521115) Name() string    { return "孤星铁骑士" }
+func (CardDef1521115) Kind() string    { return "伙伴" }
+func (CardDef1521115) Element() string { return "光" }
+
+func (CardDef1521115) Card() model.Card {
+	return model.Card{
+		Number:          "1521115",
+		Type:            "伙伴",
+		Name:            "孤星铁骑士",
+		Category:        "光",
+		Tag:             "人类",
+		Description:     "入场:如果此卡处于前排且没有任何相邻伙伴,此卡获得负载+1\\光+1\\血",
+		Quote:           "\"铁骑士誓为孤星战至生命的最后一刻!\"",
+		ElementsCost:    map[string]int{"光": 5},
+		ElementsGain:    map[string]int{"光": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\光\\1521115.jpg",
+	}
+}
+
+type CardDef1601101 struct{}
+
+func (CardDef1601101) ID() string      { return "1601101" }
+func (CardDef1601101) Name() string    { return "血影之躯" }
+func (CardDef1601101) Kind() string    { return "伙伴" }
+func (CardDef1601101) Element() string { return "暗" }
+
+func (CardDef1601101) Card() model.Card {
+	return model.Card{
+		Number:          "1601101",
+		Type:            "伙伴",
+		Name:            "血影之躯",
+		Category:        "暗",
+		Tag:             "衍生-恶魔",
+		Description:     "主动:取除1个红月标记物才能发动,使你的下一次法术可以额外选择1个无视范围的目标.红月结束后将此卡替换回红月魔巫 瑟薇安娜并将其重置",
+		Quote:           "\"终于...开始吧,埋葬这孱弱的世界\"",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1601101.jpg",
+	}
+}
+
 type CardDef1611001 struct{}
 
 func (CardDef1611001) ID() string      { return "1611001" }
@@ -3670,6 +7030,96 @@ func (CardDef1611003) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{"2601001"},
 		OutputPath:      "output\\基础包\\伙伴\\暗\\1611003.jpg",
+	}
+}
+
+type CardDef1611101 struct{}
+
+func (CardDef1611101) ID() string      { return "1611101" }
+func (CardDef1611101) Name() string    { return "红月魔巫 瑟薇安娜" }
+func (CardDef1611101) Kind() string    { return "伙伴" }
+func (CardDef1611101) Element() string { return "暗" }
+
+func (CardDef1611101) Card() model.Card {
+	return model.Card{
+		Number:          "1611101",
+		Type:            "伙伴",
+		Name:            "红月魔巫 瑟薇安娜",
+		Category:        "暗",
+		Tag:             "传奇-巫师",
+		Description:     "入场,祈咒:在你的红月上放置一个红月标记物,这些标记物使红月生效时额外给其他法术+1\\威.红月生效期间,将此卡替换为血影之躯",
+		Quote:           "\"如此执着,如此狡诈,如此野心...你让我回想起了,我选中你的时候\"——安迪斯",
+		ElementsCost:    map[string]int{"暗": 7},
+		ElementsGain:    map[string]int{"暗": 3},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{"1601101"},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1611101.jpg",
+	}
+}
+
+type CardDef1611102 struct{}
+
+func (CardDef1611102) ID() string      { return "1611102" }
+func (CardDef1611102) Name() string    { return "蔷薇花园的血荆棘" }
+func (CardDef1611102) Kind() string    { return "伙伴" }
+func (CardDef1611102) Element() string { return "暗" }
+
+func (CardDef1611102) Card() model.Card {
+	return model.Card{
+		Number:          "1611102",
+		Type:            "伙伴",
+		Name:            "蔷薇花园的血荆棘",
+		Category:        "暗",
+		Tag:             "传奇-植物",
+		Description:     "遗言:因友方卡牌攻击或效果而死亡的场合,可以花费1\\暗重新召唤",
+		Quote:           "\"伯爵,如果我没记错的话,好像它比昨天繁茂了不少\"",
+		ElementsCost:    map[string]int{"暗": 2},
+		ElementsGain:    map[string]int{"暗": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1611102.jpg",
+	}
+}
+
+type CardDef1611103 struct{}
+
+func (CardDef1611103) ID() string      { return "1611103" }
+func (CardDef1611103) Name() string    { return "鲜血贵公子 罗伯特 黑松" }
+func (CardDef1611103) Kind() string    { return "伙伴" }
+func (CardDef1611103) Element() string { return "暗" }
+
+func (CardDef1611103) Card() model.Card {
+	return model.Card{
+		Number:          "1611103",
+		Type:            "伙伴",
+		Name:            "鲜血贵公子 罗伯特 黑松",
+		Category:        "暗",
+		Tag:             "传奇-巫师",
+		Description:     "诱发:每当1个友方单位受到友方伤害,放置1个标记物,每当友方单位因友方伤害或效果死亡,放置2个标记物.主动回合技:移除3个标记物,此卡获得+1\\血或负载+1\\暗或+1\\攻",
+		Quote:           "\"这并不是我的爱好,这是我的生活\"",
+		ElementsCost:    map[string]int{"暗": 3},
+		ElementsGain:    map[string]int{"暗": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1611103.jpg",
 	}
 }
 
@@ -4153,6 +7603,516 @@ func (CardDef1621016) Card() model.Card {
 	}
 }
 
+type CardDef1621101 struct{}
+
+func (CardDef1621101) ID() string      { return "1621101" }
+func (CardDef1621101) Name() string    { return "苦痛之魂" }
+func (CardDef1621101) Kind() string    { return "伙伴" }
+func (CardDef1621101) Element() string { return "暗" }
+
+func (CardDef1621101) Card() model.Card {
+	return model.Card{
+		Number:          "1621101",
+		Type:            "伙伴",
+		Name:            "苦痛之魂",
+		Category:        "暗",
+		Tag:             "造物",
+		Description:     "诱发回合技:在此卡受到伤害后,获得负载+1\\暗",
+		Quote:           "天知道这些贵族在城堡里饲养了些什么",
+		ElementsCost:    map[string]int{"暗": 2},
+		ElementsGain:    map[string]int{"暗": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1621101.jpg",
+	}
+}
+
+type CardDef1621102 struct{}
+
+func (CardDef1621102) ID() string      { return "1621102" }
+func (CardDef1621102) Name() string    { return "苦痛复仇者" }
+func (CardDef1621102) Kind() string    { return "伙伴" }
+func (CardDef1621102) Element() string { return "暗" }
+
+func (CardDef1621102) Card() model.Card {
+	return model.Card{
+		Number:          "1621102",
+		Type:            "伙伴",
+		Name:            "苦痛复仇者",
+		Category:        "暗",
+		Tag:             "造物",
+		Description:     "诱发回合技:在此卡受到伤害后,获得+1\\攻",
+		Quote:           "等你知道了,你就没命了",
+		ElementsCost:    map[string]int{"暗": 6},
+		ElementsGain:    map[string]int{"暗": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            4,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1621102.jpg",
+	}
+}
+
+type CardDef1621103 struct{}
+
+func (CardDef1621103) ID() string      { return "1621103" }
+func (CardDef1621103) Name() string    { return "鲜血傀儡" }
+func (CardDef1621103) Kind() string    { return "伙伴" }
+func (CardDef1621103) Element() string { return "暗" }
+
+func (CardDef1621103) Card() model.Card {
+	return model.Card{
+		Number:          "1621103",
+		Type:            "伙伴",
+		Name:            "鲜血傀儡",
+		Category:        "暗",
+		Tag:             "造物",
+		Description:     "入场:对你的人物造成2点伤害",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 2},
+		ElementsGain:    map[string]int{"暗": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1621103.jpg",
+	}
+}
+
+type CardDef1621104 struct{}
+
+func (CardDef1621104) ID() string      { return "1621104" }
+func (CardDef1621104) Name() string    { return "蔷薇花园园丁" }
+func (CardDef1621104) Kind() string    { return "伙伴" }
+func (CardDef1621104) Element() string { return "暗" }
+
+func (CardDef1621104) Card() model.Card {
+	return model.Card{
+		Number:          "1621104",
+		Type:            "伙伴",
+		Name:            "蔷薇花园园丁",
+		Category:        "暗",
+		Tag:             "人类",
+		Description:     "诱发回合技:当1个单位死亡,使1个友方单位回复2\\血",
+		Quote:           "黑魔法不仅能杀人,也能滋养人",
+		ElementsCost:    map[string]int{"光": 1, "暗": 4},
+		ElementsGain:    map[string]int{"光": 1, "暗": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1621104.jpg",
+	}
+}
+
+type CardDef1621105 struct{}
+
+func (CardDef1621105) ID() string      { return "1621105" }
+func (CardDef1621105) Name() string    { return "混沌胚胎" }
+func (CardDef1621105) Kind() string    { return "伙伴" }
+func (CardDef1621105) Element() string { return "暗" }
+
+func (CardDef1621105) Card() model.Card {
+	return model.Card{
+		Number:          "1621105",
+		Type:            "伙伴",
+		Name:            "混沌胚胎",
+		Category:        "暗",
+		Tag:             "造物",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 2, "暗": 2},
+		ElementsGain:    map[string]int{"光": 1, "暗": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1621105.jpg",
+	}
+}
+
+type CardDef1621106 struct{}
+
+func (CardDef1621106) ID() string      { return "1621106" }
+func (CardDef1621106) Name() string    { return "猎魂者" }
+func (CardDef1621106) Kind() string    { return "伙伴" }
+func (CardDef1621106) Element() string { return "暗" }
+
+func (CardDef1621106) Card() model.Card {
+	return model.Card{
+		Number:          "1621106",
+		Type:            "伙伴",
+		Name:            "猎魂者",
+		Category:        "暗",
+		Tag:             "恶魔",
+		Description:     "诱发回合技:当你的法术命中后,在其上放置1个灵魂标记物,每个灵魂标记物使其永久+2\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 6},
+		ElementsGain:    map[string]int{"暗": 3},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1621106.jpg",
+	}
+}
+
+type CardDef1621107 struct{}
+
+func (CardDef1621107) ID() string      { return "1621107" }
+func (CardDef1621107) Name() string    { return "蔷薇死神" }
+func (CardDef1621107) Kind() string    { return "伙伴" }
+func (CardDef1621107) Element() string { return "暗" }
+
+func (CardDef1621107) Card() model.Card {
+	return model.Card{
+		Number:          "1621107",
+		Type:            "伙伴",
+		Name:            "蔷薇死神",
+		Category:        "暗",
+		Tag:             "恶魔",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 6},
+		ElementsGain:    map[string]int{"暗": 3},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1621107.jpg",
+	}
+}
+
+type CardDef1621108 struct{}
+
+func (CardDef1621108) ID() string      { return "1621108" }
+func (CardDef1621108) Name() string    { return "恶魔之子" }
+func (CardDef1621108) Kind() string    { return "伙伴" }
+func (CardDef1621108) Element() string { return "暗" }
+
+func (CardDef1621108) Card() model.Card {
+	return model.Card{
+		Number:          "1621108",
+		Type:            "伙伴",
+		Name:            "恶魔之子",
+		Category:        "暗",
+		Tag:             "人类",
+		Description:     "吞噬:1个暗影伙伴",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 1},
+		ElementsGain:    map[string]int{"暗": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1621108.jpg",
+	}
+}
+
+type CardDef1621109 struct{}
+
+func (CardDef1621109) ID() string      { return "1621109" }
+func (CardDef1621109) Name() string    { return "猩红之翼" }
+func (CardDef1621109) Kind() string    { return "伙伴" }
+func (CardDef1621109) Element() string { return "暗" }
+
+func (CardDef1621109) Card() model.Card {
+	return model.Card{
+		Number:          "1621109",
+		Type:            "伙伴",
+		Name:            "猩红之翼",
+		Category:        "暗",
+		Tag:             "恶魔",
+		Description:     "诱发:每次红月生效后,对法力范围内1个单位造成1点伤害并使此卡+1\\血",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 3},
+		ElementsGain:    map[string]int{"暗": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1621109.jpg",
+	}
+}
+
+type CardDef1621110 struct{}
+
+func (CardDef1621110) ID() string      { return "1621110" }
+func (CardDef1621110) Name() string    { return "猩红魔兽" }
+func (CardDef1621110) Kind() string    { return "伙伴" }
+func (CardDef1621110) Element() string { return "暗" }
+
+func (CardDef1621110) Card() model.Card {
+	return model.Card{
+		Number:          "1621110",
+		Type:            "伙伴",
+		Name:            "猩红魔兽",
+		Category:        "暗",
+		Tag:             "野兽",
+		Description:     "引魔.光环:红月生效期间,你的暗影法术+2\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 4},
+		ElementsGain:    map[string]int{"暗": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1621110.jpg",
+	}
+}
+
+type CardDef1621111 struct{}
+
+func (CardDef1621111) ID() string      { return "1621111" }
+func (CardDef1621111) Name() string    { return "红月先知" }
+func (CardDef1621111) Kind() string    { return "伙伴" }
+func (CardDef1621111) Element() string { return "暗" }
+
+func (CardDef1621111) Card() model.Card {
+	return model.Card{
+		Number:          "1621111",
+		Type:            "伙伴",
+		Name:            "红月先知",
+		Category:        "暗",
+		Tag:             "巫师",
+		Description:     "入场,遗言:使你当前(如果红月已生效)或下一次红月的冷却层数-1",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 2},
+		ElementsGain:    map[string]int{"暗": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1621111.jpg",
+	}
+}
+
+type CardDef1621112 struct{}
+
+func (CardDef1621112) ID() string      { return "1621112" }
+func (CardDef1621112) Name() string    { return "谧语精灵猎手" }
+func (CardDef1621112) Kind() string    { return "伙伴" }
+func (CardDef1621112) Element() string { return "暗" }
+
+func (CardDef1621112) Card() model.Card {
+	return model.Card{
+		Number:          "1621112",
+		Type:            "伙伴",
+		Name:            "谧语精灵猎手",
+		Category:        "暗",
+		Tag:             "精灵",
+		Description:     "遗言:对任意1个敌人造成1点伤害",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 2},
+		ElementsGain:    map[string]int{"暗": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1621112.jpg",
+	}
+}
+
+type CardDef1621113 struct{}
+
+func (CardDef1621113) ID() string      { return "1621113" }
+func (CardDef1621113) Name() string    { return "谧语精灵祭司" }
+func (CardDef1621113) Kind() string    { return "伙伴" }
+func (CardDef1621113) Element() string { return "暗" }
+
+func (CardDef1621113) Card() model.Card {
+	return model.Card{
+		Number:          "1621113",
+		Type:            "伙伴",
+		Name:            "谧语精灵祭司",
+		Category:        "暗",
+		Tag:             "精灵",
+		Description:     "遗言:使1个友方伙伴负载+1\\暗",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 1, "暗": 1},
+		ElementsGain:    map[string]int{"暗": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            2,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1621113.jpg",
+	}
+}
+
+type CardDef1621114 struct{}
+
+func (CardDef1621114) ID() string      { return "1621114" }
+func (CardDef1621114) Name() string    { return "灵魂共生体" }
+func (CardDef1621114) Kind() string    { return "伙伴" }
+func (CardDef1621114) Element() string { return "暗" }
+
+func (CardDef1621114) Card() model.Card {
+	return model.Card{
+		Number:          "1621114",
+		Type:            "伙伴",
+		Name:            "灵魂共生体",
+		Category:        "暗",
+		Tag:             "造物",
+		Description:     "遗言:给你的最多2个法术放置1个灵魂标记物,每个灵魂标记物使该法术+2\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 5},
+		ElementsGain:    map[string]int{"暗": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            3,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1621114.jpg",
+	}
+}
+
+type CardDef1621115 struct{}
+
+func (CardDef1621115) ID() string      { return "1621115" }
+func (CardDef1621115) Name() string    { return "灵魂吸食者" }
+func (CardDef1621115) Kind() string    { return "伙伴" }
+func (CardDef1621115) Element() string { return "暗" }
+
+func (CardDef1621115) Card() model.Card {
+	return model.Card{
+		Number:          "1621115",
+		Type:            "伙伴",
+		Name:            "灵魂吸食者",
+		Category:        "暗",
+		Tag:             "恶魔",
+		Description:     "引魔.主动回合技:移除你场上的1个灵魂标记物,抽2张牌并获得2\\暗",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 6},
+		ElementsGain:    map[string]int{"暗": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            4,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\伙伴\\暗\\1621115.jpg",
+	}
+}
+
+type CardDef2001101 struct{}
+
+func (CardDef2001101) ID() string      { return "2001101" }
+func (CardDef2001101) Name() string    { return "落幕提琴" }
+func (CardDef2001101) Kind() string    { return "道具" }
+func (CardDef2001101) Element() string { return "无" }
+
+func (CardDef2001101) Card() model.Card {
+	return model.Card{
+		Number:          "2001101",
+		Type:            "道具",
+		Name:            "落幕提琴",
+		Category:        "无",
+		Tag:             "衍生-装备",
+		Description:     "花费2\\无才能进行攻击",
+		Quote:           "\"乐曲终会完结,你总要走出这里\"",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2001101.jpg",
+	}
+}
+
+type CardDef2001102 struct{}
+
+func (CardDef2001102) ID() string      { return "2001102" }
+func (CardDef2001102) Name() string    { return "九霄印记" }
+func (CardDef2001102) Kind() string    { return "道具" }
+func (CardDef2001102) Element() string { return "无" }
+
+func (CardDef2001102) Card() model.Card {
+	return model.Card{
+		Number:          "2001102",
+		Type:            "道具",
+		Name:            "九霄印记",
+		Category:        "无",
+		Tag:             "衍生-消耗品",
+		Description:     "当你丢弃本卡时,对你的人物造成2点伤害",
+		Quote:           "\"是的,我们是自愿退出原则\"",
+		ElementsCost:    map[string]int{"无": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2001102.jpg",
+	}
+}
+
 type CardDef2011001 struct{}
 
 func (CardDef2011001) ID() string      { return "2011001" }
@@ -4240,6 +8200,66 @@ func (CardDef2011003) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\道具\\无\\2011003.jpg",
+	}
+}
+
+type CardDef2011101 struct{}
+
+func (CardDef2011101) ID() string      { return "2011101" }
+func (CardDef2011101) Name() string    { return "奥术铠甲 天穹" }
+func (CardDef2011101) Kind() string    { return "道具" }
+func (CardDef2011101) Element() string { return "无" }
+
+func (CardDef2011101) Card() model.Card {
+	return model.Card{
+		Number:          "2011101",
+		Type:            "道具",
+		Name:            "奥术铠甲 天穹",
+		Category:        "无",
+		Tag:             "传奇-装备-防具",
+		Description:     "光环:你的护盾在回合结束时不会减少.入场:获得护盾2,本局游戏中你不能再获得护盾",
+		Quote:           "它最大的弱点是需要他人帮忙穿上,至于为什么它的主人死后总是侍从接手,你就别问了",
+		ElementsCost:    map[string]int{"无": 6},
+		ElementsGain:    map[string]int{"无": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2011101.jpg",
+	}
+}
+
+type CardDef2011102 struct{}
+
+func (CardDef2011102) ID() string      { return "2011102" }
+func (CardDef2011102) Name() string    { return "预知宝珠" }
+func (CardDef2011102) Kind() string    { return "道具" }
+func (CardDef2011102) Element() string { return "无" }
+
+func (CardDef2011102) Card() model.Card {
+	return model.Card{
+		Number:          "2011102",
+		Type:            "道具",
+		Name:            "预知宝珠",
+		Category:        "无",
+		Tag:             "传奇-装备-神器",
+		Description:     "光环:你可以随时查看你的卡组顶3张牌.主动:消耗此卡才能发动,将你的卡组顶3张牌以任意顺序放回卡组顶或卡组底",
+		Quote:           "预知不远处的未来,或者尝试改变它",
+		ElementsCost:    map[string]int{"无": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2011102.jpg",
 	}
 }
 
@@ -4933,6 +8953,486 @@ func (CardDef2021023) Card() model.Card {
 	}
 }
 
+type CardDef2021101 struct{}
+
+func (CardDef2021101) ID() string      { return "2021101" }
+func (CardDef2021101) Name() string    { return "失落的银叶花" }
+func (CardDef2021101) Kind() string    { return "道具" }
+func (CardDef2021101) Element() string { return "无" }
+
+func (CardDef2021101) Card() model.Card {
+	return model.Card{
+		Number:          "2021101",
+		Type:            "道具",
+		Name:            "失落的银叶花",
+		Category:        "无",
+		Tag:             "消耗品",
+		Description:     "抽2张牌,弃1张牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2021101.jpg",
+	}
+}
+
+type CardDef2021102 struct{}
+
+func (CardDef2021102) ID() string      { return "2021102" }
+func (CardDef2021102) Name() string    { return "破魔之刃" }
+func (CardDef2021102) Kind() string    { return "道具" }
+func (CardDef2021102) Element() string { return "无" }
+
+func (CardDef2021102) Card() model.Card {
+	return model.Card{
+		Number:          "2021102",
+		Type:            "道具",
+		Name:            "破魔之刃",
+		Category:        "无",
+		Tag:             "装备-武器",
+		Description:     "入场:使对方失去护盾3",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 2},
+		ElementsGain:    map[string]int{"无": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2021102.jpg",
+	}
+}
+
+type CardDef2021103 struct{}
+
+func (CardDef2021103) ID() string      { return "2021103" }
+func (CardDef2021103) Name() string    { return "幻雾药剂" }
+func (CardDef2021103) Kind() string    { return "道具" }
+func (CardDef2021103) Element() string { return "无" }
+
+func (CardDef2021103) Card() model.Card {
+	return model.Card{
+		Number:          "2021103",
+		Type:            "道具",
+		Name:            "幻雾药剂",
+		Category:        "无",
+		Tag:             "消耗品-药剂",
+		Description:     "使法力范围内的1个伙伴隐蔽2",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2021103.jpg",
+	}
+}
+
+type CardDef2021104 struct{}
+
+func (CardDef2021104) ID() string      { return "2021104" }
+func (CardDef2021104) Name() string    { return "五色珊瑚" }
+func (CardDef2021104) Kind() string    { return "道具" }
+func (CardDef2021104) Element() string { return "无" }
+
+func (CardDef2021104) Card() model.Card {
+	return model.Card{
+		Number:          "2021104",
+		Type:            "道具",
+		Name:            "五色珊瑚",
+		Category:        "无",
+		Tag:             "装备",
+		Description:     "入场:此卡获得2点不同的奥术元素以外的负载",
+		Quote:           "之所以人们称之为五色珊瑚,是因为人们从来没有发现过黑色的品种",
+		ElementsCost:    map[string]int{"无": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2021104.jpg",
+	}
+}
+
+type CardDef2021105 struct{}
+
+func (CardDef2021105) ID() string      { return "2021105" }
+func (CardDef2021105) Name() string    { return "珍宝柜" }
+func (CardDef2021105) Kind() string    { return "道具" }
+func (CardDef2021105) Element() string { return "无" }
+
+func (CardDef2021105) Card() model.Card {
+	return model.Card{
+		Number:          "2021105",
+		Type:            "道具",
+		Name:            "珍宝柜",
+		Category:        "无",
+		Tag:             "装备",
+		Description:     "光环:你的道具槽位+1,且可以同时装备任意数量的同种装备",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2021105.jpg",
+	}
+}
+
+type CardDef2021106 struct{}
+
+func (CardDef2021106) ID() string      { return "2021106" }
+func (CardDef2021106) Name() string    { return "奥术容器" }
+func (CardDef2021106) Kind() string    { return "道具" }
+func (CardDef2021106) Element() string { return "无" }
+
+func (CardDef2021106) Card() model.Card {
+	return model.Card{
+		Number:          "2021106",
+		Type:            "道具",
+		Name:            "奥术容器",
+		Category:        "无",
+		Tag:             "装备",
+		Description:     "此卡提供的奥术元素不能当作其他元素使用",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 2},
+		ElementsGain:    map[string]int{"无": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2021106.jpg",
+	}
+}
+
+type CardDef2021107 struct{}
+
+func (CardDef2021107) ID() string      { return "2021107" }
+func (CardDef2021107) Name() string    { return "重塑" }
+func (CardDef2021107) Kind() string    { return "道具" }
+func (CardDef2021107) Element() string { return "无" }
+
+func (CardDef2021107) Card() model.Card {
+	return model.Card{
+		Number:          "2021107",
+		Type:            "道具",
+		Name:            "重塑",
+		Category:        "无",
+		Tag:             "消耗品-卷轴",
+		Description:     "弃掉你所有手牌,抽2张牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2021107.jpg",
+	}
+}
+
+type CardDef2021108 struct{}
+
+func (CardDef2021108) ID() string      { return "2021108" }
+func (CardDef2021108) Name() string    { return "通灵盘" }
+func (CardDef2021108) Kind() string    { return "道具" }
+func (CardDef2021108) Element() string { return "无" }
+
+func (CardDef2021108) Card() model.Card {
+	return model.Card{
+		Number:          "2021108",
+		Type:            "道具",
+		Name:            "通灵盘",
+		Category:        "无",
+		Tag:             "装备",
+		Description:     "光环:你的灵媒技能使用花费-1",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2021108.jpg",
+	}
+}
+
+type CardDef2021109 struct{}
+
+func (CardDef2021109) ID() string      { return "2021109" }
+func (CardDef2021109) Name() string    { return "氏族战锤" }
+func (CardDef2021109) Kind() string    { return "道具" }
+func (CardDef2021109) Element() string { return "无" }
+
+func (CardDef2021109) Card() model.Card {
+	return model.Card{
+		Number:          "2021109",
+		Type:            "道具",
+		Name:            "氏族战锤",
+		Category:        "无",
+		Tag:             "装备-武器",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 6},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2021109.jpg",
+	}
+}
+
+type CardDef2021110 struct{}
+
+func (CardDef2021110) ID() string      { return "2021110" }
+func (CardDef2021110) Name() string    { return "灵守护符" }
+func (CardDef2021110) Kind() string    { return "道具" }
+func (CardDef2021110) Element() string { return "无" }
+
+func (CardDef2021110) Card() model.Card {
+	return model.Card{
+		Number:          "2021110",
+		Type:            "道具",
+		Name:            "灵守护符",
+		Category:        "无",
+		Tag:             "装备",
+		Description:     "光环:如果这是你唯一的装备,此卡负载+1\\无",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 3},
+		ElementsGain:    map[string]int{"无": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2021110.jpg",
+	}
+}
+
+type CardDef2021111 struct{}
+
+func (CardDef2021111) ID() string      { return "2021111" }
+func (CardDef2021111) Name() string    { return "注能符文A型" }
+func (CardDef2021111) Kind() string    { return "道具" }
+func (CardDef2021111) Element() string { return "无" }
+
+func (CardDef2021111) Card() model.Card {
+	return model.Card{
+		Number:          "2021111",
+		Type:            "道具",
+		Name:            "注能符文A型",
+		Category:        "无",
+		Tag:             "消耗品-符文",
+		Description:     "使你的1个法术永久+2\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2021111.jpg",
+	}
+}
+
+type CardDef2021112 struct{}
+
+func (CardDef2021112) ID() string      { return "2021112" }
+func (CardDef2021112) Name() string    { return "注能符文B型" }
+func (CardDef2021112) Kind() string    { return "道具" }
+func (CardDef2021112) Element() string { return "无" }
+
+func (CardDef2021112) Card() model.Card {
+	return model.Card{
+		Number:          "2021112",
+		Type:            "道具",
+		Name:            "注能符文B型",
+		Category:        "无",
+		Tag:             "消耗品-符文",
+		Description:     "使你的1个法术永久+1\\攻",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2021112.jpg",
+	}
+}
+
+type CardDef2021113 struct{}
+
+func (CardDef2021113) ID() string      { return "2021113" }
+func (CardDef2021113) Name() string    { return "奥术结界卷轴" }
+func (CardDef2021113) Kind() string    { return "道具" }
+func (CardDef2021113) Element() string { return "无" }
+
+func (CardDef2021113) Card() model.Card {
+	return model.Card{
+		Number:          "2021113",
+		Type:            "道具",
+		Name:            "奥术结界卷轴",
+		Category:        "无",
+		Tag:             "消耗品-卷轴",
+		Description:     "反制:当敌方法术命中时,获得护盾2",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2021113.jpg",
+	}
+}
+
+type CardDef2021114 struct{}
+
+func (CardDef2021114) ID() string      { return "2021114" }
+func (CardDef2021114) Name() string    { return "神护符文" }
+func (CardDef2021114) Kind() string    { return "道具" }
+func (CardDef2021114) Element() string { return "无" }
+
+func (CardDef2021114) Card() model.Card {
+	return model.Card{
+		Number:          "2021114",
+		Type:            "道具",
+		Name:            "神护符文",
+		Category:        "无",
+		Tag:             "消耗品-符文",
+		Description:     "反制:当1个友方单位受到致命伤害时,防止该伤害",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2021114.jpg",
+	}
+}
+
+type CardDef2021115 struct{}
+
+func (CardDef2021115) ID() string      { return "2021115" }
+func (CardDef2021115) Name() string    { return "注能符文E型" }
+func (CardDef2021115) Kind() string    { return "道具" }
+func (CardDef2021115) Element() string { return "无" }
+
+func (CardDef2021115) Card() model.Card {
+	return model.Card{
+		Number:          "2021115",
+		Type:            "道具",
+		Name:            "注能符文E型",
+		Category:        "无",
+		Tag:             "消耗品-符文",
+		Description:     "反制:在你使用法术进行防御或强化防御后,将那些法术重置",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2021115.jpg",
+	}
+}
+
+type CardDef2021116 struct{}
+
+func (CardDef2021116) ID() string      { return "2021116" }
+func (CardDef2021116) Name() string    { return "奥能炸弹" }
+func (CardDef2021116) Kind() string    { return "道具" }
+func (CardDef2021116) Element() string { return "无" }
+
+func (CardDef2021116) Card() model.Card {
+	return model.Card{
+		Number:          "2021116",
+		Type:            "道具",
+		Name:            "奥能炸弹",
+		Category:        "无",
+		Tag:             "消耗品",
+		Description:     "对法力范围内的1个伙伴造成2点伤害",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\无\\2021116.jpg",
+	}
+}
+
 type CardDef2111001 struct{}
 
 func (CardDef2111001) ID() string      { return "2111001" }
@@ -4990,6 +9490,66 @@ func (CardDef2111002) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\道具\\火\\2111002.jpg",
+	}
+}
+
+type CardDef2111101 struct{}
+
+func (CardDef2111101) ID() string      { return "2111101" }
+func (CardDef2111101) Name() string    { return "神火杖 赤空" }
+func (CardDef2111101) Kind() string    { return "道具" }
+func (CardDef2111101) Element() string { return "火" }
+
+func (CardDef2111101) Card() model.Card {
+	return model.Card{
+		Number:          "2111101",
+		Type:            "道具",
+		Name:            "神火杖 赤空",
+		Category:        "火",
+		Tag:             "传奇-装备-武器",
+		Description:     "诱发:当你的火焰法术命中后可以消耗此卡来发动,使该技能永久获得穿透和+1\\威",
+		Quote:           "刹那间赤焰划过长空,热浪奔涌",
+		ElementsCost:    map[string]int{"气": 1, "火": 3},
+		ElementsGain:    map[string]int{"火": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\火\\2111101.jpg",
+	}
+}
+
+type CardDef2111102 struct{}
+
+func (CardDef2111102) ID() string      { return "2111102" }
+func (CardDef2111102) Name() string    { return "熔岩魔甲 业炎" }
+func (CardDef2111102) Kind() string    { return "道具" }
+func (CardDef2111102) Element() string { return "火" }
+
+func (CardDef2111102) Card() model.Card {
+	return model.Card{
+		Number:          "2111102",
+		Type:            "道具",
+		Name:            "熔岩魔甲 业炎",
+		Category:        "火",
+		Tag:             "传奇-装备-防具",
+		Description:     "诱发:当敌方法术命中时,可以献祭此卡发动,获得护盾2.遗言:本回合如果你的护盾被打破,从手牌、卡组装备1个熔火战铠,无需花费",
+		Quote:           "注意别穿反了",
+		ElementsCost:    map[string]int{"火": 3},
+		ElementsGain:    map[string]int{"地": 1, "火": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\火\\2111102.jpg",
 	}
 }
 
@@ -5413,6 +9973,456 @@ func (CardDef2121014) Card() model.Card {
 	}
 }
 
+type CardDef2121101 struct{}
+
+func (CardDef2121101) ID() string      { return "2121101" }
+func (CardDef2121101) Name() string    { return "熔岩堡的灰烬" }
+func (CardDef2121101) Kind() string    { return "道具" }
+func (CardDef2121101) Element() string { return "火" }
+
+func (CardDef2121101) Card() model.Card {
+	return model.Card{
+		Number:          "2121101",
+		Type:            "道具",
+		Name:            "熔岩堡的灰烬",
+		Category:        "火",
+		Tag:             "消耗品",
+		Description:     "将你场上或技能池1个火焰技能移出游戏,翻取1个入场花费数量更高的火焰卡牌并使其入场花费-1\\火",
+		Quote:           "一点点法力就能让它复燃",
+		ElementsCost:    map[string]int{"火": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\火\\2121101.jpg",
+	}
+}
+
+type CardDef2121102 struct{}
+
+func (CardDef2121102) ID() string      { return "2121102" }
+func (CardDef2121102) Name() string    { return "火云扇" }
+func (CardDef2121102) Kind() string    { return "道具" }
+func (CardDef2121102) Element() string { return "火" }
+
+func (CardDef2121102) Card() model.Card {
+	return model.Card{
+		Number:          "2121102",
+		Type:            "道具",
+		Name:            "火云扇",
+		Category:        "火",
+		Tag:             "装备-武器",
+		Description:     "光环:你的火焰和大气法术可以选择正前方没有单位的非前排敌人",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 1, "气": 1, "火": 2},
+		ElementsGain:    map[string]int{"气": 1, "火": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\火\\2121102.jpg",
+	}
+}
+
+type CardDef2121103 struct{}
+
+func (CardDef2121103) ID() string      { return "2121103" }
+func (CardDef2121103) Name() string    { return "浴火之翼" }
+func (CardDef2121103) Kind() string    { return "道具" }
+func (CardDef2121103) Element() string { return "火" }
+
+func (CardDef2121103) Card() model.Card {
+	return model.Card{
+		Number:          "2121103",
+		Type:            "道具",
+		Name:            "浴火之翼",
+		Category:        "火",
+		Tag:             "装备-神器",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 3},
+		ElementsGain:    map[string]int{"火": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\火\\2121103.jpg",
+	}
+}
+
+type CardDef2121104 struct{}
+
+func (CardDef2121104) ID() string      { return "2121104" }
+func (CardDef2121104) Name() string    { return "浴火重生卷轴" }
+func (CardDef2121104) Kind() string    { return "道具" }
+func (CardDef2121104) Element() string { return "火" }
+
+func (CardDef2121104) Card() model.Card {
+	return model.Card{
+		Number:          "2121104",
+		Type:            "道具",
+		Name:            "浴火重生卷轴",
+		Category:        "火",
+		Tag:             "消耗品-卷轴",
+		Description:     "反制:敌方回合结束时,从弃牌堆复活1个当回合死亡的友方火焰伙伴并将其重置,无需花费",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\火\\2121104.jpg",
+	}
+}
+
+type CardDef2121105 struct{}
+
+func (CardDef2121105) ID() string      { return "2121105" }
+func (CardDef2121105) Name() string    { return "魔焰阵卷轴" }
+func (CardDef2121105) Kind() string    { return "道具" }
+func (CardDef2121105) Element() string { return "火" }
+
+func (CardDef2121105) Card() model.Card {
+	return model.Card{
+		Number:          "2121105",
+		Type:            "道具",
+		Name:            "魔焰阵卷轴",
+		Category:        "火",
+		Tag:             "消耗品-法术卷轴-幻变",
+		Description:     "范围:溅射.使用时必须消耗1个入场花费大于4的火焰伙伴,并使此卡\\威上升其入场花费的数值",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           2,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\火\\2121105.jpg",
+	}
+}
+
+type CardDef2121106 struct{}
+
+func (CardDef2121106) ID() string      { return "2121106" }
+func (CardDef2121106) Name() string    { return "驯兽项圈" }
+func (CardDef2121106) Kind() string    { return "道具" }
+func (CardDef2121106) Element() string { return "火" }
+
+func (CardDef2121106) Card() model.Card {
+	return model.Card{
+		Number:          "2121106",
+		Type:            "道具",
+		Name:            "驯兽项圈",
+		Category:        "火",
+		Tag:             "装备",
+		Description:     "入场:选择你的1个巫师以外的火焰伙伴.主动回合技:消耗该火焰伙伴并获得其入场花费的元素",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\火\\2121106.jpg",
+	}
+}
+
+type CardDef2121107 struct{}
+
+func (CardDef2121107) ID() string      { return "2121107" }
+func (CardDef2121107) Name() string    { return "神火集结号" }
+func (CardDef2121107) Kind() string    { return "道具" }
+func (CardDef2121107) Element() string { return "火" }
+
+func (CardDef2121107) Card() model.Card {
+	return model.Card{
+		Number:          "2121107",
+		Type:            "道具",
+		Name:            "神火集结号",
+		Category:        "火",
+		Tag:             "装备",
+		Description:     "入场:翻取2张火焰伙伴牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 3},
+		ElementsGain:    map[string]int{"火": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\火\\2121107.jpg",
+	}
+}
+
+type CardDef2121108 struct{}
+
+func (CardDef2121108) ID() string      { return "2121108" }
+func (CardDef2121108) Name() string    { return "燃烬卷轴" }
+func (CardDef2121108) Kind() string    { return "道具" }
+func (CardDef2121108) Element() string { return "火" }
+
+func (CardDef2121108) Card() model.Card {
+	return model.Card{
+		Number:          "2121108",
+		Type:            "道具",
+		Name:            "燃烬卷轴",
+		Category:        "火",
+		Tag:             "消耗品-卷轴",
+		Description:     "消耗1个友方火焰伙伴,获得其入场花费的元素",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\火\\2121108.jpg",
+	}
+}
+
+type CardDef2121109 struct{}
+
+func (CardDef2121109) ID() string      { return "2121109" }
+func (CardDef2121109) Name() string    { return "唤灵术卷轴 烈焰犬" }
+func (CardDef2121109) Kind() string    { return "道具" }
+func (CardDef2121109) Element() string { return "火" }
+
+func (CardDef2121109) Card() model.Card {
+	return model.Card{
+		Number:          "2121109",
+		Type:            "道具",
+		Name:            "唤灵术卷轴 烈焰犬",
+		Category:        "火",
+		Tag:             "消耗品-法术卷轴-创造",
+		Description:     "若此卡防御成功,对法力范围内1个敌人造成2点伤害",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           6,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\火\\2121109.jpg",
+	}
+}
+
+type CardDef2121110 struct{}
+
+func (CardDef2121110) ID() string      { return "2121110" }
+func (CardDef2121110) Name() string    { return "供奉之炬" }
+func (CardDef2121110) Kind() string    { return "道具" }
+func (CardDef2121110) Element() string { return "火" }
+
+func (CardDef2121110) Card() model.Card {
+	return model.Card{
+		Number:          "2121110",
+		Type:            "道具",
+		Name:            "供奉之炬",
+		Category:        "火",
+		Tag:             "消耗品",
+		Description:     "将你场上的1个火焰法术移出游戏,使你的另一个火焰法术永久增加该法术的\\威和\\攻",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\火\\2121110.jpg",
+	}
+}
+
+type CardDef2121111 struct{}
+
+func (CardDef2121111) ID() string      { return "2121111" }
+func (CardDef2121111) Name() string    { return "洛普修斯之怒" }
+func (CardDef2121111) Kind() string    { return "道具" }
+func (CardDef2121111) Element() string { return "火" }
+
+func (CardDef2121111) Card() model.Card {
+	return model.Card{
+		Number:          "2121111",
+		Type:            "道具",
+		Name:            "洛普修斯之怒",
+		Category:        "火",
+		Tag:             "消耗品-法术卷轴-神秘",
+		Description:     "此卡攻击时,直到完全结算完毕对方不能使用反制或诱发效果",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 5},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          4,
+		Life:            -1,
+		Duration:        -1,
+		Power:           9,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\火\\2121111.jpg",
+	}
+}
+
+type CardDef2121112 struct{}
+
+func (CardDef2121112) ID() string      { return "2121112" }
+func (CardDef2121112) Name() string    { return "炎流卷轴" }
+func (CardDef2121112) Kind() string    { return "道具" }
+func (CardDef2121112) Element() string { return "火" }
+
+func (CardDef2121112) Card() model.Card {
+	return model.Card{
+		Number:          "2121112",
+		Type:            "道具",
+		Name:            "炎流卷轴",
+		Category:        "火",
+		Tag:             "消耗品-法术卷轴-驱动",
+		Description:     "范围:纵列.点燃1",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          0,
+		Life:            -1,
+		Duration:        -1,
+		Power:           3,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\火\\2121112.jpg",
+	}
+}
+
+type CardDef2201101 struct{}
+
+func (CardDef2201101) ID() string      { return "2201101" }
+func (CardDef2201101) Name() string    { return "幻创之梦-绽放" }
+func (CardDef2201101) Kind() string    { return "道具" }
+func (CardDef2201101) Element() string { return "水" }
+
+func (CardDef2201101) Card() model.Card {
+	return model.Card{
+		Number:          "2201101",
+		Type:            "道具",
+		Name:            "幻创之梦-绽放",
+		Category:        "水",
+		Tag:             "衍生-消耗品",
+		Description:     "抽3张牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2201101.jpg",
+	}
+}
+
+type CardDef2201102 struct{}
+
+func (CardDef2201102) ID() string      { return "2201102" }
+func (CardDef2201102) Name() string    { return "幻创之梦-幻能" }
+func (CardDef2201102) Kind() string    { return "道具" }
+func (CardDef2201102) Element() string { return "水" }
+
+func (CardDef2201102) Card() model.Card {
+	return model.Card{
+		Number:          "2201102",
+		Type:            "道具",
+		Name:            "幻创之梦-幻能",
+		Category:        "水",
+		Tag:             "衍生-消耗品",
+		Description:     "获得3\\无",
+		Quote:           "",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2201102.jpg",
+	}
+}
+
+type CardDef2201103 struct{}
+
+func (CardDef2201103) ID() string      { return "2201103" }
+func (CardDef2201103) Name() string    { return "幻创之梦-波纹" }
+func (CardDef2201103) Kind() string    { return "道具" }
+func (CardDef2201103) Element() string { return "水" }
+
+func (CardDef2201103) Card() model.Card {
+	return model.Card{
+		Number:          "2201103",
+		Type:            "道具",
+		Name:            "幻创之梦-波纹",
+		Category:        "水",
+		Tag:             "衍生-消耗品",
+		Description:     "对前排任意敌人造成共计3点伤害",
+		Quote:           "",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2201103.jpg",
+	}
+}
+
 type CardDef2211001 struct{}
 
 func (CardDef2211001) ID() string      { return "2211001" }
@@ -5470,6 +10480,66 @@ func (CardDef2211002) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{"3201002"},
 		OutputPath:      "output\\基础包\\道具\\水\\2211002.jpg",
+	}
+}
+
+type CardDef2211101 struct{}
+
+func (CardDef2211101) ID() string      { return "2211101" }
+func (CardDef2211101) Name() string    { return "珊瑚秘宝 深邃之剑" }
+func (CardDef2211101) Kind() string    { return "道具" }
+func (CardDef2211101) Element() string { return "水" }
+
+func (CardDef2211101) Card() model.Card {
+	return model.Card{
+		Number:          "2211101",
+		Type:            "道具",
+		Name:            "珊瑚秘宝 深邃之剑",
+		Category:        "水",
+		Tag:             "传奇-装备-武器",
+		Description:     "此卡无法被任何卡牌检索或翻取.诱发:当你从卡组抽到这张牌时,如果当前敌方法术总威力比友方高,可以展示此卡并对法力范围内所有敌人造成2点伤害",
+		Quote:           "\"我的孩子,我希望你永远都不会有使用它的一天,但假如那一天真的到来,它会给你足够的勇气去斩断一切\"",
+		ElementsCost:    map[string]int{"水": 6},
+		ElementsGain:    map[string]int{"水": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2211101.jpg",
+	}
+}
+
+type CardDef2211102 struct{}
+
+func (CardDef2211102) ID() string      { return "2211102" }
+func (CardDef2211102) Name() string    { return "玛涅斯之予夺" }
+func (CardDef2211102) Kind() string    { return "道具" }
+func (CardDef2211102) Element() string { return "水" }
+
+func (CardDef2211102) Card() model.Card {
+	return model.Card{
+		Number:          "2211102",
+		Type:            "道具",
+		Name:            "玛涅斯之予夺",
+		Category:        "水",
+		Tag:             "传奇-装备-武器",
+		Description:     "入场:从以下两张效果中选择1个直到本局游戏结束:此后你学习的所有水纹法术+2\\威;你的1个水纹法术+3\\威+1\\攻,你不能再学习任何水纹法术",
+		Quote:           "\"看来这次,我必须亲力亲为\"",
+		ElementsCost:    map[string]int{"水": 4},
+		ElementsGain:    map[string]int{"水": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2211102.jpg",
 	}
 }
 
@@ -5893,6 +10963,366 @@ func (CardDef2221014) Card() model.Card {
 	}
 }
 
+type CardDef2221101 struct{}
+
+func (CardDef2221101) ID() string      { return "2221101" }
+func (CardDef2221101) Name() string    { return "镜花海的天泉" }
+func (CardDef2221101) Kind() string    { return "道具" }
+func (CardDef2221101) Element() string { return "水" }
+
+func (CardDef2221101) Card() model.Card {
+	return model.Card{
+		Number:          "2221101",
+		Type:            "道具",
+		Name:            "镜花海的天泉",
+		Category:        "水",
+		Tag:             "消耗品-药剂",
+		Description:     "使你的1个法术使用花费永久减少1\\水",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2221101.jpg",
+	}
+}
+
+type CardDef2221102 struct{}
+
+func (CardDef2221102) ID() string      { return "2221102" }
+func (CardDef2221102) Name() string    { return "海洋之盾卷轴" }
+func (CardDef2221102) Kind() string    { return "道具" }
+func (CardDef2221102) Element() string { return "水" }
+
+func (CardDef2221102) Card() model.Card {
+	return model.Card{
+		Number:          "2221102",
+		Type:            "道具",
+		Name:            "海洋之盾卷轴",
+		Category:        "水",
+		Tag:             "消耗品-卷轴",
+		Description:     "获得护盾2",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2221102.jpg",
+	}
+}
+
+type CardDef2221103 struct{}
+
+func (CardDef2221103) ID() string      { return "2221103" }
+func (CardDef2221103) Name() string    { return "冰锁符文" }
+func (CardDef2221103) Kind() string    { return "道具" }
+func (CardDef2221103) Element() string { return "水" }
+
+func (CardDef2221103) Card() model.Card {
+	return model.Card{
+		Number:          "2221103",
+		Type:            "道具",
+		Name:            "冰锁符文",
+		Category:        "水",
+		Tag:             "消耗品-符文",
+		Description:     "反制:当对方学习1个技能时,使其直到下个回合结束不能使用",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2221103.jpg",
+	}
+}
+
+type CardDef2221104 struct{}
+
+func (CardDef2221104) ID() string      { return "2221104" }
+func (CardDef2221104) Name() string    { return "水镜卷轴" }
+func (CardDef2221104) Kind() string    { return "道具" }
+func (CardDef2221104) Element() string { return "水" }
+
+func (CardDef2221104) Card() model.Card {
+	return model.Card{
+		Number:          "2221104",
+		Type:            "道具",
+		Name:            "水镜卷轴",
+		Category:        "水",
+		Tag:             "消耗品-法术卷轴-幻变",
+		Description:     "复制你使用的上一个花费小于3的水纹法术(存在强化时,只复制主法术)",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 1, "水": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2221104.jpg",
+	}
+}
+
+type CardDef2221105 struct{}
+
+func (CardDef2221105) ID() string      { return "2221105" }
+func (CardDef2221105) Name() string    { return "掠夺者黑帆" }
+func (CardDef2221105) Kind() string    { return "道具" }
+func (CardDef2221105) Element() string { return "水" }
+
+func (CardDef2221105) Card() model.Card {
+	return model.Card{
+		Number:          "2221105",
+		Type:            "道具",
+		Name:            "掠夺者黑帆",
+		Category:        "水",
+		Tag:             "消耗品",
+		Description:     "检索1个掠夺者伙伴,如果你的场上已有掠夺者伙伴则使检索的卡牌入场花费减少1\\水或1\\暗",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2221105.jpg",
+	}
+}
+
+type CardDef2221106 struct{}
+
+func (CardDef2221106) ID() string      { return "2221106" }
+func (CardDef2221106) Name() string    { return "凛冰法袍" }
+func (CardDef2221106) Kind() string    { return "道具" }
+func (CardDef2221106) Element() string { return "水" }
+
+func (CardDef2221106) Card() model.Card {
+	return model.Card{
+		Number:          "2221106",
+		Type:            "道具",
+		Name:            "凛冰法袍",
+		Category:        "水",
+		Tag:             "装备-防具",
+		Description:     "诱发绝技:当友方水纹单位受到敌方法术伤害后,使法力范围内所有敌人冻结1",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 4},
+		ElementsGain:    map[string]int{"水": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2221106.jpg",
+	}
+}
+
+type CardDef2221107 struct{}
+
+func (CardDef2221107) ID() string      { return "2221107" }
+func (CardDef2221107) Name() string    { return "水纹之镜" }
+func (CardDef2221107) Kind() string    { return "道具" }
+func (CardDef2221107) Element() string { return "水" }
+
+func (CardDef2221107) Card() model.Card {
+	return model.Card{
+		Number:          "2221107",
+		Type:            "道具",
+		Name:            "水纹之镜",
+		Category:        "水",
+		Tag:             "装备-神器",
+		Description:     "入场:使你的1个水纹法术使用花费-1\\水",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 3},
+		ElementsGain:    map[string]int{"水": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2221107.jpg",
+	}
+}
+
+type CardDef2221108 struct{}
+
+func (CardDef2221108) ID() string      { return "2221108" }
+func (CardDef2221108) Name() string    { return "西境航海图" }
+func (CardDef2221108) Kind() string    { return "道具" }
+func (CardDef2221108) Element() string { return "水" }
+
+func (CardDef2221108) Card() model.Card {
+	return model.Card{
+		Number:          "2221108",
+		Type:            "道具",
+		Name:            "西境航海图",
+		Category:        "水",
+		Tag:             "装备",
+		Description:     "入场:选择你的1个水纹法术.光环:使该法术获得穿透",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 2},
+		ElementsGain:    map[string]int{"水": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2221108.jpg",
+	}
+}
+
+type CardDef2221109 struct{}
+
+func (CardDef2221109) ID() string      { return "2221109" }
+func (CardDef2221109) Name() string    { return "速射冰弹" }
+func (CardDef2221109) Kind() string    { return "道具" }
+func (CardDef2221109) Element() string { return "水" }
+
+func (CardDef2221109) Card() model.Card {
+	return model.Card{
+		Number:          "2221109",
+		Type:            "道具",
+		Name:            "速射冰弹",
+		Category:        "水",
+		Tag:             "消耗品",
+		Description:     "本回合你的下一张消耗品道具或法术的打出或使用花费-3\\水",
+		Quote:           "",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2221109.jpg",
+	}
+}
+
+type CardDef2221110 struct{}
+
+func (CardDef2221110) ID() string      { return "2221110" }
+func (CardDef2221110) Name() string    { return "残霜飞雪卷轴" }
+func (CardDef2221110) Kind() string    { return "道具" }
+func (CardDef2221110) Element() string { return "水" }
+
+func (CardDef2221110) Card() model.Card {
+	return model.Card{
+		Number:          "2221110",
+		Type:            "道具",
+		Name:            "残霜飞雪卷轴",
+		Category:        "水",
+		Tag:             "消耗品-法术卷轴-幻变",
+		Description:     "范围:全场.本回合你每使用过1个水纹法术,此卡获得+3\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 6},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           0,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2221110.jpg",
+	}
+}
+
+type CardDef2221111 struct{}
+
+func (CardDef2221111) ID() string      { return "2221111" }
+func (CardDef2221111) Name() string    { return "冰魄印 淬" }
+func (CardDef2221111) Kind() string    { return "道具" }
+func (CardDef2221111) Element() string { return "水" }
+
+func (CardDef2221111) Card() model.Card {
+	return model.Card{
+		Number:          "2221111",
+		Type:            "道具",
+		Name:            "冰魄印 淬",
+		Category:        "水",
+		Tag:             "消耗品-符文",
+		Description:     "反制:敌方使用的法术总威力大于10时才能发动,将其总威力减半(向上取整),敌方可以继续强化",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2221111.jpg",
+	}
+}
+
+type CardDef2221112 struct{}
+
+func (CardDef2221112) ID() string      { return "2221112" }
+func (CardDef2221112) Name() string    { return "冰魄印 消" }
+func (CardDef2221112) Kind() string    { return "道具" }
+func (CardDef2221112) Element() string { return "水" }
+
+func (CardDef2221112) Card() model.Card {
+	return model.Card{
+		Number:          "2221112",
+		Type:            "道具",
+		Name:            "冰魄印 消",
+		Category:        "水",
+		Tag:             "消耗品-符文",
+		Description:     "反制:敌方使用1个法术强化时,若威力小于5,将其无效,敌方可以继续强化",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\水\\2221112.jpg",
+	}
+}
+
 type CardDef2311001 struct{}
 
 func (CardDef2311001) ID() string      { return "2311001" }
@@ -5950,6 +11380,66 @@ func (CardDef2311002) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\道具\\气\\2311002.jpg",
+	}
+}
+
+type CardDef2311101 struct{}
+
+func (CardDef2311101) ID() string      { return "2311101" }
+func (CardDef2311101) Name() string    { return "云霄城的天顶石" }
+func (CardDef2311101) Kind() string    { return "道具" }
+func (CardDef2311101) Element() string { return "气" }
+
+func (CardDef2311101) Card() model.Card {
+	return model.Card{
+		Number:          "2311101",
+		Type:            "道具",
+		Name:            "云霄城的天顶石",
+		Category:        "气",
+		Tag:             "传奇-装备-神器",
+		Description:     "诱发:每当有玩家抽1张牌,在此卡上放置1个标记物.诱发:当此卡标记物达到5时必须移除所有标记物,此时抽卡的玩家前排单位受到1点伤害和晕眩1",
+		Quote:           "这份杰作从第一天开始就驱动着云霄城,唯一的制造者早已埋没于历史",
+		ElementsCost:    map[string]int{"光": 1, "气": 4},
+		ElementsGain:    map[string]int{"无": 1, "气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\气\\2311101.jpg",
+	}
+}
+
+type CardDef2311102 struct{}
+
+func (CardDef2311102) ID() string      { return "2311102" }
+func (CardDef2311102) Name() string    { return "兰普斯之剑" }
+func (CardDef2311102) Kind() string    { return "道具" }
+func (CardDef2311102) Element() string { return "气" }
+
+func (CardDef2311102) Card() model.Card {
+	return model.Card{
+		Number:          "2311102",
+		Type:            "道具",
+		Name:            "兰普斯之剑",
+		Category:        "气",
+		Tag:             "传奇-装备-武器",
+		Description:     "主动:献祭此卡才能发动,丢弃任意数量大气手牌,下次对方回合结束时将那个数值的伤害分配给法力范围内的敌方伙伴",
+		Quote:           "久远的记忆,浮现在被称作麻雀之人的眼前",
+		ElementsCost:    map[string]int{"气": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\气\\2311102.jpg",
 	}
 }
 
@@ -6373,6 +11863,366 @@ func (CardDef2321014) Card() model.Card {
 	}
 }
 
+type CardDef2321101 struct{}
+
+func (CardDef2321101) ID() string      { return "2321101" }
+func (CardDef2321101) Name() string    { return "雷之链" }
+func (CardDef2321101) Kind() string    { return "道具" }
+func (CardDef2321101) Element() string { return "气" }
+
+func (CardDef2321101) Card() model.Card {
+	return model.Card{
+		Number:          "2321101",
+		Type:            "道具",
+		Name:            "雷之链",
+		Category:        "气",
+		Tag:             "装备-武器",
+		Description:     "主动:消耗此卡才能发动,你的下一次驱动法术可以额外选择1个无视范围的目标",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 1, "气": 2},
+		ElementsGain:    map[string]int{"光": 1, "气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\气\\2321101.jpg",
+	}
+}
+
+type CardDef2321102 struct{}
+
+func (CardDef2321102) ID() string      { return "2321102" }
+func (CardDef2321102) Name() string    { return "风之轮回" }
+func (CardDef2321102) Kind() string    { return "道具" }
+func (CardDef2321102) Element() string { return "气" }
+
+func (CardDef2321102) Card() model.Card {
+	return model.Card{
+		Number:          "2321102",
+		Type:            "道具",
+		Name:            "风之轮回",
+		Category:        "气",
+		Tag:             "装备-神器",
+		Description:     "主动:消耗并献祭此卡才能发动,从弃牌堆将任意数量的大气卡牌洗回卡组",
+		Quote:           "那些逝去的已经归来,我在风中看到了它们的身影",
+		ElementsCost:    map[string]int{"气": 3},
+		ElementsGain:    map[string]int{"气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\气\\2321102.jpg",
+	}
+}
+
+type CardDef2321103 struct{}
+
+func (CardDef2321103) ID() string      { return "2321103" }
+func (CardDef2321103) Name() string    { return "雷鸣之息" }
+func (CardDef2321103) Kind() string    { return "道具" }
+func (CardDef2321103) Element() string { return "气" }
+
+func (CardDef2321103) Card() model.Card {
+	return model.Card{
+		Number:          "2321103",
+		Type:            "道具",
+		Name:            "雷鸣之息",
+		Category:        "气",
+		Tag:             "消耗品-药剂",
+		Description:     "此卡被使用或从手牌丢弃时获得1\\气",
+		Quote:           "",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\气\\2321103.jpg",
+	}
+}
+
+type CardDef2321104 struct{}
+
+func (CardDef2321104) ID() string      { return "2321104" }
+func (CardDef2321104) Name() string    { return "雷光头冠" }
+func (CardDef2321104) Kind() string    { return "道具" }
+func (CardDef2321104) Element() string { return "气" }
+
+func (CardDef2321104) Card() model.Card {
+	return model.Card{
+		Number:          "2321104",
+		Type:            "道具",
+		Name:            "雷光头冠",
+		Category:        "气",
+		Tag:             "装备-饰物",
+		Description:     "祈咒:你的下一次聚能法术+1\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 1, "气": 2},
+		ElementsGain:    map[string]int{"光": 1, "气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\气\\2321104.jpg",
+	}
+}
+
+type CardDef2321105 struct{}
+
+func (CardDef2321105) ID() string      { return "2321105" }
+func (CardDef2321105) Name() string    { return "雷光战铠" }
+func (CardDef2321105) Kind() string    { return "道具" }
+func (CardDef2321105) Element() string { return "气" }
+
+func (CardDef2321105) Card() model.Card {
+	return model.Card{
+		Number:          "2321105",
+		Type:            "道具",
+		Name:            "雷光战铠",
+		Category:        "气",
+		Tag:             "装备-防具",
+		Description:     "光环:如果你同时装备至少3张雷光道具(同时具有\\气和\\光负载),你的聚能和驱动法术+2\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 1, "气": 4},
+		ElementsGain:    map[string]int{"光": 1, "气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\气\\2321105.jpg",
+	}
+}
+
+type CardDef2321106 struct{}
+
+func (CardDef2321106) ID() string      { return "2321106" }
+func (CardDef2321106) Name() string    { return "无尽风潮" }
+func (CardDef2321106) Kind() string    { return "道具" }
+func (CardDef2321106) Element() string { return "气" }
+
+func (CardDef2321106) Card() model.Card {
+	return model.Card{
+		Number:          "2321106",
+		Type:            "道具",
+		Name:            "无尽风潮",
+		Category:        "气",
+		Tag:             "消耗品-法术卷轴-驱动",
+		Description:     "命中:本卡不送去弃牌堆改为回到你的手牌,本卡永久获得+2\\威,入场费用+1\\气,但本回合不能再使用",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           2,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\气\\2321106.jpg",
+	}
+}
+
+type CardDef2321107 struct{}
+
+func (CardDef2321107) ID() string      { return "2321107" }
+func (CardDef2321107) Name() string    { return "飞鸽拘捕令" }
+func (CardDef2321107) Kind() string    { return "道具" }
+func (CardDef2321107) Element() string { return "气" }
+
+func (CardDef2321107) Card() model.Card {
+	return model.Card{
+		Number:          "2321107",
+		Type:            "道具",
+		Name:            "飞鸽拘捕令",
+		Category:        "气",
+		Tag:             "装备",
+		Description:     "诱发回合技:当你的法术命中后,将1张九霄印记加入对手手牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 2},
+		ElementsGain:    map[string]int{"气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{"2001102"},
+		OutputPath:      "output\\王权纷争\\道具\\气\\2321107.jpg",
+	}
+}
+
+type CardDef2321108 struct{}
+
+func (CardDef2321108) ID() string      { return "2321108" }
+func (CardDef2321108) Name() string    { return "散去" }
+func (CardDef2321108) Kind() string    { return "道具" }
+func (CardDef2321108) Element() string { return "气" }
+
+func (CardDef2321108) Card() model.Card {
+	return model.Card{
+		Number:          "2321108",
+		Type:            "道具",
+		Name:            "散去",
+		Category:        "气",
+		Tag:             "消耗品-卷轴",
+		Description:     "反制:在友方大气单位受到1次伤害后,直到你的回合开始,使其免疫所有伤害",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\气\\2321108.jpg",
+	}
+}
+
+type CardDef2321109 struct{}
+
+func (CardDef2321109) ID() string      { return "2321109" }
+func (CardDef2321109) Name() string    { return "幻雾面罩" }
+func (CardDef2321109) Kind() string    { return "道具" }
+func (CardDef2321109) Element() string { return "气" }
+
+func (CardDef2321109) Card() model.Card {
+	return model.Card{
+		Number:          "2321109",
+		Type:            "道具",
+		Name:            "幻雾面罩",
+		Category:        "气",
+		Tag:             "装备-防具",
+		Description:     "诱发绝技:敌方法术命中时,丢弃最多3张手牌,使该法术\\攻下降丢弃的数值",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 3},
+		ElementsGain:    map[string]int{"气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\气\\2321109.jpg",
+	}
+}
+
+type CardDef2321110 struct{}
+
+func (CardDef2321110) ID() string      { return "2321110" }
+func (CardDef2321110) Name() string    { return "飞鸽急袭令" }
+func (CardDef2321110) Kind() string    { return "道具" }
+func (CardDef2321110) Element() string { return "气" }
+
+func (CardDef2321110) Card() model.Card {
+	return model.Card{
+		Number:          "2321110",
+		Type:            "道具",
+		Name:            "飞鸽急袭令",
+		Category:        "气",
+		Tag:             "消耗品-卷轴",
+		Description:     "选择你在本回合学习的速攻法术,使其下一次使用时+1\\攻+1\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\气\\2321110.jpg",
+	}
+}
+
+type CardDef2321111 struct{}
+
+func (CardDef2321111) ID() string      { return "2321111" }
+func (CardDef2321111) Name() string    { return "反击风洞卷轴" }
+func (CardDef2321111) Kind() string    { return "道具" }
+func (CardDef2321111) Element() string { return "气" }
+
+func (CardDef2321111) Card() model.Card {
+	return model.Card{
+		Number:          "2321111",
+		Type:            "道具",
+		Name:            "反击风洞卷轴",
+		Category:        "气",
+		Tag:             "消耗品-卷轴",
+		Description:     "反制:在敌方1个范围效果以外的法术未命中或被无效后,视为对任意1个敌方单位使用该法术,包含所有强化效果.",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\气\\2321111.jpg",
+	}
+}
+
+type CardDef2321112 struct{}
+
+func (CardDef2321112) ID() string      { return "2321112" }
+func (CardDef2321112) Name() string    { return "撕裂冲击卷轴" }
+func (CardDef2321112) Kind() string    { return "道具" }
+func (CardDef2321112) Element() string { return "气" }
+
+func (CardDef2321112) Card() model.Card {
+	return model.Card{
+		Number:          "2321112",
+		Type:            "道具",
+		Name:            "撕裂冲击卷轴",
+		Category:        "气",
+		Tag:             "消耗品-法术卷轴-聚能",
+		Description:     "范围:纵列.命中:将共计3点伤害分配给目标范围内的单位.",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          0,
+		Life:            -1,
+		Duration:        -1,
+		Power:           6,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\气\\2321112.jpg",
+	}
+}
+
 type CardDef2411001 struct{}
 
 func (CardDef2411001) ID() string      { return "2411001" }
@@ -6430,6 +12280,66 @@ func (CardDef2411002) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\道具\\地\\2411002.jpg",
+	}
+}
+
+type CardDef2411101 struct{}
+
+func (CardDef2411101) ID() string      { return "2411101" }
+func (CardDef2411101) Name() string    { return "翡翠永生" }
+func (CardDef2411101) Kind() string    { return "道具" }
+func (CardDef2411101) Element() string { return "地" }
+
+func (CardDef2411101) Card() model.Card {
+	return model.Card{
+		Number:          "2411101",
+		Type:            "道具",
+		Name:            "翡翠永生",
+		Category:        "地",
+		Tag:             "传奇-装备-饰物",
+		Description:     "光环:如果你拥有护盾,防止所有友方单位受到的伤害,也不会受负面状态影响(仍可处于负面状态).入场:获得护盾2",
+		Quote:           "永远的守护,永生的束缚",
+		ElementsCost:    map[string]int{"地": 4},
+		ElementsGain:    map[string]int{"地": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\地\\2411101.jpg",
+	}
+}
+
+type CardDef2411102 struct{}
+
+func (CardDef2411102) ID() string      { return "2411102" }
+func (CardDef2411102) Name() string    { return "腐朽的古树之心" }
+func (CardDef2411102) Kind() string    { return "道具" }
+func (CardDef2411102) Element() string { return "地" }
+
+func (CardDef2411102) Card() model.Card {
+	return model.Card{
+		Number:          "2411102",
+		Type:            "道具",
+		Name:            "腐朽的古树之心",
+		Category:        "地",
+		Tag:             "传奇-装备-神器",
+		Description:     "诱发:双方玩家每使用2个法术,该玩家必须移除自己场上1点负载.诱发:如果此卡失去所有负载,摧毁此卡",
+		Quote:           "这还算是原来的那个古树之心吗?",
+		ElementsCost:    map[string]int{"地": 5},
+		ElementsGain:    map[string]int{"地": 2, "暗": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\地\\2411102.jpg",
 	}
 }
 
@@ -6853,6 +12763,366 @@ func (CardDef2421014) Card() model.Card {
 	}
 }
 
+type CardDef2421101 struct{}
+
+func (CardDef2421101) ID() string      { return "2421101" }
+func (CardDef2421101) Name() string    { return "秋暮耳环" }
+func (CardDef2421101) Kind() string    { return "道具" }
+func (CardDef2421101) Element() string { return "地" }
+
+func (CardDef2421101) Card() model.Card {
+	return model.Card{
+		Number:          "2421101",
+		Type:            "道具",
+		Name:            "秋暮耳环",
+		Category:        "地",
+		Tag:             "装备-饰物",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 3},
+		ElementsGain:    map[string]int{"地": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\地\\2421101.jpg",
+	}
+}
+
+type CardDef2421102 struct{}
+
+func (CardDef2421102) ID() string      { return "2421102" }
+func (CardDef2421102) Name() string    { return "蔷薇之鞭" }
+func (CardDef2421102) Kind() string    { return "道具" }
+func (CardDef2421102) Element() string { return "地" }
+
+func (CardDef2421102) Card() model.Card {
+	return model.Card{
+		Number:          "2421102",
+		Type:            "道具",
+		Name:            "蔷薇之鞭",
+		Category:        "地",
+		Tag:             "装备-武器",
+		Description:     "回合技:每当友方卡牌负载数量减少后,此卡获得负载+1\\暗,最多2点",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 2, "无": 1},
+		ElementsGain:    map[string]int{"地": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\地\\2421102.jpg",
+	}
+}
+
+type CardDef2421103 struct{}
+
+func (CardDef2421103) ID() string      { return "2421103" }
+func (CardDef2421103) Name() string    { return "捕梦网" }
+func (CardDef2421103) Kind() string    { return "道具" }
+func (CardDef2421103) Element() string { return "地" }
+
+func (CardDef2421103) Card() model.Card {
+	return model.Card{
+		Number:          "2421103",
+		Type:            "道具",
+		Name:            "捕梦网",
+		Category:        "地",
+		Tag:             "装备-武器",
+		Description:     "入场:你已学习的灵媒法术永久+2\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 4},
+		ElementsGain:    map[string]int{"地": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\地\\2421103.jpg",
+	}
+}
+
+type CardDef2421104 struct{}
+
+func (CardDef2421104) ID() string      { return "2421104" }
+func (CardDef2421104) Name() string    { return "血蔷薇契约" }
+func (CardDef2421104) Kind() string    { return "道具" }
+func (CardDef2421104) Element() string { return "地" }
+
+func (CardDef2421104) Card() model.Card {
+	return model.Card{
+		Number:          "2421104",
+		Type:            "道具",
+		Name:            "血蔷薇契约",
+		Category:        "地",
+		Tag:             "消耗品-卷轴",
+		Description:     "将你的一个法术变为你的一个地脉或暗影伙伴的绑定技能,并且上升该伙伴负载数量的\\威(在其死亡后将该绑定技能从游戏中移除)",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 2, "无": 1, "暗": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\地\\2421104.jpg",
+	}
+}
+
+type CardDef2421105 struct{}
+
+func (CardDef2421105) ID() string      { return "2421105" }
+func (CardDef2421105) Name() string    { return "自然交感" }
+func (CardDef2421105) Kind() string    { return "道具" }
+func (CardDef2421105) Element() string { return "地" }
+
+func (CardDef2421105) Card() model.Card {
+	return model.Card{
+		Number:          "2421105",
+		Type:            "道具",
+		Name:            "自然交感",
+		Category:        "地",
+		Tag:             "消耗品-卷轴",
+		Description:     "选择你场上2个地脉伙伴,重新分配他们的负载",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\地\\2421105.jpg",
+	}
+}
+
+type CardDef2421106 struct{}
+
+func (CardDef2421106) ID() string      { return "2421106" }
+func (CardDef2421106) Name() string    { return "苍老药剂" }
+func (CardDef2421106) Kind() string    { return "道具" }
+func (CardDef2421106) Element() string { return "地" }
+
+func (CardDef2421106) Card() model.Card {
+	return model.Card{
+		Number:          "2421106",
+		Type:            "道具",
+		Name:            "苍老药剂",
+		Category:        "地",
+		Tag:             "消耗品-药剂",
+		Description:     "移除友方卡牌负载的1\\地,使其立刻达到下一次精通",
+		Quote:           "",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\地\\2421106.jpg",
+	}
+}
+
+type CardDef2421107 struct{}
+
+func (CardDef2421107) ID() string      { return "2421107" }
+func (CardDef2421107) Name() string    { return "翡翠结界卷轴" }
+func (CardDef2421107) Kind() string    { return "道具" }
+func (CardDef2421107) Element() string { return "地" }
+
+func (CardDef2421107) Card() model.Card {
+	return model.Card{
+		Number:          "2421107",
+		Type:            "道具",
+		Name:            "翡翠结界卷轴",
+		Category:        "地",
+		Tag:             "消耗品-卷轴",
+		Description:     "当敌方法术数量比我方多时,每多1个获得护盾1",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\地\\2421107.jpg",
+	}
+}
+
+type CardDef2421108 struct{}
+
+func (CardDef2421108) ID() string      { return "2421108" }
+func (CardDef2421108) Name() string    { return "翡翠果" }
+func (CardDef2421108) Kind() string    { return "道具" }
+func (CardDef2421108) Element() string { return "地" }
+
+func (CardDef2421108) Card() model.Card {
+	return model.Card{
+		Number:          "2421108",
+		Type:            "道具",
+		Name:            "翡翠果",
+		Category:        "地",
+		Tag:             "装备",
+		Description:     "入场:使一个友方伙伴获得除\\地与\\无外的任意1点负载",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 1, "无": 2},
+		ElementsGain:    map[string]int{"地": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\地\\2421108.jpg",
+	}
+}
+
+type CardDef2421109 struct{}
+
+func (CardDef2421109) ID() string      { return "2421109" }
+func (CardDef2421109) Name() string    { return "地穴精灵矿镐" }
+func (CardDef2421109) Kind() string    { return "道具" }
+func (CardDef2421109) Element() string { return "地" }
+
+func (CardDef2421109) Card() model.Card {
+	return model.Card{
+		Number:          "2421109",
+		Type:            "道具",
+		Name:            "地穴精灵矿镐",
+		Category:        "地",
+		Tag:             "装备-武器",
+		Description:     "消耗:选择1个种类(伙伴或道具),在5张牌之内翻取1张所选择种类的卡牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\地\\2421109.jpg",
+	}
+}
+
+type CardDef2421110 struct{}
+
+func (CardDef2421110) ID() string      { return "2421110" }
+func (CardDef2421110) Name() string    { return "沙虫之饵" }
+func (CardDef2421110) Kind() string    { return "道具" }
+func (CardDef2421110) Element() string { return "地" }
+
+func (CardDef2421110) Card() model.Card {
+	return model.Card{
+		Number:          "2421110",
+		Type:            "道具",
+		Name:            "沙虫之饵",
+		Category:        "地",
+		Tag:             "消耗品",
+		Description:     "翻取1个入场花费大于5的地脉伙伴,如果是巨型沙虫则使其入场花费-2",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\地\\2421110.jpg",
+	}
+}
+
+type CardDef2421111 struct{}
+
+func (CardDef2421111) ID() string      { return "2421111" }
+func (CardDef2421111) Name() string    { return "沙漠护腿" }
+func (CardDef2421111) Kind() string    { return "道具" }
+func (CardDef2421111) Element() string { return "地" }
+
+func (CardDef2421111) Card() model.Card {
+	return model.Card{
+		Number:          "2421111",
+		Type:            "道具",
+		Name:            "沙漠护腿",
+		Category:        "地",
+		Tag:             "装备-防具",
+		Description:     "绝技:当1个友方单位受到2点及以上伤害时,使该伤害-2",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 2},
+		ElementsGain:    map[string]int{"地": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\地\\2421111.jpg",
+	}
+}
+
+type CardDef2421112 struct{}
+
+func (CardDef2421112) ID() string      { return "2421112" }
+func (CardDef2421112) Name() string    { return "秋枫宝钻" }
+func (CardDef2421112) Kind() string    { return "道具" }
+func (CardDef2421112) Element() string { return "地" }
+
+func (CardDef2421112) Card() model.Card {
+	return model.Card{
+		Number:          "2421112",
+		Type:            "道具",
+		Name:            "秋枫宝钻",
+		Category:        "地",
+		Tag:             "装备-神器",
+		Description:     "入场:放置2个标记物.回合技:移除1个标记物,重置你的1个地脉伙伴",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 4},
+		ElementsGain:    map[string]int{"地": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\地\\2421112.jpg",
+	}
+}
+
 type CardDef2501001 struct{}
 
 func (CardDef2501001) ID() string      { return "2501001" }
@@ -6940,6 +13210,66 @@ func (CardDef2511002) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\道具\\光\\2511002.jpg",
+	}
+}
+
+type CardDef2511101 struct{}
+
+func (CardDef2511101) ID() string      { return "2511101" }
+func (CardDef2511101) Name() string    { return "九霄辉迹" }
+func (CardDef2511101) Kind() string    { return "道具" }
+func (CardDef2511101) Element() string { return "光" }
+
+func (CardDef2511101) Card() model.Card {
+	return model.Card{
+		Number:          "2511101",
+		Type:            "道具",
+		Name:            "九霄辉迹",
+		Category:        "光",
+		Tag:             "传奇-装备-武器",
+		Description:     "绝技:双方将手牌全部丢弃,然后抽等量的牌",
+		Quote:           "\"你看,我们也付出了巨大的牺牲\"",
+		ElementsCost:    map[string]int{"光": 4, "气": 2},
+		ElementsGain:    map[string]int{"光": 2, "气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\光\\2511101.jpg",
+	}
+}
+
+type CardDef2511102 struct{}
+
+func (CardDef2511102) ID() string      { return "2511102" }
+func (CardDef2511102) Name() string    { return "五虹之环" }
+func (CardDef2511102) Kind() string    { return "道具" }
+func (CardDef2511102) Element() string { return "光" }
+
+func (CardDef2511102) Card() model.Card {
+	return model.Card{
+		Number:          "2511102",
+		Type:            "道具",
+		Name:            "五虹之环",
+		Category:        "光",
+		Tag:             "传奇-装备-饰物",
+		Description:     "回合技:花费1点\\火\\水\\地\\气\\光种类的元素,放置1个该种类的标记物.绑定技能:五虹之束",
+		Quote:           "后来此环被遗落在某处遗迹的宝阁之内,又被某东方修士意外拾得,熠熠之辉不减当年",
+		ElementsCost:    map[string]int{"光": 1, "地": 1, "气": 1, "水": 1, "火": 1},
+		ElementsGain:    map[string]int{"光": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{"3501101"},
+		OutputPath:      "output\\王权纷争\\道具\\光\\2511102.jpg",
 	}
 }
 
@@ -7363,6 +13693,366 @@ func (CardDef2521014) Card() model.Card {
 	}
 }
 
+type CardDef2521101 struct{}
+
+func (CardDef2521101) ID() string      { return "2521101" }
+func (CardDef2521101) Name() string    { return "赐福之孤星" }
+func (CardDef2521101) Kind() string    { return "道具" }
+func (CardDef2521101) Element() string { return "光" }
+
+func (CardDef2521101) Card() model.Card {
+	return model.Card{
+		Number:          "2521101",
+		Type:            "道具",
+		Name:            "赐福之孤星",
+		Category:        "光",
+		Tag:             "消耗品",
+		Description:     "使1个友方伙伴获得负载+1\\光和+1\\血",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\光\\2521101.jpg",
+	}
+}
+
+type CardDef2521102 struct{}
+
+func (CardDef2521102) ID() string      { return "2521102" }
+func (CardDef2521102) Name() string    { return "月霞之尘" }
+func (CardDef2521102) Kind() string    { return "道具" }
+func (CardDef2521102) Element() string { return "光" }
+
+func (CardDef2521102) Card() model.Card {
+	return model.Card{
+		Number:          "2521102",
+		Type:            "道具",
+		Name:            "月霞之尘",
+		Category:        "光",
+		Tag:             "消耗品-药剂",
+		Description:     "摧毁敌方盖放的所有卡牌,或者使前排敌人失去隐蔽",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\光\\2521102.jpg",
+	}
+}
+
+type CardDef2521103 struct{}
+
+func (CardDef2521103) ID() string      { return "2521103" }
+func (CardDef2521103) Name() string    { return "红玛瑙圣杯" }
+func (CardDef2521103) Kind() string    { return "道具" }
+func (CardDef2521103) Element() string { return "光" }
+
+func (CardDef2521103) Card() model.Card {
+	return model.Card{
+		Number:          "2521103",
+		Type:            "道具",
+		Name:            "红玛瑙圣杯",
+		Category:        "光",
+		Tag:             "装备-神器",
+		Description:     "光环:如果你的场上集齐绿玉权杖,蓝晶灯盏和红玛瑙圣杯,这些卡牌均获得负载+1\\光",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 4},
+		ElementsGain:    map[string]int{"光": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\光\\2521103.jpg",
+	}
+}
+
+type CardDef2521104 struct{}
+
+func (CardDef2521104) ID() string      { return "2521104" }
+func (CardDef2521104) Name() string    { return "黄金龙骨" }
+func (CardDef2521104) Kind() string    { return "道具" }
+func (CardDef2521104) Element() string { return "光" }
+
+func (CardDef2521104) Card() model.Card {
+	return model.Card{
+		Number:          "2521104",
+		Type:            "道具",
+		Name:            "黄金龙骨",
+		Category:        "光",
+		Tag:             "装备",
+		Description:     "主动:献祭此卡才能发动,抽2张牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 2},
+		ElementsGain:    map[string]int{"光": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\光\\2521104.jpg",
+	}
+}
+
+type CardDef2521105 struct{}
+
+func (CardDef2521105) ID() string      { return "2521105" }
+func (CardDef2521105) Name() string    { return "孤星守护者" }
+func (CardDef2521105) Kind() string    { return "道具" }
+func (CardDef2521105) Element() string { return "光" }
+
+func (CardDef2521105) Card() model.Card {
+	return model.Card{
+		Number:          "2521105",
+		Type:            "道具",
+		Name:            "孤星守护者",
+		Category:        "光",
+		Tag:             "装备-防具",
+		Description:     "入场:获得护盾2",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 3, "无": 1},
+		ElementsGain:    map[string]int{"光": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\光\\2521105.jpg",
+	}
+}
+
+type CardDef2521106 struct{}
+
+func (CardDef2521106) ID() string      { return "2521106" }
+func (CardDef2521106) Name() string    { return "沐光卷轴" }
+func (CardDef2521106) Kind() string    { return "道具" }
+func (CardDef2521106) Element() string { return "光" }
+
+func (CardDef2521106) Card() model.Card {
+	return model.Card{
+		Number:          "2521106",
+		Type:            "道具",
+		Name:            "沐光卷轴",
+		Category:        "光",
+		Tag:             "消耗品-卷轴",
+		Description:     "为所有友方单位回复2\\血",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\光\\2521106.jpg",
+	}
+}
+
+type CardDef2521107 struct{}
+
+func (CardDef2521107) ID() string      { return "2521107" }
+func (CardDef2521107) Name() string    { return "百灵药P型" }
+func (CardDef2521107) Kind() string    { return "道具" }
+func (CardDef2521107) Element() string { return "光" }
+
+func (CardDef2521107) Card() model.Card {
+	return model.Card{
+		Number:          "2521107",
+		Type:            "道具",
+		Name:            "百灵药P型",
+		Category:        "光",
+		Tag:             "消耗品-药剂",
+		Description:     "造成1点伤害,回复1\\血,抽1张牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\光\\2521107.jpg",
+	}
+}
+
+type CardDef2521108 struct{}
+
+func (CardDef2521108) ID() string      { return "2521108" }
+func (CardDef2521108) Name() string    { return "议庭审判锤" }
+func (CardDef2521108) Kind() string    { return "道具" }
+func (CardDef2521108) Element() string { return "光" }
+
+func (CardDef2521108) Card() model.Card {
+	return model.Card{
+		Number:          "2521108",
+		Type:            "道具",
+		Name:            "议庭审判锤",
+		Category:        "光",
+		Tag:             "装备-武器",
+		Description:     "诱发回合技:当敌方使用1个法术攻击,将3张九霄印记洗入对方卡组",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 2, "气": 1},
+		ElementsGain:    map[string]int{"光": 1, "气": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{"2001102"},
+		OutputPath:      "output\\王权纷争\\道具\\光\\2521108.jpg",
+	}
+}
+
+type CardDef2521109 struct{}
+
+func (CardDef2521109) ID() string      { return "2521109" }
+func (CardDef2521109) Name() string    { return "惩戒符文" }
+func (CardDef2521109) Kind() string    { return "道具" }
+func (CardDef2521109) Element() string { return "光" }
+
+func (CardDef2521109) Card() model.Card {
+	return model.Card{
+		Number:          "2521109",
+		Type:            "道具",
+		Name:            "惩戒符文",
+		Category:        "光",
+		Tag:             "消耗品-符文",
+		Description:     "反制:当对方在一回合内进行超过2次法术攻击后,对任意一个敌方伙伴造成2点伤害",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\光\\2521109.jpg",
+	}
+}
+
+type CardDef2521110 struct{}
+
+func (CardDef2521110) ID() string      { return "2521110" }
+func (CardDef2521110) Name() string    { return "天使之祈祷" }
+func (CardDef2521110) Kind() string    { return "道具" }
+func (CardDef2521110) Element() string { return "光" }
+
+func (CardDef2521110) Card() model.Card {
+	return model.Card{
+		Number:          "2521110",
+		Type:            "道具",
+		Name:            "天使之祈祷",
+		Category:        "光",
+		Tag:             "消耗品-卷轴",
+		Description:     "翻取1个光辉属性的精灵.反制:对方使用法术攻击后使用此卡则无需花费并使该精灵入场花费-1\\光",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\光\\2521110.jpg",
+	}
+}
+
+type CardDef2521111 struct{}
+
+func (CardDef2521111) ID() string      { return "2521111" }
+func (CardDef2521111) Name() string    { return "神谕卷轴 荣耀" }
+func (CardDef2521111) Kind() string    { return "道具" }
+func (CardDef2521111) Element() string { return "光" }
+
+func (CardDef2521111) Card() model.Card {
+	return model.Card{
+		Number:          "2521111",
+		Type:            "道具",
+		Name:            "神谕卷轴 荣耀",
+		Category:        "光",
+		Tag:             "消耗品-法术卷轴-神秘",
+		Description:     "穿透.使用时必须选择你的1个生命和负载总和大于5的伙伴,此卡威力上升该数值",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          3,
+		Life:            -1,
+		Duration:        -1,
+		Power:           0,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\光\\2521111.jpg",
+	}
+}
+
+type CardDef2521112 struct{}
+
+func (CardDef2521112) ID() string      { return "2521112" }
+func (CardDef2521112) Name() string    { return "神谕卷轴 团结" }
+func (CardDef2521112) Kind() string    { return "道具" }
+func (CardDef2521112) Element() string { return "光" }
+
+func (CardDef2521112) Card() model.Card {
+	return model.Card{
+		Number:          "2521112",
+		Type:            "道具",
+		Name:            "神谕卷轴 团结",
+		Category:        "光",
+		Tag:             "消耗品-法术卷轴-神秘",
+		Description:     "范围:方阵.你场上每有1个光辉单位此卡花费-1\\光",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 9},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           6,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\光\\2521112.jpg",
+	}
+}
+
 type CardDef2601001 struct{}
 
 func (CardDef2601001) ID() string      { return "2601001" }
@@ -7480,6 +14170,66 @@ func (CardDef2611002) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\道具\\暗\\2611002.jpg",
+	}
+}
+
+type CardDef2611101 struct{}
+
+func (CardDef2611101) ID() string      { return "2611101" }
+func (CardDef2611101) Name() string    { return "厄瑞波斯的魂链" }
+func (CardDef2611101) Kind() string    { return "道具" }
+func (CardDef2611101) Element() string { return "暗" }
+
+func (CardDef2611101) Card() model.Card {
+	return model.Card{
+		Number:          "2611101",
+		Type:            "道具",
+		Name:            "厄瑞波斯的魂链",
+		Category:        "暗",
+		Tag:             "传奇-装备-神器",
+		Description:     "诱发绝技:当敌方透支伙伴来使用法术时,标记那些伙伴和法术.诱发:每当那些标记的伙伴被消耗或透支,使那些标记的法术虚弱1",
+		Quote:           "随着一次次挥舞,他的手臂愈发疲惫",
+		ElementsCost:    map[string]int{"暗": 2},
+		ElementsGain:    map[string]int{"暗": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\暗\\2611101.jpg",
+	}
+}
+
+type CardDef2611102 struct{}
+
+func (CardDef2611102) ID() string      { return "2611102" }
+func (CardDef2611102) Name() string    { return "渡灵之烛" }
+func (CardDef2611102) Kind() string    { return "道具" }
+func (CardDef2611102) Element() string { return "暗" }
+
+func (CardDef2611102) Card() model.Card {
+	return model.Card{
+		Number:          "2611102",
+		Type:            "道具",
+		Name:            "渡灵之烛",
+		Category:        "暗",
+		Tag:             "传奇-装备-神器",
+		Description:     "光环:获得2个只能放置灵媒和神秘技能的槽位,你的其他种类的法术\\威减半(向上取整)",
+		Quote:           "相信我,所能看见的少是一种幸福",
+		ElementsCost:    map[string]int{"暗": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\暗\\2611102.jpg",
 	}
 }
 
@@ -7903,6 +14653,366 @@ func (CardDef2621014) Card() model.Card {
 	}
 }
 
+type CardDef2621101 struct{}
+
+func (CardDef2621101) ID() string      { return "2621101" }
+func (CardDef2621101) Name() string    { return "黑松木魔杖" }
+func (CardDef2621101) Kind() string    { return "道具" }
+func (CardDef2621101) Element() string { return "暗" }
+
+func (CardDef2621101) Card() model.Card {
+	return model.Card{
+		Number:          "2621101",
+		Type:            "道具",
+		Name:            "黑松木魔杖",
+		Category:        "暗",
+		Tag:             "装备-武器",
+		Description:     "光环:你以友方单位为目标释放法术的花费-1",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 3},
+		ElementsGain:    map[string]int{"暗": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\暗\\2621101.jpg",
+	}
+}
+
+type CardDef2621102 struct{}
+
+func (CardDef2621102) ID() string      { return "2621102" }
+func (CardDef2621102) Name() string    { return "血蔷薇诅咒" }
+func (CardDef2621102) Kind() string    { return "道具" }
+func (CardDef2621102) Element() string { return "暗" }
+
+func (CardDef2621102) Card() model.Card {
+	return model.Card{
+		Number:          "2621102",
+		Type:            "道具",
+		Name:            "血蔷薇诅咒",
+		Category:        "暗",
+		Tag:             "消耗品-卷轴",
+		Description:     "将敌方的一个法术变为敌方的一个伙伴(由敌方选择)的绑定技能,在其死亡后将该法术从游戏中移除",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\暗\\2621102.jpg",
+	}
+}
+
+type CardDef2621103 struct{}
+
+func (CardDef2621103) ID() string      { return "2621103" }
+func (CardDef2621103) Name() string    { return "血蛊" }
+func (CardDef2621103) Kind() string    { return "道具" }
+func (CardDef2621103) Element() string { return "暗" }
+
+func (CardDef2621103) Card() model.Card {
+	return model.Card{
+		Number:          "2621103",
+		Type:            "道具",
+		Name:            "血蛊",
+		Category:        "暗",
+		Tag:             "装备",
+		Description:     "诱发:每当你的人物受到1点伤害,在此卡上放置1个标记物,最多6个.主动:献祭此卡才能发动,此卡每有2个标记物,本回合你的法术+1\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\暗\\2621103.jpg",
+	}
+}
+
+type CardDef2621104 struct{}
+
+func (CardDef2621104) ID() string      { return "2621104" }
+func (CardDef2621104) Name() string    { return "献身契约" }
+func (CardDef2621104) Kind() string    { return "道具" }
+func (CardDef2621104) Element() string { return "暗" }
+
+func (CardDef2621104) Card() model.Card {
+	return model.Card{
+		Number:          "2621104",
+		Type:            "道具",
+		Name:            "献身契约",
+		Category:        "暗",
+		Tag:             "装备",
+		Description:     "诱发回合技:在你使用1个代赎法术后,必须对你的人物造成1点伤害并抽1张牌",
+		Quote:           "很好,恶魔已经看上你了",
+		ElementsCost:    map[string]int{"暗": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\暗\\2621104.jpg",
+	}
+}
+
+type CardDef2621105 struct{}
+
+func (CardDef2621105) ID() string      { return "2621105" }
+func (CardDef2621105) Name() string    { return "红月吊坠" }
+func (CardDef2621105) Kind() string    { return "道具" }
+func (CardDef2621105) Element() string { return "暗" }
+
+func (CardDef2621105) Card() model.Card {
+	return model.Card{
+		Number:          "2621105",
+		Type:            "道具",
+		Name:            "红月吊坠",
+		Category:        "暗",
+		Tag:             "装备-饰物",
+		Description:     "主动:献祭此卡才能发动,使你的下一次红月持续时间+1",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 2},
+		ElementsGain:    map[string]int{"暗": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\暗\\2621105.jpg",
+	}
+}
+
+type CardDef2621106 struct{}
+
+func (CardDef2621106) ID() string      { return "2621106" }
+func (CardDef2621106) Name() string    { return "苦痛尖啸卷轴" }
+func (CardDef2621106) Kind() string    { return "道具" }
+func (CardDef2621106) Element() string { return "暗" }
+
+func (CardDef2621106) Card() model.Card {
+	return model.Card{
+		Number:          "2621106",
+		Type:            "道具",
+		Name:            "苦痛尖啸卷轴",
+		Category:        "暗",
+		Tag:             "消耗品-卷轴",
+		Description:     "本回合友方单位每受到1点伤害就选择1个没有虚弱的敌方法术,使那些法术虚弱2",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\暗\\2621106.jpg",
+	}
+}
+
+type CardDef2621107 struct{}
+
+func (CardDef2621107) ID() string      { return "2621107" }
+func (CardDef2621107) Name() string    { return "诅咒魔盒" }
+func (CardDef2621107) Kind() string    { return "道具" }
+func (CardDef2621107) Element() string { return "暗" }
+
+func (CardDef2621107) Card() model.Card {
+	return model.Card{
+		Number:          "2621107",
+		Type:            "道具",
+		Name:            "诅咒魔盒",
+		Category:        "暗",
+		Tag:             "装备-神器",
+		Description:     "诱发:每当1个单位死亡,在此卡上放置1个标记物.主动回合技:移除最多3个标记物,使那个数量的敌方法术虚弱1",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 2},
+		ElementsGain:    map[string]int{"暗": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\暗\\2621107.jpg",
+	}
+}
+
+type CardDef2621108 struct{}
+
+func (CardDef2621108) ID() string      { return "2621108" }
+func (CardDef2621108) Name() string    { return "黑松棺木" }
+func (CardDef2621108) Kind() string    { return "道具" }
+func (CardDef2621108) Element() string { return "暗" }
+
+func (CardDef2621108) Card() model.Card {
+	return model.Card{
+		Number:          "2621108",
+		Type:            "道具",
+		Name:            "黑松棺木",
+		Category:        "暗",
+		Tag:             "装备",
+		Description:     "入场:从手牌丢弃最多2张入场花费小于5的暗影伙伴,立刻结算它们的遗言效果",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 2},
+		ElementsGain:    map[string]int{"暗": 1},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\暗\\2621108.jpg",
+	}
+}
+
+type CardDef2621109 struct{}
+
+func (CardDef2621109) ID() string      { return "2621109" }
+func (CardDef2621109) Name() string    { return "哀歌卷轴" }
+func (CardDef2621109) Kind() string    { return "道具" }
+func (CardDef2621109) Element() string { return "暗" }
+
+func (CardDef2621109) Card() model.Card {
+	return model.Card{
+		Number:          "2621109",
+		Type:            "道具",
+		Name:            "哀歌卷轴",
+		Category:        "暗",
+		Tag:             "消耗品-卷轴",
+		Description:     "翻取1个具有遗言的暗影伙伴,如果你的弃牌堆已有暗影伙伴则使翻取的卡牌入场花费-1\\暗",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\暗\\2621109.jpg",
+	}
+}
+
+type CardDef2621110 struct{}
+
+func (CardDef2621110) ID() string      { return "2621110" }
+func (CardDef2621110) Name() string    { return "安迪斯的赠与" }
+func (CardDef2621110) Kind() string    { return "道具" }
+func (CardDef2621110) Element() string { return "暗" }
+
+func (CardDef2621110) Card() model.Card {
+	return model.Card{
+		Number:          "2621110",
+		Type:            "道具",
+		Name:            "安迪斯的赠与",
+		Category:        "暗",
+		Tag:             "消耗品-药剂",
+		Description:     "使1个友方单位获得负载+2\\暗,但会在回合结束时死亡",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\暗\\2621110.jpg",
+	}
+}
+
+type CardDef2621111 struct{}
+
+func (CardDef2621111) ID() string      { return "2621111" }
+func (CardDef2621111) Name() string    { return "暗黑爆发卷轴" }
+func (CardDef2621111) Kind() string    { return "道具" }
+func (CardDef2621111) Element() string { return "暗" }
+
+func (CardDef2621111) Card() model.Card {
+	return model.Card{
+		Number:          "2621111",
+		Type:            "道具",
+		Name:            "暗黑爆发卷轴",
+		Category:        "暗",
+		Tag:             "消耗品-卷轴",
+		Description:     "你的弃牌堆有5个及以上暗影伙伴时才能使用,将那些暗影伙伴全部移出游戏,每1个获得2\\暗",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\暗\\2621111.jpg",
+	}
+}
+
+type CardDef2621112 struct{}
+
+func (CardDef2621112) ID() string      { return "2621112" }
+func (CardDef2621112) Name() string    { return "灵魂法杖" }
+func (CardDef2621112) Kind() string    { return "道具" }
+func (CardDef2621112) Element() string { return "暗" }
+
+func (CardDef2621112) Card() model.Card {
+	return model.Card{
+		Number:          "2621112",
+		Type:            "道具",
+		Name:            "灵魂法杖",
+		Category:        "暗",
+		Tag:             "装备-武器",
+		Description:     "主动回合技:从你的弃牌堆将2张暗影伙伴移出游戏,给你的1个暗影法术放置1个灵魂标记物.每个灵魂标记物会使法术+2\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 5},
+		ElementsGain:    map[string]int{"暗": 2},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\道具\\暗\\2621112.jpg",
+	}
+}
+
 type CardDef3001001 struct{}
 
 func (CardDef3001001) ID() string      { return "3001001" }
@@ -7960,6 +15070,66 @@ func (CardDef3001002) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\技能\\无\\3001002.jpg",
+	}
+}
+
+type CardDef3001101 struct{}
+
+func (CardDef3001101) ID() string      { return "3001101" }
+func (CardDef3001101) Name() string    { return "入局" }
+func (CardDef3001101) Kind() string    { return "技能" }
+func (CardDef3001101) Element() string { return "无" }
+
+func (CardDef3001101) Card() model.Card {
+	return model.Card{
+		Number:          "3001101",
+		Type:            "技能",
+		Name:            "入局",
+		Category:        "无",
+		Tag:             "衍生-咒术-驱动",
+		Description:     "速攻.为任意玩家召唤1个弃子(由你决定位置)",
+		Quote:           "棋至困局,破者得道,乱者失机",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"无": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\无\\3001101.jpg",
+	}
+}
+
+type CardDef3011101 struct{}
+
+func (CardDef3011101) ID() string      { return "3011101" }
+func (CardDef3011101) Name() string    { return "绝对纯净 奥能一心" }
+func (CardDef3011101) Kind() string    { return "技能" }
+func (CardDef3011101) Element() string { return "无" }
+
+func (CardDef3011101) Card() model.Card {
+	return model.Card{
+		Number:          "3011101",
+		Type:            "技能",
+		Name:            "绝对纯净 奥能一心",
+		Category:        "无",
+		Tag:             "传奇-法术-聚能",
+		Description:     "冷却2.范围:全场.此卡的学习和使用花费必须严格为奥术元素.使用时翻开你卡组最上方的卡牌直到出现非奥术卡牌,此卡\\威上升奥术卡牌的数量,然后洗混卡组",
+		Quote:           "\"罗慕路斯,一个只会奥术的法师是走不远的\"",
+		ElementsCost:    map[string]int{"无": 11},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"无": 7},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           0,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\无\\3011101.jpg",
 	}
 }
 
@@ -8323,6 +15493,246 @@ func (CardDef3021012) Card() model.Card {
 	}
 }
 
+type CardDef3021101 struct{}
+
+func (CardDef3021101) ID() string      { return "3021101" }
+func (CardDef3021101) Name() string    { return "奥术冲击" }
+func (CardDef3021101) Kind() string    { return "技能" }
+func (CardDef3021101) Element() string { return "无" }
+
+func (CardDef3021101) Card() model.Card {
+	return model.Card{
+		Number:          "3021101",
+		Type:            "技能",
+		Name:            "奥术冲击",
+		Category:        "无",
+		Tag:             "法术-聚能",
+		Description:     "如果此卡学习和使用花费的元素均为奥术元素,获得+1\\攻+1\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"无": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\无\\3021101.jpg",
+	}
+}
+
+type CardDef3021102 struct{}
+
+func (CardDef3021102) ID() string      { return "3021102" }
+func (CardDef3021102) Name() string    { return "奥术屏障" }
+func (CardDef3021102) Kind() string    { return "技能" }
+func (CardDef3021102) Element() string { return "无" }
+
+func (CardDef3021102) Card() model.Card {
+	return model.Card{
+		Number:          "3021102",
+		Type:            "技能",
+		Name:            "奥术屏障",
+		Category:        "无",
+		Tag:             "法术-创造",
+		Description:     "防御",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"无": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          0,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\无\\3021102.jpg",
+	}
+}
+
+type CardDef3021103 struct{}
+
+func (CardDef3021103) ID() string      { return "3021103" }
+func (CardDef3021103) Name() string    { return "奥能汲取" }
+func (CardDef3021103) Kind() string    { return "技能" }
+func (CardDef3021103) Element() string { return "无" }
+
+func (CardDef3021103) Card() model.Card {
+	return model.Card{
+		Number:          "3021103",
+		Type:            "技能",
+		Name:            "奥能汲取",
+		Category:        "无",
+		Tag:             "咒术-神秘",
+		Description:     "冷却1.抽2张牌.此卡使用花费的元素属性必须各不相同",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"无": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\无\\3021103.jpg",
+	}
+}
+
+type CardDef3021104 struct{}
+
+func (CardDef3021104) ID() string      { return "3021104" }
+func (CardDef3021104) Name() string    { return "七神加护" }
+func (CardDef3021104) Kind() string    { return "技能" }
+func (CardDef3021104) Element() string { return "无" }
+
+func (CardDef3021104) Card() model.Card {
+	return model.Card{
+		Number:          "3021104",
+		Type:            "技能",
+		Name:            "七神加护",
+		Category:        "无",
+		Tag:             "咒术-神秘",
+		Description:     "异能:如果你的所有技能属性各不相同,使它们使用花费-1,若为法术再+2\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"无": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        2,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\无\\3021104.jpg",
+	}
+}
+
+type CardDef3021105 struct{}
+
+func (CardDef3021105) ID() string      { return "3021105" }
+func (CardDef3021105) Name() string    { return "奥能净化" }
+func (CardDef3021105) Kind() string    { return "技能" }
+func (CardDef3021105) Element() string { return "无" }
+
+func (CardDef3021105) Card() model.Card {
+	return model.Card{
+		Number:          "3021105",
+		Type:            "技能",
+		Name:            "奥能净化",
+		Category:        "无",
+		Tag:             "咒术-幻变",
+		Description:     "速攻.冷却2.本回合友方卡牌不受负面状态影响(仍可处于负面状态)",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"无": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\无\\3021105.jpg",
+	}
+}
+
+type CardDef3021106 struct{}
+
+func (CardDef3021106) ID() string      { return "3021106" }
+func (CardDef3021106) Name() string    { return "奥能流贯" }
+func (CardDef3021106) Kind() string    { return "技能" }
+func (CardDef3021106) Element() string { return "无" }
+
+func (CardDef3021106) Card() model.Card {
+	return model.Card{
+		Number:          "3021106",
+		Type:            "技能",
+		Name:            "奥能流贯",
+		Category:        "无",
+		Tag:             "法术-聚能",
+		Description:     "光环:如果你场上只有奥术卡牌,此卡\\威翻倍",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 5},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"无": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\无\\3021106.jpg",
+	}
+}
+
+type CardDef3021107 struct{}
+
+func (CardDef3021107) ID() string      { return "3021107" }
+func (CardDef3021107) Name() string    { return "奥能护盾" }
+func (CardDef3021107) Kind() string    { return "技能" }
+func (CardDef3021107) Element() string { return "无" }
+
+func (CardDef3021107) Card() model.Card {
+	return model.Card{
+		Number:          "3021107",
+		Type:            "技能",
+		Name:            "奥能护盾",
+		Category:        "无",
+		Tag:             "咒术-创造",
+		Description:     "速攻.在下个回合开始时获得护盾1",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"无": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\无\\3021107.jpg",
+	}
+}
+
+type CardDef3021108 struct{}
+
+func (CardDef3021108) ID() string      { return "3021108" }
+func (CardDef3021108) Name() string    { return "奥术封印" }
+func (CardDef3021108) Kind() string    { return "技能" }
+func (CardDef3021108) Element() string { return "无" }
+
+func (CardDef3021108) Card() model.Card {
+	return model.Card{
+		Number:          "3021108",
+		Type:            "技能",
+		Name:            "奥术封印",
+		Category:        "无",
+		Tag:             "咒术-幻变",
+		Description:     "速攻.冷却1.选择对方场上1个技能,对方在他的下个回合不能使用该技能,然后此卡的花费以后永久+2\\无",
+		Quote:           "",
+		ElementsCost:    map[string]int{"无": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"无": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\无\\3021108.jpg",
+	}
+}
+
 type CardDef3101001 struct{}
 
 func (CardDef3101001) ID() string      { return "3101001" }
@@ -8380,6 +15790,66 @@ func (CardDef3101002) Card() model.Card {
 		Power:           5,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\技能\\火\\3101002.jpg",
+	}
+}
+
+type CardDef3111101 struct{}
+
+func (CardDef3111101) ID() string      { return "3111101" }
+func (CardDef3111101) Name() string    { return "火炎炼狱" }
+func (CardDef3111101) Kind() string    { return "技能" }
+func (CardDef3111101) Element() string { return "火" }
+
+func (CardDef3111101) Card() model.Card {
+	return model.Card{
+		Number:          "3111101",
+		Type:            "技能",
+		Name:            "火炎炼狱",
+		Category:        "火",
+		Tag:             "传奇-法术-幻变",
+		Description:     "冷却1.范围:全场.每有8\\威获得点燃1.此卡被防御成功时,每1层点燃需额外4\\威进行防御,否则仍会生效",
+		Quote:           "狄斯托德从地狱归来,手中是炽热的百炼战刃,胯下是嘶吼的千里炎驹,身后是无尽的万葬火海",
+		ElementsCost:    map[string]int{"地": 2, "火": 7},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"地": 2, "火": 4},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           8,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\火\\3111101.jpg",
+	}
+}
+
+type CardDef3111102 struct{}
+
+func (CardDef3111102) ID() string      { return "3111102" }
+func (CardDef3111102) Name() string    { return "原初神炎 洛普修斯" }
+func (CardDef3111102) Kind() string    { return "技能" }
+func (CardDef3111102) Element() string { return "火" }
+
+func (CardDef3111102) Card() model.Card {
+	return model.Card{
+		Number:          "3111102",
+		Type:            "技能",
+		Name:            "原初神炎 洛普修斯",
+		Category:        "火",
+		Tag:             "传奇-法术-神秘",
+		Description:     "光环:无法被强化,无法用于强化,不受其他卡牌效果影响,不受负面效果影响.主动回合技:将你学习的一个火焰技能移出游戏,此卡获得+1\\攻+2\\威",
+		Quote:           "\"努尔已经被战争和毁灭蒙蔽双眼,而洛普修斯将引领我们向往更辉煌的终点!\"",
+		ElementsCost:    map[string]int{"火": 5},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"火": 3},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           6,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\火\\3111102.jpg",
 	}
 }
 
@@ -8833,6 +16303,306 @@ func (CardDef3121015) Card() model.Card {
 	}
 }
 
+type CardDef3121101 struct{}
+
+func (CardDef3121101) ID() string      { return "3121101" }
+func (CardDef3121101) Name() string    { return "唤灵术 火蛇" }
+func (CardDef3121101) Kind() string    { return "技能" }
+func (CardDef3121101) Element() string { return "火" }
+
+func (CardDef3121101) Card() model.Card {
+	return model.Card{
+		Number:          "3121101",
+		Type:            "技能",
+		Name:            "唤灵术 火蛇",
+		Category:        "火",
+		Tag:             "法术-创造",
+		Description:     "若防御成功对法力范围内1个敌人造成1点伤害",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"火": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           5,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\火\\3121101.jpg",
+	}
+}
+
+type CardDef3121102 struct{}
+
+func (CardDef3121102) ID() string      { return "3121102" }
+func (CardDef3121102) Name() string    { return "雄狮之守护" }
+func (CardDef3121102) Kind() string    { return "技能" }
+func (CardDef3121102) Element() string { return "火" }
+
+func (CardDef3121102) Card() model.Card {
+	return model.Card{
+		Number:          "3121102",
+		Type:            "技能",
+		Name:            "雄狮之守护",
+		Category:        "火",
+		Tag:             "法术-神秘",
+		Description:     "防御.若防御成功使你的其他火焰法术永久+1\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"火": 3},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          0,
+		Life:            -1,
+		Duration:        -1,
+		Power:           5,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\火\\3121102.jpg",
+	}
+}
+
+type CardDef3121103 struct{}
+
+func (CardDef3121103) ID() string      { return "3121103" }
+func (CardDef3121103) Name() string    { return "祈祷之焰" }
+func (CardDef3121103) Kind() string    { return "技能" }
+func (CardDef3121103) Element() string { return "火" }
+
+func (CardDef3121103) Card() model.Card {
+	return model.Card{
+		Number:          "3121103",
+		Type:            "技能",
+		Name:            "祈祷之焰",
+		Category:        "火",
+		Tag:             "咒术-神秘",
+		Description:     "在此卡上放置3个标记物,或者取除所有标记物并召唤1个入场花费小于等于标记物数量的火焰伙伴,无需花费",
+		Quote:           "",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"火": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\火\\3121103.jpg",
+	}
+}
+
+type CardDef3121104 struct{}
+
+func (CardDef3121104) ID() string      { return "3121104" }
+func (CardDef3121104) Name() string    { return "炎狱怒吼" }
+func (CardDef3121104) Kind() string    { return "技能" }
+func (CardDef3121104) Element() string { return "火" }
+
+func (CardDef3121104) Card() model.Card {
+	return model.Card{
+		Number:          "3121104",
+		Type:            "技能",
+		Name:            "炎狱怒吼",
+		Category:        "火",
+		Tag:             "法术-聚能",
+		Description:     "范围:纵列.使用时可以额外消耗1个友方火焰伙伴,此次\\威上升其入场花费的数值",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 2, "火": 5},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"地": 1, "火": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\火\\3121104.jpg",
+	}
+}
+
+type CardDef3121105 struct{}
+
+func (CardDef3121105) ID() string      { return "3121105" }
+func (CardDef3121105) Name() string    { return "余火" }
+func (CardDef3121105) Kind() string    { return "技能" }
+func (CardDef3121105) Element() string { return "火" }
+
+func (CardDef3121105) Card() model.Card {
+	return model.Card{
+		Number:          "3121105",
+		Type:            "技能",
+		Name:            "余火",
+		Category:        "火",
+		Tag:             "法术-创造",
+		Description:     "不可用于防御.诱发:你的回合结束时,如果你没有剩余的\\火,可以立刻使用此卡且无需花费",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"火": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\火\\3121105.jpg",
+	}
+}
+
+type CardDef3121106 struct{}
+
+func (CardDef3121106) ID() string      { return "3121106" }
+func (CardDef3121106) Name() string    { return "爆炎气焰" }
+func (CardDef3121106) Kind() string    { return "技能" }
+func (CardDef3121106) Element() string { return "火" }
+
+func (CardDef3121106) Card() model.Card {
+	return model.Card{
+		Number:          "3121106",
+		Type:            "技能",
+		Name:            "爆炎气焰",
+		Category:        "火",
+		Tag:             "法术-创造",
+		Description:     "穿透",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 1, "火": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"气": 1, "火": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           6,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\火\\3121106.jpg",
+	}
+}
+
+type CardDef3121107 struct{}
+
+func (CardDef3121107) ID() string      { return "3121107" }
+func (CardDef3121107) Name() string    { return "战争践踏" }
+func (CardDef3121107) Kind() string    { return "技能" }
+func (CardDef3121107) Element() string { return "火" }
+
+func (CardDef3121107) Card() model.Card {
+	return model.Card{
+		Number:          "3121107",
+		Type:            "技能",
+		Name:            "战争践踏",
+		Category:        "火",
+		Tag:             "法术-驱动",
+		Description:     "范围:前排.攻击时目标区域每有1个单位此法术-1\\攻",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 5},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"火": 3},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          4,
+		Life:            -1,
+		Duration:        -1,
+		Power:           7,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\火\\3121107.jpg",
+	}
+}
+
+type CardDef3121108 struct{}
+
+func (CardDef3121108) ID() string      { return "3121108" }
+func (CardDef3121108) Name() string    { return "熔岩障壁" }
+func (CardDef3121108) Kind() string    { return "技能" }
+func (CardDef3121108) Element() string { return "火" }
+
+func (CardDef3121108) Card() model.Card {
+	return model.Card{
+		Number:          "3121108",
+		Type:            "技能",
+		Name:            "熔岩障壁",
+		Category:        "火",
+		Tag:             "法术-创造",
+		Description:     "防御",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 1, "火": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"地": 1, "火": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          0,
+		Life:            -1,
+		Duration:        -1,
+		Power:           5,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\火\\3121108.jpg",
+	}
+}
+
+type CardDef3121109 struct{}
+
+func (CardDef3121109) ID() string      { return "3121109" }
+func (CardDef3121109) Name() string    { return "烈焰闪" }
+func (CardDef3121109) Kind() string    { return "技能" }
+func (CardDef3121109) Element() string { return "火" }
+
+func (CardDef3121109) Card() model.Card {
+	return model.Card{
+		Number:          "3121109",
+		Type:            "技能",
+		Name:            "烈焰闪",
+		Category:        "火",
+		Tag:             "法术-幻变",
+		Description:     "命中:获得3\\火",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"火": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           5,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\火\\3121109.jpg",
+	}
+}
+
+type CardDef3121110 struct{}
+
+func (CardDef3121110) ID() string      { return "3121110" }
+func (CardDef3121110) Name() string    { return "咒火" }
+func (CardDef3121110) Kind() string    { return "技能" }
+func (CardDef3121110) Element() string { return "火" }
+
+func (CardDef3121110) Card() model.Card {
+	return model.Card{
+		Number:          "3121110",
+		Type:            "技能",
+		Name:            "咒火",
+		Category:        "火",
+		Tag:             "咒术-创造",
+		Description:     "冷却1.翻取1个花费小于4的火焰法术卷轴,你可以立刻使用它,无需花费",
+		Quote:           "",
+		ElementsCost:    map[string]int{"火": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"火": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\火\\3121110.jpg",
+	}
+}
+
 type CardDef3201001 struct{}
 
 func (CardDef3201001) ID() string      { return "3201001" }
@@ -8890,6 +16660,66 @@ func (CardDef3201002) Card() model.Card {
 		Power:           8,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\技能\\水\\3201002.jpg",
+	}
+}
+
+type CardDef3211101 struct{}
+
+func (CardDef3211101) ID() string      { return "3211101" }
+func (CardDef3211101) Name() string    { return "心海迷离" }
+func (CardDef3211101) Kind() string    { return "技能" }
+func (CardDef3211101) Element() string { return "水" }
+
+func (CardDef3211101) Card() model.Card {
+	return model.Card{
+		Number:          "3211101",
+		Type:            "技能",
+		Name:            "心海迷离",
+		Category:        "水",
+		Tag:             "传奇-法术-灵媒",
+		Description:     "晕眩1.诱发:你每次使用此技能后直到回合结束获得+1\\威并改为任意范围(前排,纵列,方阵,溅射)",
+		Quote:           "层层幻梦,层层迷离",
+		ElementsCost:    map[string]int{"水": 6},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"水": 3},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           6,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\水\\3211101.jpg",
+	}
+}
+
+type CardDef3211102 struct{}
+
+func (CardDef3211102) ID() string      { return "3211102" }
+func (CardDef3211102) Name() string    { return "龙吟雪域" }
+func (CardDef3211102) Kind() string    { return "技能" }
+func (CardDef3211102) Element() string { return "水" }
+
+func (CardDef3211102) Card() model.Card {
+	return model.Card{
+		Number:          "3211102",
+		Type:            "技能",
+		Name:            "龙吟雪域",
+		Category:        "水",
+		Tag:             "传奇-咒术-幻变",
+		Description:     "冷却2.异能:双方玩家的法术获得以下效果\"命中:选择法力范围内1个单位冻结1\".第5次触发这个效果后你可以召唤一个凛冰之龙",
+		Quote:           "\"是的小姑娘,她知道你的一切,如果你真的能感动她,就尝试穿过这片无尽雪域吧\"",
+		ElementsCost:    map[string]int{"水": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"水": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        2,
+		Power:           -1,
+		Spawns:          []string{"1201101"},
+		OutputPath:      "output\\王权纷争\\技能\\水\\3211102.jpg",
 	}
 }
 
@@ -9343,6 +17173,306 @@ func (CardDef3221015) Card() model.Card {
 	}
 }
 
+type CardDef3221101 struct{}
+
+func (CardDef3221101) ID() string      { return "3221101" }
+func (CardDef3221101) Name() string    { return "踏浪术" }
+func (CardDef3221101) Kind() string    { return "技能" }
+func (CardDef3221101) Element() string { return "水" }
+
+func (CardDef3221101) Card() model.Card {
+	return model.Card{
+		Number:          "3221101",
+		Type:            "技能",
+		Name:            "踏浪术",
+		Category:        "水",
+		Tag:             "咒术-驱动",
+		Description:     "冷却2.异能:在你使用1个水纹法术后,重置你的另一个水纹法术,但使其下一次花费多X+1\\水,X为本回合触发此效果的次数",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"水": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\水\\3221101.jpg",
+	}
+}
+
+type CardDef3221102 struct{}
+
+func (CardDef3221102) ID() string      { return "3221102" }
+func (CardDef3221102) Name() string    { return "唤灵术 蛟龙" }
+func (CardDef3221102) Kind() string    { return "技能" }
+func (CardDef3221102) Element() string { return "水" }
+
+func (CardDef3221102) Card() model.Card {
+	return model.Card{
+		Number:          "3221102",
+		Type:            "技能",
+		Name:            "唤灵术 蛟龙",
+		Category:        "水",
+		Tag:             "法术-创造",
+		Description:     "若防御成功对法力范围内所有敌人造成1点伤害",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 5},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"水": 3},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           6,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\水\\3221102.jpg",
+	}
+}
+
+type CardDef3221103 struct{}
+
+func (CardDef3221103) ID() string      { return "3221103" }
+func (CardDef3221103) Name() string    { return "水镜壁" }
+func (CardDef3221103) Kind() string    { return "技能" }
+func (CardDef3221103) Element() string { return "水" }
+
+func (CardDef3221103) Card() model.Card {
+	return model.Card{
+		Number:          "3221103",
+		Type:            "技能",
+		Name:            "水镜壁",
+		Category:        "水",
+		Tag:             "法术-创造",
+		Description:     "防御.若防御成功获得护盾1",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"水": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\水\\3221103.jpg",
+	}
+}
+
+type CardDef3221104 struct{}
+
+func (CardDef3221104) ID() string      { return "3221104" }
+func (CardDef3221104) Name() string    { return "水遁术" }
+func (CardDef3221104) Kind() string    { return "技能" }
+func (CardDef3221104) Element() string { return "水" }
+
+func (CardDef3221104) Card() model.Card {
+	return model.Card{
+		Number:          "3221104",
+		Type:            "技能",
+		Name:            "水遁术",
+		Category:        "水",
+		Tag:             "咒术-幻变",
+		Description:     "冷却1.速攻.使1个没有隐蔽的单位获得隐蔽2",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"水": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\水\\3221104.jpg",
+	}
+}
+
+type CardDef3221105 struct{}
+
+func (CardDef3221105) ID() string      { return "3221105" }
+func (CardDef3221105) Name() string    { return "腐蚀之流" }
+func (CardDef3221105) Kind() string    { return "技能" }
+func (CardDef3221105) Element() string { return "水" }
+
+func (CardDef3221105) Card() model.Card {
+	return model.Card{
+		Number:          "3221105",
+		Type:            "技能",
+		Name:            "腐蚀之流",
+		Category:        "水",
+		Tag:             "法术-幻变",
+		Description:     "命中:随机弃置敌方1张手牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 1, "水": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"暗": 1, "水": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           3,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\水\\3221105.jpg",
+	}
+}
+
+type CardDef3221106 struct{}
+
+func (CardDef3221106) ID() string      { return "3221106" }
+func (CardDef3221106) Name() string    { return "暗流涌动" }
+func (CardDef3221106) Kind() string    { return "技能" }
+func (CardDef3221106) Element() string { return "水" }
+
+func (CardDef3221106) Card() model.Card {
+	return model.Card{
+		Number:          "3221106",
+		Type:            "技能",
+		Name:            "暗流涌动",
+		Category:        "水",
+		Tag:             "法术-驱动",
+		Description:     "可以攻击隐蔽的单位(无论在哪),攻击隐蔽单位时+2\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"水": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\水\\3221106.jpg",
+	}
+}
+
+type CardDef3221107 struct{}
+
+func (CardDef3221107) ID() string      { return "3221107" }
+func (CardDef3221107) Name() string    { return "海龙卷" }
+func (CardDef3221107) Kind() string    { return "技能" }
+func (CardDef3221107) Element() string { return "水" }
+
+func (CardDef3221107) Card() model.Card {
+	return model.Card{
+		Number:          "3221107",
+		Type:            "技能",
+		Name:            "海龙卷",
+		Category:        "水",
+		Tag:             "法术-驱动",
+		Description:     "范围:方阵.",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 1, "水": 5},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"气": 1, "水": 3},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           6,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\水\\3221107.jpg",
+	}
+}
+
+type CardDef3221108 struct{}
+
+func (CardDef3221108) ID() string      { return "3221108" }
+func (CardDef3221108) Name() string    { return "六瓣雪花" }
+func (CardDef3221108) Kind() string    { return "技能" }
+func (CardDef3221108) Element() string { return "水" }
+
+func (CardDef3221108) Card() model.Card {
+	return model.Card{
+		Number:          "3221108",
+		Type:            "技能",
+		Name:            "六瓣雪花",
+		Category:        "水",
+		Tag:             "法术-创造",
+		Description:     "冻结1.速攻.此卡的冻结对人物无效",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"水": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          0,
+		Life:            -1,
+		Duration:        -1,
+		Power:           1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\水\\3221108.jpg",
+	}
+}
+
+type CardDef3221109 struct{}
+
+func (CardDef3221109) ID() string      { return "3221109" }
+func (CardDef3221109) Name() string    { return "波纹斩" }
+func (CardDef3221109) Kind() string    { return "技能" }
+func (CardDef3221109) Element() string { return "水" }
+
+func (CardDef3221109) Card() model.Card {
+	return model.Card{
+		Number:          "3221109",
+		Type:            "技能",
+		Name:            "波纹斩",
+		Category:        "水",
+		Tag:             "法术-创造",
+		Description:     "光环:如果本回合你已经使用过波纹斩,此卡获得+2\\威和范围:前排",
+		Quote:           "",
+		ElementsCost:    map[string]int{"水": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"水": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\水\\3221109.jpg",
+	}
+}
+
+type CardDef3221110 struct{}
+
+func (CardDef3221110) ID() string      { return "3221110" }
+func (CardDef3221110) Name() string    { return "劫掠之潮" }
+func (CardDef3221110) Kind() string    { return "技能" }
+func (CardDef3221110) Element() string { return "水" }
+
+func (CardDef3221110) Card() model.Card {
+	return model.Card{
+		Number:          "3221110",
+		Type:            "技能",
+		Name:            "劫掠之潮",
+		Category:        "水",
+		Tag:             "法术-驱动",
+		Description:     "范围:前排.命中:每命中1个单位随机弃置敌方1张手牌并且你抽1张牌",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 1, "水": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"暗": 1, "水": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           7,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\水\\3221110.jpg",
+	}
+}
+
 type CardDef3301001 struct{}
 
 func (CardDef3301001) ID() string      { return "3301001" }
@@ -9370,6 +17500,66 @@ func (CardDef3301001) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\技能\\气\\3301001.jpg",
+	}
+}
+
+type CardDef3311101 struct{}
+
+func (CardDef3311101) ID() string      { return "3311101" }
+func (CardDef3311101) Name() string    { return "苍穹幻韵" }
+func (CardDef3311101) Kind() string    { return "技能" }
+func (CardDef3311101) Element() string { return "气" }
+
+func (CardDef3311101) Card() model.Card {
+	return model.Card{
+		Number:          "3311101",
+		Type:            "技能",
+		Name:            "苍穹幻韵",
+		Category:        "气",
+		Tag:             "传奇-法术-幻变",
+		Description:     "使用时等同于释放你学习的另一个驱动或聚能法术",
+		Quote:           "无形之风为意,浮云之影成形",
+		ElementsCost:    map[string]int{"光": 2, "气": 5},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"光": 1, "气": 3},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          0,
+		Life:            -1,
+		Duration:        -1,
+		Power:           0,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\气\\3311101.jpg",
+	}
+}
+
+type CardDef3311102 struct{}
+
+func (CardDef3311102) ID() string      { return "3311102" }
+func (CardDef3311102) Name() string    { return "星落之银叶" }
+func (CardDef3311102) Kind() string    { return "技能" }
+func (CardDef3311102) Element() string { return "气" }
+
+func (CardDef3311102) Card() model.Card {
+	return model.Card{
+		Number:          "3311102",
+		Type:            "技能",
+		Name:            "星落之银叶",
+		Category:        "气",
+		Tag:             "传奇-咒术-创造",
+		Description:     "诱发:每当你弃牌时,从中选择1张放在此卡下方.使用时将此卡下方1张牌洗回卡组,然后抽1张牌",
+		Quote:           "\"有人说,我们是坠落的神灵弃子,但我想,我们是受眷顾的苍茫众生\"",
+		ElementsCost:    map[string]int{"气": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"气": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\气\\3311102.jpg",
 	}
 }
 
@@ -9823,6 +18013,366 @@ func (CardDef3321015) Card() model.Card {
 	}
 }
 
+type CardDef3321101 struct{}
+
+func (CardDef3321101) ID() string      { return "3321101" }
+func (CardDef3321101) Name() string    { return "急速涡旋" }
+func (CardDef3321101) Kind() string    { return "技能" }
+func (CardDef3321101) Element() string { return "气" }
+
+func (CardDef3321101) Card() model.Card {
+	return model.Card{
+		Number:          "3321101",
+		Type:            "技能",
+		Name:            "急速涡旋",
+		Category:        "气",
+		Tag:             "法术-驱动",
+		Description:     "速攻",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"气": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           3,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\气\\3321101.jpg",
+	}
+}
+
+type CardDef3321102 struct{}
+
+func (CardDef3321102) ID() string      { return "3321102" }
+func (CardDef3321102) Name() string    { return "肃杀之风" }
+func (CardDef3321102) Kind() string    { return "技能" }
+func (CardDef3321102) Element() string { return "气" }
+
+func (CardDef3321102) Card() model.Card {
+	return model.Card{
+		Number:          "3321102",
+		Type:            "技能",
+		Name:            "肃杀之风",
+		Category:        "气",
+		Tag:             "法术-驱动",
+		Description:     "范围:方阵.光环:此卡威力上升双方玩家手牌数量的差值",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"气": 3},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           3,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\气\\3321102.jpg",
+	}
+}
+
+type CardDef3321103 struct{}
+
+func (CardDef3321103) ID() string      { return "3321103" }
+func (CardDef3321103) Name() string    { return "雷霆万钧" }
+func (CardDef3321103) Kind() string    { return "技能" }
+func (CardDef3321103) Element() string { return "气" }
+
+func (CardDef3321103) Card() model.Card {
+	return model.Card{
+		Number:          "3321103",
+		Type:            "技能",
+		Name:            "雷霆万钧",
+		Category:        "气",
+		Tag:             "法术-聚能",
+		Description:     "范围:前排",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 2, "气": 6},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"光": 1, "气": 4},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          3,
+		Life:            -1,
+		Duration:        -1,
+		Power:           9,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\气\\3321103.jpg",
+	}
+}
+
+type CardDef3321104 struct{}
+
+func (CardDef3321104) ID() string      { return "3321104" }
+func (CardDef3321104) Name() string    { return "收势" }
+func (CardDef3321104) Kind() string    { return "技能" }
+func (CardDef3321104) Element() string { return "气" }
+
+func (CardDef3321104) Card() model.Card {
+	return model.Card{
+		Number:          "3321104",
+		Type:            "技能",
+		Name:            "收势",
+		Category:        "气",
+		Tag:             "法术-聚能",
+		Description:     "防御.若防御成功,你下一个用于攻击的法术+3\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"气": 3},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          0,
+		Life:            -1,
+		Duration:        -1,
+		Power:           7,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\气\\3321104.jpg",
+	}
+}
+
+type CardDef3321105 struct{}
+
+func (CardDef3321105) ID() string      { return "3321105" }
+func (CardDef3321105) Name() string    { return "风卷残云" }
+func (CardDef3321105) Kind() string    { return "技能" }
+func (CardDef3321105) Element() string { return "气" }
+
+func (CardDef3321105) Card() model.Card {
+	return model.Card{
+		Number:          "3321105",
+		Type:            "技能",
+		Name:            "风卷残云",
+		Category:        "气",
+		Tag:             "咒术-幻变",
+		Description:     "速攻.冷却1.异能:每当有单位受到伤害,如果其生命为1,将其消灭",
+		Quote:           "一不做,二不休",
+		ElementsCost:    map[string]int{"气": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"气": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\气\\3321105.jpg",
+	}
+}
+
+type CardDef3321106 struct{}
+
+func (CardDef3321106) ID() string      { return "3321106" }
+func (CardDef3321106) Name() string    { return "紫电穿空" }
+func (CardDef3321106) Kind() string    { return "技能" }
+func (CardDef3321106) Element() string { return "气" }
+
+func (CardDef3321106) Card() model.Card {
+	return model.Card{
+		Number:          "3321106",
+		Type:            "技能",
+		Name:            "紫电穿空",
+		Category:        "气",
+		Tag:             "法术-聚能",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 5},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"气": 3},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           7,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\气\\3321106.jpg",
+	}
+}
+
+type CardDef3321107 struct{}
+
+func (CardDef3321107) ID() string      { return "3321107" }
+func (CardDef3321107) Name() string    { return "屏息凝神" }
+func (CardDef3321107) Kind() string    { return "技能" }
+func (CardDef3321107) Element() string { return "气" }
+
+func (CardDef3321107) Card() model.Card {
+	return model.Card{
+		Number:          "3321107",
+		Type:            "技能",
+		Name:            "屏息凝神",
+		Category:        "气",
+		Tag:             "咒术-灵媒",
+		Description:     "速攻.异能:如果本回合你除回合开始外没有抽牌,你的大气法术+1\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"气": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\气\\3321107.jpg",
+	}
+}
+
+type CardDef3321108 struct{}
+
+func (CardDef3321108) ID() string      { return "3321108" }
+func (CardDef3321108) Name() string    { return "唤灵术 苍鹰" }
+func (CardDef3321108) Kind() string    { return "技能" }
+func (CardDef3321108) Element() string { return "气" }
+
+func (CardDef3321108) Card() model.Card {
+	return model.Card{
+		Number:          "3321108",
+		Type:            "技能",
+		Name:            "唤灵术 苍鹰",
+		Category:        "气",
+		Tag:             "法术-创造",
+		Description:     "入场:使1个友方大气法术下一次使用时+1\\攻+1\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"气": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\气\\3321108.jpg",
+	}
+}
+
+type CardDef3321109 struct{}
+
+func (CardDef3321109) ID() string      { return "3321109" }
+func (CardDef3321109) Name() string    { return "银叶旋风" }
+func (CardDef3321109) Kind() string    { return "技能" }
+func (CardDef3321109) Element() string { return "气" }
+
+func (CardDef3321109) Card() model.Card {
+	return model.Card{
+		Number:          "3321109",
+		Type:            "技能",
+		Name:            "银叶旋风",
+		Category:        "气",
+		Tag:             "法术-驱动",
+		Description:     "光环:如果当回合有卡被送去弃牌堆,此卡\\威变为6",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"气": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\气\\3321109.jpg",
+	}
+}
+
+type CardDef3321110 struct{}
+
+func (CardDef3321110) ID() string      { return "3321110" }
+func (CardDef3321110) Name() string    { return "气蕴成流" }
+func (CardDef3321110) Kind() string    { return "技能" }
+func (CardDef3321110) Element() string { return "气" }
+
+func (CardDef3321110) Card() model.Card {
+	return model.Card{
+		Number:          "3321110",
+		Type:            "技能",
+		Name:            "气蕴成流",
+		Category:        "气",
+		Tag:             "法术-幻变",
+		Description:     "入场:你学习的下一个大气法术获得速攻",
+		Quote:           "",
+		ElementsCost:    map[string]int{"气": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"气": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\气\\3321110.jpg",
+	}
+}
+
+type CardDef3411101 struct{}
+
+func (CardDef3411101) ID() string      { return "3411101" }
+func (CardDef3411101) Name() string    { return "时岁轮转" }
+func (CardDef3411101) Kind() string    { return "技能" }
+func (CardDef3411101) Element() string { return "地" }
+
+func (CardDef3411101) Card() model.Card {
+	return model.Card{
+		Number:          "3411101",
+		Type:            "技能",
+		Name:            "时岁轮转",
+		Category:        "地",
+		Tag:             "传奇-咒术-幻变",
+		Description:     "冷却2.异能:双方玩家不能打出、召唤任何卡牌,不能学习、使用任何法术,不能使用卡牌攻击.此卡的学习和使用花费必须严格为地脉和奥术元素",
+		Quote:           "\"你看起来,还和我记忆中一样\"",
+		ElementsCost:    map[string]int{"地": 1, "无": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"地": 1, "无": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        2,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\地\\3411101.jpg",
+	}
+}
+
+type CardDef3411102 struct{}
+
+func (CardDef3411102) ID() string      { return "3411102" }
+func (CardDef3411102) Name() string    { return "蔽天阵 血沙" }
+func (CardDef3411102) Kind() string    { return "技能" }
+func (CardDef3411102) Element() string { return "地" }
+
+func (CardDef3411102) Card() model.Card {
+	return model.Card{
+		Number:          "3411102",
+		Type:            "技能",
+		Name:            "蔽天阵 血沙",
+		Category:        "地",
+		Tag:             "传奇-法术-创造",
+		Description:     "冷却1.范围:全场.主动回合技:双方各自选择支付自己场上单位的最多3点负载或生命值(由你先进行),在此卡上放置差值数量的标记物.每一点标记物此卡获得+3\\威和+1\\攻",
+		Quote:           "遮沙蔽风了",
+		ElementsCost:    map[string]int{"地": 5, "暗": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"地": 4, "暗": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          0,
+		Life:            -1,
+		Duration:        -1,
+		Power:           1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\地\\3411102.jpg",
+	}
+}
+
 type CardDef3421001 struct{}
 
 func (CardDef3421001) ID() string      { return "3421001" }
@@ -10273,6 +18823,306 @@ func (CardDef3421015) Card() model.Card {
 	}
 }
 
+type CardDef3421101 struct{}
+
+func (CardDef3421101) ID() string      { return "3421101" }
+func (CardDef3421101) Name() string    { return "森之洞察" }
+func (CardDef3421101) Kind() string    { return "技能" }
+func (CardDef3421101) Element() string { return "地" }
+
+func (CardDef3421101) Card() model.Card {
+	return model.Card{
+		Number:          "3421101",
+		Type:            "技能",
+		Name:            "森之洞察",
+		Category:        "地",
+		Tag:             "咒术-灵媒",
+		Description:     "冷却1.你场上每有1个地脉伙伴就抽1张牌(最多5张)然后将抽牌数量的手牌洗回卡组",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"地": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\地\\3421101.jpg",
+	}
+}
+
+type CardDef3421102 struct{}
+
+func (CardDef3421102) ID() string      { return "3421102" }
+func (CardDef3421102) Name() string    { return "苍岚之刃" }
+func (CardDef3421102) Kind() string    { return "技能" }
+func (CardDef3421102) Element() string { return "地" }
+
+func (CardDef3421102) Card() model.Card {
+	return model.Card{
+		Number:          "3421102",
+		Type:            "技能",
+		Name:            "苍岚之刃",
+		Category:        "地",
+		Tag:             "法术-创造",
+		Description:     "范围:前排",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 4, "气": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"地": 2, "气": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           6,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\地\\3421102.jpg",
+	}
+}
+
+type CardDef3421103 struct{}
+
+func (CardDef3421103) ID() string      { return "3421103" }
+func (CardDef3421103) Name() string    { return "巨岩崩落" }
+func (CardDef3421103) Kind() string    { return "技能" }
+func (CardDef3421103) Element() string { return "地" }
+
+func (CardDef3421103) Card() model.Card {
+	return model.Card{
+		Number:          "3421103",
+		Type:            "技能",
+		Name:            "巨岩崩落",
+		Category:        "地",
+		Tag:             "法术-驱动",
+		Description:     "无法用于强化",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 5},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"地": 3},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           8,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\地\\3421103.jpg",
+	}
+}
+
+type CardDef3421104 struct{}
+
+func (CardDef3421104) ID() string      { return "3421104" }
+func (CardDef3421104) Name() string    { return "自然回响" }
+func (CardDef3421104) Kind() string    { return "技能" }
+func (CardDef3421104) Element() string { return "地" }
+
+func (CardDef3421104) Card() model.Card {
+	return model.Card{
+		Number:          "3421104",
+		Type:            "技能",
+		Name:            "自然回响",
+		Category:        "地",
+		Tag:             "法术-灵媒",
+		Description:     "主动回合技:移除友方卡牌负载的1\\地,重置此卡且下次施放+2\\威,可额外选择一个目标(可以相同)",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"地": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           3,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\地\\3421104.jpg",
+	}
+}
+
+type CardDef3421105 struct{}
+
+func (CardDef3421105) ID() string      { return "3421105" }
+func (CardDef3421105) Name() string    { return "苍老之触" }
+func (CardDef3421105) Kind() string    { return "技能" }
+func (CardDef3421105) Element() string { return "地" }
+
+func (CardDef3421105) Card() model.Card {
+	return model.Card{
+		Number:          "3421105",
+		Type:            "技能",
+		Name:            "苍老之触",
+		Category:        "地",
+		Tag:             "法术-幻变",
+		Description:     "命中:如果目标为伙伴,使其失去所有负载",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 3, "暗": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"地": 1, "暗": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\地\\3421105.jpg",
+	}
+}
+
+type CardDef3421106 struct{}
+
+func (CardDef3421106) ID() string      { return "3421106" }
+func (CardDef3421106) Name() string    { return "腐朽侵蚀" }
+func (CardDef3421106) Kind() string    { return "技能" }
+func (CardDef3421106) Element() string { return "地" }
+
+func (CardDef3421106) Card() model.Card {
+	return model.Card{
+		Number:          "3421106",
+		Type:            "技能",
+		Name:            "腐朽侵蚀",
+		Category:        "地",
+		Tag:             "法术-幻变",
+		Description:     "范围:前排.精通3,6:获得+1\\攻和+1\\威.诱发:此法术命中敌人并结算后,对所有敌方法术造成此卡\\攻数量的虚弱然后立刻触发下一次精通.",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 4, "暗": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"地": 3, "暗": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           6,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\地\\3421106.jpg",
+	}
+}
+
+type CardDef3421107 struct{}
+
+func (CardDef3421107) ID() string      { return "3421107" }
+func (CardDef3421107) Name() string    { return "破土而出" }
+func (CardDef3421107) Kind() string    { return "技能" }
+func (CardDef3421107) Element() string { return "地" }
+
+func (CardDef3421107) Card() model.Card {
+	return model.Card{
+		Number:          "3421107",
+		Type:            "技能",
+		Name:            "破土而出",
+		Category:        "地",
+		Tag:             "法术-驱动",
+		Description:     "冷却1.范围:溅射.精通1,2:额外无视范围选择一个溅射目标.",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 6},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"地": 4},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           7,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\地\\3421107.jpg",
+	}
+}
+
+type CardDef3421108 struct{}
+
+func (CardDef3421108) ID() string      { return "3421108" }
+func (CardDef3421108) Name() string    { return "御守石阵" }
+func (CardDef3421108) Kind() string    { return "技能" }
+func (CardDef3421108) Element() string { return "地" }
+
+func (CardDef3421108) Card() model.Card {
+	return model.Card{
+		Number:          "3421108",
+		Type:            "技能",
+		Name:            "御守石阵",
+		Category:        "地",
+		Tag:             "法术-创造",
+		Description:     "范围:方阵.用于防御时此卡使用花费-1",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"地": 3},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           5,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\地\\3421108.jpg",
+	}
+}
+
+type CardDef3421109 struct{}
+
+func (CardDef3421109) ID() string      { return "3421109" }
+func (CardDef3421109) Name() string    { return "石化死光" }
+func (CardDef3421109) Kind() string    { return "技能" }
+func (CardDef3421109) Element() string { return "地" }
+
+func (CardDef3421109) Card() model.Card {
+	return model.Card{
+		Number:          "3421109",
+		Type:            "技能",
+		Name:            "石化死光",
+		Category:        "地",
+		Tag:             "法术-聚能",
+		Description:     "石化3",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"地": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           5,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\地\\3421109.jpg",
+	}
+}
+
+type CardDef3421110 struct{}
+
+func (CardDef3421110) ID() string      { return "3421110" }
+func (CardDef3421110) Name() string    { return "粉碎石破" }
+func (CardDef3421110) Kind() string    { return "技能" }
+func (CardDef3421110) Element() string { return "地" }
+
+func (CardDef3421110) Card() model.Card {
+	return model.Card{
+		Number:          "3421110",
+		Type:            "技能",
+		Name:            "粉碎石破",
+		Category:        "地",
+		Tag:             "法术-驱动",
+		Description:     "如果目标\\血大于2,此卡本次+1\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"地": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\地\\3421110.jpg",
+	}
+}
+
 type CardDef3501001 struct{}
 
 func (CardDef3501001) ID() string      { return "3501001" }
@@ -10303,6 +19153,36 @@ func (CardDef3501001) Card() model.Card {
 	}
 }
 
+type CardDef3501101 struct{}
+
+func (CardDef3501101) ID() string      { return "3501101" }
+func (CardDef3501101) Name() string    { return "五虹之束" }
+func (CardDef3501101) Kind() string    { return "技能" }
+func (CardDef3501101) Element() string { return "光" }
+
+func (CardDef3501101) Card() model.Card {
+	return model.Card{
+		Number:          "3501101",
+		Type:            "技能",
+		Name:            "五虹之束",
+		Category:        "光",
+		Tag:             "衍生-法术-聚能",
+		Description:     "使用时移除五虹之环上任意数量标记物,根据种类获得以下效果:\\火:+2\\攻;\\水:额外选择1个目标;\\地:+3\\威;\\气:获得穿透;\\光:使用花费-2;全部:额外使\\威翻倍",
+		Quote:           "",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"光": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\光\\3501101.jpg",
+	}
+}
+
 type CardDef3511010 struct{}
 
 func (CardDef3511010) ID() string      { return "3511010" }
@@ -10330,6 +19210,66 @@ func (CardDef3511010) Card() model.Card {
 		Power:           1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\技能\\光\\3511010.jpg",
+	}
+}
+
+type CardDef3511101 struct{}
+
+func (CardDef3511101) ID() string      { return "3511101" }
+func (CardDef3511101) Name() string    { return "神辉驭空" }
+func (CardDef3511101) Kind() string    { return "技能" }
+func (CardDef3511101) Element() string { return "光" }
+
+func (CardDef3511101) Card() model.Card {
+	return model.Card{
+		Number:          "3511101",
+		Type:            "技能",
+		Name:            "神辉驭空",
+		Category:        "光",
+		Tag:             "传奇-法术-神秘",
+		Description:     "范围:前排或纵列.光环:对方每有1张手牌,此卡+1\\威.命中:可以选择1个玩家将全部手牌丢弃然后抽牌至手牌上限.",
+		Quote:           "金色的光芒散落在九霄议庭,仿佛他们真的是被选中的",
+		ElementsCost:    map[string]int{"光": 4, "气": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"光": 3, "气": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\光\\3511101.jpg",
+	}
+}
+
+type CardDef3511102 struct{}
+
+func (CardDef3511102) ID() string      { return "3511102" }
+func (CardDef3511102) Name() string    { return "绝境之光 孤星闪耀" }
+func (CardDef3511102) Kind() string    { return "技能" }
+func (CardDef3511102) Element() string { return "光" }
+
+func (CardDef3511102) Card() model.Card {
+	return model.Card{
+		Number:          "3511102",
+		Type:            "技能",
+		Name:            "绝境之光 孤星闪耀",
+		Category:        "光",
+		Tag:             "传奇-法术-聚能",
+		Description:     "穿透.范围:溅射.仅在你场上单位比对方少时才能使用.光环:此卡\\威上升你场上光辉伙伴生命值和负载最高者的合计数值",
+		Quote:           "这一次,再也没有值得信任的伙伴了",
+		ElementsCost:    map[string]int{"光": 6},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"光": 4},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\光\\3511102.jpg",
 	}
 }
 
@@ -10750,6 +19690,396 @@ func (CardDef3521015) Card() model.Card {
 		Power:           9,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\技能\\光\\3521015.jpg",
+	}
+}
+
+type CardDef3521101 struct{}
+
+func (CardDef3521101) ID() string      { return "3521101" }
+func (CardDef3521101) Name() string    { return "福音" }
+func (CardDef3521101) Kind() string    { return "技能" }
+func (CardDef3521101) Element() string { return "光" }
+
+func (CardDef3521101) Card() model.Card {
+	return model.Card{
+		Number:          "3521101",
+		Type:            "技能",
+		Name:            "福音",
+		Category:        "光",
+		Tag:             "法术-神秘",
+		Description:     "诱发:每当你的一个光辉伙伴被消耗,本卡使用费用-1\\光,直到你的回合结束",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 6},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"光": 9},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           8,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\光\\3521101.jpg",
+	}
+}
+
+type CardDef3521102 struct{}
+
+func (CardDef3521102) ID() string      { return "3521102" }
+func (CardDef3521102) Name() string    { return "神助" }
+func (CardDef3521102) Kind() string    { return "技能" }
+func (CardDef3521102) Element() string { return "光" }
+
+func (CardDef3521102) Card() model.Card {
+	return model.Card{
+		Number:          "3521102",
+		Type:            "技能",
+		Name:            "神助",
+		Category:        "光",
+		Tag:             "法术-神秘",
+		Description:     "光环:此卡用于强化神秘法术时+2\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"光": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           5,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\光\\3521102.jpg",
+	}
+}
+
+type CardDef3521103 struct{}
+
+func (CardDef3521103) ID() string      { return "3521103" }
+func (CardDef3521103) Name() string    { return "光铸飞弹" }
+func (CardDef3521103) Kind() string    { return "技能" }
+func (CardDef3521103) Element() string { return "光" }
+
+func (CardDef3521103) Card() model.Card {
+	return model.Card{
+		Number:          "3521103",
+		Type:            "技能",
+		Name:            "光铸飞弹",
+		Category:        "光",
+		Tag:             "法术-创造",
+		Description:     "穿透",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 5},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"光": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           6,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\光\\3521103.jpg",
+	}
+}
+
+type CardDef3521104 struct{}
+
+func (CardDef3521104) ID() string      { return "3521104" }
+func (CardDef3521104) Name() string    { return "罪责" }
+func (CardDef3521104) Kind() string    { return "技能" }
+func (CardDef3521104) Element() string { return "光" }
+
+func (CardDef3521104) Card() model.Card {
+	return model.Card{
+		Number:          "3521104",
+		Type:            "技能",
+		Name:            "罪责",
+		Category:        "光",
+		Tag:             "法术-神秘",
+		Description:     "入场:选择1个伙伴种类,此卡仅在攻击该种类伙伴时获得穿透和+2\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"光": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\光\\3521104.jpg",
+	}
+}
+
+type CardDef3521105 struct{}
+
+func (CardDef3521105) ID() string      { return "3521105" }
+func (CardDef3521105) Name() string    { return "流光之束" }
+func (CardDef3521105) Kind() string    { return "技能" }
+func (CardDef3521105) Element() string { return "光" }
+
+func (CardDef3521105) Card() model.Card {
+	return model.Card{
+		Number:          "3521105",
+		Type:            "技能",
+		Name:            "流光之束",
+		Category:        "光",
+		Tag:             "法术-聚能",
+		Description:     "",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"光": 1, "气": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\光\\3521105.jpg",
+	}
+}
+
+type CardDef3521106 struct{}
+
+func (CardDef3521106) ID() string      { return "3521106" }
+func (CardDef3521106) Name() string    { return "归心" }
+func (CardDef3521106) Kind() string    { return "技能" }
+func (CardDef3521106) Element() string { return "光" }
+
+func (CardDef3521106) Card() model.Card {
+	return model.Card{
+		Number:          "3521106",
+		Type:            "技能",
+		Name:            "归心",
+		Category:        "光",
+		Tag:             "法术-神秘",
+		Description:     "范围:方阵.光环:你的场上每有一个光辉伙伴获得+1\\威,每有一个其他属性伙伴-1\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 5},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"光": 4},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           2,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\光\\3521106.jpg",
+	}
+}
+
+type CardDef3521107 struct{}
+
+func (CardDef3521107) ID() string      { return "3521107" }
+func (CardDef3521107) Name() string    { return "虹彩之壁" }
+func (CardDef3521107) Kind() string    { return "技能" }
+func (CardDef3521107) Element() string { return "光" }
+
+func (CardDef3521107) Card() model.Card {
+	return model.Card{
+		Number:          "3521107",
+		Type:            "技能",
+		Name:            "虹彩之壁",
+		Category:        "光",
+		Tag:             "法术-创造",
+		Description:     "防御",
+		Quote:           "",
+		ElementsCost:    map[string]int{"地": 1, "气": 1, "水": 1, "火": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"光": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          0,
+		Life:            -1,
+		Duration:        -1,
+		Power:           6,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\光\\3521107.jpg",
+	}
+}
+
+type CardDef3521108 struct{}
+
+func (CardDef3521108) ID() string      { return "3521108" }
+func (CardDef3521108) Name() string    { return "恩典" }
+func (CardDef3521108) Kind() string    { return "技能" }
+func (CardDef3521108) Element() string { return "光" }
+
+func (CardDef3521108) Card() model.Card {
+	return model.Card{
+		Number:          "3521108",
+		Type:            "技能",
+		Name:            "恩典",
+		Category:        "光",
+		Tag:             "咒术-神秘",
+		Description:     "冷却1.使1个受伤的友方伙伴回复2\\血,如果使生命值回满则使其+1\\血,负载+1\\光",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"光": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\光\\3521108.jpg",
+	}
+}
+
+type CardDef3521109 struct{}
+
+func (CardDef3521109) ID() string      { return "3521109" }
+func (CardDef3521109) Name() string    { return "重整旗鼓" }
+func (CardDef3521109) Kind() string    { return "技能" }
+func (CardDef3521109) Element() string { return "光" }
+
+func (CardDef3521109) Card() model.Card {
+	return model.Card{
+		Number:          "3521109",
+		Type:            "技能",
+		Name:            "重整旗鼓",
+		Category:        "光",
+		Tag:             "咒术-幻变",
+		Description:     "诱发:当敌方法术命中后才能使用此卡,使1个友方伙伴负载+1\\光+1\\血",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"光": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\光\\3521109.jpg",
+	}
+}
+
+type CardDef3521110 struct{}
+
+func (CardDef3521110) ID() string      { return "3521110" }
+func (CardDef3521110) Name() string    { return "光灵汲取" }
+func (CardDef3521110) Kind() string    { return "技能" }
+func (CardDef3521110) Element() string { return "光" }
+
+func (CardDef3521110) Card() model.Card {
+	return model.Card{
+		Number:          "3521110",
+		Type:            "技能",
+		Name:            "光灵汲取",
+		Category:        "光",
+		Tag:             "法术-灵媒",
+		Description:     "命中:使1个友方光辉伙伴获得负载+1\\光",
+		Quote:           "",
+		ElementsCost:    map[string]int{"光": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"光": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\光\\3521110.jpg",
+	}
+}
+
+type CardDef3601101 struct{}
+
+func (CardDef3601101) ID() string      { return "3601101" }
+func (CardDef3601101) Name() string    { return "鲜血盛宴" }
+func (CardDef3601101) Kind() string    { return "技能" }
+func (CardDef3601101) Element() string { return "暗" }
+
+func (CardDef3601101) Card() model.Card {
+	return model.Card{
+		Number:          "3601101",
+		Type:            "技能",
+		Name:            "鲜血盛宴",
+		Category:        "暗",
+		Tag:             "衍生-法术-代赎",
+		Description:     "只能用于攻击友方单位.命中:获得2\\暗,或使你的人物回复1\\血.主动:你可以花费1\\暗将此卡变为人物的绑定技能",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"暗": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\暗\\3601101.jpg",
+	}
+}
+
+type CardDef3611101 struct{}
+
+func (CardDef3611101) ID() string      { return "3611101" }
+func (CardDef3611101) Name() string    { return "红月" }
+func (CardDef3611101) Kind() string    { return "技能" }
+func (CardDef3611101) Element() string { return "暗" }
+
+func (CardDef3611101) Card() model.Card {
+	return model.Card{
+		Number:          "3611101",
+		Type:            "技能",
+		Name:            "红月",
+		Category:        "暗",
+		Tag:             "传奇-咒术-神秘",
+		Description:     "冷却2.异能:使你的暗影法术+2\\威",
+		Quote:           "酒杯中的黑血平静如镜,倒映出这个诡谲的世界:低头的安迪斯与瑟薇安娜,花园的荆棘和松树,深邃的夜空,以及夜空中倒悬的红月",
+		ElementsCost:    map[string]int{"暗": 1},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"暗": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\暗\\3611101.jpg",
+	}
+}
+
+type CardDef3611102 struct{}
+
+func (CardDef3611102) ID() string      { return "3611102" }
+func (CardDef3611102) Name() string    { return "厄瑞波斯之爪" }
+func (CardDef3611102) Kind() string    { return "技能" }
+func (CardDef3611102) Element() string { return "暗" }
+
+func (CardDef3611102) Card() model.Card {
+	return model.Card{
+		Number:          "3611102",
+		Type:            "技能",
+		Name:            "厄瑞波斯之爪",
+		Category:        "暗",
+		Tag:             "传奇-法术-神秘",
+		Description:     "敌方有三个及以上虚弱法术才能学习.光环:敌方法术每有1层虚弱此卡+1\\威.诱发:每次使用此卡后使最多3个不同的敌方法术虚弱1",
+		Quote:           "嘘...它已经来了",
+		ElementsCost:    map[string]int{"暗": 6},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"暗": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\暗\\3611102.jpg",
 	}
 }
 
@@ -11203,6 +20533,306 @@ func (CardDef3621015) Card() model.Card {
 	}
 }
 
+type CardDef3621101 struct{}
+
+func (CardDef3621101) ID() string      { return "3621101" }
+func (CardDef3621101) Name() string    { return "歃血" }
+func (CardDef3621101) Kind() string    { return "技能" }
+func (CardDef3621101) Element() string { return "暗" }
+
+func (CardDef3621101) Card() model.Card {
+	return model.Card{
+		Number:          "3621101",
+		Type:            "技能",
+		Name:            "歃血",
+		Category:        "暗",
+		Tag:             "法术-代赎",
+		Description:     "诱发:如果此法术对友方单位造成伤害,获得2\\暗并使下一次获得+2\\威和+1\\攻",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"暗": 1},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           2,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\暗\\3621101.jpg",
+	}
+}
+
+type CardDef3621102 struct{}
+
+func (CardDef3621102) ID() string      { return "3621102" }
+func (CardDef3621102) Name() string    { return "报应" }
+func (CardDef3621102) Kind() string    { return "技能" }
+func (CardDef3621102) Element() string { return "暗" }
+
+func (CardDef3621102) Card() model.Card {
+	return model.Card{
+		Number:          "3621102",
+		Type:            "技能",
+		Name:            "报应",
+		Category:        "暗",
+		Tag:             "法术-代赎",
+		Description:     "光环:本回合以及上个回合你的人物每受到1点伤害,此技能本次+1\\攻",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"暗": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\暗\\3621102.jpg",
+	}
+}
+
+type CardDef3621103 struct{}
+
+func (CardDef3621103) ID() string      { return "3621103" }
+func (CardDef3621103) Name() string    { return "血魂斩" }
+func (CardDef3621103) Kind() string    { return "技能" }
+func (CardDef3621103) Element() string { return "暗" }
+
+func (CardDef3621103) Card() model.Card {
+	return model.Card{
+		Number:          "3621103",
+		Type:            "技能",
+		Name:            "血魂斩",
+		Category:        "暗",
+		Tag:             "法术-代赎",
+		Description:     "诱发:此卡用于攻击时,对你的人物造成1点伤害.命中:为你的人物回复2\\血",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"暗": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           6,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\暗\\3621103.jpg",
+	}
+}
+
+type CardDef3621104 struct{}
+
+func (CardDef3621104) ID() string      { return "3621104" }
+func (CardDef3621104) Name() string    { return "血蔷薇咒印" }
+func (CardDef3621104) Kind() string    { return "技能" }
+func (CardDef3621104) Element() string { return "暗" }
+
+func (CardDef3621104) Card() model.Card {
+	return model.Card{
+		Number:          "3621104",
+		Type:            "技能",
+		Name:            "血蔷薇咒印",
+		Category:        "暗",
+		Tag:             "法术-灵媒",
+		Description:     "入场:标记场上任意1个敌方单位.诱发:若该单位在你的下个回合结束前死亡,此卡变为你的人物绑定技能且使用花费-1",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 3},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"暗": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\暗\\3621104.jpg",
+	}
+}
+
+type CardDef3621105 struct{}
+
+func (CardDef3621105) ID() string      { return "3621105" }
+func (CardDef3621105) Name() string    { return "恐吓" }
+func (CardDef3621105) Kind() string    { return "技能" }
+func (CardDef3621105) Element() string { return "暗" }
+
+func (CardDef3621105) Card() model.Card {
+	return model.Card{
+		Number:          "3621105",
+		Type:            "技能",
+		Name:            "恐吓",
+		Category:        "暗",
+		Tag:             "法术-灵媒",
+		Description:     "光环:此卡\\威和\\攻+X,X为敌方具有虚弱的法术数量且最多为2",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"暗": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           3,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\暗\\3621105.jpg",
+	}
+}
+
+type CardDef3621106 struct{}
+
+func (CardDef3621106) ID() string      { return "3621106" }
+func (CardDef3621106) Name() string    { return "红月吞噬" }
+func (CardDef3621106) Kind() string    { return "技能" }
+func (CardDef3621106) Element() string { return "暗" }
+
+func (CardDef3621106) Card() model.Card {
+	return model.Card{
+		Number:          "3621106",
+		Type:            "技能",
+		Name:            "红月吞噬",
+		Category:        "暗",
+		Tag:             "法术-神秘",
+		Description:     "命中:如果目标为伙伴则将其消灭,如果红月生效可以使1个友方暗影单位获得被消灭伙伴剩余生命值的\\血",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 5},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"暗": 3},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           7,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\暗\\3621106.jpg",
+	}
+}
+
+type CardDef3621107 struct{}
+
+func (CardDef3621107) ID() string      { return "3621107" }
+func (CardDef3621107) Name() string    { return "意志侵蚀" }
+func (CardDef3621107) Kind() string    { return "技能" }
+func (CardDef3621107) Element() string { return "暗" }
+
+func (CardDef3621107) Card() model.Card {
+	return model.Card{
+		Number:          "3621107",
+		Type:            "技能",
+		Name:            "意志侵蚀",
+		Category:        "暗",
+		Tag:             "法术-灵媒",
+		Description:     "可额外选择1个目标(可以相同).光环:红月生效期间此卡获得穿透和+1\\威",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"暗": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           5,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\暗\\3621107.jpg",
+	}
+}
+
+type CardDef3621108 struct{}
+
+func (CardDef3621108) ID() string      { return "3621108" }
+func (CardDef3621108) Name() string    { return "月影" }
+func (CardDef3621108) Kind() string    { return "技能" }
+func (CardDef3621108) Element() string { return "暗" }
+
+func (CardDef3621108) Card() model.Card {
+	return model.Card{
+		Number:          "3621108",
+		Type:            "技能",
+		Name:            "月影",
+		Category:        "暗",
+		Tag:             "法术-神秘",
+		Description:     "诱发回合技:当你的法术与虚弱法术或被虚弱法术强化的法术战斗后,可以重置此卡",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 4},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"暗": 2},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          2,
+		Life:            -1,
+		Duration:        -1,
+		Power:           4,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\暗\\3621108.jpg",
+	}
+}
+
+type CardDef3621109 struct{}
+
+func (CardDef3621109) ID() string      { return "3621109" }
+func (CardDef3621109) Name() string    { return "裂魂尖啸" }
+func (CardDef3621109) Kind() string    { return "技能" }
+func (CardDef3621109) Element() string { return "暗" }
+
+func (CardDef3621109) Card() model.Card {
+	return model.Card{
+		Number:          "3621109",
+		Type:            "技能",
+		Name:            "裂魂尖啸",
+		Category:        "暗",
+		Tag:             "法术-灵媒",
+		Description:     "晕眩1.范围:溅射.诱发:此卡作为主法术战斗后,使战斗的敌方法术(包括强化)获得虚弱1",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 6},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{"暗": 3},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           5,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\暗\\3621109.jpg",
+	}
+}
+
+type CardDef3621110 struct{}
+
+func (CardDef3621110) ID() string      { return "3621110" }
+func (CardDef3621110) Name() string    { return "鲜血滋养" }
+func (CardDef3621110) Kind() string    { return "技能" }
+func (CardDef3621110) Element() string { return "暗" }
+
+func (CardDef3621110) Card() model.Card {
+	return model.Card{
+		Number:          "3621110",
+		Type:            "技能",
+		Name:            "鲜血滋养",
+		Category:        "暗",
+		Tag:             "咒术-代赎",
+		Description:     "将弃牌堆1张暗影卡牌移出游戏,获得2\\暗",
+		Quote:           "",
+		ElementsCost:    map[string]int{"暗": 2},
+		ElementsGain:    map[string]int{},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            -1,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\技能\\暗\\3621110.jpg",
+	}
+}
+
 type CardDef4011001 struct{}
 
 func (CardDef4011001) ID() string      { return "4011001" }
@@ -11260,6 +20890,66 @@ func (CardDef4011002) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\人物\\无\\4011002.jpg",
+	}
+}
+
+type CardDef4011101 struct{}
+
+func (CardDef4011101) ID() string      { return "4011101" }
+func (CardDef4011101) Name() string    { return "纯净灵体 奥希斯" }
+func (CardDef4011101) Kind() string    { return "人物" }
+func (CardDef4011101) Element() string { return "无" }
+
+func (CardDef4011101) Card() model.Card {
+	return model.Card{
+		Number:          "4011101",
+		Type:            "人物",
+		Name:            "纯净灵体 奥希斯",
+		Category:        "无",
+		Tag:             "",
+		Description:     "诱发:当你使1张奥术以外的卡牌入场时,使你的所有法术获得虚弱2",
+		Quote:           "\"你觉得你创造了我?我倒是觉得恰恰相反\"",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{"无": 4},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            6,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\人物\\无\\4011101.jpg",
+	}
+}
+
+type CardDef4011102 struct{}
+
+func (CardDef4011102) ID() string      { return "4011102" }
+func (CardDef4011102) Name() string    { return "大法师 罗慕路斯" }
+func (CardDef4011102) Kind() string    { return "人物" }
+func (CardDef4011102) Element() string { return "无" }
+
+func (CardDef4011102) Card() model.Card {
+	return model.Card{
+		Number:          "4011102",
+		Type:            "人物",
+		Name:            "大法师 罗慕路斯",
+		Category:        "无",
+		Tag:             "",
+		Description:     "此卡提供的元素只能严格当做\\无使用",
+		Quote:           "\"看啊,多么完美而纯粹的造物!\"",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{"无": 4},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            6,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\人物\\无\\4011102.jpg",
 	}
 }
 
@@ -11353,6 +21043,66 @@ func (CardDef4111003) Card() model.Card {
 	}
 }
 
+type CardDef4111101 struct{}
+
+func (CardDef4111101) ID() string      { return "4111101" }
+func (CardDef4111101) Name() string    { return "首席顾问 费林" }
+func (CardDef4111101) Kind() string    { return "人物" }
+func (CardDef4111101) Element() string { return "火" }
+
+func (CardDef4111101) Card() model.Card {
+	return model.Card{
+		Number:          "4111101",
+		Type:            "人物",
+		Name:            "首席顾问 费林",
+		Category:        "火",
+		Tag:             "",
+		Description:     "主动绝技:献祭1个友方火焰伙伴才能发动,你的下1次入场的火焰卡牌入场花费减少献祭卡牌入场花费的元素",
+		Quote:           "\"不用担心,我想师兄会认同我们的,毕竟,我们必须以王国的利益为重\"",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{"火": 4},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            6,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\人物\\火\\4111101.jpg",
+	}
+}
+
+type CardDef4111102 struct{}
+
+func (CardDef4111102) ID() string      { return "4111102" }
+func (CardDef4111102) Name() string    { return "大将军 克兰" }
+func (CardDef4111102) Kind() string    { return "人物" }
+func (CardDef4111102) Element() string { return "火" }
+
+func (CardDef4111102) Card() model.Card {
+	return model.Card{
+		Number:          "4111102",
+		Type:            "人物",
+		Name:            "大将军 克兰",
+		Category:        "火",
+		Tag:             "",
+		Description:     "诱发回合技:当双方法术成功防御时才能发动,翻取1张火焰卡牌,然后你丢弃1张手牌",
+		Quote:           "\"我给你了一次又一次的机会,可惜你依然选择违抗我\"",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{"火": 4},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            6,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\人物\\火\\4111102.jpg",
+	}
+}
+
 type CardDef4211001 struct{}
 
 func (CardDef4211001) ID() string      { return "4211001" }
@@ -11440,6 +21190,66 @@ func (CardDef4211003) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\人物\\水\\4211003.jpg",
+	}
+}
+
+type CardDef4211101 struct{}
+
+func (CardDef4211101) ID() string      { return "4211101" }
+func (CardDef4211101) Name() string    { return "海神之使 珊瑚 贝莉 " }
+func (CardDef4211101) Kind() string    { return "人物" }
+func (CardDef4211101) Element() string { return "水" }
+
+func (CardDef4211101) Card() model.Card {
+	return model.Card{
+		Number:          "4211101",
+		Type:            "人物",
+		Name:            "海神之使 珊瑚 贝莉 ",
+		Category:        "水",
+		Tag:             "",
+		Description:     "诱发:本局游戏你第一次使用法术攻击时,使该法术永久+3\\威",
+		Quote:           "\"别忘了父亲的话,每个人出生便被赋予了属于自己和家族的责任\"",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{"水": 4},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            6,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\人物\\水\\4211101.jpg",
+	}
+}
+
+type CardDef4211102 struct{}
+
+func (CardDef4211102) ID() string      { return "4211102" }
+func (CardDef4211102) Name() string    { return "凛冰魔巫 索菲娅" }
+func (CardDef4211102) Kind() string    { return "人物" }
+func (CardDef4211102) Element() string { return "水" }
+
+func (CardDef4211102) Card() model.Card {
+	return model.Card{
+		Number:          "4211102",
+		Type:            "人物",
+		Name:            "凛冰魔巫 索菲娅",
+		Category:        "水",
+		Tag:             "",
+		Description:     "光环:此卡不受冻结效果影响.绝技:移除场上任意1个单位的1层冻结,对其造成2点伤害",
+		Quote:           "\"终于,你找到了我\"",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{"水": 4},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            6,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\人物\\水\\4211102.jpg",
 	}
 }
 
@@ -11533,6 +21343,66 @@ func (CardDef4311003) Card() model.Card {
 	}
 }
 
+type CardDef4311101 struct{}
+
+func (CardDef4311101) ID() string      { return "4311101" }
+func (CardDef4311101) Name() string    { return "司天魔巫 索兰德" }
+func (CardDef4311101) Kind() string    { return "人物" }
+func (CardDef4311101) Element() string { return "气" }
+
+func (CardDef4311101) Card() model.Card {
+	return model.Card{
+		Number:          "4311101",
+		Type:            "人物",
+		Name:            "司天魔巫 索兰德",
+		Category:        "气",
+		Tag:             "",
+		Description:     "光环:你的驱动和聚能法术永久+1\\威,你不能从技能池学习其他种类的法术",
+		Quote:           "",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{"气": 4},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            6,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\人物\\气\\4311101.jpg",
+	}
+}
+
+type CardDef4311102 struct{}
+
+func (CardDef4311102) ID() string      { return "4311102" }
+func (CardDef4311102) Name() string    { return "布雾者 弗格" }
+func (CardDef4311102) Kind() string    { return "人物" }
+func (CardDef4311102) Element() string { return "气" }
+
+func (CardDef4311102) Card() model.Card {
+	return model.Card{
+		Number:          "4311102",
+		Type:            "人物",
+		Name:            "布雾者 弗格",
+		Category:        "气",
+		Tag:             "",
+		Description:     "绝技:双方各自召唤的下1个伙伴入场时获得隐蔽2",
+		Quote:           "你确定你战胜的是索兰德?还是一片很像他的云?",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{"气": 4},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            6,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\人物\\气\\4311102.jpg",
+	}
+}
+
 type CardDef4411001 struct{}
 
 func (CardDef4411001) ID() string      { return "4411001" }
@@ -11620,6 +21490,66 @@ func (CardDef4411003) Card() model.Card {
 		Power:           -1,
 		Spawns:          []string{},
 		OutputPath:      "output\\基础包\\人物\\地\\4411003.jpg",
+	}
+}
+
+type CardDef4411101 struct{}
+
+func (CardDef4411101) ID() string      { return "4411101" }
+func (CardDef4411101) Name() string    { return "翡翠男爵 杰德 拜利兰" }
+func (CardDef4411101) Kind() string    { return "人物" }
+func (CardDef4411101) Element() string { return "地" }
+
+func (CardDef4411101) Card() model.Card {
+	return model.Card{
+		Number:          "4411101",
+		Type:            "人物",
+		Name:            "翡翠男爵 杰德 拜利兰",
+		Category:        "地",
+		Tag:             "",
+		Description:     "光环:当你的护盾小于3时不会在回合结束时减少",
+		Quote:           "拜利兰家族可能多少对永生有着独特的渴望,杰德也一样,不过他选择了大家都能接受的方式",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{"地": 4},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            6,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\人物\\地\\4411101.jpg",
+	}
+}
+
+type CardDef4411102 struct{}
+
+func (CardDef4411102) ID() string      { return "4411102" }
+func (CardDef4411102) Name() string    { return "秋枫领主 狄利克雷" }
+func (CardDef4411102) Kind() string    { return "人物" }
+func (CardDef4411102) Element() string { return "地" }
+
+func (CardDef4411102) Card() model.Card {
+	return model.Card{
+		Number:          "4411102",
+		Type:            "人物",
+		Name:            "秋枫领主 狄利克雷",
+		Category:        "地",
+		Tag:             "",
+		Description:     "光环:当你的地脉卡牌透支时,你可以获得剩余的元素的2倍(当你透支超过所需费用时,你不能继续透支)",
+		Quote:           "我与休伯特的意见并不相同,我认为人活着比死了更有价值",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{"地": 4},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            6,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\人物\\地\\4411102.jpg",
 	}
 }
 
@@ -11713,6 +21643,66 @@ func (CardDef4511003) Card() model.Card {
 	}
 }
 
+type CardDef4511101 struct{}
+
+func (CardDef4511101) ID() string      { return "4511101" }
+func (CardDef4511101) Name() string    { return "庇护者 西瓦尔" }
+func (CardDef4511101) Kind() string    { return "人物" }
+func (CardDef4511101) Element() string { return "光" }
+
+func (CardDef4511101) Card() model.Card {
+	return model.Card{
+		Number:          "4511101",
+		Type:            "人物",
+		Name:            "庇护者 西瓦尔",
+		Category:        "光",
+		Tag:             "",
+		Description:     "诱发绝技:当友方单位在一个回合内受到3点及以上总伤害时才能发动,直到下个回合结束所有友方单位不会受到任何伤害",
+		Quote:           "\"我不关心你们间的恩怨,但是在这里,没有人可以开战\"",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{"光": 4},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            6,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\人物\\光\\4511101.jpg",
+	}
+}
+
+type CardDef4511102 struct{}
+
+func (CardDef4511102) ID() string      { return "4511102" }
+func (CardDef4511102) Name() string    { return "救赎者 伊芙 秋枫" }
+func (CardDef4511102) Kind() string    { return "人物" }
+func (CardDef4511102) Element() string { return "光" }
+
+func (CardDef4511102) Card() model.Card {
+	return model.Card{
+		Number:          "4511102",
+		Type:            "人物",
+		Name:            "救赎者 伊芙 秋枫",
+		Category:        "光",
+		Tag:             "",
+		Description:     "主动绝技:敌方场上单位数量比我方多时才能发动,选择1个受伤的友方伙伴,花费X\\光使该伙伴获得+X\\血和负载+X\\光,X为你场上受伤单位数量",
+		Quote:           "只要你探寻,必得指引;只要你祈求,必得救赎",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{"光": 4},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            6,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\人物\\光\\4511102.jpg",
+	}
+}
+
 type CardDef4611001 struct{}
 
 func (CardDef4611001) ID() string      { return "4611001" }
@@ -11803,10 +21793,74 @@ func (CardDef4611003) Card() model.Card {
 	}
 }
 
+type CardDef4611101 struct{}
+
+func (CardDef4611101) ID() string      { return "4611101" }
+func (CardDef4611101) Name() string    { return "鲜血伯爵 休伯特 黑松" }
+func (CardDef4611101) Kind() string    { return "人物" }
+func (CardDef4611101) Element() string { return "暗" }
+
+func (CardDef4611101) Card() model.Card {
+	return model.Card{
+		Number:          "4611101",
+		Type:            "人物",
+		Name:            "鲜血伯爵 休伯特 黑松",
+		Category:        "暗",
+		Tag:             "",
+		Description:     "入场:将1张衍生卡牌鲜血盛宴加入你的技能池",
+		Quote:           "只要鲜血和黑魔法还在滋养我的家族,黑松就会在这片土地上屹立不倒",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{"暗": 4},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            6,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{"3601101"},
+		OutputPath:      "output\\王权纷争\\人物\\暗\\4611101.jpg",
+	}
+}
+
+type CardDef4611102 struct{}
+
+func (CardDef4611102) ID() string      { return "4611102" }
+func (CardDef4611102) Name() string    { return "灾厄玫瑰 多姆" }
+func (CardDef4611102) Kind() string    { return "人物" }
+func (CardDef4611102) Element() string { return "暗" }
+
+func (CardDef4611102) Card() model.Card {
+	return model.Card{
+		Number:          "4611102",
+		Type:            "人物",
+		Name:            "灾厄玫瑰 多姆",
+		Category:        "暗",
+		Tag:             "",
+		Description:     "入场:从双方卡组上方将4张牌送去弃牌堆",
+		Quote:           "\"我就是家里最年长的\",少年看着手中的花苞说道",
+		ElementsCost:    map[string]int{},
+		ElementsGain:    map[string]int{"暗": 4},
+		ElementsExpense: map[string]int{},
+		VersionNum:      "1",
+		VersionName:     "王权纷争",
+		Attack:          -1,
+		Life:            6,
+		Duration:        -1,
+		Power:           -1,
+		Spawns:          []string{},
+		OutputPath:      "output\\王权纷争\\人物\\暗\\4611102.jpg",
+	}
+}
+
 var compiledCardDefinitions = []CardDefinition{
+	CardDef1001101{},
 	CardDef1011001{},
 	CardDef1011002{},
 	CardDef1011003{},
+	CardDef1011101{},
+	CardDef1011102{},
+	CardDef1011103{},
 	CardDef1021001{},
 	CardDef1021002{},
 	CardDef1021003{},
@@ -11825,9 +21879,27 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef1021016{},
 	CardDef1021017{},
 	CardDef1021018{},
+	CardDef1021101{},
+	CardDef1021102{},
+	CardDef1021103{},
+	CardDef1021104{},
+	CardDef1021105{},
+	CardDef1021106{},
+	CardDef1021107{},
+	CardDef1021108{},
+	CardDef1021109{},
+	CardDef1021110{},
+	CardDef1021111{},
+	CardDef1021112{},
+	CardDef1021113{},
+	CardDef1021114{},
+	CardDef1021115{},
 	CardDef1111001{},
 	CardDef1111002{},
 	CardDef1111003{},
+	CardDef1111101{},
+	CardDef1111102{},
+	CardDef1111103{},
 	CardDef1121001{},
 	CardDef1121002{},
 	CardDef1121003{},
@@ -11844,9 +21916,28 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef1121014{},
 	CardDef1121015{},
 	CardDef1121016{},
+	CardDef1121101{},
+	CardDef1121102{},
+	CardDef1121103{},
+	CardDef1121104{},
+	CardDef1121105{},
+	CardDef1121106{},
+	CardDef1121107{},
+	CardDef1121108{},
+	CardDef1121109{},
+	CardDef1121110{},
+	CardDef1121111{},
+	CardDef1121112{},
+	CardDef1121113{},
+	CardDef1121114{},
+	CardDef1121115{},
+	CardDef1201101{},
 	CardDef1211001{},
 	CardDef1211002{},
 	CardDef1211003{},
+	CardDef1211101{},
+	CardDef1211102{},
+	CardDef1211103{},
 	CardDef1221001{},
 	CardDef1221002{},
 	CardDef1221003{},
@@ -11863,9 +21954,27 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef1221014{},
 	CardDef1221015{},
 	CardDef1221016{},
+	CardDef1221101{},
+	CardDef1221102{},
+	CardDef1221103{},
+	CardDef1221104{},
+	CardDef1221105{},
+	CardDef1221106{},
+	CardDef1221107{},
+	CardDef1221108{},
+	CardDef1221109{},
+	CardDef1221110{},
+	CardDef1221111{},
+	CardDef1221112{},
+	CardDef1221113{},
+	CardDef1221114{},
+	CardDef1221115{},
 	CardDef1311001{},
 	CardDef1311002{},
 	CardDef1311003{},
+	CardDef1311101{},
+	CardDef1311102{},
+	CardDef1311103{},
 	CardDef1321001{},
 	CardDef1321002{},
 	CardDef1321003{},
@@ -11882,11 +21991,30 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef1321014{},
 	CardDef1321015{},
 	CardDef1321016{},
+	CardDef1321101{},
+	CardDef1321102{},
+	CardDef1321103{},
+	CardDef1321104{},
+	CardDef1321105{},
+	CardDef1321106{},
+	CardDef1321107{},
+	CardDef1321108{},
+	CardDef1321109{},
+	CardDef1321110{},
+	CardDef1321111{},
+	CardDef1321112{},
+	CardDef1321113{},
+	CardDef1321114{},
+	CardDef1321115{},
 	CardDef1401001{},
 	CardDef1401002{},
+	CardDef1401101{},
 	CardDef1411001{},
 	CardDef1411002{},
 	CardDef1411003{},
+	CardDef1411101{},
+	CardDef1411102{},
+	CardDef1411103{},
 	CardDef1421001{},
 	CardDef1421002{},
 	CardDef1421003{},
@@ -11903,10 +22031,28 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef1421014{},
 	CardDef1421015{},
 	CardDef1421016{},
+	CardDef1421101{},
+	CardDef1421102{},
+	CardDef1421103{},
+	CardDef1421104{},
+	CardDef1421105{},
+	CardDef1421106{},
+	CardDef1421107{},
+	CardDef1421108{},
+	CardDef1421109{},
+	CardDef1421110{},
+	CardDef1421111{},
+	CardDef1421112{},
+	CardDef1421113{},
+	CardDef1421114{},
+	CardDef1421115{},
 	CardDef1501001{},
 	CardDef1511001{},
 	CardDef1511002{},
 	CardDef1511003{},
+	CardDef1511101{},
+	CardDef1511102{},
+	CardDef1511103{},
 	CardDef1521001{},
 	CardDef1521002{},
 	CardDef1521003{},
@@ -11923,9 +22069,28 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef1521014{},
 	CardDef1521015{},
 	CardDef1521016{},
+	CardDef1521101{},
+	CardDef1521102{},
+	CardDef1521103{},
+	CardDef1521104{},
+	CardDef1521105{},
+	CardDef1521106{},
+	CardDef1521107{},
+	CardDef1521108{},
+	CardDef1521109{},
+	CardDef1521110{},
+	CardDef1521111{},
+	CardDef1521112{},
+	CardDef1521113{},
+	CardDef1521114{},
+	CardDef1521115{},
+	CardDef1601101{},
 	CardDef1611001{},
 	CardDef1611002{},
 	CardDef1611003{},
+	CardDef1611101{},
+	CardDef1611102{},
+	CardDef1611103{},
 	CardDef1621001{},
 	CardDef1621002{},
 	CardDef1621003{},
@@ -11942,9 +22107,28 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef1621014{},
 	CardDef1621015{},
 	CardDef1621016{},
+	CardDef1621101{},
+	CardDef1621102{},
+	CardDef1621103{},
+	CardDef1621104{},
+	CardDef1621105{},
+	CardDef1621106{},
+	CardDef1621107{},
+	CardDef1621108{},
+	CardDef1621109{},
+	CardDef1621110{},
+	CardDef1621111{},
+	CardDef1621112{},
+	CardDef1621113{},
+	CardDef1621114{},
+	CardDef1621115{},
+	CardDef2001101{},
+	CardDef2001102{},
 	CardDef2011001{},
 	CardDef2011002{},
 	CardDef2011003{},
+	CardDef2011101{},
+	CardDef2011102{},
 	CardDef2021001{},
 	CardDef2021002{},
 	CardDef2021003{},
@@ -11968,8 +22152,26 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef2021021{},
 	CardDef2021022{},
 	CardDef2021023{},
+	CardDef2021101{},
+	CardDef2021102{},
+	CardDef2021103{},
+	CardDef2021104{},
+	CardDef2021105{},
+	CardDef2021106{},
+	CardDef2021107{},
+	CardDef2021108{},
+	CardDef2021109{},
+	CardDef2021110{},
+	CardDef2021111{},
+	CardDef2021112{},
+	CardDef2021113{},
+	CardDef2021114{},
+	CardDef2021115{},
+	CardDef2021116{},
 	CardDef2111001{},
 	CardDef2111002{},
+	CardDef2111101{},
+	CardDef2111102{},
 	CardDef2121001{},
 	CardDef2121002{},
 	CardDef2121003{},
@@ -11984,8 +22186,25 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef2121012{},
 	CardDef2121013{},
 	CardDef2121014{},
+	CardDef2121101{},
+	CardDef2121102{},
+	CardDef2121103{},
+	CardDef2121104{},
+	CardDef2121105{},
+	CardDef2121106{},
+	CardDef2121107{},
+	CardDef2121108{},
+	CardDef2121109{},
+	CardDef2121110{},
+	CardDef2121111{},
+	CardDef2121112{},
+	CardDef2201101{},
+	CardDef2201102{},
+	CardDef2201103{},
 	CardDef2211001{},
 	CardDef2211002{},
+	CardDef2211101{},
+	CardDef2211102{},
 	CardDef2221001{},
 	CardDef2221002{},
 	CardDef2221003{},
@@ -12000,8 +22219,22 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef2221012{},
 	CardDef2221013{},
 	CardDef2221014{},
+	CardDef2221101{},
+	CardDef2221102{},
+	CardDef2221103{},
+	CardDef2221104{},
+	CardDef2221105{},
+	CardDef2221106{},
+	CardDef2221107{},
+	CardDef2221108{},
+	CardDef2221109{},
+	CardDef2221110{},
+	CardDef2221111{},
+	CardDef2221112{},
 	CardDef2311001{},
 	CardDef2311002{},
+	CardDef2311101{},
+	CardDef2311102{},
 	CardDef2321001{},
 	CardDef2321002{},
 	CardDef2321003{},
@@ -12016,8 +22249,22 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef2321012{},
 	CardDef2321013{},
 	CardDef2321014{},
+	CardDef2321101{},
+	CardDef2321102{},
+	CardDef2321103{},
+	CardDef2321104{},
+	CardDef2321105{},
+	CardDef2321106{},
+	CardDef2321107{},
+	CardDef2321108{},
+	CardDef2321109{},
+	CardDef2321110{},
+	CardDef2321111{},
+	CardDef2321112{},
 	CardDef2411001{},
 	CardDef2411002{},
+	CardDef2411101{},
+	CardDef2411102{},
 	CardDef2421001{},
 	CardDef2421002{},
 	CardDef2421003{},
@@ -12032,9 +22279,23 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef2421012{},
 	CardDef2421013{},
 	CardDef2421014{},
+	CardDef2421101{},
+	CardDef2421102{},
+	CardDef2421103{},
+	CardDef2421104{},
+	CardDef2421105{},
+	CardDef2421106{},
+	CardDef2421107{},
+	CardDef2421108{},
+	CardDef2421109{},
+	CardDef2421110{},
+	CardDef2421111{},
+	CardDef2421112{},
 	CardDef2501001{},
 	CardDef2511001{},
 	CardDef2511002{},
+	CardDef2511101{},
+	CardDef2511102{},
 	CardDef2521001{},
 	CardDef2521002{},
 	CardDef2521003{},
@@ -12049,10 +22310,24 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef2521012{},
 	CardDef2521013{},
 	CardDef2521014{},
+	CardDef2521101{},
+	CardDef2521102{},
+	CardDef2521103{},
+	CardDef2521104{},
+	CardDef2521105{},
+	CardDef2521106{},
+	CardDef2521107{},
+	CardDef2521108{},
+	CardDef2521109{},
+	CardDef2521110{},
+	CardDef2521111{},
+	CardDef2521112{},
 	CardDef2601001{},
 	CardDef2601002{},
 	CardDef2611001{},
 	CardDef2611002{},
+	CardDef2611101{},
+	CardDef2611102{},
 	CardDef2621001{},
 	CardDef2621002{},
 	CardDef2621003{},
@@ -12067,8 +22342,22 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef2621012{},
 	CardDef2621013{},
 	CardDef2621014{},
+	CardDef2621101{},
+	CardDef2621102{},
+	CardDef2621103{},
+	CardDef2621104{},
+	CardDef2621105{},
+	CardDef2621106{},
+	CardDef2621107{},
+	CardDef2621108{},
+	CardDef2621109{},
+	CardDef2621110{},
+	CardDef2621111{},
+	CardDef2621112{},
 	CardDef3001001{},
 	CardDef3001002{},
+	CardDef3001101{},
+	CardDef3011101{},
 	CardDef3021001{},
 	CardDef3021002{},
 	CardDef3021003{},
@@ -12081,8 +22370,18 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef3021010{},
 	CardDef3021011{},
 	CardDef3021012{},
+	CardDef3021101{},
+	CardDef3021102{},
+	CardDef3021103{},
+	CardDef3021104{},
+	CardDef3021105{},
+	CardDef3021106{},
+	CardDef3021107{},
+	CardDef3021108{},
 	CardDef3101001{},
 	CardDef3101002{},
+	CardDef3111101{},
+	CardDef3111102{},
 	CardDef3121001{},
 	CardDef3121002{},
 	CardDef3121003{},
@@ -12098,8 +22397,20 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef3121013{},
 	CardDef3121014{},
 	CardDef3121015{},
+	CardDef3121101{},
+	CardDef3121102{},
+	CardDef3121103{},
+	CardDef3121104{},
+	CardDef3121105{},
+	CardDef3121106{},
+	CardDef3121107{},
+	CardDef3121108{},
+	CardDef3121109{},
+	CardDef3121110{},
 	CardDef3201001{},
 	CardDef3201002{},
+	CardDef3211101{},
+	CardDef3211102{},
 	CardDef3221001{},
 	CardDef3221002{},
 	CardDef3221003{},
@@ -12115,7 +22426,19 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef3221013{},
 	CardDef3221014{},
 	CardDef3221015{},
+	CardDef3221101{},
+	CardDef3221102{},
+	CardDef3221103{},
+	CardDef3221104{},
+	CardDef3221105{},
+	CardDef3221106{},
+	CardDef3221107{},
+	CardDef3221108{},
+	CardDef3221109{},
+	CardDef3221110{},
 	CardDef3301001{},
+	CardDef3311101{},
+	CardDef3311102{},
 	CardDef3321001{},
 	CardDef3321002{},
 	CardDef3321003{},
@@ -12131,6 +22454,18 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef3321013{},
 	CardDef3321014{},
 	CardDef3321015{},
+	CardDef3321101{},
+	CardDef3321102{},
+	CardDef3321103{},
+	CardDef3321104{},
+	CardDef3321105{},
+	CardDef3321106{},
+	CardDef3321107{},
+	CardDef3321108{},
+	CardDef3321109{},
+	CardDef3321110{},
+	CardDef3411101{},
+	CardDef3411102{},
 	CardDef3421001{},
 	CardDef3421002{},
 	CardDef3421003{},
@@ -12146,8 +22481,21 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef3421013{},
 	CardDef3421014{},
 	CardDef3421015{},
+	CardDef3421101{},
+	CardDef3421102{},
+	CardDef3421103{},
+	CardDef3421104{},
+	CardDef3421105{},
+	CardDef3421106{},
+	CardDef3421107{},
+	CardDef3421108{},
+	CardDef3421109{},
+	CardDef3421110{},
 	CardDef3501001{},
+	CardDef3501101{},
 	CardDef3511010{},
+	CardDef3511101{},
+	CardDef3511102{},
 	CardDef3521001{},
 	CardDef3521002{},
 	CardDef3521003{},
@@ -12162,6 +22510,19 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef3521013{},
 	CardDef3521014{},
 	CardDef3521015{},
+	CardDef3521101{},
+	CardDef3521102{},
+	CardDef3521103{},
+	CardDef3521104{},
+	CardDef3521105{},
+	CardDef3521106{},
+	CardDef3521107{},
+	CardDef3521108{},
+	CardDef3521109{},
+	CardDef3521110{},
+	CardDef3601101{},
+	CardDef3611101{},
+	CardDef3611102{},
 	CardDef3621001{},
 	CardDef3621002{},
 	CardDef3621003{},
@@ -12177,24 +22538,48 @@ var compiledCardDefinitions = []CardDefinition{
 	CardDef3621013{},
 	CardDef3621014{},
 	CardDef3621015{},
+	CardDef3621101{},
+	CardDef3621102{},
+	CardDef3621103{},
+	CardDef3621104{},
+	CardDef3621105{},
+	CardDef3621106{},
+	CardDef3621107{},
+	CardDef3621108{},
+	CardDef3621109{},
+	CardDef3621110{},
 	CardDef4011001{},
 	CardDef4011002{},
+	CardDef4011101{},
+	CardDef4011102{},
 	CardDef4111001{},
 	CardDef4111002{},
 	CardDef4111003{},
+	CardDef4111101{},
+	CardDef4111102{},
 	CardDef4211001{},
 	CardDef4211002{},
 	CardDef4211003{},
+	CardDef4211101{},
+	CardDef4211102{},
 	CardDef4311001{},
 	CardDef4311002{},
 	CardDef4311003{},
+	CardDef4311101{},
+	CardDef4311102{},
 	CardDef4411001{},
 	CardDef4411002{},
 	CardDef4411003{},
+	CardDef4411101{},
+	CardDef4411102{},
 	CardDef4511001{},
 	CardDef4511002{},
 	CardDef4511003{},
+	CardDef4511101{},
+	CardDef4511102{},
 	CardDef4611001{},
 	CardDef4611002{},
 	CardDef4611003{},
+	CardDef4611101{},
+	CardDef4611102{},
 }

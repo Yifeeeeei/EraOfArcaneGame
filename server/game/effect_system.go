@@ -22,14 +22,18 @@ const (
 	TriggerOnSpellCast                                 // 施法时: spell is cast
 	TriggerOnSpellHitBeforeDamage                      // 法术命中时: before hit damage is dealt
 	TriggerOnSpellHit                                  // 法术命中后: spell hit after damage
+	TriggerOnSpellMissOrCancelled                      // 法术未命中或被无效后
 	TriggerOnDefend                                    // 防御时: spell is defended
 	TriggerOnDraw                                      // 抽牌时: card is drawn
+	TriggerOnDiscard                                   // 弃牌时: card is discarded from hand
 	TriggerOnLoadGain                                  // 获得负载时: a friendly card gains load
+	TriggerOnLoadLoss                                  // 失去负载时: a friendly card loses load
 	TriggerOnMastery                                   // 达到精通时: a friendly card reaches a mastery level
 	TriggerOnSummon                                    // 召唤时: any friendly unit is summoned
 	TriggerOnFriendlyDeath                             // 友方死亡: any friendly unit dies
 	TriggerOnEnemyDeath                                // 敌方死亡: any enemy unit dies
 	TriggerOnUnitEnter                                 // 任意入场: any unit enters field (for passive listeners)
+	TriggerOnCardEnter                                 // 任意卡牌入场: any card enters a field zone
 	TriggerPerTurn                                     // 回合技: active ability (per-turn)
 	TriggerUltimate                                    // 绝技: one-time active ability
 	TriggerOnEquip                                     // 装备时: item is equipped
@@ -310,6 +314,17 @@ func (e *Engine) triggerFieldEffectsWithData(trigger EffectTrigger, playerID int
 	return e.promptCounterTrapQueue(counterCandidates, trigger, eventSource, extraData, nil)
 }
 
+func (e *Engine) notifyCardEntered(playerID int, card *CardInstance, extraData map[string]any) {
+	if card == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return
+	}
+	data := cloneExtraData(extraData)
+	data["entered_player"] = playerID
+	data["entered_card"] = card
+	e.triggerFieldEffectsWithData(TriggerOnCardEnter, playerID, card, data)
+	e.triggerFieldEffectsWithData(TriggerOnCardEnter, 1-playerID, card, data)
+}
+
 func triggerName(t EffectTrigger) string {
 	switch t {
 	case TriggerOnEnter:
@@ -334,14 +349,22 @@ func triggerName(t EffectTrigger) string {
 		return "on_spell_cast"
 	case TriggerOnSpellHit:
 		return "on_spell_hit"
+	case TriggerOnSpellMissOrCancelled:
+		return "on_spell_miss_or_cancelled"
 	case TriggerOnDefend:
 		return "on_defend"
 	case TriggerOnDraw:
 		return "on_draw"
+	case TriggerOnDiscard:
+		return "on_discard"
 	case TriggerOnLoadGain:
 		return "on_load_gain"
+	case TriggerOnLoadLoss:
+		return "on_load_loss"
 	case TriggerOnMastery:
 		return "on_mastery"
+	case TriggerOnCardEnter:
+		return "on_card_enter"
 	case TriggerPerTurn:
 		return "per_turn"
 	case TriggerUltimate:

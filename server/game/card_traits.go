@@ -59,21 +59,40 @@ func isSpellScrollCard(card *model.Card) bool {
 	if card == nil || !card.IsItem() {
 		return false
 	}
+	if strings.Contains(card.Tag, "法术卷轴") {
+		return true
+	}
 	switch card.Number {
 	case "2121003", "2121008", "2121009", "2121011",
 		"2221008", "2221009",
 		"2321003", "2321009",
 		"2421008", "2421009",
 		"2521008", "2521009", "2521013",
-		"2621008", "2621009":
+		"2621008", "2621009",
+		"2121105", "2121109", "2121111", "2121112",
+		"2221110",
+		"2321106",
+		"2521111", "2521112":
 		return true
 	default:
 		return false
 	}
 }
 
+func spellScrollUsesGenericCast(card *model.Card) bool {
+	return isSpellScrollCard(card) && (card.Attack >= 0 || card.Power >= 0)
+}
+
 func isSpellLikeCard(card *model.Card) bool {
 	return card != nil && (card.IsSkill() || isSpellScrollCard(card))
+}
+
+func spellSuppressesOpponentResponses(card *CardInstance) bool {
+	return card != nil && card.Card != nil && card.Card.Number == "2121111"
+}
+
+func providesStrictArcaneOnly(card *CardInstance) bool {
+	return card != nil && card.Card != nil && (card.Card.Number == "2021106" || card.Card.Number == "4011102")
 }
 
 func canCardBeWeakened(card *model.Card) bool {
@@ -93,19 +112,29 @@ func traitsForCardNumber(number string) cardTraits {
 	switch number {
 	case "1021011", "3021001", "3021006", "3021008", "3021009", "3121007", "3121011", "3321012", "3321013", "3421015", "3521011", "3621009":
 		t.rush = true
+	case "3001101", "3021105", "3021107", "3021108", "3221104", "3221108", "3321101", "3321105", "3321107":
+		t.rush = true
 	}
 	switch number {
 	case "1011001", "1011002", "1111001", "1111003", "1211003", "1321010", "1511003":
+		t.taunt = true
+	case "1011102", "1011103", "1111103", "1221103", "1221108", "1421104", "1421112", "1521101", "1621110", "1621115":
 		t.taunt = true
 	}
 	switch number {
 	case "2121011", "2521008", "3021011", "3121006", "3121010", "3121015", "3201002", "3221011", "3321004", "3321009", "3321013", "3421009", "3421010", "3421012", "3521005", "3621004", "3621011":
 		t.pierce = true
+	case "3121106", "3511102", "3521103":
+		t.pierce = true
 	}
 	switch number {
 	case "3021006", "3021008", "3021010", "3021012", "3121007", "3121008", "3221006", "3221007", "3221008", "3221010", "3221015", "3321007", "3321008", "3321012", "3321014", "3421009", "3421013", "3421014", "3521014", "3621010":
 		t.cooldown = 1
+	case "3021103", "3021108", "3111101", "3121110", "3221104", "3321105", "3411102", "3421101", "3421107", "3521108":
+		t.cooldown = 1
 	case "3021004", "3421015", "3521011", "3621015":
+		t.cooldown = 2
+	case "3011101", "3021105", "3211102", "3221101", "3411101", "3611101":
 		t.cooldown = 2
 	}
 	switch number {
@@ -116,41 +145,69 @@ func traitsForCardNumber(number string) cardTraits {
 	switch number {
 	case "2121008", "2321003", "2421008", "3121005", "3121010", "3221001", "3321006", "3421007", "3421014", "3621011":
 		t.area = SpellAreaSquare
+	case "2521112", "3221107", "3321102", "3421108", "3521106":
+		t.area = SpellAreaSquare
 	case "3221006", "3421013":
+		t.area = SpellAreaAll
+	case "2221110", "3011101", "3111101", "3411102":
 		t.area = SpellAreaAll
 	case "3321011", "3521012":
 		t.area = SpellAreaColumn
+	case "2121112", "2321112", "3121104":
+		t.area = SpellAreaColumn
 	case "2521009", "3001001", "3121004", "3521008", "3621003":
 		t.area = SpellAreaFrontRow
+	case "3121107", "3221110", "3321103", "3421102", "3421106":
+		t.area = SpellAreaFrontRow
 	case "2221009", "2621009", "3201002", "3221005":
+		t.area = SpellAreaSplashCross
+	case "2121105", "3421107", "3511102", "3621109":
 		t.area = SpellAreaSplashCross
 	}
 
 	switch number {
 	case "2121009", "2521013", "3121012", "3121013", "3201001", "3221004", "3221014", "3321010", "3321015", "3421001", "3421005", "3521003", "3621013", "3621014":
 		t.defenseOnly = true
+	case "3021102", "3121102", "3121108", "3221103", "3321104", "3521107":
+		t.defenseOnly = true
 	}
 	switch number {
 	case "3001001":
 		t.noBoost = true
 		t.noBoosted = true
+	case "3421103":
+		t.noBoost = true
 	}
 	switch number {
 	case "3021010", "3221008", "3321008", "3621015":
 		t.noAttack = true
 	}
+	switch number {
+	case "3121105":
+		t.noDefend = true
+	}
 
 	switch number {
 	case "3021001", "3021004", "3021006", "3021007", "3021010", "3021012", "3221007", "3221010", "3321007", "3321014", "3621012":
 		t.needsTarget = falsePtr()
+	case "3001101", "3021103", "3021105", "3021107", "3021108", "3121110", "3211102", "3221101", "3321105", "3321107", "3411101", "3421101", "3501101", "3521108", "3611101":
+		t.needsTarget = falsePtr()
 	case "2121003", "2121008", "2121011", "2221008", "2221009", "2321003", "2321009", "2421008", "2421009", "2521008", "2521009", "2621008", "2621009", "3021005", "3021008", "3021009", "3121003", "3121005", "3121006", "3121010", "3121011", "3221001", "3221005", "3221006", "3221011", "3221012", "3321003", "3321004", "3321006", "3321009", "3321011", "3321013", "3421002", "3421007", "3421009", "3421010", "3421012", "3421013", "3421014", "3521001", "3521004", "3521005", "3521008", "3521012", "3621003", "3621004", "3621011":
+		t.needsTarget = truePtr()
+	case "2121105", "2121109", "2121111", "2121112", "2221110", "2321112", "2521112", "3011101", "3021102", "3111101", "3121101", "3121102", "3121104", "3121105", "3121106", "3121107", "3121108", "3211101", "3221102", "3221103", "3221104", "3221107", "3221108", "3221110", "3321101", "3321102", "3321103", "3321104", "3411102", "3421102", "3421106", "3421107", "3421108", "3511102", "3521103", "3521106", "3521107", "3601101", "3621107", "3621109":
+		t.needsTarget = truePtr()
+	case "3421109":
 		t.needsTarget = truePtr()
 	}
 
 	switch number {
 	case "2321003", "3021009", "3321003", "3321006", "3421007", "3521004", "3521008":
 		t.statuses = map[string]int{StatusStun: 1}
+	case "3211101", "3621109":
+		t.statuses = map[string]int{StatusStun: 1}
 	case "2221003", "2221009", "3221005", "3201002", "3221014":
+		t.statuses = map[string]int{StatusFreeze: 1}
+	case "3221108":
 		t.statuses = map[string]int{StatusFreeze: 1}
 	case "3221012":
 		t.statuses = map[string]int{StatusFreeze: 2}
@@ -158,12 +215,16 @@ func traitsForCardNumber(number string) cardTraits {
 		t.statuses = map[string]int{StatusBurn: 2}
 	case "2121003", "2121008":
 		t.statuses = map[string]int{StatusBurn: 1}
+	case "2121112":
+		t.statuses = map[string]int{StatusBurn: 1}
 	case "3121005", "3121010", "3121011", "3121013":
 		t.statuses = map[string]int{StatusBurn: 1}
 	case "3421002":
 		t.statuses = map[string]int{StatusPetrify: 1}
 	case "2421005", "3421009":
 		t.statuses = map[string]int{StatusPetrify: 2}
+	case "3421109":
+		t.statuses = map[string]int{StatusPetrify: 3}
 	case "2621001", "3621009", "3621014":
 		t.statuses = map[string]int{StatusWeaken: 2}
 	}
@@ -180,7 +241,8 @@ func hasPerTurnAbilityNumber(number string) bool {
 		"1121003", "1321001", "1321013", "1321015", "1421009", "1421010",
 		"1421012", "1521001", "1621009", "2111001", "2111002", "2121001",
 		"2311002", "2411001", "2421011", "2621013",
-		"4111002":
+		"4111002",
+		"1221102":
 		return true
 	default:
 		return false
@@ -189,7 +251,7 @@ func hasPerTurnAbilityNumber(number string) bool {
 
 func isPrayerAbilityNumber(number string) bool {
 	switch number {
-	case "1211001", "1221005", "1221015", "1421009", "1521001", "1521014", "2111002", "2421011":
+	case "1211001", "1221005", "1221015", "1411101", "1421009", "1521001", "1521014", "2111002", "2421011":
 		return true
 	default:
 		return false
@@ -200,7 +262,8 @@ func hasUltimateAbilityNumber(number string) bool {
 	switch number {
 	case "1021012", "1121010", "1221011", "1321005", "1511001", "1521011",
 		"1611002", "1621004", "1621012", "2011003", "2021006", "2121007", "2211001", "2321012",
-		"2521007", "4311001", "4311003", "4511002", "4611002":
+		"2521007", "4311001", "4311003", "4511002", "4611002",
+		"4211102", "4311102":
 		return true
 	default:
 		return false
@@ -317,6 +380,16 @@ func cardHasActiveGlobalSpellRange(card *CardInstance) bool {
 	}
 	if h, ok := behaviorForNumber(card.Card.Number).(GlobalSpellRangeBehavior); ok && h.HasActiveGlobalSpellRange(card) {
 		return h.HasGlobalSpellRange()
+	}
+	return false
+}
+
+func cardCanAttackFromNonFront(card *CardInstance) bool {
+	if card == nil || card.Card == nil {
+		return false
+	}
+	if h, ok := behaviorForNumber(card.Card.Number).(AttackPositionBehavior); ok && h.HasActiveAttackPosition(card) {
+		return h.CanAttackFromNonFront()
 	}
 	return false
 }

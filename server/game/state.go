@@ -41,6 +41,7 @@ type CardInstance struct {
 	SlotIndex           int                `json:"slot_index"`             // for skill/equipment slots
 	EnterTurn           int                `json:"enter_turn"`             // which turn this card entered the field
 	BoundSkills         []*CardInstance    `json:"bound_skills,omitempty"` // skills attached to this card, not skill slots
+	UnderCards          []*CardInstance    `json:"under_cards,omitempty"`  // public cards placed under this card
 	AttachedBehaviors   []AttachedBehavior `json:"-"`                      // runtime-granted behavior objects
 
 	// Skill-specific
@@ -50,6 +51,9 @@ type CardInstance struct {
 	// Equipment uses
 	UsesRemaining int `json:"uses_remaining"` // for 法宝
 }
+
+const StatusCannotUseSkillUntilTurn = "cannot_use_skill_until_turn"
+const StatusEntryCostNeutralAmount = "entry_cost_neutral_amount"
 
 // NewCardInstance creates a new card instance
 func NewCardInstance(card *model.Card, ownerID int, turn int) *CardInstance {
@@ -102,11 +106,12 @@ const (
 	StatusCooldown = "冷却"
 	StatusSeal     = "封印"
 	StatusMastery  = "精通"
+	StatusStealth  = "隐蔽"
 )
 
 const (
 	BaseSkillSlots     = 5
-	MaxSkillSlots      = 6
+	MaxSkillSlots      = 8
 	BaseEquipmentSlots = 5
 	MaxEquipmentSlots  = 8
 )
@@ -124,18 +129,39 @@ type PlayerState struct {
 	Deck       []*CardInstance                  `json:"deck"` // remaining draw pile
 	SkillPool  []*CardInstance                  `json:"skill_pool"`
 	Graveyard  []*CardInstance                  `json:"graveyard"`
+	Exile      []*CardInstance                  `json:"exile,omitempty"`
 	ExtraDeck  []*CardInstance                  `json:"extra_deck"`
 
 	// Element pool - available elements this turn
-	Elements           map[string]int            `json:"elements"`
-	SkipNextDraw       bool                      `json:"skip_next_draw"`
-	TempModifiers      []TemporaryModifier       `json:"temp_modifiers"`
-	SpellsCastThisTurn map[string]int            `json:"spells_cast_this_turn,omitempty"`
-	DiscardAtTurnEnd   map[string]bool           `json:"discard_at_turn_end,omitempty"`
-	LoadGainAtTurnEnd  map[string]map[string]int `json:"load_gain_at_turn_end,omitempty"`
-	RevealedHand       map[string]bool           `json:"revealed_hand,omitempty"`
-	DrawnTurn          map[string]int            `json:"drawn_turn,omitempty"`
-	DrawCountThisTurn  int                       `json:"draw_count_this_turn,omitempty"`
+	Elements                    map[string]int            `json:"elements"`
+	StrictArcane                int                       `json:"strict_arcane,omitempty"`
+	Shield                      int                       `json:"shield,omitempty"`
+	ShieldBrokenThisTurn        bool                      `json:"shield_broken_this_turn,omitempty"`
+	CannotGainShield            bool                      `json:"cannot_gain_shield,omitempty"`
+	NextCompanionStealth        int                       `json:"next_companion_stealth,omitempty"`
+	NextRedMoonDuration         int                       `json:"next_red_moon_duration,omitempty"`
+	NextRedMoonCooldown         int                       `json:"next_red_moon_cooldown,omitempty"`
+	SkipNextDraw                bool                      `json:"skip_next_draw"`
+	TempModifiers               []TemporaryModifier       `json:"temp_modifiers"`
+	SpellsCastThisTurn          map[string]int            `json:"spells_cast_this_turn,omitempty"`
+	SpellsCastByNumberThisTurn  map[string]int            `json:"spells_cast_by_number_this_turn,omitempty"`
+	LastLowCostWaterSpell       *CardInstance             `json:"last_low_cost_water_spell,omitempty"`
+	SpellHitsThisTurn           int                       `json:"spell_hits_this_turn,omitempty"`
+	SpellHitsLastTurn           int                       `json:"spell_hits_last_turn,omitempty"`
+	SpellHitTargetsThisTurn     int                       `json:"spell_hit_targets_this_turn,omitempty"`
+	SpellHitTargetsLastTurn     int                       `json:"spell_hit_targets_last_turn,omitempty"`
+	SpellDamageThisTurn         int                       `json:"spell_damage_this_turn,omitempty"`
+	SpellDamageLastTurn         int                       `json:"spell_damage_last_turn,omitempty"`
+	DiscardAtTurnEnd            map[string]bool           `json:"discard_at_turn_end,omitempty"`
+	LoadGainAtTurnEnd           map[string]map[string]int `json:"load_gain_at_turn_end,omitempty"`
+	RevealedHand                map[string]bool           `json:"revealed_hand,omitempty"`
+	DrawnTurn                   map[string]int            `json:"drawn_turn,omitempty"`
+	DrawCountThisTurn           int                       `json:"draw_count_this_turn,omitempty"`
+	DiscardedHandCountThisTurn  int                       `json:"discarded_hand_count_this_turn,omitempty"`
+	FriendlyUnitDamagedThisTurn bool                      `json:"friendly_unit_damaged_this_turn,omitempty"`
+	FriendlyUnitDamagedLastTurn bool                      `json:"friendly_unit_damaged_last_turn,omitempty"`
+	HeroDamageTakenThisTurn     int                       `json:"hero_damage_taken_this_turn,omitempty"`
+	HeroDamageTakenLastTurn     int                       `json:"hero_damage_taken_last_turn,omitempty"`
 
 	// Legacy charge pool. Do not use this for 精通; mastery is a per-card
 	// instance mark stored in CardInstance.Statuses[StatusMastery].
@@ -148,15 +174,16 @@ type PlayerState struct {
 // NewPlayerState creates initial player state from a deck
 func NewPlayerState(id int, name string, deck *model.Deck) *PlayerState {
 	ps := &PlayerState{
-		PlayerID:           id,
-		PlayerName:         name,
-		Elements:           make(map[string]int),
-		SpellsCastThisTurn: make(map[string]int),
-		DiscardAtTurnEnd:   make(map[string]bool),
-		LoadGainAtTurnEnd:  make(map[string]map[string]int),
-		RevealedHand:       make(map[string]bool),
-		DrawnTurn:          make(map[string]int),
-		DeckDef:            deck,
+		PlayerID:                   id,
+		PlayerName:                 name,
+		Elements:                   make(map[string]int),
+		SpellsCastThisTurn:         make(map[string]int),
+		SpellsCastByNumberThisTurn: make(map[string]int),
+		DiscardAtTurnEnd:           make(map[string]bool),
+		LoadGainAtTurnEnd:          make(map[string]map[string]int),
+		RevealedHand:               make(map[string]bool),
+		DrawnTurn:                  make(map[string]int),
+		DeckDef:                    deck,
 	}
 
 	// Initialize elements to 0
@@ -378,15 +405,16 @@ type PendingAction struct {
 
 // GameState holds the entire game state
 type GameState struct {
-	GameID      string          `json:"game_id"`
-	Players     [2]*PlayerState `json:"players"`
-	CurrentTurn int             `json:"current_turn"` // 0 or 1 (which player's turn)
-	FirstPlayer int             `json:"first_player"` // 0 or 1
-	TurnNumber  int             `json:"turn_number"`
-	Phase       GamePhase       `json:"phase"`
-	Winner      int             `json:"winner"` // -2 = draw, -1 = no winner, 0 or 1
-	HandLimit   int             `json:"hand_limit"`
-	IsFirstTurn bool            `json:"is_first_turn"` // first player's first turn
+	GameID                       string          `json:"game_id"`
+	Players                      [2]*PlayerState `json:"players"`
+	CurrentTurn                  int             `json:"current_turn"` // 0 or 1 (which player's turn)
+	FirstPlayer                  int             `json:"first_player"` // 0 or 1
+	TurnNumber                   int             `json:"turn_number"`
+	Phase                        GamePhase       `json:"phase"`
+	Winner                       int             `json:"winner"` // -2 = draw, -1 = no winner, 0 or 1
+	HandLimit                    int             `json:"hand_limit"`
+	IsFirstTurn                  bool            `json:"is_first_turn"` // first player's first turn
+	CardEnteredGraveyardThisTurn bool            `json:"card_entered_graveyard_this_turn,omitempty"`
 
 	// Combat state
 	PendingSpell *SpellCast `json:"pending_spell,omitempty"`

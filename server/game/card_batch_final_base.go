@@ -134,14 +134,7 @@ func (Card2501001Shackle) OnSelfDraw(ctx *EffectContext) error {
 		if card == nil || card.InstanceID != ctx.Source.InstanceID {
 			continue
 		}
-		ps.Hand = append(ps.Hand[:i], ps.Hand[i+1:]...)
-		ps.Graveyard = append(ps.Graveyard, card)
-		delete(ps.RevealedHand, card.InstanceID)
-		ctx.Engine.emit(GameEvent{
-			Type:   "discard",
-			Player: ctx.PlayerID,
-			Data:   map[string]any{"card": cardToInfo(card)},
-		})
+		ctx.Engine.discardHandCardAt(ctx.PlayerID, i)
 		ctx.Engine.drawCards(ctx.PlayerID, 1)
 		return nil
 	}
@@ -649,6 +642,7 @@ func (e *Engine) summonWaterPhantomCopy(playerID int, targetID string, pos Posit
 	copyUnit.CurrentLife = 1
 	copyUnit.Statuses["水幻影复制"] = 1
 	ps.Units[pos.Col][pos.Row] = copyUnit
+	e.ApplySummonModifiersOnEnter(copyUnit)
 	e.emit(GameEvent{
 		Type:   "summon",
 		Player: -1,
@@ -661,6 +655,7 @@ func (e *Engine) summonWaterPhantomCopy(playerID int, targetID string, pos Posit
 	})
 	e.triggerEffects(TriggerOnEnter, copyUnit, nil, nil)
 	enterData := map[string]any{"entered_player": playerID}
+	e.notifyCardEntered(playerID, copyUnit, enterData)
 	e.triggerFieldEffectsWithData(TriggerOnUnitEnter, playerID, copyUnit, enterData)
 	e.triggerFieldEffectsWithData(TriggerOnUnitEnter, 1-playerID, copyUnit, enterData)
 	return copyUnit
@@ -750,7 +745,14 @@ func (e *Engine) spellAffectedUnitsWithExtraTargets(defenderID int, skill *CardI
 		if extraTarget.Type != "unit" || !extraTarget.Position.Valid() {
 			continue
 		}
-		unit := e.State.Players[defenderID].Units[extraTarget.Position.Col][extraTarget.Position.Row]
+		targetOwnerID := defenderID
+		if extraTarget.OwnerID != nil {
+			targetOwnerID = *extraTarget.OwnerID
+		}
+		if targetOwnerID < 0 || targetOwnerID >= len(e.State.Players) {
+			continue
+		}
+		unit := e.State.Players[targetOwnerID].Units[extraTarget.Position.Col][extraTarget.Position.Row]
 		if unit == nil {
 			continue
 		}

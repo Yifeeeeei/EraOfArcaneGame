@@ -27,6 +27,110 @@ func (Card3121013FireBacklash) OnDefend(ctx *EffectContext) error {
 	return nil
 }
 
+type Card3121101SummonFireSnake struct{ AlwaysActive }
+
+func (Card3121101SummonFireSnake) ID() string   { return "3121101" }
+func (Card3121101SummonFireSnake) Name() string { return "唤灵术 火蛇" }
+
+func (Card3121101SummonFireSnake) OnDefend(ctx *EffectContext) error {
+	return promptDefenseSuccessDamage(ctx, "summon_fire_snake_defense_damage", "唤灵术 火蛇:选择法力范围内1个敌人造成1点伤害", 1)
+}
+
+type Card2121109SummonBlazingHoundScroll struct{ AlwaysActive }
+
+func (Card2121109SummonBlazingHoundScroll) ID() string   { return "2121109" }
+func (Card2121109SummonBlazingHoundScroll) Name() string { return "唤灵术卷轴 烈焰犬" }
+
+func (Card2121109SummonBlazingHoundScroll) OnDefend(ctx *EffectContext) error {
+	return promptDefenseSuccessDamage(ctx, "blazing_hound_scroll_defense_damage", "唤灵术卷轴 烈焰犬:选择法力范围内1个敌人造成2点伤害", 2)
+}
+
+type Card3221102SummonFloodDragon struct{ AlwaysActive }
+
+func (Card3221102SummonFloodDragon) ID() string   { return "3221102" }
+func (Card3221102SummonFloodDragon) Name() string { return "唤灵术 蛟龙" }
+
+func (Card3221102SummonFloodDragon) OnDefend(ctx *EffectContext) error {
+	if !defenseSucceeded(ctx) {
+		return nil
+	}
+	for _, candidate := range defenseSuccessDamageCandidates(ctx) {
+		id, _ := candidate["instance_id"].(string)
+		target := validDefenseSuccessDamageTarget(ctx, id)
+		if target == nil {
+			continue
+		}
+		ctx.Engine.dealDamageWithExtra(target, 1, target.OwnerID, map[string]any{"damage_source": "effect", "attacker": ctx.PlayerID})
+	}
+	return nil
+}
+
+func promptDefenseSuccessDamage(ctx *EffectContext, actionType, prompt string, amount int) error {
+	if !defenseSucceeded(ctx) {
+		return nil
+	}
+	candidates := defenseSuccessDamageCandidates(ctx)
+	if len(candidates) == 0 {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, actionType, prompt, candidates, 1, 1, func(selected []string) {
+		target := validDefenseSuccessDamageTarget(ctx, firstSelected(selected))
+		if target == nil {
+			return
+		}
+		ctx.Engine.dealDamageWithExtra(target, amount, target.OwnerID, map[string]any{"damage_source": "effect", "attacker": ctx.PlayerID})
+	})
+	return nil
+}
+
+func defenseSucceeded(ctx *EffectContext) bool {
+	if ctx == nil || ctx.Engine == nil || ctx.ExtraData == nil {
+		return false
+	}
+	success, _ := ctx.ExtraData["defense_success"].(bool)
+	return success
+}
+
+func defenseSuccessDamageCandidates(ctx *EffectContext) []map[string]any {
+	return ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
+		return defenseSuccessDamageTargetInRange(ctx, card)
+	})
+}
+
+func validDefenseSuccessDamageTarget(ctx *EffectContext, instanceID string) *CardInstance {
+	target := ctx.Engine.findUnitByInstanceID(instanceID)
+	if target == nil || target.OwnerID != ctx.OpponentID || !defenseSuccessDamageTargetInRange(ctx, target) {
+		return nil
+	}
+	return target
+}
+
+func defenseSuccessDamageTargetInRange(ctx *EffectContext, card *CardInstance) bool {
+	return card != nil && card.Card != nil && card.Position != nil && ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
+}
+
+type Card3121102LionGuardian struct{ AlwaysActive }
+
+func (Card3121102LionGuardian) ID() string   { return "3121102" }
+func (Card3121102LionGuardian) Name() string { return "雄狮之守护" }
+
+func (Card3121102LionGuardian) OnDefend(ctx *EffectContext) error {
+	if ctx.ExtraData == nil {
+		return nil
+	}
+	success, _ := ctx.ExtraData["defense_success"].(bool)
+	if !success {
+		return nil
+	}
+	for _, skill := range ctx.Engine.State.Players[ctx.PlayerID].Skills {
+		if skill == nil || skill == ctx.Source || skill.Card == nil || skill.Card.Category != "火" {
+			continue
+		}
+		skill.PowerBonus++
+	}
+	return nil
+}
+
 type Card3221014IceField struct{ AlwaysActive }
 
 func (Card3221014IceField) ID() string   { return "3221014" }
@@ -58,6 +162,29 @@ func (Card3221014IceField) OnDefend(ctx *EffectContext) error {
 			"amount": 1,
 		}})
 	}
+	return nil
+}
+
+type Card3321104GatherMomentum struct{ AlwaysActive }
+
+func (Card3321104GatherMomentum) ID() string   { return "3321104" }
+func (Card3321104GatherMomentum) Name() string { return "收势" }
+
+func (Card3321104GatherMomentum) OnDefend(ctx *EffectContext) error {
+	if ctx.ExtraData == nil {
+		return nil
+	}
+	success, _ := ctx.ExtraData["defense_success"].(bool)
+	if !success {
+		return nil
+	}
+	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
+		Type:             TempModNextAttackSpellPowerBonus,
+		SourceCardNumber: ctx.Source.Card.Number,
+		SourceName:       ctx.Source.Card.Name,
+		Amount:           3,
+		RemainingUses:    1,
+	})
 	return nil
 }
 

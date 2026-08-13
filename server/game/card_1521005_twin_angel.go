@@ -13,8 +13,7 @@ func (Card1521005TwinAngel) OnEnter(ctx *EffectContext) error {
 		return fmt.Errorf("missing twin angel token card 1501001")
 	}
 	instance := NewCardInstance(card, ctx.PlayerID, ctx.Engine.State.TurnNumber)
-	ps := ctx.Engine.State.Players[ctx.PlayerID]
-	ps.Hand = append(ps.Hand, instance)
+	ctx.Engine.addCardToHand(ctx.PlayerID, instance)
 	ctx.Engine.emit(GameEvent{
 		Type:   "effect_trigger",
 		Player: ctx.PlayerID,

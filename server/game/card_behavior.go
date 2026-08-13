@@ -8,6 +8,14 @@ type CardBehavior interface {
 	Name() string
 }
 
+type vanillaCardBehavior struct {
+	id   string
+	name string
+}
+
+func (v vanillaCardBehavior) ID() string   { return v.id }
+func (v vanillaCardBehavior) Name() string { return v.name }
+
 type PerTurnLabelBehavior interface {
 	PerTurnLabel(*CardInstance) string
 }
@@ -29,6 +37,7 @@ func (AlwaysActive) HasActiveUnitEnter(*CardInstance) bool                 { ret
 func (AlwaysActive) HasActiveFriendlyDeath(*CardInstance) bool             { return true }
 func (AlwaysActive) HasActiveEnemyDeath(*CardInstance) bool                { return true }
 func (AlwaysActive) HasActiveDamaged(*CardInstance) bool                   { return true }
+func (AlwaysActive) HasActiveAttack(*CardInstance) bool                    { return true }
 func (AlwaysActive) HasActiveFriendlyDamagedFromHidden(*CardInstance) bool { return true }
 func (AlwaysActive) HasActiveSpellCast(*CardInstance) bool                 { return true }
 func (AlwaysActive) HasActiveSpellHitBeforeDamage(*CardInstance) bool      { return true }
@@ -41,6 +50,7 @@ func (AlwaysActive) HasActiveConsume(*CardInstance) bool                   { ret
 func (AlwaysActive) HasActivePerTurn(*CardInstance) bool                   { return true }
 func (AlwaysActive) HasActiveUltimate(*CardInstance) bool                  { return true }
 func (AlwaysActive) HasActiveDevourRequirement(*CardInstance) bool         { return true }
+func (AlwaysActive) HasActiveDevourCardRequirement(*CardInstance) bool     { return true }
 func (AlwaysActive) HasActiveRush(*CardInstance) bool                      { return true }
 func (AlwaysActive) HasActivePierce(*CardInstance) bool                    { return true }
 func (AlwaysActive) HasActiveTemporary(*CardInstance) bool                 { return true }
@@ -49,6 +59,7 @@ func (AlwaysActive) HasActiveStealth(*CardInstance) bool                   { ret
 func (AlwaysActive) HasActiveShield(*CardInstance) bool                    { return true }
 func (AlwaysActive) HasActiveShielding(*CardInstance) bool                 { return true }
 func (AlwaysActive) HasActiveGlobalSpellRange(*CardInstance) bool          { return true }
+func (AlwaysActive) HasActiveAttackPosition(*CardInstance) bool            { return true }
 func (AlwaysActive) HasActiveCooldown(*CardInstance) bool                  { return true }
 func (AlwaysActive) HasActivePerTurnLimit(*CardInstance) bool              { return true }
 func (AlwaysActive) HasActiveOverload(*CardInstance) bool                  { return true }
@@ -59,18 +70,27 @@ func (AlwaysActive) HasActiveSpellArea(*CardInstance) bool                 { ret
 func (AlwaysActive) HasActiveSpellAreaModifier(*CardInstance) bool         { return true }
 func (AlwaysActive) HasActiveDrawReveal(*CardInstance) bool                { return true }
 func (AlwaysActive) HasActiveDraw(*CardInstance) bool                      { return true }
+func (AlwaysActive) HasActiveDiscard(*CardInstance) bool                   { return true }
 func (AlwaysActive) HasActiveLoadGain(*CardInstance) bool                  { return true }
+func (AlwaysActive) HasActiveLoadLoss(*CardInstance) bool                  { return true }
 func (AlwaysActive) HasActiveMasteryAchieved(*CardInstance) bool           { return true }
+func (AlwaysActive) HasActiveCardEnter(*CardInstance) bool                 { return true }
 func (AlwaysActive) HasActivePrayer(*CardInstance) bool                    { return true }
+func (AlwaysActive) HasActiveSkillLearnPermission(*CardInstance) bool      { return true }
 func (AlwaysActive) HasActiveSkillUsability(*CardInstance) bool            { return true }
 func (AlwaysActive) HasActiveDefenseOnlySkill(*CardInstance) bool          { return true }
 func (AlwaysActive) HasActiveSorcerySkill(*CardInstance) bool              { return true }
 func (AlwaysActive) HasActiveSpellHitStatus(*CardInstance) bool            { return true }
 func (AlwaysActive) HasActiveSpellElementGain(*CardInstance) bool          { return true }
 func (AlwaysActive) HasActiveSpellDamage(*CardInstance) bool               { return true }
+func (AlwaysActive) HasActiveElementsGainModifier(*CardInstance) bool      { return true }
 func (AlwaysActive) HasActiveSkillUseCostModifier(*CardInstance) bool      { return true }
 func (AlwaysActive) HasActiveCardPlayCostModifier(*CardInstance) bool      { return true }
-func (AlwaysActive) HasActiveCardPlayCostPaid(*CardInstance) bool          { return true }
+func (AlwaysActive) HasActiveGlobalCardPlayCostModifier(*CardInstance) bool {
+	return true
+}
+func (AlwaysActive) HasActiveSelfCardPlayCostModifier(*CardInstance) bool { return true }
+func (AlwaysActive) HasActiveCardPlayCostPaid(*CardInstance) bool         { return true }
 func (AlwaysActive) HasActiveSkillUsePermissionModifier(*CardInstance) bool {
 	return true
 }
@@ -79,7 +99,14 @@ func (AlwaysActive) HasActiveEnemySpellStatModifier(*CardInstance) bool {
 	return true
 }
 func (AlwaysActive) HasActiveDamagePrevention(*CardInstance) bool { return true }
+func (AlwaysActive) HasActiveDamageAmountModifier(*CardInstance) bool {
+	return true
+}
+func (AlwaysActive) HasActiveAttackCost(*CardInstance) bool { return true }
 func (AlwaysActive) HasActiveFieldDamagePrevention(*CardInstance) bool {
+	return true
+}
+func (AlwaysActive) HasActiveFieldDamageAmountModifier(*CardInstance) bool {
 	return true
 }
 func (AlwaysActive) HasActiveNegativeStatusImmunity(*CardInstance) bool {
@@ -122,6 +149,11 @@ type OnUnitEnterBehavior interface {
 	OnUnitEnter(*EffectContext) error
 }
 
+type OnCardEnterBehavior interface {
+	HasActiveCardEnter(*CardInstance) bool
+	OnCardEnter(*EffectContext) error
+}
+
 type OnFriendlyDeathBehavior interface {
 	HasActiveFriendlyDeath(*CardInstance) bool
 	OnFriendlyDeath(*EffectContext) error
@@ -135,6 +167,16 @@ type OnEnemyDeathBehavior interface {
 type OnDamagedBehavior interface {
 	HasActiveDamaged(*CardInstance) bool
 	OnDamaged(*EffectContext) error
+}
+
+type OnAttackBehavior interface {
+	HasActiveAttack(*CardInstance) bool
+	OnAttack(*EffectContext) error
+}
+
+type AttackCostBehavior interface {
+	HasActiveAttackCost(*CardInstance) bool
+	AttackCost(*EffectContext) map[string]int
 }
 
 type OnFriendlyDamagedFromHiddenBehavior interface {
@@ -188,6 +230,17 @@ type SummonDevourRequirementBehavior interface {
 	DevourRequirement() map[string]int
 }
 
+type DevourCardRequirement struct {
+	Count         int    `json:"count"`
+	Category      string `json:"category,omitempty"`
+	CompanionOnly bool   `json:"companion_only,omitempty"`
+}
+
+type SummonDevourCardRequirementBehavior interface {
+	HasActiveDevourCardRequirement(*CardInstance) bool
+	DevourCardRequirement() DevourCardRequirement
+}
+
 type RushBehavior interface {
 	HasActiveRush(*CardInstance) bool
 	HasRush() bool
@@ -228,6 +281,11 @@ type GlobalSpellRangeBehavior interface {
 	HasGlobalSpellRange() bool
 }
 
+type AttackPositionBehavior interface {
+	HasActiveAttackPosition(*CardInstance) bool
+	CanAttackFromNonFront() bool
+}
+
 type CooldownBehavior interface {
 	HasActiveCooldown(*CardInstance) bool
 	Cooldown() int
@@ -259,6 +317,16 @@ type FriendlySpellTargetBehavior interface {
 	AllowsFriendlySpellTarget() bool
 }
 
+type StealthSpellTargetBehavior interface {
+	HasActiveSpellTargeting(*CardInstance) bool
+	AllowsStealthSpellTarget() bool
+}
+
+type SpellTargetValidationBehavior interface {
+	HasActiveSpellTargeting(*CardInstance) bool
+	ValidateSpellTarget(*EffectContext, SpellTarget, *CardInstance) error
+}
+
 type SpellAreaBehavior interface {
 	HasActiveSpellArea(*CardInstance) bool
 	SpellArea() SpellArea
@@ -279,6 +347,11 @@ type OnDrawBehavior interface {
 	OnDraw(*EffectContext) error
 }
 
+type OnDiscardBehavior interface {
+	HasActiveDiscard(*CardInstance) bool
+	OnDiscard(*EffectContext) error
+}
+
 type OnSelfDrawBehavior interface {
 	HasActiveDraw(*CardInstance) bool
 	OnSelfDraw(*EffectContext) error
@@ -287,6 +360,11 @@ type OnSelfDrawBehavior interface {
 type OnLoadGainBehavior interface {
 	HasActiveLoadGain(*CardInstance) bool
 	OnLoadGain(*EffectContext) error
+}
+
+type OnLoadLossBehavior interface {
+	HasActiveLoadLoss(*CardInstance) bool
+	OnLoadLoss(*EffectContext) error
 }
 
 type OnMasteryAchievedBehavior interface {
@@ -301,6 +379,11 @@ type PrayerAbility interface {
 
 type OptionalPrayerAbility interface {
 	IsPrayerOptional(*CardInstance) bool
+}
+
+type SkillLearnPermissionModifier interface {
+	HasActiveSkillLearnPermission(*CardInstance) bool
+	ValidateSkillLearn(*EffectContext, *CardInstance) error
 }
 
 type SkillUsabilityBehavior interface {
@@ -343,6 +426,11 @@ type SpellDamageBehavior interface {
 	SpellDamage(*EffectContext) int
 }
 
+type ElementsGainModifier interface {
+	HasActiveElementsGainModifier(*CardInstance) bool
+	ModifyElementsGain(*EffectContext, *CardInstance, map[string]int)
+}
+
 type SkillUseCostModifier interface {
 	HasActiveSkillUseCostModifier(*CardInstance) bool
 	ModifySkillUseCost(*EffectContext, map[string]int)
@@ -351,6 +439,16 @@ type SkillUseCostModifier interface {
 type CardPlayCostModifier interface {
 	HasActiveCardPlayCostModifier(*CardInstance) bool
 	ModifyCardPlayCost(*EffectContext, *CardInstance, map[string]int)
+}
+
+type GlobalCardPlayCostModifier interface {
+	HasActiveGlobalCardPlayCostModifier(*CardInstance) bool
+	ModifyGlobalCardPlayCost(*EffectContext, *CardInstance, map[string]int)
+}
+
+type SelfCardPlayCostModifier interface {
+	HasActiveSelfCardPlayCostModifier(*CardInstance) bool
+	ModifySelfCardPlayCost(*EffectContext, map[string]int)
 }
 
 type CardPlayCostPaidBehavior interface {
@@ -387,14 +485,29 @@ type DamagePreventionBehavior interface {
 	PreventsDamage(*EffectContext) bool
 }
 
+type DamageAmountModifier interface {
+	HasActiveDamageAmountModifier(*CardInstance) bool
+	ModifyDamageAmount(*EffectContext, int) int
+}
+
 type FieldDamagePreventionBehavior interface {
 	HasActiveFieldDamagePrevention(*CardInstance) bool
 	PreventsFieldDamage(*EffectContext) bool
 }
 
+type FieldDamageAmountModifier interface {
+	HasActiveFieldDamageAmountModifier(*CardInstance) bool
+	ModifyFieldDamageAmount(*EffectContext, int) int
+}
+
 type NegativeStatusImmunityBehavior interface {
 	HasActiveNegativeStatusImmunity(*CardInstance) bool
 	HasNegativeStatusImmunity() bool
+}
+
+type SpecificNegativeStatusImmunityBehavior interface {
+	HasActiveNegativeStatusImmunity(*CardInstance) bool
+	HasNegativeStatusImmunity(status string) bool
 }
 
 type AdjacentNegativeStatusProtectionBehavior interface {
@@ -459,6 +572,14 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 			return h.OnUnitEnter(ctx)
 		})
 	}
+	if h, ok := behavior.(OnCardEnterBehavior); ok {
+		r.Register(id, TriggerOnCardEnter, func(ctx *EffectContext) error {
+			if !h.HasActiveCardEnter(ctx.Source) {
+				return nil
+			}
+			return h.OnCardEnter(ctx)
+		})
+	}
 	if h, ok := behavior.(OnFriendlyDeathBehavior); ok {
 		r.Register(id, TriggerOnFriendlyDeath, func(ctx *EffectContext) error {
 			if !h.HasActiveFriendlyDeath(ctx.Source) {
@@ -481,6 +602,14 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 				return nil
 			}
 			return h.OnDamaged(ctx)
+		})
+	}
+	if h, ok := behavior.(OnAttackBehavior); ok {
+		r.Register(id, TriggerOnAttack, func(ctx *EffectContext) error {
+			if !h.HasActiveAttack(ctx.Source) {
+				return nil
+			}
+			return h.OnAttack(ctx)
 		})
 	}
 	if h, ok := behavior.(OnSpellCastBehavior); ok {
@@ -547,12 +676,28 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 			return h.OnDraw(ctx)
 		})
 	}
+	if h, ok := behavior.(OnDiscardBehavior); ok {
+		r.Register(id, TriggerOnDiscard, func(ctx *EffectContext) error {
+			if !h.HasActiveDiscard(ctx.Source) {
+				return nil
+			}
+			return h.OnDiscard(ctx)
+		})
+	}
 	if h, ok := behavior.(OnLoadGainBehavior); ok {
 		r.Register(id, TriggerOnLoadGain, func(ctx *EffectContext) error {
 			if !h.HasActiveLoadGain(ctx.Source) {
 				return nil
 			}
 			return h.OnLoadGain(ctx)
+		})
+	}
+	if h, ok := behavior.(OnLoadLossBehavior); ok {
+		r.Register(id, TriggerOnLoadLoss, func(ctx *EffectContext) error {
+			if !h.HasActiveLoadLoss(ctx.Source) {
+				return nil
+			}
+			return h.OnLoadLoss(ctx)
 		})
 	}
 	if h, ok := behavior.(OnMasteryAchievedBehavior); ok {

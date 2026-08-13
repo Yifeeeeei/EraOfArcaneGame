@@ -186,17 +186,25 @@ func RemoveStatusFromTarget(status string) EffectHandler {
 
 // GainShield 自身获得护盾
 func GainShield(amount int) EffectHandler {
-	return ApplyStatusToSelf("护盾", amount)
+	return func(ctx *EffectContext) error {
+		ctx.Engine.gainPlayerShield(ctx.PlayerID, amount)
+		return nil
+	}
 }
 
 // GainStealth 自身获得隐蔽
 func GainStealth(amount int) EffectHandler {
-	return ApplyStatusToSelf("隐蔽", amount)
+	return ApplyStatusToSelf(StatusStealth, amount)
 }
 
 // GiveShieldToTarget 给目标护盾
 func GiveShieldToTarget(amount int) EffectHandler {
-	return ApplyStatusToTarget("护盾", amount)
+	return func(ctx *EffectContext) error {
+		if ctx.Target != nil {
+			ctx.Engine.gainPlayerShield(ctx.Target.OwnerID, amount)
+		}
+		return nil
+	}
 }
 
 // ══════════════════════════════════════
@@ -363,11 +371,12 @@ func SearchDeckAndDraw(predicate func(*model.Card) bool) EffectHandler {
 				// 从卡组移除
 				ps.Deck = removeCardFromDeck(ps.Deck, c.InstanceID)
 				// 加入手牌
-				ps.Hand = append(ps.Hand, c)
+				ctx.Engine.appendCardsToHand(ctx.PlayerID, []*CardInstance{c})
 				ctx.Engine.emit(GameEvent{
 					Type: "search_draw", Player: ctx.PlayerID,
 					Data: map[string]any{"card": cardToInfo(c)},
 				})
+				ctx.Engine.enforceImmediateHandLimitAfterHandGain(ctx.PlayerID)
 				return nil
 			}
 		}
@@ -385,12 +394,7 @@ func DiscardRandom(n int) EffectHandler {
 		ps := ctx.Engine.State.Players[ctx.PlayerID]
 		for i := 0; i < n && len(ps.Hand) > 0; i++ {
 			idx := rand.Intn(len(ps.Hand))
-			card := ps.Hand[idx]
-			ps.Hand = append(ps.Hand[:idx], ps.Hand[idx+1:]...)
-			ctx.Engine.emit(GameEvent{
-				Type: "discard", Player: ctx.PlayerID,
-				Data: map[string]any{"card": cardToInfo(card)},
-			})
+			ctx.Engine.discardHandCardAt(ctx.PlayerID, idx)
 		}
 		return nil
 	}
@@ -406,11 +410,7 @@ func DiscardSelf() EffectHandler {
 		// 从手牌中移除
 		for i, c := range ps.Hand {
 			if c.InstanceID == ctx.Source.InstanceID {
-				ps.Hand = append(ps.Hand[:i], ps.Hand[i+1:]...)
-				ctx.Engine.emit(GameEvent{
-					Type: "discard", Player: ctx.PlayerID,
-					Data: map[string]any{"card": cardToInfo(c)},
-				})
+				ctx.Engine.discardHandCardAt(ctx.PlayerID, i)
 				return nil
 			}
 		}
@@ -441,7 +441,10 @@ func SummonToken(cardID string) EffectHandler {
 					turn = ctx.Engine.State.TurnNumber
 				}
 				instance := NewCardInstance(card, ctx.PlayerID, turn)
+				instance.Position = &Position{Col: col, Row: 0}
 				ps.Units[col][0] = instance
+				ctx.Engine.ApplyKeywordOnEnter(instance)
+				ctx.Engine.ApplySummonModifiersOnEnter(instance)
 				ctx.Engine.emit(GameEvent{
 					Type: "summon", Player: ctx.PlayerID,
 					Data: map[string]any{"card": cardToInfo(instance)},

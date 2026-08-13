@@ -146,6 +146,7 @@ func (e *Engine) triggerInitialHeroEnterEffects() {
 		}
 		data := map[string]any{"initial_setup": true, "entered_player": playerID}
 		e.triggerEffects(TriggerOnEnter, hero, nil, data)
+		e.notifyCardEntered(playerID, hero, data)
 		e.triggerFieldEffectsWithData(TriggerOnUnitEnter, playerID, hero, data)
 		e.triggerFieldEffectsWithData(TriggerOnUnitEnter, 1-playerID, hero, data)
 	}
@@ -217,15 +218,18 @@ func (e *Engine) enforceSlotCapacities(ps *PlayerState) {
 		}
 		ps.Equipment[i] = nil
 		equipment.SlotIndex = -1
+		e.exileTransferredBoundSkills(ps.PlayerID, equipment)
 		equipment.BoundSkills = nil
-		ps.Graveyard = append(ps.Graveyard, equipment)
+		e.addToGraveyard(ps.PlayerID, equipment)
 		e.emit(GameEvent{Type: "discard", Player: ps.PlayerID, Data: map[string]any{"card": cardToInfo(equipment)}})
 	}
 
-	skillCap := skillSlotCapacity(ps)
-	for i := skillCap; i < len(ps.Skills); i++ {
+	for i := 0; i < len(ps.Skills); i++ {
 		skill := ps.Skills[i]
 		if skill == nil {
+			continue
+		}
+		if skillAllowedInSlot(ps, skill, i) {
 			continue
 		}
 		ps.Skills[i] = nil
@@ -244,6 +248,9 @@ func (e *Engine) handleReactSpell(playerID int, action ActionMessage) error {
 	}
 	if playerID == e.State.PendingSpell.AttackerID {
 		return fmt.Errorf("attacker cannot react to their own spell this way")
+	}
+	if spellSuppressesOpponentResponses(e.State.PendingSpell.Skill) {
+		return fmt.Errorf("opponent cannot react to this spell")
 	}
 
 	instanceID, _ := action.Data["instance_id"].(string)
@@ -265,10 +272,10 @@ func (e *Engine) handleReactSpell(playerID int, action ActionMessage) error {
 	if err != nil {
 		return err
 	}
-	if !canPayCostWithOverexertOptions(ps, cost, overexertUnits, e.playerHasLightWildcard(ps)) {
+	if !e.canPayCostWithOverexertOptions(ps, cost, overexertUnits, e.playerHasLightWildcard(ps)) {
 		return fmt.Errorf("not enough elements")
 	}
-	if !payDefenseCostWithOptions(ps, cost, action, overexertUnits, e.playerHasLightWildcard(ps)) {
+	if !e.payDefenseCostWithOptions(ps, cost, action, overexertUnits, e.playerHasLightWildcard(ps)) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.destroyFuyeDoomedAfterExert(overexertUnits)
@@ -370,8 +377,10 @@ func (e *Engine) startTurn() {
 	e.clearDamageTakenThisTurn()
 
 	ps := e.State.Players[e.State.CurrentTurn]
-	ps.SpellsCastThisTurn = make(map[string]int)
+	clearSpellCastTracking(ps)
+	e.clearGraveyardTurnTracking()
 	ps.DrawCountThisTurn = 0
+	ps.DiscardedHandCountThisTurn = 0
 
 	// Elements are cleared at the end of their owner's turn. Start turn should
 	// not be the rule point that removes remaining elements.
@@ -626,45 +635,171 @@ func (e *Engine) clearDamageTakenThisTurn() {
 	}
 }
 
+func (e *Engine) rollFriendlyUnitDamageHistory() {
+	for _, ps := range e.State.Players {
+		if ps == nil {
+			continue
+		}
+		ps.FriendlyUnitDamagedLastTurn = ps.FriendlyUnitDamagedThisTurn
+		ps.FriendlyUnitDamagedThisTurn = false
+		ps.HeroDamageTakenLastTurn = ps.HeroDamageTakenThisTurn
+		ps.HeroDamageTakenThisTurn = 0
+	}
+}
+
 func (e *Engine) drawCards(playerID int, n int) []*CardInstance {
 	if n <= 0 {
 		return nil
 	}
 	ps := e.State.Players[playerID]
 	drawn := ps.DrawCards(n)
+	if len(drawn) < n && len(ps.Deck) == 0 && e.cloudTopTradingHouseActive(playerID) {
+		drawn = append(drawn, e.drawCardsFromOpponentDeckAsNeutral(playerID, n-len(drawn))...)
+	}
 	for _, card := range drawn {
-		if ps.DrawnTurn == nil {
-			ps.DrawnTurn = make(map[string]int)
-		}
-		ps.DrawnTurn[card.InstanceID] = e.State.TurnNumber
-		ps.DrawCountThisTurn++
-		e.emit(GameEvent{
-			Type:   "draw_card",
-			Player: playerID,
-			Data:   map[string]any{"card": cardToInfo(card)},
-		})
-		e.triggerFieldEffectsWithData(TriggerOnDraw, playerID, card, map[string]any{
-			"drawn_card":           card,
-			"drawn_player":         playerID,
-			"draw_count_this_turn": ps.DrawCountThisTurn,
-			"initial_hand":         e.State.Phase == PhaseWaitingPlayers || e.State.Phase == PhaseMulligan,
-		})
-		if h, ok := cardBehavior(card).(OnSelfDrawBehavior); ok && h.HasActiveDraw(card) {
-			_ = h.OnSelfDraw(&EffectContext{
-				Engine:     e,
-				Source:     card,
-				PlayerID:   playerID,
-				OpponentID: 1 - playerID,
-				ExtraData: map[string]any{
-					"drawn_card":           card,
-					"drawn_player":         playerID,
-					"draw_count_this_turn": ps.DrawCountThisTurn,
-					"initial_hand":         e.State.Phase == PhaseWaitingPlayers || e.State.Phase == PhaseMulligan,
-				},
-			})
-		}
+		e.notifyCardDrawn(playerID, card)
+	}
+	if e.shouldImmediatelyEnforceHandLimit(playerID) {
+		e.promptDiscardToHandLimit(playerID, nil)
 	}
 	return drawn
+}
+
+func (e *Engine) cloudTopTradingHouseActive(playerID int) bool {
+	if e == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return false
+	}
+	for _, card := range e.getAllFieldCards(e.State.Players[playerID]) {
+		if card != nil && card.Card != nil && card.Card.Number == "1311102" && !e.hasEffectiveStatus(card, StatusPetrify) {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Engine) drawCardsFromOpponentDeckAsNeutral(playerID int, n int) []*CardInstance {
+	if e == nil || n <= 0 || playerID < 0 || playerID >= len(e.State.Players) {
+		return nil
+	}
+	ps := e.State.Players[playerID]
+	opponent := e.State.Players[1-playerID]
+	drawn := make([]*CardInstance, 0, n)
+	for i := 0; i < n && len(opponent.Deck) > 0; i++ {
+		card := opponent.Deck[0]
+		opponent.Deck = opponent.Deck[1:]
+		card.OwnerID = playerID
+		card.Statuses[StatusEntryCostNeutralAmount] = totalElementCost(card.Card.ElementsCost)
+		setElementsGain(card, map[string]int{model.ElementArcane: totalElementCost(card.Card.ElementsGain)})
+		card.ElementsGainBonus = make(map[string]int)
+		ps.Hand = append(ps.Hand, card)
+		drawn = append(drawn, card)
+	}
+	if len(drawn) > 0 {
+		e.emit(GameEvent{
+			Type:   "cloud_top_trading_house_draw",
+			Player: -1,
+			Data: map[string]any{
+				"player": playerID,
+				"count":  len(drawn),
+			},
+		})
+	}
+	return drawn
+}
+
+func (e *Engine) addCardToHand(playerID int, card *CardInstance) bool {
+	return e.addCardsToHand(playerID, []*CardInstance{card}) > 0
+}
+
+func (e *Engine) addCardsToHand(playerID int, cards []*CardInstance) int {
+	added := e.appendCardsToHand(playerID, cards)
+	if added > 0 {
+		e.enforceImmediateHandLimitAfterHandGain(playerID)
+	}
+	return added
+}
+
+func (e *Engine) appendCardsToHand(playerID int, cards []*CardInstance) int {
+	if playerID < 0 || playerID >= len(e.State.Players) {
+		return 0
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return 0
+	}
+	added := 0
+	for _, card := range cards {
+		if card == nil {
+			continue
+		}
+		ps.Hand = append(ps.Hand, card)
+		added++
+	}
+	return added
+}
+
+func (e *Engine) enforceImmediateHandLimitAfterHandGain(playerID int) bool {
+	if !e.shouldImmediatelyEnforceHandLimit(playerID) {
+		return false
+	}
+	return e.promptDiscardToHandLimit(playerID, nil)
+}
+
+func (e *Engine) millTopDeckCards(playerID int, n int) []*CardInstance {
+	if n <= 0 {
+		return nil
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return nil
+	}
+	count := min(n, len(ps.Deck))
+	milled := make([]*CardInstance, 0, count)
+	for i := 0; i < count; i++ {
+		card := ps.Deck[0]
+		ps.Deck = ps.Deck[1:]
+		e.addToGraveyard(playerID, card)
+		milled = append(milled, card)
+		e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
+	}
+	return milled
+}
+
+func (e *Engine) notifyCardDrawn(playerID int, card *CardInstance) {
+	if card == nil {
+		return
+	}
+	ps := e.State.Players[playerID]
+	if ps.DrawnTurn == nil {
+		ps.DrawnTurn = make(map[string]int)
+	}
+	if cardRevealsOnDraw(card) {
+		ps.RevealedHand[card.InstanceID] = true
+	}
+	ps.DrawnTurn[card.InstanceID] = e.State.TurnNumber
+	ps.DrawCountThisTurn++
+	e.emit(GameEvent{
+		Type:   "draw_card",
+		Player: playerID,
+		Data:   map[string]any{"card": cardToInfo(card)},
+	})
+	data := map[string]any{
+		"drawn_card":           card,
+		"drawn_player":         playerID,
+		"draw_count_this_turn": ps.DrawCountThisTurn,
+		"initial_hand":         e.State.Phase == PhaseWaitingPlayers || e.State.Phase == PhaseMulligan,
+	}
+	e.triggerFieldEffectsWithData(TriggerOnDraw, playerID, card, data)
+	e.triggerFieldEffectsWithData(TriggerOnDraw, 1-playerID, card, data)
+	if h, ok := cardBehavior(card).(OnSelfDrawBehavior); ok && h.HasActiveDraw(card) {
+		_ = h.OnSelfDraw(&EffectContext{
+			Engine:     e,
+			Source:     card,
+			PlayerID:   playerID,
+			OpponentID: 1 - playerID,
+			ExtraData:  data,
+		})
+	}
 }
 
 // resetCards resets all cards to vertical state
@@ -720,6 +855,9 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 	if e.State.CurrentTurn != playerID {
 		return fmt.Errorf("not your turn")
 	}
+	if e.timeCycleLockActive() {
+		return fmt.Errorf("time cycle prevents summoning cards")
+	}
 
 	instanceID, _ := action.Data["instance_id"].(string)
 	colF, _ := action.Data["col"].(float64)
@@ -751,7 +889,7 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 		return fmt.Errorf("not enough elements")
 	}
 
-	if !e.canPayCostForAction(ps, cost, action) {
+	if !e.canPayCostForCardAction(ps, card, cost, cost, paymentPurposePlay, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	if err := e.validateAndApplySummonDevour(playerID, card, action); err != nil {
@@ -767,7 +905,7 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 	}
 
 	// Pay cost and place
-	if !e.payCostForAction(ps, cost, action) {
+	if !e.payCostForCardAction(ps, card, cost, cost, paymentPurposePlay, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.notifyCardPlayCostPaid(ps, card)
@@ -779,6 +917,7 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 
 	// Apply keyword effects (速攻 makes it enter vertical, etc.)
 	e.ApplyKeywordOnEnter(card)
+	e.ApplySummonModifiersOnEnter(card)
 
 	e.emit(GameEvent{
 		Type:   "summon",
@@ -795,6 +934,7 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 	e.triggerEffects(TriggerOnEnter, card, nil, nil)
 
 	enterData := map[string]any{"entered_player": playerID}
+	e.notifyCardEntered(playerID, card, enterData)
 	// Notify both sides about the new unit entering; individual card behaviors
 	// decide whether they care about friendly or enemy units.
 	e.triggerFieldEffectsWithData(TriggerOnUnitEnter, playerID, card, enterData)
@@ -806,7 +946,8 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 
 func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, action ActionMessage) error {
 	requirement := summonDevourRequirement(card)
-	if len(requirement) == 0 {
+	cardRequirement := summonDevourCardRequirement(card)
+	if len(requirement) == 0 && cardRequirement.Count <= 0 {
 		return nil
 	}
 
@@ -822,6 +963,7 @@ func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, 
 	ps := e.State.Players[playerID]
 	targets := make([]*CardInstance, 0, len(devourIDs))
 	total := make(map[string]int)
+	cardRequirementCount := 0
 	seen := make(map[string]bool, len(devourIDs))
 	for _, devourID := range devourIDs {
 		if seen[devourID] {
@@ -838,10 +980,13 @@ func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, 
 		if target.CurrentLife > 0 {
 			total[DevourLife] += target.CurrentLife
 		}
-		for elem, amount := range effectiveElementsGain(target) {
+		for elem, amount := range e.effectiveElementsGain(target) {
 			if amount > 0 {
 				total[elem] += amount
 			}
+		}
+		if cardSatisfiesDevourCardRequirement(target, cardRequirement) {
+			cardRequirementCount++
 		}
 		targets = append(targets, target)
 	}
@@ -850,6 +995,9 @@ func (e *Engine) validateAndApplySummonDevour(playerID int, card *CardInstance, 
 		if total[elem] < amount {
 			return fmt.Errorf("devour targets load does not satisfy requirement")
 		}
+	}
+	if cardRequirement.Count > 0 && cardRequirementCount < cardRequirement.Count {
+		return fmt.Errorf("devour targets do not satisfy card requirement")
 	}
 	for _, target := range targets {
 		if target.Card.IsCompanion() {
@@ -870,7 +1018,7 @@ func isValidSummonDevourTarget(target *CardInstance, summoned *CardInstance) boo
 
 // handleConsume handles consuming a card (横置 to gain elements)
 func (e *Engine) elementsGainedFromConsume(playerID int, card *CardInstance, action ActionMessage) (map[string]int, error) {
-	gains := effectiveElementsGain(card)
+	gains := e.effectiveElementsGain(card)
 	if !e.isFirstPlayerFirstTurnHeroConsume(playerID, card) {
 		return gains, nil
 	}
@@ -983,16 +1131,26 @@ func (e *Engine) handleConsume(playerID int, action ActionMessage) error {
 
 	// Consume: set horizontal and gain elements
 	card.IsHorizontal = true
+	strictArcaneGained := 0
+	if providesStrictArcaneOnly(card) {
+		strictArcaneGained = gains[model.ElementArcane]
+		gains = cloneElements(gains)
+		gains[model.ElementArcane] = 0
+	}
 	ps.GainElements(gains)
+	if strictArcaneGained > 0 {
+		e.gainStrictArcane(playerID, strictArcaneGained)
+	}
 
 	e.emit(GameEvent{
 		Type:   "consume",
 		Player: -1,
 		Data: map[string]any{
-			"player":      playerID,
-			"instance_id": instanceID,
-			"elements":    ps.Elements,
-			"gained":      gains,
+			"player":               playerID,
+			"instance_id":          instanceID,
+			"elements":             ps.Elements,
+			"gained":               gains,
+			"strict_arcane_gained": strictArcaneGained,
 		},
 	})
 
@@ -1022,7 +1180,6 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	if e.State.CurrentTurn != playerID {
 		return fmt.Errorf("not your turn")
 	}
-
 	instanceID, _ := action.Data["instance_id"].(string)
 	targetType, _ := action.Data["target_type"].(string)
 	targetColF, _ := action.Data["target_col"].(float64)
@@ -1038,20 +1195,15 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		return fmt.Errorf("skill not found in skill area or bound skills")
 	}
 
+	if skill.Card.Number == "3021108" && len(e.enemySkills(playerID, nil)) == 0 {
+		return fmt.Errorf("arcane seal requires an enemy skill")
+	}
 	if err := e.validateSkillForPurpose(skill, skillPurposeAttack); err != nil {
 		return err
 	}
-
-	// Check cost
-	cost := e.effectiveSkillUseCost(ps, skill)
-	if !e.canPayCost(ps, cost) {
-		return fmt.Errorf("not enough elements")
-	}
-	if skill.Card.Number == "3021011" && !validateSingleElementPayment(ps.Elements, cost, action) {
-		return fmt.Errorf("overlord sanction cost must be paid with one element")
-	}
-	if len(boostIDsRaw) > 0 && !canSkillBeBoosted(skill) {
-		return fmt.Errorf("skill cannot be boosted")
+	rainbowMarkers, rainbowRing, err := e.prepareFiveRainbowBeamMarkers(playerID, skill, action)
+	if err != nil {
+		return err
 	}
 
 	target := SpellTarget{
@@ -1062,34 +1214,78 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		ownerID := int(ownerF)
 		target.OwnerID = &ownerID
 	}
+	targetUnit := e.spellTargetUnitForCaster(playerID, target)
+
+	// Check cost
+	cost := e.effectiveSkillUseCostForPurposeWithData(ps, skill, skillPurposeAttack, map[string]any{
+		"spell_target":      target,
+		"spell_target_unit": targetUnit,
+	})
+	if skill.Card.Number == "3501101" && rainbowMarkers[model.ElementLight] > 0 {
+		reduceGenericCost(cost, model.ElementLight, rainbowMarkers[model.ElementLight]*2)
+	}
+	if !e.canPayCost(ps, cost) {
+		return fmt.Errorf("not enough elements")
+	}
+	if skill.Card.Number == "3021011" && !validateSingleElementPayment(ps.Elements, cost, action) {
+		return fmt.Errorf("overlord sanction cost must be paid with one element")
+	}
+	if skill.Card.Number == "3311101" && len(boostIDsRaw) > 0 {
+		return fmt.Errorf("sky phantasm cannot be boosted directly")
+	}
+	if len(boostIDsRaw) > 0 && !canSkillBeBoosted(skill) {
+		return fmt.Errorf("skill cannot be boosted")
+	}
 	// Process boost skills (法术强化)
 	boostIDs := stringsFromAnySlice(boostIDsRaw)
 	boostSkills, boostCost, err := e.collectSkillUses(ps, boostIDs, skillPurposeAttackBoost, map[string]bool{instanceID: true})
 	if err != nil {
 		return err
 	}
-	if err := e.validateSpellTargetWithPierce(playerID, skill, target, e.spellHasPierceWithBoosts(playerID, skill, boostSkills)); err != nil {
+	hasPierce := e.spellHasPierceWithBoosts(playerID, skill, boostSkills) || rainbowMarkers[model.ElementAir] > 0
+	if err := e.validateSpellTargetWithPierce(playerID, skill, target, hasPierce); err != nil {
 		return err
 	}
 	extraTargets := make([]SpellTarget, 0, 1)
-	if skill.Card.Number == "3321001" && hasExtraTargetCol && hasExtraTargetRow {
+	if (skill.Card.Number == "3321001" || skill.Card.Number == "3621107" || e.hasNextDriveSpellExtraTarget(ps, skill)) && hasExtraTargetCol && hasExtraTargetRow {
 		extra := SpellTarget{Type: "unit", Position: Position{Col: int(extraTargetColF), Row: int(extraTargetRowF)}}
-		if err := e.validateSpellExtraTarget(playerID, extra); err != nil {
+		if err := e.validateSpellExtraTargetForSkill(playerID, skill, target, extra); err != nil {
 			return err
 		}
-		if extra.Position != target.Position {
+		if extra.Position != target.Position || e.allowsSameSpellExtraTarget(ps, skill) {
 			extraTargets = append(extraTargets, extra)
 		}
 	}
+	if skill.Card.Number == "3421107" {
+		burrowTargets, err := e.burrowExtraTargetsFromAction(playerID, skill, target, action)
+		if err != nil {
+			return err
+		}
+		extraTargets = append(extraTargets, burrowTargets...)
+	}
+	if skill.Card.Number == "3501101" {
+		rainbowTargets, err := e.fiveRainbowBeamExtraTargetsFromAction(playerID, skill, target, action, rainbowMarkers[model.ElementWater], hasPierce)
+		if err != nil {
+			return err
+		}
+		extraTargets = append(extraTargets, rainbowTargets...)
+	}
+	consumeNextExtraTargetModifier := e.hasNextSpellExtraTarget(ps, skill)
+	extraTargets = e.addExileSotorAdjacentSpellTargets(playerID, target, extraTargets)
 	totalCost := mergeElementCosts(cost, boostCost)
 	if !e.canPayCost(ps, totalCost) {
 		return fmt.Errorf("not enough elements for boost skills")
 	}
+	powerSacrifice, powerSacrificeSource, powerSacrificeBonus, err := e.validateSpellPowerSacrificeForSources(playerID, append([]*CardInstance{skill}, boostSkills...), action)
+	if err != nil {
+		return err
+	}
 
 	// Pay costs and set cards horizontal only after all validation succeeds.
-	if !e.payCostForAction(ps, totalCost, action) {
+	if !e.payCostForCardAction(ps, skill, cost, totalCost, paymentPurposeUse, action) {
 		return fmt.Errorf("invalid payment")
 	}
+	e.applyFiveRainbowBeamMarkers(skill, rainbowRing, rainbowMarkers)
 	skill.IsHorizontal = true
 	tapSkills(boostSkills)
 
@@ -1098,20 +1294,51 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		e.ApplyKeywordOnSkillUse(skill)
 	}
 	e.applySkillUseCooldownModifiers(ps, append([]*CardInstance{skill}, boostSkills...)...)
+	if skill.Card.Number == "3611101" {
+		e.applyNextRedMoonModifiers(playerID, skill)
+		e.refreshRedMoonState(playerID)
+	}
 	e.consumeNextSkillUseModifiers(ps, skill)
+	for _, boostSkill := range boostSkills {
+		e.consumeNextSkillUseModifiersForPurpose(ps, boostSkill, skillPurposeAttackBoost)
+	}
 	e.advanceMasteryForUsedSkills(playerID, append([]*CardInstance{skill}, boostSkills...)...)
 
+	if skill.Card.Number == "3311101" {
+		e.recordSpellCast(playerID, skill)
+		e.emit(GameEvent{Type: "spell_cast", Player: -1, Data: map[string]any{
+			"cast_player": playerID,
+			"attacker":    playerID,
+			"skill":       cardToInfo(skill),
+			"target":      target,
+			"power":       0,
+			"boost_count": len(boostSkills),
+			"is_sorcery":  isSorcerySkill(skill.Card),
+		}})
+		return e.promptSkyPhantasmSpellChoice(playerID, skill)
+	}
+
+	if powerSacrifice != nil && powerSacrificeBonus > 0 {
+		e.destroyUnitWithCause(powerSacrifice, playerID, DeathCauseSacrifice)
+	}
+	e.applyCoralBellyFirstSpellAttackBonus(playerID, skill)
 	powerTargets := append([]SpellTarget{target}, extraTargets...)
 	totalPower := e.effectiveSpellPower(playerID, skill, boostSkills, powerTargets...)
+	if powerSacrificeSource != nil && powerSacrificeBonus > 0 {
+		totalPower += powerSacrificeBonus
+	}
 	powerSources := e.spellPowerSources(playerID, skill, boostSkills, totalPower, powerTargets...)
 	e.consumeNextSpellPowerBonuses(ps, skill)
+	if len(extraTargets) > 0 {
+		e.consumeNextDriveSpellExtraTarget(ps, skill)
+	} else if consumeNextExtraTargetModifier {
+		e.consumeNextSpellExtraTarget(ps, skill)
+	}
 
 	// Check if it's a 咒术 (sorcery - unblockable)
 	isSorcery := isSorcerySkill(skill.Card)
-	if ps.SpellsCastThisTurn == nil {
-		ps.SpellsCastThisTurn = make(map[string]int)
-	}
-	ps.SpellsCastThisTurn[skill.Card.Category]++
+	e.recordSpellCast(playerID, skill)
+	e.triggerMagicMothAfterFocusSpellCast(playerID, skill)
 	spellCastData := map[string]any{
 		"cast_player": playerID,
 		"attacker":    playerID,
@@ -1134,6 +1361,9 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 				e.resolveSpellHit(playerID, skill, target, boostSkills, extraTargets)
 			}
 			e.removeStoredArchmageStaffSkillAfterUse(playerID, skill)
+			if skill.Card.Number == "3611101" {
+				e.triggerScarletWingsAfterRedMoon(playerID)
+			}
 		}
 		if e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, spellCastData, resolveSorcery) {
 			return nil
@@ -1170,16 +1400,163 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		if !e.spellAllowsDefense(playerID, skill, target) {
 			continueSpell = resolveWithoutDefense
 		}
-		if e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, spellCastData, continueSpell) {
+		continueAfterMainCounters := func() {
+			if e.promptAttackBoostSpellCastCounters(playerID, boostSkills, continueSpell) {
+				if e.spellAllowsDefense(playerID, skill, target) {
+					e.State.ResumePhase = PhaseDefenseWindow
+				}
+				return
+			}
+			continueSpell()
+		}
+		if e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, spellCastData, continueAfterMainCounters) {
 			if e.spellAllowsDefense(playerID, skill, target) {
 				e.State.ResumePhase = PhaseDefenseWindow
 			}
 			return nil
 		}
-		continueSpell()
+		continueAfterMainCounters()
 	}
 
 	return nil
+}
+
+func (e *Engine) startFreeSpellCastNoBoost(playerID int, skill *CardInstance, target SpellTarget, extraData map[string]any) error {
+	if playerID < 0 || playerID >= len(e.State.Players) || skill == nil || skill.Card == nil {
+		return fmt.Errorf("invalid free spell cast")
+	}
+	ps := e.State.Players[playerID]
+	if e.findSkill(ps, skill.InstanceID) != skill {
+		return fmt.Errorf("skill not found in skill area or bound skills")
+	}
+	if err := e.validateSkillForPurpose(skill, skillPurposeAttack); err != nil {
+		return err
+	}
+	if err := e.validateSpellTargetWithPierce(playerID, skill, target, e.skillHasPierce(playerID, skill)); err != nil {
+		return err
+	}
+
+	skill.IsHorizontal = true
+	if !e.shouldSkipCooldown(ps, skill) {
+		e.ApplyKeywordOnSkillUse(skill)
+	}
+	e.applySkillUseCooldownModifiers(ps, skill)
+	if skill.Card.Number == "3611101" {
+		e.applyNextRedMoonModifiers(playerID, skill)
+		e.refreshRedMoonState(playerID)
+	}
+	e.advanceMasteryForUsedSkills(playerID, skill)
+
+	e.applyCoralBellyFirstSpellAttackBonus(playerID, skill)
+	totalPower := e.effectiveSpellPower(playerID, skill, nil, target)
+	powerSources := e.spellPowerSources(playerID, skill, nil, totalPower, target)
+	e.consumeNextSpellPowerBonuses(ps, skill)
+
+	isSorcery := isSorcerySkill(skill.Card)
+	e.recordSpellCast(playerID, skill)
+	e.triggerMagicMothAfterFocusSpellCast(playerID, skill)
+	spellCastData := map[string]any{
+		"cast_player": playerID,
+		"attacker":    playerID,
+		"skill":       cardToInfo(skill),
+		"target":      target,
+		"power":       totalPower,
+		"boost_count": 0,
+		"is_sorcery":  isSorcery,
+		"free_cast":   true,
+	}
+	for key, value := range extraData {
+		spellCastData[key] = value
+	}
+	e.emit(GameEvent{Type: "spell_cast", Player: -1, Data: spellCastData})
+	e.triggerEffects(TriggerOnSpellCast, skill, nil, spellCastData)
+
+	if isSorcery {
+		resolveSorcery := func() {
+			if e.shouldResolveSorceryHit(skill) {
+				e.resolveSpellHit(playerID, skill, target, nil, nil)
+			}
+			e.removeStoredArchmageStaffSkillAfterUse(playerID, skill)
+			if skill.Card.Number == "3611101" {
+				e.triggerScarletWingsAfterRedMoon(playerID)
+			}
+		}
+		if e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, spellCastData, resolveSorcery) {
+			return nil
+		}
+		resolveSorcery()
+		return nil
+	}
+
+	e.State.PendingSpell = &SpellCast{
+		AttackerID:   playerID,
+		Skill:        skill,
+		Target:       target,
+		TotalPower:   totalPower,
+		PowerSources: powerSources,
+	}
+	resolveWithoutDefense := func() {
+		e.resolvePendingSpellHit()
+	}
+	openDefenseWindow := func() {
+		if e.State.PendingSpell == nil {
+			return
+		}
+		e.State.ResumePhase = PhaseDefenseWindow
+		e.State.Phase = PhaseDefenseWindow
+		e.emit(GameEvent{Type: "defense_window", Player: 1 - playerID, Data: map[string]any{"timeout": 30}})
+	}
+	continueSpell := openDefenseWindow
+	if !e.spellAllowsDefense(playerID, skill, target) {
+		continueSpell = resolveWithoutDefense
+	}
+	if e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, spellCastData, continueSpell) {
+		if e.spellAllowsDefense(playerID, skill, target) {
+			e.State.ResumePhase = PhaseDefenseWindow
+		}
+		return nil
+	}
+	continueSpell()
+	return nil
+}
+
+func (e *Engine) promptAttackBoostSpellCastCounters(attackerID int, boostSkills []*CardInstance, afterDone func()) bool {
+	if len(boostSkills) == 0 || e.State.PendingSpell == nil {
+		return false
+	}
+	defenderID := 1 - attackerID
+	var promptNext func(int, bool)
+	promptNext = func(index int, continuing bool) {
+		for index < len(boostSkills) {
+			boost := boostSkills[index]
+			index++
+			if boost == nil || boost.Card == nil || boost.Statuses[iceSoulSealCancelledBoostStatus] > 0 {
+				continue
+			}
+			cancelled := false
+			data := map[string]any{
+				"cast_player":  attackerID,
+				"attacker":     attackerID,
+				"skill":        cardToInfo(boost),
+				"power":        e.effectiveSkillPowerForPurpose(attackerID, boost, skillPurposeAttackBoost),
+				"is_sorcery":   isSorcerySkill(boost.Card),
+				"boost_use":    true,
+				"attack_boost": true,
+				"cancel_boost": &cancelled,
+			}
+			counters := e.eligibleCounterTraps(defenderID, TriggerOnSpellCast, boost, data)
+			if e.promptCounterTrapQueue(counters, TriggerOnSpellCast, boost, data, func() {
+				promptNext(index, true)
+			}) {
+				return
+			}
+		}
+		if continuing && afterDone != nil {
+			afterDone()
+		}
+	}
+	promptNext(0, false)
+	return e.State.PendingAction != nil && e.State.PendingAction.Type == "counter_trigger"
 }
 
 func (e *Engine) shouldResolveSorceryHit(skill *CardInstance) bool {
@@ -1242,19 +1619,35 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		return err
 	}
 	totalCost := mergeElementCosts(defenseCost, scrollCost, boostCost, boostScrollCost)
-	if !canPayCostWithOverexertOptions(ps, totalCost, overexertUnits, e.playerHasLightWildcard(ps)) {
+	if !e.canPayCostWithOverexertOptions(ps, totalCost, overexertUnits, e.playerHasLightWildcard(ps)) {
 		return fmt.Errorf("not enough elements for defense")
 	}
+	defensePowerSources := append([]*CardInstance{}, defenseSkills...)
+	defensePowerSources = append(defensePowerSources, boostSkills...)
+	defensePowerSacrifice, defensePowerSacrificeSource, defensePowerSacrificeBonus, err := e.validateSpellPowerSacrificeForSources(playerID, defensePowerSources, action)
+	if err != nil {
+		return err
+	}
 	if len(defenseSkills)+len(defenseScrolls)+len(boostSkills) > 0 {
-		if !payDefenseCostWithOptions(ps, totalCost, action, overexertUnits, e.playerHasLightWildcard(ps)) {
+		if !e.payDefenseCostWithOptions(ps, totalCost, action, overexertUnits, e.playerHasLightWildcard(ps)) {
 			return fmt.Errorf("invalid payment")
 		}
+		e.triggerErebosSoulChainMarkedOverexert(playerID, overexertUnits)
 		e.destroyFuyeDoomedAfterExert(overexertUnits)
+		if defensePowerSacrifice != nil && defensePowerSacrificeBonus > 0 {
+			e.destroyUnitWithCause(defensePowerSacrifice, playerID, DeathCauseSacrifice)
+		}
 		tapSkills(defenseSkills)
 		tapSkills(boostSkills)
 		e.moveHandConsumablesToGraveyard(ps, append(defenseScrolls, boostScrolls...))
 		usedSkills := append([]*CardInstance{}, defenseSkills...)
 		usedSkills = append(usedSkills, boostSkills...)
+		for _, defenseSkill := range defenseSkills {
+			e.consumeNextSkillUseModifiersForPurpose(ps, defenseSkill, skillPurposeDefend)
+		}
+		for _, boostSkill := range boostSkills {
+			e.consumeNextSkillUseModifiersForPurpose(ps, boostSkill, skillPurposeDefenseBoost)
+		}
 		e.advanceMasteryForUsedSkills(playerID, usedSkills...)
 	}
 
@@ -1267,12 +1660,12 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		if e.State.PendingSpell == nil {
 			return
 		}
-		if e.promptDispelDefenseSpellIfEligible(e.State.PendingSpell.AttackerID, playerID, defenseSources, boostSources, len(overexertUnits)) {
+		if e.promptDispelDefenseSpellIfEligible(e.State.PendingSpell.AttackerID, playerID, defenseSources, boostSources, len(overexertUnits), defensePowerSacrificeSource, defensePowerSacrificeBonus) {
 			return
 		}
-		e.finishDefenseResolution(playerID, defenseSources, boostSources, len(overexertUnits))
+		e.finishDefenseResolution(playerID, defenseSources, boostSources, len(overexertUnits), defensePowerSacrificeSource, defensePowerSacrificeBonus)
 	}
-	if e.promptDefenseSpellCastCounters(e.State.PendingSpell.AttackerID, playerID, defenseSources, boostSources, continueAfterDefenseSpellCounters) {
+	if e.promptDefenseSpellCastCounters(e.State.PendingSpell.AttackerID, playerID, defenseSources, boostSources, overexertUnits, continueAfterDefenseSpellCounters) {
 		return nil
 	}
 
@@ -1280,7 +1673,7 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 	return nil
 }
 
-func (e *Engine) promptDefenseSpellCastCounters(attackerID int, defenderID int, defenseSources []*CardInstance, boostSources []*CardInstance, afterDone func()) bool {
+func (e *Engine) promptDefenseSpellCastCounters(attackerID int, defenderID int, defenseSources []*CardInstance, boostSources []*CardInstance, overexertUnits []*CardInstance, afterDone func()) bool {
 	type defenseSpellSource struct {
 		card    *CardInstance
 		purpose skillPurpose
@@ -1301,14 +1694,21 @@ func (e *Engine) promptDefenseSpellCastCounters(attackerID int, defenderID int, 
 		for index < len(sources) {
 			source := sources[index]
 			index++
+			if source.card.Statuses[iceSoulSealCancelledBoostStatus] > 0 {
+				continue
+			}
+			cancelled := false
 			power := e.effectiveSkillPowerForPurpose(defenderID, source.card, source.purpose)
 			data := map[string]any{
-				"cast_player": defenderID,
-				"attacker":    defenderID,
-				"skill":       cardToInfo(source.card),
-				"power":       power,
-				"is_sorcery":  isSorcerySkill(source.card.Card),
-				"defense_use": true,
+				"cast_player":     defenderID,
+				"attacker":        defenderID,
+				"skill":           cardToInfo(source.card),
+				"power":           power,
+				"is_sorcery":      isSorcerySkill(source.card.Card),
+				"defense_use":     true,
+				"boost_use":       source.purpose == skillPurposeDefenseBoost,
+				"cancel_boost":    &cancelled,
+				"overexert_units": overexertUnits,
 			}
 			counters := e.eligibleCounterTraps(attackerID, TriggerOnSpellCast, source.card, data)
 			if e.promptCounterTrapQueue(counters, TriggerOnSpellCast, source.card, data, func() {
@@ -1432,7 +1832,7 @@ func (e *Engine) moveHandConsumablesToGraveyard(ps *PlayerState, cards []*CardIn
 			continue
 		}
 		ps.RemoveFromHand(idx)
-		ps.Graveyard = append(ps.Graveyard, card)
+		e.addToGraveyard(ps.PlayerID, card)
 		e.emit(GameEvent{
 			Type:   "use_item",
 			Player: -1,
@@ -1445,9 +1845,14 @@ func (e *Engine) moveHandConsumablesToGraveyard(ps *PlayerState, cards []*CardIn
 		})
 	}
 }
-func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInstance, boostSkills []*CardInstance, overexerted int) {
+func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInstance, boostSkills []*CardInstance, overexerted int, powerBonusSource *CardInstance, powerBonus int) {
+	defenseSkills = e.filterIceSoulSealCancelledBoosts(defenseSkills)
+	boostSkills = e.filterIceSoulSealCancelledBoosts(boostSkills)
 	totalDefPower := e.totalEffectiveSkillPower(playerID, defenseSkills, skillPurposeDefend) +
 		e.totalEffectiveSkillPower(playerID, boostSkills, skillPurposeDefenseBoost)
+	if powerBonusSource != nil && (cardInstanceInSlice(defenseSkills, powerBonusSource) || cardInstanceInSlice(boostSkills, powerBonusSource)) {
+		totalDefPower += max(powerBonus, 0)
+	}
 
 	attackPower := e.State.PendingSpell.TotalPower
 
@@ -1463,12 +1868,14 @@ func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInst
 		},
 	})
 
-	defenseSuccess := attackPower <= 0 || (totalDefPower >= attackPower && len(defenseSkills) > 0)
+	requiredPower := e.requiredDefensePowerForSpell(e.State.PendingSpell.Skill, attackPower)
+	defenseSuccess := attackPower <= 0 || (totalDefPower >= requiredPower && len(defenseSkills) > 0)
 	defendData := map[string]any{
 		"defender":        playerID,
 		"attacker":        e.State.PendingSpell.AttackerID,
 		"defense_power":   totalDefPower,
 		"attack_power":    attackPower,
+		"required_power":  requiredPower,
 		"defense_success": defenseSuccess,
 		"attack_skill":    e.State.PendingSpell.Skill,
 		"boost_skills":    e.State.PendingSpell.BoostSkills,
@@ -1477,6 +1884,9 @@ func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInst
 	}
 	for _, defenseSkill := range defenseSkills {
 		e.triggerEffects(TriggerOnDefend, defenseSkill, nil, defendData)
+	}
+	if e.State.PendingSpell != nil && e.State.PendingSpell.Skill != nil {
+		e.triggerEffects(TriggerOnDefend, e.State.PendingSpell.Skill, nil, defendData)
 	}
 	e.triggerFieldEffectsWithData(TriggerOnDefend, playerID, e.State.PendingSpell.Skill, defendData)
 	e.triggerFieldEffectsWithData(TriggerOnDefend, e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill, defendData)
@@ -1488,7 +1898,9 @@ func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInst
 			Player: -1,
 			Data:   map[string]any{"defender": playerID},
 		})
+		e.consumeNextSpellAttackBonuses(e.State.Players[e.State.PendingSpell.AttackerID], e.State.PendingSpell.Skill)
 		e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
+		clearFiveRainbowBeamSelection(e.State.PendingSpell.Skill)
 	} else {
 		// Defense failed, spell hits
 		if e.resolveSpellHit(
@@ -1501,6 +1913,7 @@ func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInst
 			return
 		}
 		e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
+		clearFiveRainbowBeamSelection(e.State.PendingSpell.Skill)
 	}
 
 	e.State.PendingSpell = nil
@@ -1510,7 +1923,30 @@ func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInst
 	e.checkWinCondition()
 }
 
-func (e *Engine) promptDispelDefenseSpellIfEligible(attackerID int, defenderID int, defenseSkills []*CardInstance, boostSkills []*CardInstance, overexerted int) bool {
+func (e *Engine) requiredDefensePowerForSpell(skill *CardInstance, attackPower int) int {
+	required := attackPower
+	if skill != nil && skill.Card != nil && skill.Card.Number == "3111101" {
+		required += max(attackPower, 0) / 8 * 4
+	}
+	return required
+}
+
+func (e *Engine) filterIceSoulSealCancelledBoosts(skills []*CardInstance) []*CardInstance {
+	if len(skills) == 0 {
+		return skills
+	}
+	filtered := skills[:0]
+	for _, skill := range skills {
+		if skill == nil || skill.Statuses[iceSoulSealCancelledBoostStatus] <= 0 {
+			filtered = append(filtered, skill)
+			continue
+		}
+		delete(skill.Statuses, iceSoulSealCancelledBoostStatus)
+	}
+	return filtered
+}
+
+func (e *Engine) promptDispelDefenseSpellIfEligible(attackerID int, defenderID int, defenseSkills []*CardInstance, boostSkills []*CardInstance, overexerted int, powerBonusSource *CardInstance, powerBonus int) bool {
 	defenseOnlySkills := make([]*CardInstance, 0, len(defenseSkills))
 	for _, skill := range defenseSkills {
 		if skill != nil && skill.Card != nil && isDefenseOnlySkill(skill.Card) {
@@ -1540,7 +1976,7 @@ func (e *Engine) promptDispelDefenseSpellIfEligible(attackerID int, defenderID i
 		candidates, 0, 1, cost, true,
 		func(selected []string, data map[string]any) error {
 			if len(selected) == 0 {
-				e.finishDefenseResolution(defenderID, defenseSkills, boostSkills, overexerted)
+				e.finishDefenseResolution(defenderID, defenseSkills, boostSkills, overexerted, powerBonusSource, powerBonus)
 				return nil
 			}
 			cancelledSkill := validTargets[selected[0]]
@@ -1560,7 +1996,7 @@ func (e *Engine) promptDispelDefenseSpellIfEligible(attackerID int, defenderID i
 					"cancelled": cardToInfo(cancelledSkill),
 				},
 			})
-			e.finishDefenseResolution(defenderID, withoutCardInstance(defenseSkills, cancelledSkill), boostSkills, overexerted)
+			e.finishDefenseResolution(defenderID, withoutCardInstance(defenseSkills, cancelledSkill), boostSkills, overexerted, powerBonusSource, powerBonus)
 			return nil
 		})
 	return e.State.PendingAction != nil && e.State.PendingAction.Type == "dispel_defense_spell"
@@ -1591,10 +2027,10 @@ func (e *Engine) payAndUseDispel(playerID int, dispel *CardInstance, cost map[st
 	if err != nil {
 		return err
 	}
-	if !canPayCostWithOverexertOptions(e.State.Players[playerID], cost, overexertUnits, e.playerHasLightWildcard(e.State.Players[playerID])) {
+	if !e.canPayCostWithOverexertOptions(e.State.Players[playerID], cost, overexertUnits, e.playerHasLightWildcard(e.State.Players[playerID])) {
 		return fmt.Errorf("not enough elements")
 	}
-	if !payDefenseCostWithOptions(e.State.Players[playerID], cost, ActionMessage{Data: data}, overexertUnits, e.playerHasLightWildcard(e.State.Players[playerID])) {
+	if !e.payDefenseCostWithOptions(e.State.Players[playerID], cost, ActionMessage{Data: data}, overexertUnits, e.playerHasLightWildcard(e.State.Players[playerID])) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.destroyFuyeDoomedAfterExert(overexertUnits)
@@ -1679,6 +2115,7 @@ func (e *Engine) resolvePendingSpellHit() {
 	}
 
 	e.removeStoredArchmageStaffSkillAfterUse(spell.AttackerID, spell.Skill)
+	clearFiveRainbowBeamSelection(spell.Skill)
 	if e.State.PendingSpell == spell {
 		e.State.PendingSpell = nil
 	}
@@ -1692,6 +2129,7 @@ func (e *Engine) cancelPendingSpell(playerID int, source *CardInstance, reason s
 	if e.State.PendingSpell == nil {
 		return
 	}
+	spell := e.State.PendingSpell
 	e.emit(GameEvent{
 		Type:   "spell_cancelled",
 		Player: -1,
@@ -1701,15 +2139,94 @@ func (e *Engine) cancelPendingSpell(playerID int, source *CardInstance, reason s
 			"reason": reason,
 		},
 	})
+	if e.promptSpellMissOrCancelledCounters(spell.AttackerID, spell.Skill, spell.BoostSkills, spell.ExtraTargets, reason) {
+		return
+	}
 	e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
+	clearFiveRainbowBeamSelection(e.State.PendingSpell.Skill)
 	e.State.PendingSpell = nil
 	if e.State.PendingAction == nil {
 		e.State.Phase = PhaseMain
 	}
 }
 
+func (e *Engine) promptSpellMissOrCancelledCounters(attackerID int, skill *CardInstance, boostSkills []*CardInstance, extraTargets []SpellTarget, reason string) bool {
+	if e == nil || e.State == nil || skill == nil || attackerID < 0 || attackerID >= len(e.State.Players) {
+		return false
+	}
+	defenderID := 1 - attackerID
+	if defenderID < 0 || defenderID >= len(e.State.Players) {
+		return false
+	}
+	data := map[string]any{
+		"attacker":      attackerID,
+		"cast_player":   attackerID,
+		"reason":        reason,
+		"boost_skills":  boostSkills,
+		"extra_targets": extraTargets,
+	}
+	counters := e.eligibleCounterTraps(defenderID, TriggerOnSpellMissOrCancelled, skill, data)
+	if len(counters) == 0 {
+		return false
+	}
+	return e.promptCounterTrapQueue(counters, TriggerOnSpellMissOrCancelled, skill, data, func() {
+		if e.State.PendingSpell != nil && e.State.PendingSpell.Skill == skill {
+			e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
+			clearFiveRainbowBeamSelection(e.State.PendingSpell.Skill)
+			e.State.PendingSpell = nil
+			if e.State.PendingAction == nil {
+				e.State.Phase = PhaseMain
+			}
+		}
+	})
+}
+
 func (e *Engine) spellAllowsDefense(attackerID int, skill *CardInstance, target SpellTarget) bool {
 	return e.spellDefenderID(attackerID, skill, target) != attackerID
+}
+
+func (e *Engine) addExileSotorAdjacentSpellTargets(playerID int, target SpellTarget, extraTargets []SpellTarget) []SpellTarget {
+	if e == nil || target.Type != "unit" || !target.Position.Valid() || playerID < 0 || playerID >= len(e.State.Players) {
+		return extraTargets
+	}
+	if !e.playerHasActiveCard(e.State.Players[playerID], "1111102") {
+		return extraTargets
+	}
+	targetOwnerID := 1 - playerID
+	if target.OwnerID != nil {
+		targetOwnerID = *target.OwnerID
+	}
+	if targetOwnerID < 0 || targetOwnerID >= len(e.State.Players) {
+		return extraTargets
+	}
+	for _, delta := range []struct{ col, row int }{{-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
+		extra := SpellTarget{Type: "unit", Position: Position{Col: target.Position.Col + delta.col, Row: target.Position.Row + delta.row}}
+		if !extra.Position.Valid() || e.State.Players[targetOwnerID].Units[extra.Position.Col][extra.Position.Row] == nil {
+			continue
+		}
+		ownerID := targetOwnerID
+		extra.OwnerID = &ownerID
+		if spellTargetsContain(extraTargets, extra) {
+			continue
+		}
+		extraTargets = append(extraTargets, extra)
+	}
+	return extraTargets
+}
+
+func spellTargetsContain(targets []SpellTarget, target SpellTarget) bool {
+	for _, existing := range targets {
+		if existing.Type != target.Type || existing.Position != target.Position {
+			continue
+		}
+		if existing.OwnerID == nil && target.OwnerID == nil {
+			return true
+		}
+		if existing.OwnerID != nil && target.OwnerID != nil && *existing.OwnerID == *target.OwnerID {
+			return true
+		}
+	}
+	return false
 }
 
 func (e *Engine) spellDefenderID(attackerID int, skill *CardInstance, target SpellTarget) int {
@@ -1742,8 +2259,12 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 		if extraTarget.Type != "unit" || !extraTarget.Position.Valid() {
 			continue
 		}
-		extraUnit := e.State.Players[defenderID].Units[extraTarget.Position.Col][extraTarget.Position.Row]
+		extraUnit := e.spellTargetUnitForCaster(attackerID, extraTarget)
 		if extraUnit == nil {
+			continue
+		}
+		if target.Type == "unit" && extraTarget.Position == target.Position {
+			affectedUnits = append(affectedUnits, extraUnit)
 			continue
 		}
 		alreadyIncluded := false
@@ -1768,6 +2289,9 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 				"reason":   "target_lost",
 			},
 		})
+		if e.promptSpellMissOrCancelledCounters(attackerID, skill, boostSkills, extraTargets, "target_lost") {
+			return true
+		}
 		return false
 	}
 	var targetUnit *CardInstance
@@ -1789,7 +2313,7 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 	if override, ok := globalRegistry.SpellDamage(skill.Card.Number, ctx); ok {
 		dmg = max(override, 0)
 	}
-	dmg = e.effectiveSpellDamage(attackerID, skill, dmg, boostSkills)
+	dmg = e.effectiveSpellDamage(attackerID, skill, dmg, boostSkills, affectedUnits)
 	e.consumeNextElementSpellDamageBonus(e.State.Players[attackerID], skill)
 	e.consumeAllSpellDamageZero(e.State.Players[attackerID], skill)
 	e.consumeAllSpellDamageZero(e.State.Players[defenderID], skill)
@@ -1812,9 +2336,12 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 			"cancel_spell_hit": &hitCancelled,
 			"damage_ptr":       &dmg,
 		}
-		finishHit := func() {
+		finishHit := func() bool {
 			if hitCancelled {
-				return
+				if e.promptSpellMissOrCancelledCounters(attackerID, skill, boostSkills, extraTargets, "hit_cancelled") {
+					return true
+				}
+				return false
 			}
 			e.emit(GameEvent{
 				Type:   "spell_hit",
@@ -1831,41 +2358,88 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 			hitData["timing"] = "before_damage"
 			e.triggerEffects(TriggerOnSpellHitBeforeDamage, skill, targetUnit, hitData)
 			e.triggerFieldEffectsWithData(TriggerOnSpellHitBeforeDamage, attackerID, skill, hitData)
-			e.triggerFieldEffectsWithData(TriggerOnSpellHitBeforeDamage, defenderID, skill, hitData)
-			if hitCancelled {
-				return
+			if !spellSuppressesOpponentResponses(skill) {
+				e.triggerFieldEffectsWithData(TriggerOnSpellHitBeforeDamage, defenderID, skill, hitData)
 			}
+			continueAfterBeforeDamage := func() {
+				if hitCancelled {
+					return
+				}
+				e.consumeNextSpellAttackBonuses(e.State.Players[attackerID], skill)
 
-			if dmg > 0 {
-				for _, unit := range affectedUnits {
-					e.dealDamageWithExtra(unit, dmg, defenderID, map[string]any{
-						"damage_source":  "spell",
-						"damage_element": skill.Card.Category,
-						"skill":          skill.Card.Number,
-						"attacker":       attackerID,
-						"boost_count":    len(boostSkills),
-					})
+				actualSpellDamageByInstance := map[string]int{}
+				actualFriendlySpellDamageByInstance := map[string]int{}
+				if dmg > 0 {
+					spellDamageData := map[string]any{
+						"damage_source":                      "spell",
+						"damage_element":                     skill.Card.Category,
+						"skill":                              skill.Card.Number,
+						"attacker":                           attackerID,
+						"boost_count":                        len(boostSkills),
+						"actual_damage_by_instance":          actualSpellDamageByInstance,
+						"actual_friendly_damage_by_instance": actualFriendlySpellDamageByInstance,
+					}
+					spellDamage := dmg
+					if len(affectedUnits) > 1 {
+						shieldTarget := targetUnit
+						if shieldTarget == nil && len(affectedUnits) > 0 {
+							shieldTarget = affectedUnits[0]
+						}
+						spellDamage = e.applyPlayerShieldDamage(shieldTarget, dmg, spellDamageData)
+						spellDamageData["skip_player_shield"] = true
+					}
+					for _, unit := range affectedUnits {
+						e.dealDamageWithExtra(unit, spellDamage, defenderID, spellDamageData)
+					}
+				}
+				hitData["actual_damage_by_instance"] = actualSpellDamageByInstance
+				hitData["actual_friendly_damage_by_instance"] = actualFriendlySpellDamageByInstance
+				resolvedUnits := e.unitsStillOnField(affectedUnits)
+				actualDamage := 0
+				for _, damage := range actualSpellDamageByInstance {
+					actualDamage += damage
+				}
+				e.recordSpellHitStats(attackerID, len(affectedUnits), actualDamage)
+				resolvedTargetUnit := targetUnit
+				if target.Type != "hero" && !e.unitStillOnField(resolvedTargetUnit) {
+					resolvedTargetUnit = nil
+				}
+				hitData["affected_units"] = resolvedUnits
+				e.applyGenericSpellEffects(attackerID, defenderID, skill, resolvedUnits, target)
+				e.applyTemporarySpellHitStatus(attackerID, skill, resolvedUnits)
+
+				hitData["timing"] = "after_damage"
+				e.triggerEffects(TriggerOnSpellHit, skill, resolvedTargetUnit, hitData)
+				e.triggerFieldEffectsWithData(TriggerOnSpellHit, attackerID, skill, hitData)
+				if !spellSuppressesOpponentResponses(skill) {
+					e.triggerFieldEffectsWithData(TriggerOnSpellHit, defenderID, skill, hitData)
+				}
+				e.triggerSparkMothAfterSpellHit(skill)
+				if skill.Statuses[StatusNextFrontRowRange] > 0 {
+					skill.Statuses[StatusNextFrontRowRange]--
 				}
 			}
-			resolvedUnits := e.unitsStillOnField(affectedUnits)
-			resolvedTargetUnit := targetUnit
-			if target.Type != "hero" && !e.unitStillOnField(resolvedTargetUnit) {
-				resolvedTargetUnit = nil
+			if e.State.PendingAction != nil {
+				e.wrapPendingActionContinuation(func() {
+					continueAfterBeforeDamage()
+					if e.State.PendingSpell != nil && e.State.PendingSpell.Skill == skill {
+						e.removeStoredArchmageStaffSkillAfterUse(attackerID, skill)
+						e.State.PendingSpell = nil
+						if e.State.PendingAction == nil {
+							e.State.Phase = PhaseMain
+						}
+						e.checkWinCondition()
+					}
+				})
+				return true
 			}
-			hitData["affected_units"] = resolvedUnits
-			e.applyGenericSpellEffects(attackerID, defenderID, skill, resolvedUnits, target)
-			e.applyTemporarySpellHitStatus(attackerID, skill, resolvedUnits)
-
-			hitData["timing"] = "after_damage"
-			e.triggerEffects(TriggerOnSpellHit, skill, resolvedTargetUnit, hitData)
-			e.triggerFieldEffectsWithData(TriggerOnSpellHit, attackerID, skill, hitData)
-			e.triggerFieldEffectsWithData(TriggerOnSpellHit, defenderID, skill, hitData)
-			if skill.Statuses[StatusNextFrontRowRange] > 0 {
-				skill.Statuses[StatusNextFrontRowRange]--
-			}
+			continueAfterBeforeDamage()
+			return false
 		}
 		afterCounterWindow := func() {
-			finishHit()
+			if finishHit() {
+				return
+			}
 			if e.State.PendingSpell != nil && e.State.PendingSpell.Skill == skill {
 				e.removeStoredArchmageStaffSkillAfterUse(attackerID, skill)
 				e.State.PendingSpell = nil
@@ -1875,11 +2449,10 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 				e.checkWinCondition()
 			}
 		}
-		if e.promptCounterTrapQueue(e.eligibleCounterTraps(defenderID, TriggerOnSpellHitBeforeDamage, skill, hitData), TriggerOnSpellHitBeforeDamage, skill, hitData, afterCounterWindow) {
+		if !spellSuppressesOpponentResponses(skill) && e.promptCounterTrapQueue(e.eligibleCounterTraps(defenderID, TriggerOnSpellHitBeforeDamage, skill, hitData), TriggerOnSpellHitBeforeDamage, skill, hitData, afterCounterWindow) {
 			return true
 		}
-		finishHit()
-		return false
+		return finishHit()
 	}
 }
 
@@ -2156,6 +2729,9 @@ func (e *Engine) handleAttack(playerID int, action ActionMessage) error {
 	if e.State.CurrentTurn != playerID {
 		return fmt.Errorf("not your turn")
 	}
+	if e.timeCycleLockActive() {
+		return fmt.Errorf("time cycle prevents card attacks")
+	}
 
 	attackerID, _ := action.Data["attacker_id"].(string)
 	targetColF, _ := action.Data["target_col"].(float64)
@@ -2176,7 +2752,7 @@ func (e *Engine) handleAttack(playerID int, action ActionMessage) error {
 	if attacker == nil {
 		return fmt.Errorf("attacker not found")
 	}
-	if attacker.Card.Attack <= 0 {
+	if effectiveCurrentAttack(attacker) <= 0 {
 		return fmt.Errorf("attacker has no attack")
 	}
 	if attacker.IsHorizontal {
@@ -2187,9 +2763,9 @@ func (e *Engine) handleAttack(playerID int, action ActionMessage) error {
 	}
 
 	if !attackerIsEquipment {
-		// Check attacker is in front row
+		// Check attacker is in front row unless its own rule says otherwise.
 		frontRow := ps.GetFrontRow()
-		if attacker.Position == nil || attacker.Position.Row != frontRow {
+		if attacker.Position == nil || (attacker.Position.Row != frontRow && (e.hasEffectiveStatus(attacker, StatusPetrify) || !cardCanAttackFromNonFront(attacker))) {
 			return fmt.Errorf("attacker is not in front row")
 		}
 	}
@@ -2205,6 +2781,11 @@ func (e *Engine) handleAttack(playerID int, action ActionMessage) error {
 	}
 	if !e.isInDirectAttackRange(playerID, attacker, attackerIsEquipment, targetCol, targetRow) {
 		return fmt.Errorf("target is not in attack range")
+	}
+	if attackCost := e.effectiveAttackCost(ps, attacker); totalElementCost(attackCost) > 0 {
+		if !e.payCostForCardAction(ps, attacker, attackCost, attackCost, paymentPurposeAttack, action) {
+			return fmt.Errorf("invalid attack payment")
+		}
 	}
 
 	// Consume attacker (横置)
@@ -2225,7 +2806,7 @@ func (e *Engine) handleAttack(playerID int, action ActionMessage) error {
 	e.triggerFieldEffectsWithData(TriggerOnAttacked, 1-playerID, attacker, attackData)
 	e.triggerFieldEffectsWithData(TriggerOnAttacked, playerID, attacker, attackData)
 
-	dmg := attacker.CurrentAttack
+	dmg := effectiveCurrentAttack(attacker)
 
 	e.emit(GameEvent{
 		Type:   "unit_attack",
@@ -2251,7 +2832,7 @@ func (e *Engine) handleAttack(playerID int, action ActionMessage) error {
 }
 
 func (e *Engine) resolveForcedUnitAttack(attackerOwnerID int, attacker *CardInstance, target *CardInstance, reason string) {
-	if attacker == nil || target == nil || attacker.CurrentAttack <= 0 {
+	if attacker == nil || target == nil || effectiveCurrentAttack(attacker) <= 0 {
 		return
 	}
 	attackData := map[string]any{
@@ -2273,7 +2854,7 @@ func (e *Engine) resolveForcedUnitAttack(attackerOwnerID int, attacker *CardInst
 		e.triggerFieldEffectsWithData(TriggerOnAttacked, ownerID, attacker, attackData)
 	}
 
-	dmg := attacker.CurrentAttack
+	dmg := effectiveCurrentAttack(attacker)
 	e.emit(GameEvent{
 		Type:   "unit_attack",
 		Player: -1,
@@ -2320,7 +2901,7 @@ func (e *Engine) isEnemyFrontRowAttackTarget(playerID int, attacker *CardInstanc
 	if target == nil {
 		return false
 	}
-	if e.hasEffectiveStatus(target, "隐蔽") && !cardHasPierce(attacker) {
+	if e.hasStealthFromOpponent(playerID, target) {
 		return false
 	}
 	return true
@@ -2365,6 +2946,18 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 	}
 	for key, value := range extraData {
 		damageData[key] = value
+	}
+	if e.temporaryDamageAndNegativeImmunityActive(target) {
+		e.emit(GameEvent{
+			Type:   "damage_prevented",
+			Player: -1,
+			Data: map[string]any{
+				"target": cardToInfo(target),
+				"amount": amount,
+				"reason": "temporary_immunity",
+			},
+		})
+		return
 	}
 	if behavior, ok := globalRegistry.GetBehavior(target.Card.Number).(DamagePreventionBehavior); ok && behavior.HasActiveDamagePrevention(target) {
 		ctx := &EffectContext{
@@ -2423,17 +3016,13 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 		}
 	}
 
-	// Apply shield damage reduction
-	amount = ApplyShieldDamage(target, amount)
+	amount = e.applyPlayerShieldDamage(target, amount, damageData)
 	if amount <= 0 {
-		e.emit(GameEvent{
-			Type:   "shield_block",
-			Player: -1,
-			Data: map[string]any{
-				"target": cardToInfo(target),
-				"shield": target.Statuses["护盾"],
-			},
-		})
+		return
+	}
+	amount = e.modifyDamageAmount(target, amount, ownerID, damageData)
+	amount = e.modifyFieldDamageAmount(target, amount, ownerID, damageData)
+	if amount <= 0 {
 		return
 	}
 	if target.Statuses["防止致命"] > 0 && target.CurrentLife-amount <= 0 {
@@ -2453,12 +3042,30 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 		return
 	}
 
+	if e.promptGuardianRuneLethalPrevention(target, amount, ownerID, damageData) {
+		return
+	}
+
 	if e.promptDolphinPartnerPrevention(target, amount, ownerID, damageData) {
 		return
 	}
 
 	target.CurrentLife -= amount
 	target.DamageTakenThisTurn += amount
+	if target.Card != nil && target.Card.IsHero() && ownerID >= 0 && ownerID < len(e.State.Players) {
+		e.State.Players[ownerID].HeroDamageTakenThisTurn += amount
+	}
+	if actualDamage, ok := damageData["actual_damage_by_instance"].(map[string]int); ok && target.InstanceID != "" {
+		actualDamage[target.InstanceID] += amount
+	}
+	if actualFriendlyDamage, ok := damageData["actual_friendly_damage_by_instance"].(map[string]int); ok && target.InstanceID != "" {
+		if attacker, ok := damageData["attacker"].(int); ok && attacker == ownerID {
+			actualFriendlyDamage[target.InstanceID] += amount
+		}
+	}
+	if target.Card != nil && target.Card.IsCompanion() && ownerID >= 0 && ownerID < len(e.State.Players) {
+		e.State.Players[ownerID].FriendlyUnitDamagedThisTurn = true
+	}
 
 	e.emit(GameEvent{
 		Type:   "damage",
@@ -2489,6 +3096,7 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 	}
 	e.triggerFieldEffectsWithData(TriggerOnDamaged, 1-ownerID, target, enemyDamageData)
 	e.triggerHiddenFriendlyDamaged(ownerID, target, fieldDamageData)
+	e.promptPainScreamWeakenAfterFriendlyDamage(ownerID, target, amount)
 
 	if target.CurrentLife <= 0 {
 		if attacker, ok := damageData["attacker"].(int); ok {
@@ -2501,6 +3109,58 @@ func (e *Engine) dealDamageWithExtra(target *CardInstance, amount int, ownerID i
 			e.resolvePendingDeaths()
 		}
 	}
+}
+
+func (e *Engine) modifyDamageAmount(target *CardInstance, amount int, ownerID int, damageData map[string]any) int {
+	if target == nil || target.Card == nil || amount <= 0 {
+		return amount
+	}
+	behavior, ok := globalRegistry.GetBehavior(target.Card.Number).(DamageAmountModifier)
+	if !ok || !behavior.HasActiveDamageAmountModifier(target) {
+		return amount
+	}
+	ctx := &EffectContext{
+		Engine:     e,
+		Source:     target,
+		Target:     target,
+		PlayerID:   ownerID,
+		OpponentID: 1 - ownerID,
+		ExtraData:  damageData,
+	}
+	modified := behavior.ModifyDamageAmount(ctx, amount)
+	if modified < 0 {
+		return 0
+	}
+	return modified
+}
+
+func (e *Engine) modifyFieldDamageAmount(target *CardInstance, amount int, ownerID int, damageData map[string]any) int {
+	if target == nil || target.Card == nil || amount <= 0 || ownerID < 0 || ownerID >= len(e.State.Players) {
+		return amount
+	}
+	ps := e.State.Players[ownerID]
+	for _, source := range e.getAllFieldCards(ps) {
+		if source == nil || source.Card == nil || source == target || e.hasEffectiveStatus(source, StatusPetrify) {
+			continue
+		}
+		behavior, ok := globalRegistry.GetBehavior(source.Card.Number).(FieldDamageAmountModifier)
+		if !ok || !behavior.HasActiveFieldDamageAmountModifier(source) {
+			continue
+		}
+		ctx := &EffectContext{
+			Engine:     e,
+			Source:     source,
+			Target:     target,
+			PlayerID:   ownerID,
+			OpponentID: 1 - ownerID,
+			ExtraData:  damageData,
+		}
+		amount = behavior.ModifyFieldDamageAmount(ctx, amount)
+		if amount <= 0 {
+			return 0
+		}
+	}
+	return amount
 }
 
 func (e *Engine) promptDolphinPartnerPrevention(target *CardInstance, amount int, ownerID int, damageData map[string]any) bool {
@@ -2554,6 +3214,41 @@ func (e *Engine) promptDolphinPartnerPrevention(target *CardInstance, amount int
 	return true
 }
 
+func (e *Engine) promptGuardianRuneLethalPrevention(target *CardInstance, amount int, ownerID int, damageData map[string]any) bool {
+	if e == nil || target == nil || amount <= 0 || target.CurrentLife-amount > 0 {
+		return false
+	}
+	if skip, _ := damageData["skip_guardian_rune_prevention"].(bool); skip {
+		return false
+	}
+	if ownerID < 0 || ownerID >= len(e.State.Players) {
+		return false
+	}
+	prevented := false
+	counterData := map[string]any{
+		"damaged_player": ownerID,
+		"damage":         amount,
+		"prevent_damage": &prevented,
+	}
+	for key, value := range damageData {
+		counterData[key] = value
+	}
+	if e.promptCounterTrapQueue(e.eligibleCounterTraps(ownerID, TriggerOnDamaged, target, counterData), TriggerOnDamaged, target, counterData, func() {
+		if prevented {
+			return
+		}
+		retryData := make(map[string]any, len(damageData)+1)
+		for key, value := range damageData {
+			retryData[key] = value
+		}
+		retryData["skip_guardian_rune_prevention"] = true
+		e.dealDamageWithExtra(target, amount, ownerID, retryData)
+	}) {
+		return true
+	}
+	return false
+}
+
 func (e *Engine) triggerHiddenFriendlyDamaged(playerID int, target *CardInstance, extraData map[string]any) {
 	ps := e.State.Players[playerID]
 	hidden := append([]*CardInstance{}, ps.Hand...)
@@ -2600,12 +3295,15 @@ func (e *Engine) destroyUnitWithData(unit *CardInstance, ownerID int, deathData 
 		ps.Units[unit.Position.Col][unit.Position.Row] = nil
 	}
 
-	// Bound skills live only while their host is on the battlefield. They do not
-	// enter the graveyard as independent cards.
+	// Printed/generated bound skills live only while their host is on the
+	// battlefield. Learned skills turned into bound skills have their own exile
+	// rule and are handled before clearing the host.
+	e.releaseUnderCardsToGraveyard(ownerID, unit)
+	e.exileTransferredBoundSkills(ownerID, unit)
 	unit.BoundSkills = nil
 
 	// Add to graveyard
-	ps.Graveyard = append(ps.Graveyard, unit)
+	e.addToGraveyard(ownerID, unit)
 
 	e.emit(GameEvent{
 		Type:   "unit_destroyed",
@@ -2648,6 +3346,9 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 	if e.State.CurrentTurn != playerID {
 		return fmt.Errorf("not your turn")
 	}
+	if e.timeCycleLockActive() {
+		return fmt.Errorf("time cycle prevents playing cards")
+	}
 
 	instanceID, _ := action.Data["instance_id"].(string)
 	replaceID, _ := action.Data["replace_id"].(string)
@@ -2689,7 +3390,7 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 			return fmt.Errorf("replacement equipment not found")
 		}
 	} else {
-		if newSubtype != "" {
+		if newSubtype != "" && !playerCanEquipDuplicateSubtypes(ps) {
 			for _, equipment := range ps.Equipment {
 				if equipment != nil && restrictedEquipmentSubtype(equipment.Card) == newSubtype {
 					if equipment.IsHorizontal {
@@ -2711,16 +3412,13 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 		}
 	}
 
-	if !e.payCostForAction(ps, cost, action) {
+	if !e.payCostForCardAction(ps, card, cost, cost, paymentPurposePlay, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.notifyCardPlayCostPaid(ps, card)
 	ps.RemoveFromHand(handIdx)
 	if replacedEquipment != nil {
-		ps.Equipment[slotIdx] = nil
-		replacedEquipment.SlotIndex = -1
-		ps.Graveyard = append(ps.Graveyard, replacedEquipment)
-		e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(replacedEquipment)}})
+		e.moveEquipmentToGraveyard(playerID, slotIdx, replacedEquipment)
 	}
 	card.IsHorizontal = true
 	card.SlotIndex = slotIdx
@@ -2740,6 +3438,7 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 
 	e.triggerEffects(TriggerOnEquip, card, nil, nil)
 	e.triggerEffects(TriggerOnEnter, card, nil, nil)
+	e.notifyCardEntered(playerID, card, map[string]any{"entered_player": playerID, "equipped": true})
 
 	return nil
 }
@@ -2752,7 +3451,6 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 	if e.State.CurrentTurn != playerID {
 		return fmt.Errorf("not your turn")
 	}
-
 	instanceID, _ := action.Data["instance_id"].(string)
 	replaceID, _ := action.Data["replace_id"].(string) // optional: which skill to replace
 
@@ -2770,6 +3468,9 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 	}
 	if skill == nil {
 		return fmt.Errorf("skill not found in skill pool")
+	}
+	if err := e.validateSkillLearnPermissionModifiers(playerID, skill); err != nil {
+		return err
 	}
 
 	// Check cost
@@ -2791,6 +3492,9 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 				if ps.Skills[i].IsHorizontal {
 					return fmt.Errorf("can only replace vertical skills")
 				}
+				if !skillAllowedInSlot(ps, skill, i) {
+					return fmt.Errorf("skill cannot be learned into this slot")
+				}
 				replacedSkill = ps.Skills[i]
 				slotIdx = i
 				break
@@ -2802,7 +3506,7 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 	} else {
 		// Find empty slot
 		for i := 0; i < skillSlotCapacity(ps); i++ {
-			if ps.Skills[i] == nil {
+			if ps.Skills[i] == nil && skillAllowedInSlot(ps, skill, i) {
 				slotIdx = i
 				break
 			}
@@ -2813,7 +3517,7 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 	}
 
 	// Pay cost and place
-	if !e.payCostForAction(ps, cost, action) {
+	if !e.payCostForCardAction(ps, skill, cost, cost, paymentPurposeLearn, action) {
 		return fmt.Errorf("invalid payment")
 	}
 	e.notifyCardPlayCostPaid(ps, skill)
@@ -2823,19 +3527,16 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 		ps.Skills[slotIdx] = nil
 		returnSkillToPool(replacedSkill)
 		ps.SkillPool = append(ps.SkillPool, replacedSkill)
+		if replacedSkill.Card.Number == "3611101" {
+			e.refreshRedMoonState(playerID)
+		}
 	}
 	skill.IsHorizontal = true
 	skill.SlotIndex = slotIdx
 	skill.EnterTurn = e.State.TurnNumber
 	e.ApplyKeywordOnEnter(skill)
 	ps.Skills[slotIdx] = skill
-	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
-		if modifier.Type == TempModNextLearnedSkillHaste && modifier.RemainingUses != 0 {
-			skill.IsHorizontal = false
-			e.removeTemporaryModifier(playerID, modifier.ID)
-			break
-		}
-	}
+	e.applyNextLearnedSkillHasteModifier(playerID, skill)
 
 	e.emit(GameEvent{
 		Type:   "learn_skill",
@@ -2847,8 +3548,106 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 			"elements": ps.Elements,
 		},
 	})
+	e.triggerEffects(TriggerOnEnter, skill, nil, nil)
+	learnData := map[string]any{"entered_player": playerID, "learned_skill": true}
+	e.notifyCardEntered(playerID, skill, learnData)
+	e.promptOpponentCounterTrap(playerID, TriggerOnCardEnter, skill, learnData, nil)
 
 	return nil
+}
+
+func (e *Engine) learnSkillFromPoolWithoutCost(playerID int, instanceID string, replaceID string) bool {
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return false
+	}
+	var skill *CardInstance
+	poolIdx := -1
+	for i, s := range ps.SkillPool {
+		if s != nil && s.InstanceID == instanceID {
+			skill = s
+			poolIdx = i
+			break
+		}
+	}
+	if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
+		return false
+	}
+	if err := e.validateSkillLearnPermissionModifiers(playerID, skill); err != nil {
+		return false
+	}
+
+	slotIdx := -1
+	var replacedSkill *CardInstance
+	if replaceID != "" {
+		for i := 0; i < skillSlotCapacity(ps); i++ {
+			if ps.Skills[i] != nil && ps.Skills[i].InstanceID == replaceID && !ps.Skills[i].IsHorizontal {
+				if !skillAllowedInSlot(ps, skill, i) {
+					return false
+				}
+				replacedSkill = ps.Skills[i]
+				slotIdx = i
+				break
+			}
+		}
+	} else {
+		for i := 0; i < skillSlotCapacity(ps); i++ {
+			if ps.Skills[i] == nil && skillAllowedInSlot(ps, skill, i) {
+				slotIdx = i
+				break
+			}
+		}
+	}
+	if slotIdx == -1 {
+		return false
+	}
+
+	ps.SkillPool = append(ps.SkillPool[:poolIdx], ps.SkillPool[poolIdx+1:]...)
+	if replacedSkill != nil {
+		ps.Skills[slotIdx] = nil
+		returnSkillToPool(replacedSkill)
+		ps.SkillPool = append(ps.SkillPool, replacedSkill)
+		if replacedSkill.Card.Number == "3611101" {
+			e.refreshRedMoonState(playerID)
+		}
+	}
+	skill.IsHorizontal = true
+	skill.SlotIndex = slotIdx
+	skill.EnterTurn = e.State.TurnNumber
+	e.ApplyKeywordOnEnter(skill)
+	ps.Skills[slotIdx] = skill
+	e.applyNextLearnedSkillHasteModifier(playerID, skill)
+
+	e.emit(GameEvent{
+		Type:   "learn_skill",
+		Player: -1,
+		Data: map[string]any{
+			"player":   playerID,
+			"card":     cardToInfo(skill),
+			"slot":     slotIdx,
+			"elements": ps.Elements,
+		},
+	})
+	e.triggerEffects(TriggerOnEnter, skill, nil, nil)
+	learnData := map[string]any{"entered_player": playerID, "learned_skill": true}
+	e.notifyCardEntered(playerID, skill, learnData)
+	e.promptOpponentCounterTrap(playerID, TriggerOnCardEnter, skill, learnData, nil)
+	return true
+}
+
+func (e *Engine) applyNextLearnedSkillHasteModifier(playerID int, skill *CardInstance) {
+	ps := e.State.Players[playerID]
+	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
+		if modifier.Type != TempModNextLearnedSkillHaste || modifier.RemainingUses == 0 {
+			continue
+		}
+		if modifier.Element != "" && (skill == nil || skill.Card == nil || skill.Card.Category != modifier.Element) {
+			continue
+		}
+		skill.IsHorizontal = false
+		e.removeTemporaryModifier(playerID, modifier.ID)
+		break
+	}
 }
 
 func returnSkillToPool(skill *CardInstance) {
@@ -2876,6 +3675,9 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 	}
 	if e.State.CurrentTurn != playerID {
 		return fmt.Errorf("not your turn")
+	}
+	if e.timeCycleLockActive() {
+		return fmt.Errorf("time cycle prevents playing cards")
 	}
 
 	instanceID, _ := action.Data["instance_id"].(string)
@@ -2908,7 +3710,7 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 			},
 		})
 	}
-	if isSpellScrollCard(card.Card) {
+	if spellScrollUsesGenericCast(card.Card) {
 		return e.handleUseSpellScrollItem(playerID, action, card, handIdx)
 	}
 	if cards.IsEquipment(card.Card.Number) {
@@ -2935,7 +3737,7 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 	}
 	e.notifyCardPlayCostPaid(ps, card)
 	ps.RemoveFromHand(handIdx)
-	ps.Graveyard = append(ps.Graveyard, card)
+	e.addToGraveyard(playerID, card)
 
 	e.emit(GameEvent{
 		Type:   "use_item",
@@ -2982,6 +3784,54 @@ func (e *Engine) validateConsumableItemUse(playerID int, card *CardInstance) err
 		if len(e.sketchScrollSkillCandidates(playerID)) == 0 {
 			return fmt.Errorf("Sketch Scroll requires a payable learned attack spell")
 		}
+	case "2221101":
+		if len(e.friendlySkillsIncludingBound(playerID, func(skill *CardInstance) bool {
+			return skill != nil && skill.Card != nil && isSpellLikeCard(skill.Card)
+		})) == 0 {
+			return fmt.Errorf("Mirrorsea Spring requires a friendly spell")
+		}
+	case "2221104":
+		recorded := e.State.Players[playerID].LastLowCostWaterSpell
+		if recorded == nil || recorded.Card == nil {
+			return fmt.Errorf("Water Mirror Scroll requires a previous low-cost water spell")
+		}
+		if skillNeedsTargetInstance(recorded) && len(e.spellTargetCandidates(playerID, recorded)) == 0 {
+			return fmt.Errorf("Water Mirror Scroll requires a legal target")
+		}
+	case "2221105":
+		if len(e.friendlyDeckCards(playerID, isRaiderCompanion)) == 0 {
+			return fmt.Errorf("Black Sail Raider requires a searchable raider companion")
+		}
+	case "2121108":
+		if len(e.friendlyUnits(playerID, false, func(unit *CardInstance) bool {
+			return isFireCompanion(unit) && e.canConsumeCard(unit)
+		})) == 0 {
+			return fmt.Errorf("Burnout Scroll requires a ready friendly fire companion")
+		}
+	case "2521102":
+		if !e.hasEnemySetCounter(playerID) && !e.hasEnemyFrontStealth(playerID) {
+			return fmt.Errorf("Moonlight Dust requires enemy set counters or stealthy front enemies")
+		}
+	case "2621109":
+		if len(e.friendlyDeckCards(playerID, isShadowCompanionWithDeathrattle)) == 0 {
+			return fmt.Errorf("Elegy Scroll requires a searchable shadow companion with deathrattle")
+		}
+	case "2421105":
+		if len(e.friendlyUnits(playerID, false, isEarthCompanionUnit)) < 2 {
+			return fmt.Errorf("Natural Communion requires two friendly earth companions")
+		}
+	case "2621111":
+		if countShadowCompanionsInGraveyard(e.State.Players[playerID]) < 5 {
+			return fmt.Errorf("Dark Burst Scroll requires at least five shadow companions in graveyard")
+		}
+	case "2121110":
+		if len(e.friendlySkillsIncludingBound(playerID, isFireSpellInstance)) < 2 {
+			return fmt.Errorf("Offering Torch requires at least two friendly fire spells")
+		}
+	case "2121101":
+		if len(lavaFortAshSourceCandidates(e, playerID)) == 0 {
+			return fmt.Errorf("Lavafort Ashes requires a fire skill and a higher-cost fire card in deck")
+		}
 	}
 	return nil
 }
@@ -3016,6 +3866,14 @@ func (e *Engine) handleUseSpellScrollItem(playerID int, action ActionMessage, ca
 			}
 		}
 	}
+	oracleGloryBonus, err := e.validateOracleGlorySupport(playerID, card, action)
+	if err != nil {
+		return err
+	}
+	flameArraySacrifice, flameArrayBonus, err := e.validateFlameArrayScrollSacrifice(playerID, card, action)
+	if err != nil {
+		return err
+	}
 
 	cost := e.effectiveCardPlayCost(ps, card)
 	if !e.canPayCost(ps, cost) {
@@ -3026,7 +3884,7 @@ func (e *Engine) handleUseSpellScrollItem(playerID int, action ActionMessage, ca
 	}
 	e.notifyCardPlayCostPaid(ps, card)
 	ps.RemoveFromHand(handIdx)
-	ps.Graveyard = append(ps.Graveyard, card)
+	e.addToGraveyard(playerID, card)
 
 	e.emit(GameEvent{
 		Type:   "use_item",
@@ -3044,6 +3902,27 @@ func (e *Engine) handleUseSpellScrollItem(playerID int, action ActionMessage, ca
 		if cancelled {
 			return
 		}
+		if oracleGloryBonus > 0 {
+			e.addTemporaryModifier(playerID, TemporaryModifier{
+				Type:             TempModNextAttackSpellPowerBonus,
+				SourceCardNumber: card.Card.Number,
+				SourceName:       card.Card.Name,
+				TargetInstanceID: card.InstanceID,
+				Amount:           oracleGloryBonus,
+				RemainingUses:    1,
+			})
+		}
+		if flameArraySacrifice != nil {
+			e.destroyUnitWithCause(flameArraySacrifice, playerID, DeathCauseSacrifice)
+			e.addTemporaryModifier(playerID, TemporaryModifier{
+				Type:             TempModNextAttackSpellPowerBonus,
+				SourceCardNumber: card.Card.Number,
+				SourceName:       card.Card.Name,
+				TargetInstanceID: card.InstanceID,
+				Amount:           flameArrayBonus,
+				RemainingUses:    1,
+			})
+		}
 		e.startSpellScrollCast(playerID, card, target)
 	}
 	if e.promptOpponentCounterTrap(playerID, TriggerOnUseItem, card, useData, resolveItem) {
@@ -3056,14 +3935,12 @@ func (e *Engine) handleUseSpellScrollItem(playerID int, action ActionMessage, ca
 func (e *Engine) startSpellScrollCast(playerID int, scroll *CardInstance, target SpellTarget) {
 	ps := e.State.Players[playerID]
 	boostSkills := []*CardInstance{}
+	e.applyCoralBellyFirstSpellAttackBonus(playerID, scroll)
 	totalPower := e.effectiveSpellPower(playerID, scroll, boostSkills, target)
 	powerSources := e.spellPowerSources(playerID, scroll, boostSkills, totalPower, target)
 	e.consumeNextSpellPowerBonuses(ps, scroll)
 
-	if ps.SpellsCastThisTurn == nil {
-		ps.SpellsCastThisTurn = make(map[string]int)
-	}
-	ps.SpellsCastThisTurn[scroll.Card.Category]++
+	e.recordSpellCast(playerID, scroll)
 	spellCastData := map[string]any{
 		"cast_player":  playerID,
 		"attacker":     playerID,
@@ -3115,6 +3992,9 @@ func (e *Engine) handlePlaceTerrain(playerID int, action ActionMessage) error {
 	}
 	if e.State.CurrentTurn != playerID {
 		return fmt.Errorf("not your turn")
+	}
+	if e.timeCycleLockActive() {
+		return fmt.Errorf("time cycle prevents playing cards")
 	}
 
 	instanceID, _ := action.Data["instance_id"].(string)
@@ -3177,6 +4057,7 @@ func (e *Engine) handlePlaceTerrain(playerID int, action ActionMessage) error {
 
 	// Trigger 入场 (on enter) effects for the terrain
 	e.triggerEffects(TriggerOnEnter, card, nil, nil)
+	e.notifyCardEntered(playerID, card, map[string]any{"entered_player": playerID, "terrain": true})
 
 	e.checkWinCondition()
 	return nil
@@ -3200,7 +4081,10 @@ func (e *Engine) handleUseAbility(playerID int, action ActionMessage) error {
 	// Find the card with the ability
 	card := e.findCardOnField(ps, instanceID)
 	if card == nil {
-		return fmt.Errorf("card not found on field")
+		card = e.findSkill(ps, instanceID)
+	}
+	if card == nil {
+		return fmt.Errorf("card not found on field or skill area")
 	}
 
 	if e.hasEffectiveStatus(card, StatusPetrify) {
@@ -3231,6 +4115,9 @@ func (e *Engine) handleUseAbility(playerID int, action ActionMessage) error {
 		maxUses := perTurnLimit(card)
 		if card.UsedThisTurn >= maxUses {
 			return fmt.Errorf("ability already used this turn")
+		}
+		if err := e.validatePerTurnPreconditions(card); err != nil {
+			return err
 		}
 	}
 
@@ -3309,6 +4196,51 @@ func (e *Engine) validateUltimatePreconditions(card *CardInstance) error {
 		}
 		if len(e.enemyUnits(card.OwnerID, true, nil)) == 0 {
 			return fmt.Errorf("Su ultimate requires an enemy target")
+		}
+	case "1221112":
+		if !e.hasResettableWaterSpell(card.OwnerID) {
+			return fmt.Errorf("水魔导师需要1个已横置且使用花费小于3的水纹法术")
+		}
+	case "1321109":
+		if len(e.State.Players[card.OwnerID].Hand) == 0 {
+			return fmt.Errorf("风暴之角需要丢弃1张手牌")
+		}
+		if !e.hasAirEquipmentInDeck(card.OwnerID) {
+			return fmt.Errorf("风暴之角需要卡组中有可翻取的大气装备")
+		}
+	case "1321105":
+		if len(e.friendlyUnits(card.OwnerID, false, func(candidate *CardInstance) bool {
+			return candidate != nil && candidate.Card != nil && candidate.Card.IsCompanion() &&
+				totalElementCost(candidate.Card.ElementsCost) < 6
+		})) == 0 {
+			return fmt.Errorf("幻术师需要1个入场花费小于6的友方伙伴")
+		}
+	}
+	return nil
+}
+
+func (e *Engine) validatePerTurnPreconditions(card *CardInstance) error {
+	if card == nil || card.Card == nil {
+		return nil
+	}
+	switch card.Card.Number {
+	case "2421112":
+		if card.Statuses[autumnMapleGemCounter] <= 0 {
+			return fmt.Errorf("秋枫宝钻没有标记物")
+		}
+		if !e.hasResettableEarthCompanion(card.OwnerID) {
+			return fmt.Errorf("秋枫宝钻需要1个已横置的地脉伙伴")
+		}
+	case "1621115":
+		if len(soulMarkedFriendlyFieldCandidates(e, card.OwnerID)) == 0 {
+			return fmt.Errorf("灵魂吸食者需要你场上有灵魂标记物")
+		}
+	case "2621112":
+		if len(shadowCompanionGraveyardCandidates(e.State.Players[card.OwnerID])) < 2 {
+			return fmt.Errorf("灵魂法杖需要弃牌堆中至少2张暗影伙伴")
+		}
+		if len(e.friendlySkillsIncludingBound(card.OwnerID, isShadowSpellInstance)) == 0 {
+			return fmt.Errorf("灵魂法杖需要1个暗影法术")
 		}
 	}
 	return nil
@@ -3508,45 +4440,66 @@ func (e *Engine) endTurn() {
 	ps := e.State.Players[e.State.CurrentTurn]
 
 	// Discard to hand limit
-	handLimit := e.handLimitForPlayer(ps)
-	if len(ps.Hand) > handLimit {
-		discardCount := len(ps.Hand) - handLimit
-		// Build candidates from hand cards
-		candidates := make([]map[string]any, len(ps.Hand))
-		for i, c := range ps.Hand {
-			candidates[i] = cardToInfo(c)
-		}
-		currentTurn := e.State.CurrentTurn
-		e.SetPendingAction(currentTurn, "discard",
-			fmt.Sprintf("弃牌至手牌上限（需弃%d张）", discardCount),
-			candidates, discardCount, discardCount,
-			func(selected []string) {
-				// Discard selected cards
-				toDiscard := make(map[string]bool)
-				for _, id := range selected {
-					toDiscard[id] = true
-				}
-				remaining := make([]*CardInstance, 0, len(ps.Hand)-len(selected))
-				for _, c := range ps.Hand {
-					if toDiscard[c.InstanceID] {
-						ps.Graveyard = append(ps.Graveyard, c)
-						e.emit(GameEvent{
-							Type:   "discard",
-							Player: currentTurn,
-							Data:   map[string]any{"card": cardToInfo(c)},
-						})
-					} else {
-						remaining = append(remaining, c)
-					}
-				}
-				ps.Hand = remaining
-				// Continue end turn processing
-				e.finishEndTurn(ps)
-			})
+	if e.promptDiscardToHandLimit(e.State.CurrentTurn, func() {
+		e.finishEndTurn(ps)
+	}) {
 		return // Wait for player to choose
 	}
 
 	e.finishEndTurn(ps)
+}
+
+func (e *Engine) promptDiscardToHandLimit(playerID int, afterDiscard func()) bool {
+	if playerID < 0 || playerID >= len(e.State.Players) {
+		return false
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return false
+	}
+	handLimit := e.handLimitForPlayer(ps)
+	if len(ps.Hand) <= handLimit {
+		return false
+	}
+
+	discardCount := len(ps.Hand) - handLimit
+	candidates := make([]map[string]any, len(ps.Hand))
+	for i, c := range ps.Hand {
+		candidates[i] = cardToInfo(c)
+	}
+	e.SetPendingAction(playerID, "discard",
+		fmt.Sprintf("弃牌至手牌上限（需弃%d张）", discardCount),
+		candidates, discardCount, discardCount,
+		func(selected []string) {
+			toDiscard := make(map[string]bool)
+			for _, id := range selected {
+				toDiscard[id] = true
+			}
+			remaining := make([]*CardInstance, 0, len(ps.Hand)-len(selected))
+			for _, c := range ps.Hand {
+				if toDiscard[c.InstanceID] {
+					e.discardHandCardToGraveyard(playerID, c)
+				} else {
+					remaining = append(remaining, c)
+				}
+			}
+			ps.Hand = remaining
+			if afterDiscard != nil {
+				afterDiscard()
+			}
+		})
+	return true
+}
+
+func (e *Engine) shouldImmediatelyEnforceHandLimit(playerID int) bool {
+	if playerID < 0 || playerID >= len(e.State.Players) {
+		return false
+	}
+	opponentID := 1 - playerID
+	if opponentID < 0 || opponentID >= len(e.State.Players) {
+		return false
+	}
+	return e.playerHasActiveCard(e.State.Players[opponentID], "1311103")
 }
 
 // finishEndTurn completes end-of-turn processing (after optional discard)
@@ -3557,7 +4510,27 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 		e.triggerEffects(TriggerOnTurnEnd, card, nil, nil)
 	}
 	e.triggerFieldEffectsWithData(TriggerOnTurnEnd, 1-ps.PlayerID, nil, map[string]any{"ended_player": ps.PlayerID})
+	if e.State.PendingAction != nil {
+		e.wrapPendingActionContinuation(func() {
+			e.finishEndTurnAfterTriggers(ps)
+		})
+		return
+	}
+	e.finishEndTurnAfterTriggers(ps)
+}
+
+func (e *Engine) finishEndTurnAfterTriggers(ps *PlayerState) {
 	e.applyOpponentTurnEndTemporaryModifiers(ps.PlayerID)
+	if e.State.PendingAction != nil {
+		e.wrapPendingActionContinuation(func() {
+			e.finishEndTurnAfterOpponentTemp(ps)
+		})
+		return
+	}
+	e.finishEndTurnAfterOpponentTemp(ps)
+}
+
+func (e *Engine) finishEndTurnAfterOpponentTemp(ps *PlayerState) {
 	e.discardMarkedEndOfTurnCards(ps)
 	e.applyLoadGainAtTurnEnd(ps)
 
@@ -3565,6 +4538,7 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 	e.processAbilityDurations(ps)
 
 	// Remove 临时 (temporary) units before the cleanup/reset steps.
+	e.destroyAndisGiftDoomedUnits(ps)
 	e.HandleTemporaryUnits(ps)
 
 	// Discard phase has already happened above. The cleanup order is:
@@ -3586,6 +4560,22 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 	// Clear elements
 	for elem := range ps.Elements {
 		ps.Elements[elem] = 0
+	}
+	clearSpellCastTracking(ps)
+	rollSpellHitTracking(ps)
+	e.clearGraveyardTurnTracking()
+	e.rollFriendlyUnitDamageHistory()
+	for _, player := range e.State.Players {
+		if player != nil {
+			kept := player.TempModifiers[:0]
+			for _, modifier := range player.TempModifiers {
+				if modifier.Type != TempModLavaArmorYeYanShieldBreak {
+					kept = append(kept, modifier)
+				}
+			}
+			player.TempModifiers = kept
+			player.ShieldBrokenThisTurn = false
+		}
 	}
 
 	e.emit(GameEvent{
@@ -3611,20 +4601,29 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 }
 
 func (e *Engine) processAbilityDurations(ps *PlayerState) {
+	changedRedMoon := false
 	for _, card := range e.getAllFieldCards(ps) {
 		if card == nil || card.Statuses[StatusAbilityDuration] <= 0 {
 			continue
 		}
+		wasRedMoon := card.Card != nil && card.Card.Number == "3611101"
 		card.Statuses[StatusAbilityDuration]--
 		if card.Statuses[StatusAbilityDuration] <= 0 {
 			delete(card.Statuses, StatusAbilityDuration)
+			if wasRedMoon {
+				changedRedMoon = true
+			}
 		}
+	}
+	if changedRedMoon {
+		e.updateRedMoonTransformations(ps.PlayerID)
 	}
 }
 
 // processEndOfTurnStatuses processes status marks at end of turn
 func (e *Engine) processEndOfTurnStatuses(ps *PlayerState) {
 	allCards := e.getAllFieldCards(ps)
+	redMoonPetrifyChanged := false
 
 	for _, card := range allCards {
 		// 点燃: remove 1 stack, deal 1 fire damage
@@ -3645,7 +4644,11 @@ func (e *Engine) processEndOfTurnStatuses(ps *PlayerState) {
 		}
 		// 石化: remove 1 stack
 		if card.Statuses[StatusPetrify] > 0 {
+			wasRedMoon := card.Card != nil && card.Card.Number == "3611101"
 			card.Statuses[StatusPetrify]--
+			if wasRedMoon && card.Statuses[StatusPetrify] <= 0 {
+				redMoonPetrifyChanged = true
+			}
 		}
 		// 冷却: remove 1 stack
 		if card.Statuses[StatusCooldown] > 0 {
@@ -3661,6 +4664,9 @@ func (e *Engine) processEndOfTurnStatuses(ps *PlayerState) {
 		if ps.Skills[i] != nil && ps.Skills[i].Statuses[StatusSeal] > 0 {
 			ps.Skills[i].Statuses[StatusSeal]--
 		}
+	}
+	if redMoonPetrifyChanged {
+		e.refreshRedMoonState(ps.PlayerID)
 	}
 }
 
@@ -3722,34 +4728,141 @@ func (e *Engine) clearPendingForGameOver() {
 }
 
 func (e *Engine) payCostForAction(ps *PlayerState, cost map[string]int, action ActionMessage) bool {
-	if payment := paymentFromAction(action); payment != nil {
-		if !validateElementPaymentWithOptions(ps.Elements, cost, payment, e.playerHasLightWildcard(ps)) {
-			return false
-		}
-		for elem, amount := range payment {
-			ps.Elements[elem] -= amount
-		}
-		return true
-	}
-	payment, ok := calculateElementPaymentWithOptions(ps.Elements, cost, e.playerHasLightWildcard(ps))
+	payment, strictArcane, ok := e.paymentPlanForAction(ps, cost, action)
 	if !ok {
 		return false
 	}
-	for elem, amount := range payment {
-		ps.Elements[elem] -= amount
-	}
+	e.spendPaymentPlan(ps, payment, strictArcane)
 	return true
 }
 
-func (e *Engine) canPayCostForAction(ps *PlayerState, cost map[string]int, action ActionMessage) bool {
+func (e *Engine) paymentPlanForAction(ps *PlayerState, cost map[string]int, action ActionMessage) (map[string]int, int, bool) {
 	if payment := paymentFromAction(action); payment != nil {
-		return validateElementPaymentWithOptions(ps.Elements, cost, payment, e.playerHasLightWildcard(ps))
+		strictArcane, ok := e.strictArcaneUsedByExplicitPayment(ps, cost, payment)
+		return payment, strictArcane, ok
 	}
-	return e.canPayCost(ps, cost)
+	return e.calculatePaymentPlan(ps, cost)
+}
+
+func (e *Engine) calculatePaymentPlan(ps *PlayerState, cost map[string]int) (map[string]int, int, bool) {
+	return e.calculatePaymentPlanFromAvailable(ps, ps.Elements, ps.StrictArcane, cost, e.playerHasLightWildcard(ps))
+}
+
+func (e *Engine) paymentPlanFromAvailableForAction(ps *PlayerState, available map[string]int, strictAvailable int, cost map[string]int, action ActionMessage, lightWildcard bool) (map[string]int, int, bool) {
+	if payment := paymentFromAction(action); payment != nil {
+		strictArcane, ok := e.strictArcaneUsedByExplicitPaymentFromAvailable(ps, available, strictAvailable, cost, payment, lightWildcard)
+		return payment, strictArcane, ok
+	}
+	return e.calculatePaymentPlanFromAvailable(ps, available, strictAvailable, cost, lightWildcard)
+}
+
+func (e *Engine) calculatePaymentPlanFromAvailable(ps *PlayerState, available map[string]int, strictAvailable int, cost map[string]int, lightWildcard bool) (map[string]int, int, bool) {
+	maxStrict := min(strictAvailable, cost[model.ElementArcane])
+	for strictArcane := maxStrict; strictArcane >= 0; strictArcane-- {
+		remainingCost := cloneElements(cost)
+		remainingCost[model.ElementArcane] -= strictArcane
+		payment, ok := calculateElementPaymentWithOptions(available, remainingCost, lightWildcard, e.playerHasLightCostWildcard(ps))
+		if !ok {
+			continue
+		}
+		payment[model.ElementArcane] += strictArcane
+		return payment, strictArcane, true
+	}
+	return nil, 0, false
+}
+
+func (e *Engine) strictArcaneUsedByExplicitPayment(ps *PlayerState, cost map[string]int, payment map[string]int) (int, bool) {
+	return e.strictArcaneUsedByExplicitPaymentFromAvailable(ps, ps.Elements, ps.StrictArcane, cost, payment, e.playerHasLightWildcard(ps))
+}
+
+func (e *Engine) strictArcaneUsedByExplicitPaymentFromAvailable(ps *PlayerState, available map[string]int, strictAvailable int, cost map[string]int, payment map[string]int, lightWildcard bool) (int, bool) {
+	maxStrict := min(strictAvailable, min(cost[model.ElementArcane], payment[model.ElementArcane]))
+	for strictArcane := maxStrict; strictArcane >= 0; strictArcane-- {
+		normalPayment := cloneElements(payment)
+		normalPayment[model.ElementArcane] -= strictArcane
+		remainingCost := cloneElements(cost)
+		remainingCost[model.ElementArcane] -= strictArcane
+		if validateElementPaymentWithOptions(available, remainingCost, normalPayment, lightWildcard, e.playerHasLightCostWildcard(ps)) {
+			return strictArcane, true
+		}
+	}
+	return 0, false
+}
+
+func (e *Engine) spendPaymentPlan(ps *PlayerState, payment map[string]int, strictArcane int) {
+	for elem, amount := range payment {
+		poolAmount := amount
+		if elem == model.ElementArcane {
+			poolAmount -= strictArcane
+		}
+		if poolAmount > 0 {
+			ps.Elements[elem] -= poolAmount
+		}
+	}
+	if strictArcane > 0 {
+		ps.StrictArcane -= strictArcane
+	}
+}
+
+func (e *Engine) payCostForCardAction(ps *PlayerState, card *CardInstance, strictCost map[string]int, totalCost map[string]int, purpose paymentPurpose, action ActionMessage) bool {
+	payment, strictArcane, ok := e.cardPaymentPlanForAction(ps, card, strictCost, totalCost, purpose, action)
+	if !ok {
+		return false
+	}
+	e.spendPaymentPlan(ps, payment, strictArcane)
+	return true
+}
+
+func (e *Engine) cardPaymentPlanForAction(ps *PlayerState, card *CardInstance, strictCost map[string]int, totalCost map[string]int, purpose paymentPurpose, action ActionMessage) (map[string]int, int, bool) {
+	if payment := paymentFromAction(action); payment != nil {
+		strictArcane, ok := e.strictArcaneUsedByExplicitCardPayment(ps, card, strictCost, totalCost, purpose, payment)
+		return payment, strictArcane, ok
+	}
+	maxStrict := min(ps.StrictArcane, totalCost[model.ElementArcane])
+	for strictArcane := maxStrict; strictArcane >= 0; strictArcane-- {
+		remainingTotalCost := cloneElements(totalCost)
+		remainingTotalCost[model.ElementArcane] -= strictArcane
+		payment, ok := calculateCardActionPaymentWithOptions(ps.Elements, card, strictCost, remainingTotalCost, purpose, e.playerHasLightWildcard(ps), e.playerHasLightCostWildcard(ps))
+		if !ok {
+			continue
+		}
+		payment[model.ElementArcane] += strictArcane
+		if strictPaymentSatisfied(card, purpose, strictCost, payment) {
+			return payment, strictArcane, true
+		}
+	}
+	return nil, 0, false
+}
+
+func (e *Engine) strictArcaneUsedByExplicitCardPayment(ps *PlayerState, card *CardInstance, strictCost map[string]int, totalCost map[string]int, purpose paymentPurpose, payment map[string]int) (int, bool) {
+	maxStrict := min(ps.StrictArcane, min(totalCost[model.ElementArcane], payment[model.ElementArcane]))
+	for strictArcane := maxStrict; strictArcane >= 0; strictArcane-- {
+		normalPayment := cloneElements(payment)
+		normalPayment[model.ElementArcane] -= strictArcane
+		remainingTotalCost := cloneElements(totalCost)
+		remainingTotalCost[model.ElementArcane] -= strictArcane
+		if !validateCardActionPaymentWithOptions(ps.Elements, card, strictCost, remainingTotalCost, purpose, normalPayment, e.playerHasLightWildcard(ps), e.playerHasLightCostWildcard(ps)) {
+			continue
+		}
+		if strictPaymentSatisfied(card, purpose, strictCost, payment) {
+			return strictArcane, true
+		}
+	}
+	return 0, false
+}
+
+func (e *Engine) canPayCostForAction(ps *PlayerState, cost map[string]int, action ActionMessage) bool {
+	_, _, ok := e.paymentPlanForAction(ps, cost, action)
+	return ok
 }
 
 func (e *Engine) canPayCost(ps *PlayerState, cost map[string]int) bool {
-	_, ok := calculateElementPaymentWithOptions(ps.Elements, cost, e.playerHasLightWildcard(ps))
+	_, _, ok := e.calculatePaymentPlan(ps, cost)
+	return ok
+}
+
+func (e *Engine) canPayCostForCardAction(ps *PlayerState, card *CardInstance, strictCost map[string]int, totalCost map[string]int, purpose paymentPurpose, action ActionMessage) bool {
+	_, _, ok := e.cardPaymentPlanForAction(ps, card, strictCost, totalCost, purpose, action)
 	return ok
 }
 
@@ -3759,6 +4872,18 @@ func (e *Engine) playerHasLightWildcard(ps *PlayerState) bool {
 	}
 	for _, card := range e.getAllFieldCards(ps) {
 		if card != nil && card.Card != nil && card.Card.Number == "1521007" && !e.hasEffectiveStatus(card, StatusPetrify) {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Engine) playerHasLightCostWildcard(ps *PlayerState) bool {
+	if e == nil || ps == nil {
+		return false
+	}
+	for _, card := range e.getAllFieldCards(ps) {
+		if card != nil && card.Card != nil && card.Card.Number == "1521109" && !e.hasEffectiveStatus(card, StatusPetrify) {
 			return true
 		}
 	}
@@ -3961,6 +5086,14 @@ func (e *Engine) findReactionCard(ps *PlayerState, instanceID string) *CardInsta
 	if skill := e.findSkill(ps, instanceID); skill != nil {
 		return skill
 	}
+	for col := 0; col < 3; col++ {
+		for row := 0; row < 3; row++ {
+			unit := ps.Units[col][row]
+			if unit != nil && unit.InstanceID == instanceID {
+				return unit
+			}
+		}
+	}
 	for _, equipment := range ps.Equipment {
 		if equipment != nil && equipment.InstanceID == instanceID {
 			return equipment
@@ -4012,43 +5145,47 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		return nil
 	}
 	info := map[string]any{
-		"instance_id":            ci.InstanceID,
-		"owner":                  ci.OwnerID,
-		"number":                 ci.Card.Number,
-		"name":                   ci.Card.Name,
-		"type":                   ci.Card.Type,
-		"category":               ci.Card.Category,
-		"tag":                    ci.Card.Tag,
-		"description":            ci.Card.Description,
-		"attack":                 ci.Card.Attack + ci.AttackBonus,
-		"life":                   maxLife(ci),
-		"power":                  ci.Card.Power + ci.PowerBonus,
-		"duration":               ci.Card.Duration,
-		"elements_cost":          ci.Card.ElementsCost,
-		"elements_gain":          effectiveElementsGain(ci),
-		"elements_expense":       ci.Card.ElementsExpense,
-		"current_life":           ci.CurrentLife,
-		"current_attack":         ci.CurrentAttack,
-		"is_horizontal":          ci.IsHorizontal,
-		"is_terrain":             cards.IsTerrain(ci.Card.Number),
-		"is_companion":           ci.Card.IsCompanion(),
-		"is_consumable":          cards.IsConsumable(ci.Card.Number),
-		"is_equipment":           cards.IsEquipment(ci.Card.Number),
-		"is_weapon":              cards.IsWeapon(ci.Card.Number),
-		"has_taunt":              cardHasTaunt(ci),
-		"has_global_spell_range": cardHasActiveGlobalSpellRange(ci),
-		"is_counter_trap":        isCounterTrapCard(ci.Card.Number),
-		"is_set_counter":         ci.IsSetCounter,
-		"statuses":               ci.Statuses,
-		"position":               ci.Position,
-		"output_path":            ci.Card.OutputPath,
-		"used_this_turn":         ci.UsedThisTurn,
-		"ultimate_used":          ci.UltimateUsed,
-		"uses_remaining":         ci.UsesRemaining,
+		"instance_id":               ci.InstanceID,
+		"owner":                     ci.OwnerID,
+		"number":                    ci.Card.Number,
+		"name":                      ci.Card.Name,
+		"type":                      ci.Card.Type,
+		"category":                  ci.Card.Category,
+		"tag":                       ci.Card.Tag,
+		"description":               ci.Card.Description,
+		"attack":                    ci.Card.Attack + ci.AttackBonus,
+		"life":                      maxLife(ci),
+		"power":                     ci.Card.Power + ci.PowerBonus,
+		"duration":                  ci.Card.Duration,
+		"elements_cost":             ci.Card.ElementsCost,
+		"elements_gain":             effectiveElementsGain(ci),
+		"elements_expense":          ci.Card.ElementsExpense,
+		"current_life":              ci.CurrentLife,
+		"current_attack":            effectiveCurrentAttack(ci),
+		"is_horizontal":             ci.IsHorizontal,
+		"is_terrain":                cards.IsTerrain(ci.Card.Number),
+		"is_companion":              ci.Card.IsCompanion(),
+		"is_consumable":             cards.IsConsumable(ci.Card.Number),
+		"is_equipment":              cards.IsEquipment(ci.Card.Number),
+		"is_weapon":                 cards.IsWeapon(ci.Card.Number),
+		"can_attack_from_non_front": cardCanAttackFromNonFront(ci),
+		"has_taunt":                 cardHasTaunt(ci),
+		"has_global_spell_range":    cardHasActiveGlobalSpellRange(ci),
+		"is_counter_trap":           isCounterTrapCard(ci.Card.Number),
+		"is_set_counter":            ci.IsSetCounter,
+		"statuses":                  ci.Statuses,
+		"position":                  ci.Position,
+		"output_path":               ci.Card.OutputPath,
+		"used_this_turn":            ci.UsedThisTurn,
+		"ultimate_used":             ci.UltimateUsed,
+		"uses_remaining":            ci.UsesRemaining,
 	}
 	addCardEffectMetadata(info, ci.Card)
 	if len(ci.BoundSkills) > 0 {
 		info["bound_skills"] = cardsToInfo(ci.BoundSkills)
+	}
+	if len(ci.UnderCards) > 0 {
+		info["under_cards"] = cardsToInfo(ci.UnderCards)
 	}
 	if attached := attachedBehaviorsInfo(ci); len(attached) > 0 {
 		info["attached_behaviors"] = attached
@@ -4076,6 +5213,9 @@ func cardToInfo(ci *CardInstance) map[string]any {
 	if requirement := summonDevourRequirement(ci); len(requirement) > 0 {
 		info["devour_requirement"] = requirement
 	}
+	if requirement := summonDevourCardRequirement(ci); requirement.Count > 0 {
+		info["devour_card_requirement"] = requirement
+	}
 
 	// Mark spell-like skills and spell scrolls.
 	if isSpellLikeCard(ci.Card) {
@@ -4102,6 +5242,37 @@ func cardsToInfo(cards []*CardInstance) []map[string]any {
 	result := make([]map[string]any, len(cards))
 	for i, c := range cards {
 		result[i] = cardToInfo(c)
+	}
+	return result
+}
+
+func effectiveCurrentAttack(card *CardInstance) int {
+	if card == nil {
+		return 0
+	}
+	return max(card.CurrentAttack+card.AttackBonus, 0)
+}
+
+func (e *Engine) cardToInfo(ci *CardInstance) map[string]any {
+	info := cardToInfo(ci)
+	if info == nil {
+		return nil
+	}
+	info["elements_gain"] = e.effectiveElementsGain(ci)
+	info["can_attack_from_non_front"] = !e.hasEffectiveStatus(ci, StatusPetrify) && cardCanAttackFromNonFront(ci)
+	if len(ci.BoundSkills) > 0 {
+		info["bound_skills"] = e.cardsToInfo(ci.BoundSkills)
+	}
+	if len(ci.UnderCards) > 0 {
+		info["under_cards"] = e.cardsToInfo(ci.UnderCards)
+	}
+	return info
+}
+
+func (e *Engine) cardsToInfo(cards []*CardInstance) []map[string]any {
+	result := make([]map[string]any, len(cards))
+	for i, c := range cards {
+		result[i] = e.cardToInfo(c)
 	}
 	return result
 }
@@ -4185,21 +5356,28 @@ func turnOrderLabel(playerID int, firstPlayer int) string {
 
 func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any {
 	info := map[string]any{
-		"player_id":      ps.PlayerID,
-		"player_name":    ps.PlayerName,
-		"hero":           cardToInfo(ps.Hero),
-		"elements":       ps.Elements,
-		"charge":         ps.Charge,
-		"temp_modifiers": ps.TempModifiers,
-		"deck_count":     len(ps.Deck),
-		"graveyard":      cardsToInfo(ps.Graveyard),
+		"player_id":                      ps.PlayerID,
+		"player_name":                    ps.PlayerName,
+		"hero":                           e.cardToInfo(ps.Hero),
+		"elements":                       ps.Elements,
+		"strict_arcane":                  ps.StrictArcane,
+		"shield":                         ps.Shield,
+		"cannot_gain_shield":             ps.CannotGainShield,
+		"next_red_moon_duration":         ps.NextRedMoonDuration,
+		"next_red_moon_cooldown":         ps.NextRedMoonCooldown,
+		"charge":                         ps.Charge,
+		"temp_modifiers":                 ps.TempModifiers,
+		"deck_count":                     len(ps.Deck),
+		"graveyard":                      e.cardsToInfo(ps.Graveyard),
+		"exile_count":                    len(ps.Exile),
+		"discarded_hand_count_this_turn": ps.DiscardedHandCountThisTurn,
 	}
 
 	// Units grid
 	units := [3][3]any{}
 	for col := 0; col < 3; col++ {
 		for row := 0; row < 3; row++ {
-			units[col][row] = cardToInfo(ps.Units[col][row])
+			units[col][row] = e.cardToInfo(ps.Units[col][row])
 		}
 	}
 	info["units"] = units
@@ -4208,7 +5386,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 	terrain := [3][3]any{}
 	for col := 0; col < 3; col++ {
 		for row := 0; row < 3; row++ {
-			terrain[col][row] = cardToInfo(ps.Terrain[col][row])
+			terrain[col][row] = e.cardToInfo(ps.Terrain[col][row])
 		}
 	}
 	info["terrain"] = terrain
@@ -4227,7 +5405,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 		if !isOwner && ps.Equipment[i] != nil && ps.Equipment[i].IsSetCounter {
 			equipment[i] = hiddenCounterInfo(ps.Equipment[i])
 		} else {
-			equipment[i] = cardToInfo(ps.Equipment[i])
+			equipment[i] = e.cardToInfo(ps.Equipment[i])
 		}
 	}
 	info["equipment"] = equipment
@@ -4237,6 +5415,10 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 		// Show full hand
 		info["hand"] = e.cardsToInfoWithEffectiveCosts(ps, ps.Hand, false)
 		info["deck_summary"] = deckSummaryToInfo(ps.Deck)
+		info["exile"] = e.cardsToInfo(ps.Exile)
+		if e.hasForesightOrbActive(ps.PlayerID) {
+			info["top_deck_preview"] = e.cardsToInfo(ps.Deck[:min(3, len(ps.Deck))])
+		}
 		info["skill_pool"] = e.cardsToInfoWithEffectiveCosts(ps, ps.SkillPool, true)
 	} else {
 		// Only show count
@@ -4247,7 +5429,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 				revealed = append(revealed, card)
 			}
 		}
-		info["revealed_hand"] = cardsToInfo(revealed)
+		info["revealed_hand"] = e.cardsToInfo(revealed)
 		info["skill_pool_count"] = len(ps.SkillPool)
 	}
 
@@ -4271,12 +5453,12 @@ func (e *Engine) cardsToInfoWithEffectiveCosts(ps *PlayerState, cards []*CardIns
 }
 
 func (e *Engine) cardToInfoForPlayer(ps *PlayerState, card *CardInstance) map[string]any {
-	info := cardToInfo(card)
+	info := e.cardToInfo(card)
 	if ps == nil || card == nil || card.Card == nil {
 		return info
 	}
 	if isSpellLikeCard(card.Card) {
-		info["has_pierce"] = cardHasPierce(card) || e.windBladeGrantsPierce(ps.PlayerID, card)
+		info["has_pierce"] = e.skillHasPierce(ps.PlayerID, card)
 		info["spell_area"] = e.effectiveSpellArea(card)
 		info["effective_defense_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeDefend)
 		info["effective_defense_boost_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeDefenseBoost)

@@ -100,6 +100,18 @@ func summonDevourRequirement(card *CardInstance) map[string]int {
 	return devour.DevourRequirement()
 }
 
+func summonDevourCardRequirement(card *CardInstance) DevourCardRequirement {
+	if card == nil || card.Card == nil {
+		return DevourCardRequirement{}
+	}
+	behavior := GetEffectRegistry().GetBehavior(card.Card.Number)
+	devour, ok := behavior.(SummonDevourCardRequirementBehavior)
+	if !ok || !devour.HasActiveDevourCardRequirement(card) {
+		return DevourCardRequirement{}
+	}
+	return devour.DevourCardRequirement()
+}
+
 func cardSatisfiesDevourRequirement(card *CardInstance, requirement map[string]int) bool {
 	if len(requirement) == 0 {
 		return true
@@ -109,6 +121,22 @@ func cardSatisfiesDevourRequirement(card *CardInstance, requirement map[string]i
 		if gain[elem] < amount {
 			return false
 		}
+	}
+	return true
+}
+
+func cardSatisfiesDevourCardRequirement(card *CardInstance, requirement DevourCardRequirement) bool {
+	if requirement.Count <= 0 {
+		return true
+	}
+	if card == nil || card.Card == nil {
+		return false
+	}
+	if requirement.CompanionOnly && !card.Card.IsCompanion() {
+		return false
+	}
+	if requirement.Category != "" && card.Card.Category != requirement.Category {
+		return false
 	}
 	return true
 }
@@ -176,7 +204,9 @@ func summonCardFreeFromHandOrDeckAtPosition(ctx *EffectContext, instanceID strin
 	card.IsHorizontal = true
 	card.EnterTurn = ctx.Engine.State.TurnNumber
 	ps.Units[pos.Col][pos.Row] = card
+	ctx.Engine.ApplySummonModifiersOnEnter(card)
 	ctx.Engine.triggerEffects(TriggerOnEnter, card, nil, nil)
+	ctx.Engine.notifyCardEntered(ctx.PlayerID, card, map[string]any{"entered_player": ctx.PlayerID})
 	ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.PlayerID, card, map[string]any{"entered_player": ctx.PlayerID})
 	ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.OpponentID, card, map[string]any{"entered_player": ctx.PlayerID})
 	return card

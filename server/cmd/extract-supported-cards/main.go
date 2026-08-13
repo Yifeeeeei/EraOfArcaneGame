@@ -8,14 +8,15 @@ import (
 	"os"
 	"sort"
 	"strconv"
+	"strings"
 
+	"eraofarcane/cards"
 	"eraofarcane/model"
 )
 
 const (
 	sourcePath = "../data/all_card_infos.json"
 	targetPath = "../data/supported_card_infos.json"
-	baseSet    = "基础包"
 )
 
 func main() {
@@ -26,7 +27,7 @@ func main() {
 
 	supported := make([]model.Card, 0)
 	for _, card := range allCards {
-		if card.VersionName == baseSet {
+		if cards.IsSupportedVersion(card.VersionName) {
 			supported = append(supported, card)
 		}
 	}
@@ -40,12 +41,12 @@ func main() {
 	})
 
 	if len(supported) == 0 {
-		log.Fatalf("no cards found with version_name %q", baseSet)
+		log.Fatalf("no cards found with supported version_name in %q", strings.Join(cards.SupportedVersionNames, ", "))
 	}
 	if err := writeCards(targetPath, supported); err != nil {
 		log.Fatal(err)
 	}
-	log.Printf("wrote %d %s cards to %s", len(supported), baseSet, targetPath)
+	log.Printf("wrote %d supported cards (%s) to %s", len(supported), strings.Join(cards.SupportedVersionNames, ", "), targetPath)
 }
 
 func readCards(path string) ([]model.Card, error) {

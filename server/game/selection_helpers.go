@@ -2,7 +2,9 @@ package game
 
 import (
 	"math/rand"
+	"strings"
 
+	"eraofarcane/cards"
 	"eraofarcane/model"
 )
 
@@ -165,6 +167,9 @@ func (e *Engine) friendlyDeckCards(playerID int, predicate func(*CardInstance) b
 		if card == nil {
 			continue
 		}
+		if !canFlipOrSearchCard(card) {
+			continue
+		}
 		if predicate != nil && !predicate(card) {
 			continue
 		}
@@ -210,21 +215,25 @@ func (e *Engine) findUnitByInstanceID(instanceID string) *CardInstance {
 	return nil
 }
 
+func (e *Engine) findCardByInstanceID(instanceID string) *CardInstance {
+	for i := range e.State.Players {
+		if card := e.findCardInstance(e.State.Players[i], instanceID); card != nil {
+			return card
+		}
+	}
+	return nil
+}
+
 func (e *Engine) discardFriendlyCandidate(playerID int, instanceID string) bool {
 	ps := e.State.Players[playerID]
 	for i, card := range ps.Hand {
 		if card != nil && card.InstanceID == instanceID {
-			ps.Graveyard = append(ps.Graveyard, card)
-			ps.Hand = append(ps.Hand[:i], ps.Hand[i+1:]...)
-			e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
-			return true
+			return e.discardHandCardAt(playerID, i) != nil
 		}
 	}
 	for i, card := range ps.Equipment {
 		if card != nil && card.InstanceID == instanceID {
-			ps.Graveyard = append(ps.Graveyard, card)
-			ps.Equipment[i] = nil
-			e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
+			e.moveEquipmentToGraveyard(playerID, i, card)
 			return true
 		}
 	}
@@ -237,9 +246,7 @@ func (e *Engine) destroyEnemyEquipment(playerID int, instanceID string) bool {
 		if card == nil || card.InstanceID != instanceID {
 			continue
 		}
-		ps.Graveyard = append(ps.Graveyard, card)
-		ps.Equipment[i] = nil
-		e.emit(GameEvent{Type: "discard", Player: 1 - playerID, Data: map[string]any{"card": cardToInfo(card)}})
+		e.moveEquipmentToGraveyard(1-playerID, i, card)
 		return true
 	}
 	return false
@@ -256,15 +263,16 @@ func (e *Engine) searchDeckCardToHand(playerID int, instanceID string) *CardInst
 func (e *Engine) searchDeckCardToHandThen(playerID int, instanceID string, afterSearch func(*CardInstance)) *CardInstance {
 	ps := e.State.Players[playerID]
 	for i, card := range ps.Deck {
-		if card != nil && card.InstanceID == instanceID {
-			ps.Hand = append(ps.Hand, card)
+		if card != nil && card.InstanceID == instanceID && canFlipOrSearchCard(card) {
 			ps.Deck = append(ps.Deck[:i], ps.Deck[i+1:]...)
+			e.appendCardsToHand(playerID, []*CardInstance{card})
 			e.shuffleDeck(playerID)
 			e.emit(GameEvent{Type: "search_card", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
 			e.notifyCardSearchedThen(playerID, card, func() {
 				if afterSearch != nil {
 					afterSearch(card)
 				}
+				e.enforceImmediateHandLimitAfterHandGain(playerID)
 			})
 			return card
 		}
@@ -272,16 +280,72 @@ func (e *Engine) searchDeckCardToHandThen(playerID int, instanceID string, after
 	return nil
 }
 
+func (e *Engine) flipDeckMatchesToHand(playerID int, count int, limit int, predicate func(*CardInstance) bool) []*CardInstance {
+	return e.flipDeckMatchesToHandThen(playerID, count, limit, predicate, nil)
+}
+
+func (e *Engine) flipDeckMatchesToHandThen(playerID int, count int, limit int, predicate func(*CardInstance) bool, afterFlip func([]*CardInstance)) []*CardInstance {
+	if count <= 0 {
+		return nil
+	}
+	ps := e.State.Players[playerID]
+	lookLimit := len(ps.Deck)
+	if limit > 0 && limit < lookLimit {
+		lookLimit = limit
+	}
+	drawn := make([]*CardInstance, 0, count)
+	remaining := make([]*CardInstance, 0, len(ps.Deck))
+	for i, card := range ps.Deck {
+		withinLook := i < lookLimit
+		if withinLook && len(drawn) < count && canFlipOrSearchCard(card) && (predicate == nil || predicate(card)) {
+			drawn = append(drawn, card)
+			continue
+		}
+		remaining = append(remaining, card)
+	}
+	ps.Deck = remaining
+	e.appendCardsToHand(playerID, drawn)
+	for _, card := range drawn {
+		e.notifyCardDrawn(playerID, card)
+	}
+	if afterFlip != nil {
+		afterFlip(drawn)
+	}
+	if e.State.PendingAction != nil {
+		e.wrapPendingActionContinuation(func() {
+			e.enforceImmediateHandLimitAfterHandGain(playerID)
+		})
+	} else {
+		e.enforceImmediateHandLimitAfterHandGain(playerID)
+	}
+	e.shuffleDeck(playerID)
+	e.emit(GameEvent{
+		Type:   "flip_deck",
+		Player: playerID,
+		Data: map[string]any{
+			"cards": cardsToInfo(drawn),
+			"count": len(drawn),
+			"limit": limit,
+		},
+	})
+	return drawn
+}
+
+func canFlipOrSearchCard(card *CardInstance) bool {
+	return card != nil && card.Card != nil && card.Card.Number != "2211101"
+}
+
 func (e *Engine) drawFirstDeckMatch(playerID int, predicate func(*CardInstance) bool) *CardInstance {
 	ps := e.State.Players[playerID]
 	for i, card := range ps.Deck {
-		if card == nil || (predicate != nil && !predicate(card)) {
+		if card == nil || !canFlipOrSearchCard(card) || (predicate != nil && !predicate(card)) {
 			continue
 		}
-		ps.Hand = append(ps.Hand, card)
 		ps.Deck = append(ps.Deck[:i], ps.Deck[i+1:]...)
+		e.appendCardsToHand(playerID, []*CardInstance{card})
 		e.emit(GameEvent{Type: "search_card", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
 		e.notifyCardSearched(playerID, card)
+		e.enforceImmediateHandLimitAfterHandGain(playerID)
 		return card
 	}
 	return nil
@@ -313,7 +377,7 @@ func (e *Engine) moveGraveyardCardToHand(playerID int, instanceID string) bool {
 		}
 		ps.Graveyard = append(ps.Graveyard[:i], ps.Graveyard[i+1:]...)
 		resetCardForHiddenZone(card)
-		ps.Hand = append(ps.Hand, card)
+		e.addCardToHand(playerID, card)
 		e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
 			"effect": "graveyard_to_hand",
 			"card":   cardToInfo(card),
@@ -327,10 +391,18 @@ func resetCardForHiddenZone(card *CardInstance) {
 	if card == nil || card.Card == nil {
 		return
 	}
+	resetCardForPublicSpecialZone(card)
+	card.IsHorizontal = true
+}
+
+func resetCardForPublicSpecialZone(card *CardInstance) {
+	if card == nil || card.Card == nil {
+		return
+	}
 	card.CurrentLife = card.Card.Life
 	card.CurrentAttack = card.Card.Attack
 	card.DamageTakenThisTurn = 0
-	card.IsHorizontal = true
+	card.IsHorizontal = false
 	card.Statuses = make(map[string]int)
 	card.ElementsGainBonus = make(map[string]int)
 	card.ElementsGainSet = nil
@@ -341,6 +413,7 @@ func resetCardForHiddenZone(card *CardInstance) {
 	card.SlotIndex = -1
 	card.EnterTurn = 0
 	card.BoundSkills = nil
+	card.UnderCards = nil
 	card.AttachedBehaviors = nil
 	card.UsedThisTurn = 0
 	card.UltimateUsed = false
@@ -352,6 +425,7 @@ func (e *Engine) shuffleDeck(playerID int) {
 	rand.Shuffle(len(deck), func(i, j int) {
 		deck[i], deck[j] = deck[j], deck[i]
 	})
+	e.triggerRoseProphetAfterOpponentShuffle(playerID)
 }
 
 func (e *Engine) hasAnyEquipment(playerID int) bool {
@@ -379,6 +453,30 @@ func isLightSkill(card *CardInstance) bool {
 
 func isFireCompanionWithCostAboveFour(card *CardInstance) bool {
 	return card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementFire && totalElementCost(card.Card.ElementsCost) >= 4
+}
+
+func isFireCompanion(card *CardInstance) bool {
+	return card != nil && card.Card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementFire
+}
+
+func isEarthCompanionWithCostAboveFive(card *CardInstance) bool {
+	return card != nil && card.Card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementEarth && totalElementCost(card.Card.ElementsCost) > 5
+}
+
+func isLightSpirit(card *CardInstance) bool {
+	return card != nil && card.Card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementLight && hasCardTag(card.Card, "精灵")
+}
+
+func isShadowCompanionWithDeathrattle(card *CardInstance) bool {
+	return card != nil && card.Card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementShadow && cardHasActiveDeathrattle(card)
+}
+
+func isAirEquipment(card *CardInstance) bool {
+	return card != nil && card.Card != nil && card.Card.IsItem() && card.Card.Category == model.ElementAir && cards.IsEquipment(card.Card.Number)
+}
+
+func hasCardTag(card *model.Card, tag string) bool {
+	return card != nil && strings.Contains(card.Tag, tag)
 }
 
 func lowCostSkill(card *CardInstance) bool {

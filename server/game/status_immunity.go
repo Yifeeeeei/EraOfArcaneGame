@@ -2,6 +2,8 @@ package game
 
 import "eraofarcane/model"
 
+const temporaryDamageAndNegativeImmunityUntilStatus = "temporary_damage_negative_immunity_until"
+
 func isNegativeStatus(status string) bool {
 	for _, candidate := range negativeStatuses {
 		if candidate == status {
@@ -25,32 +27,43 @@ func (e *Engine) addStatus(card *CardInstance, status string, amount int) bool {
 	if status == StatusWeaken && !canCardBeWeakened(card.Card) {
 		return false
 	}
-	if isNegativeStatus(status) && e.rejectsNegativeStatusApplication(card) {
+	if isNegativeStatus(status) && e.rejectsNegativeStatusApplication(card, status) {
 		return false
 	}
 	card.Statuses[status] += amount
+	if status == StatusPetrify && card.Card != nil && card.Card.Number == "3611101" {
+		e.refreshRedMoonState(card.OwnerID)
+	}
 	return true
 }
 
-func (e *Engine) rejectsNegativeStatusApplication(card *CardInstance) bool {
+func (e *Engine) rejectsNegativeStatusApplication(card *CardInstance, status string) bool {
 	if card == nil || card.Card == nil {
 		return false
 	}
-	immune, ok := behaviorForNumber(card.Card.Number).(NegativeStatusImmunityBehavior)
-	return ok && immune.HasActiveNegativeStatusImmunity(card) && immune.HasNegativeStatusImmunity()
+	return e.cardHasNegativeStatusImmunity(card, status)
 }
 
 func (e *Engine) negativeStatusIneffective(card *CardInstance, status string) bool {
 	if card == nil || card.Card == nil || !isNegativeStatus(status) {
 		return false
 	}
+	if e.temporaryDamageAndNegativeImmunityActive(card) {
+		return true
+	}
 	if card.Statuses[fireNegativeStatusImmunityUntil] >= e.State.TurnNumber && card.Card.Category == model.ElementFire {
 		return true
 	}
-	if immune, ok := behaviorForNumber(card.Card.Number).(NegativeStatusImmunityBehavior); ok && immune.HasActiveNegativeStatusImmunity(card) && immune.HasNegativeStatusImmunity() {
+	if e.cardHasNegativeStatusImmunity(card, status) {
 		return true
 	}
 	ps := e.State.Players[card.OwnerID]
+	if ps != nil && playerIgnoresFriendlyNegativeStatuses(ps) {
+		return true
+	}
+	if ps != nil && card.Position != nil && ps.Shield > 0 && e.playerHasActiveCard(ps, "2411101") {
+		return true
+	}
 	if ps == nil || card.Position == nil {
 		return false
 	}
@@ -70,6 +83,42 @@ func (e *Engine) negativeStatusIneffective(card *CardInstance, status string) bo
 		}
 	}
 	return false
+}
+
+func playerIgnoresFriendlyNegativeStatuses(ps *PlayerState) bool {
+	if ps == nil {
+		return false
+	}
+	for _, modifier := range ps.TempModifiers {
+		if modifier.Type == TempModFriendlyNegativeStatusIgnore {
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Engine) cardHasNegativeStatusImmunity(card *CardInstance, status string) bool {
+	if card == nil || card.Card == nil {
+		return false
+	}
+	if e.temporaryDamageAndNegativeImmunityActive(card) {
+		return true
+	}
+	behavior := behaviorForNumber(card.Card.Number)
+	if immune, ok := behavior.(SpecificNegativeStatusImmunityBehavior); ok && immune.HasActiveNegativeStatusImmunity(card) && immune.HasNegativeStatusImmunity(status) {
+		return true
+	}
+	if immune, ok := behavior.(NegativeStatusImmunityBehavior); ok && immune.HasActiveNegativeStatusImmunity(card) && immune.HasNegativeStatusImmunity() {
+		return true
+	}
+	return false
+}
+
+func (e *Engine) temporaryDamageAndNegativeImmunityActive(card *CardInstance) bool {
+	if e == nil || card == nil {
+		return false
+	}
+	return card.Statuses[temporaryDamageAndNegativeImmunityUntilStatus] >= e.State.TurnNumber
 }
 
 func (e *Engine) resetCard(card *CardInstance) {

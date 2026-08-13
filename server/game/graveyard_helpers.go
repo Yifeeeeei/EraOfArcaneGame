@@ -41,6 +41,7 @@ func (e *Engine) reviveCompanionFromGraveyardWithLifeAtPosition(playerID int, in
 		card.IsHorizontal = true
 		card.Position = &pos
 		ps.Units[pos.Col][pos.Row] = card
+		e.ApplySummonModifiersOnEnter(card)
 		e.emit(GameEvent{Type: "summon", Player: -1, Data: map[string]any{
 			"player":   playerID,
 			"card":     cardToInfo(card),
@@ -48,6 +49,10 @@ func (e *Engine) reviveCompanionFromGraveyardWithLifeAtPosition(playerID int, in
 			"elements": ps.Elements,
 		}})
 		e.triggerEffects(TriggerOnEnter, card, nil, nil)
+		enterData := map[string]any{"entered_player": playerID}
+		e.notifyCardEntered(playerID, card, enterData)
+		e.triggerFieldEffectsWithData(TriggerOnUnitEnter, playerID, card, enterData)
+		e.triggerFieldEffectsWithData(TriggerOnUnitEnter, 1-playerID, card, enterData)
 		return true
 	}
 	return false
@@ -59,6 +64,7 @@ func (e *Engine) removeEquipmentFromGame(playerID int, instanceID string) bool {
 		if card == nil || card.InstanceID != instanceID {
 			continue
 		}
+		e.releaseUnderCardsToGraveyard(playerID, card)
 		ps.Equipment[i] = nil
 		e.emit(GameEvent{Type: "card_removed_from_game", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
 		return true
@@ -125,6 +131,8 @@ func (e *Engine) removeFieldCardFromGameByID(instanceID string) bool {
 				if unit := ps.Units[col][row]; unit != nil && unit.InstanceID == instanceID && !unit.Card.IsHero() {
 					ps.Units[col][row] = nil
 					unit.Position = nil
+					e.releaseUnderCardsToGraveyard(playerID, unit)
+					e.exileTransferredBoundSkills(playerID, unit)
 					unit.BoundSkills = nil
 					e.emit(GameEvent{Type: "card_removed_from_game", Player: playerID, Data: map[string]any{"card": cardToInfo(unit)}})
 					return true
@@ -132,6 +140,7 @@ func (e *Engine) removeFieldCardFromGameByID(instanceID string) bool {
 				if terrain := ps.Terrain[col][row]; terrain != nil && terrain.InstanceID == instanceID {
 					ps.Terrain[col][row] = nil
 					terrain.Position = nil
+					e.releaseUnderCardsToGraveyard(playerID, terrain)
 					e.emit(GameEvent{Type: "card_removed_from_game", Player: playerID, Data: map[string]any{"card": cardToInfo(terrain)}})
 					return true
 				}
@@ -140,17 +149,206 @@ func (e *Engine) removeFieldCardFromGameByID(instanceID string) bool {
 		for i, skill := range ps.Skills {
 			if skill != nil && skill.InstanceID == instanceID {
 				ps.Skills[i] = nil
+				e.releaseUnderCardsToGraveyard(playerID, skill)
 				e.emit(GameEvent{Type: "card_removed_from_game", Player: playerID, Data: map[string]any{"card": cardToInfo(skill)}})
+				if skill.Card.Number == "3611101" {
+					e.refreshRedMoonState(playerID)
+				}
 				return true
 			}
 		}
 		for i, equipment := range ps.Equipment {
 			if equipment != nil && equipment.InstanceID == instanceID {
 				ps.Equipment[i] = nil
+				e.releaseUnderCardsToGraveyard(playerID, equipment)
+				e.exileTransferredBoundSkills(playerID, equipment)
 				e.emit(GameEvent{Type: "card_removed_from_game", Player: playerID, Data: map[string]any{"card": cardToInfo(equipment)}})
 				return true
 			}
 		}
 	}
 	return false
+}
+
+func (e *Engine) exileCard(playerID int, card *CardInstance) bool {
+	if card == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return false
+	}
+	owner := e.State.Players[playerID]
+	for zoneOwnerID, ps := range e.State.Players {
+		if ps == nil {
+			continue
+		}
+		if removed := e.detachCardFromKnownZones(ps, card.InstanceID); removed != nil {
+			e.releaseUnderCardsToGraveyard(zoneOwnerID, removed)
+			e.exileTransferredBoundSkills(zoneOwnerID, removed)
+			resetCardForPublicSpecialZone(removed)
+			owner.Exile = append(owner.Exile, removed)
+			e.emit(GameEvent{Type: "card_exiled", Player: playerID, Data: map[string]any{"card": cardToInfo(removed)}})
+			return true
+		}
+	}
+	return false
+}
+
+func (e *Engine) placeCardUnder(host *CardInstance, card *CardInstance) bool {
+	if host == nil || card == nil || host.InstanceID == card.InstanceID {
+		return false
+	}
+	for _, ps := range e.State.Players {
+		if ps == nil {
+			continue
+		}
+		if removed := e.detachCardFromKnownZones(ps, card.InstanceID); removed != nil {
+			resetCardForPublicSpecialZone(removed)
+			host.UnderCards = append(host.UnderCards, removed)
+			e.emit(GameEvent{Type: "card_placed_under", Player: host.OwnerID, Data: map[string]any{
+				"host": cardToInfo(host),
+				"card": cardToInfo(removed),
+			}})
+			return true
+		}
+	}
+	return false
+}
+
+const transferredBoundSkillStatus = "transferred_bound_skill"
+
+func markTransferredBoundSkill(skill *CardInstance) {
+	if skill == nil {
+		return
+	}
+	if skill.Statuses == nil {
+		skill.Statuses = make(map[string]int)
+	}
+	skill.Statuses[transferredBoundSkillStatus] = 1
+}
+
+func isTransferredBoundSkill(skill *CardInstance) bool {
+	return skill != nil && skill.Statuses != nil && skill.Statuses[transferredBoundSkillStatus] > 0
+}
+
+func (e *Engine) exileTransferredBoundSkills(ownerID int, host *CardInstance) {
+	if e == nil || host == nil || len(host.BoundSkills) == 0 {
+		return
+	}
+	remaining := make([]*CardInstance, 0, len(host.BoundSkills))
+	for _, skill := range host.BoundSkills {
+		if skill == nil || !isTransferredBoundSkill(skill) {
+			remaining = append(remaining, skill)
+			continue
+		}
+		exileOwner := skill.OwnerID
+		if exileOwner < 0 || exileOwner >= len(e.State.Players) || e.State.Players[exileOwner] == nil {
+			exileOwner = ownerID
+		}
+		e.releaseUnderCardsToGraveyard(exileOwner, skill)
+		resetCardForPublicSpecialZone(skill)
+		e.State.Players[exileOwner].Exile = append(e.State.Players[exileOwner].Exile, skill)
+		e.emit(GameEvent{Type: "card_exiled", Player: exileOwner, Data: map[string]any{"card": cardToInfo(skill)}})
+	}
+	host.BoundSkills = remaining
+}
+
+func (e *Engine) detachCardFromKnownZones(ps *PlayerState, instanceID string) *CardInstance {
+	if ps == nil || instanceID == "" {
+		return nil
+	}
+	for i, card := range ps.Hand {
+		if card != nil && card.InstanceID == instanceID {
+			ps.Hand = append(ps.Hand[:i], ps.Hand[i+1:]...)
+			if ps.RevealedHand != nil {
+				delete(ps.RevealedHand, instanceID)
+			}
+			return card
+		}
+	}
+	for i, card := range ps.Deck {
+		if card != nil && card.InstanceID == instanceID {
+			ps.Deck = append(ps.Deck[:i], ps.Deck[i+1:]...)
+			return card
+		}
+	}
+	for i, card := range ps.SkillPool {
+		if card != nil && card.InstanceID == instanceID {
+			ps.SkillPool = append(ps.SkillPool[:i], ps.SkillPool[i+1:]...)
+			return card
+		}
+	}
+	for i, card := range ps.Graveyard {
+		if card != nil && card.InstanceID == instanceID {
+			ps.Graveyard = append(ps.Graveyard[:i], ps.Graveyard[i+1:]...)
+			return card
+		}
+	}
+	for i, card := range ps.Exile {
+		if card != nil && card.InstanceID == instanceID {
+			ps.Exile = append(ps.Exile[:i], ps.Exile[i+1:]...)
+			return card
+		}
+	}
+	for col := 0; col < 3; col++ {
+		for row := 0; row < 3; row++ {
+			if unit := ps.Units[col][row]; unit != nil && unit.InstanceID == instanceID && !unit.Card.IsHero() {
+				ps.Units[col][row] = nil
+				return unit
+			}
+			if terrain := ps.Terrain[col][row]; terrain != nil && terrain.InstanceID == instanceID {
+				ps.Terrain[col][row] = nil
+				return terrain
+			}
+		}
+	}
+	for i, card := range ps.Skills {
+		if card != nil && card.InstanceID == instanceID {
+			ps.Skills[i] = nil
+			return card
+		}
+	}
+	for i, card := range ps.Equipment {
+		if card != nil && card.InstanceID == instanceID {
+			ps.Equipment[i] = nil
+			return card
+		}
+	}
+	for _, host := range e.getAllFieldCards(ps) {
+		if host == nil {
+			continue
+		}
+		for i, under := range host.UnderCards {
+			if under != nil && under.InstanceID == instanceID {
+				host.UnderCards = append(host.UnderCards[:i], host.UnderCards[i+1:]...)
+				return under
+			}
+		}
+		for i, bound := range host.BoundSkills {
+			if bound != nil && bound.InstanceID == instanceID {
+				host.BoundSkills = append(host.BoundSkills[:i], host.BoundSkills[i+1:]...)
+				return bound
+			}
+		}
+	}
+	return nil
+}
+
+func (e *Engine) releaseUnderCardsToGraveyard(ownerID int, host *CardInstance) {
+	if host == nil || len(host.UnderCards) == 0 || ownerID < 0 || ownerID >= len(e.State.Players) {
+		return
+	}
+	for _, card := range host.UnderCards {
+		if card == nil {
+			continue
+		}
+		graveyardOwner := card.OwnerID
+		if graveyardOwner < 0 || graveyardOwner >= len(e.State.Players) || e.State.Players[graveyardOwner] == nil {
+			graveyardOwner = ownerID
+		}
+		resetCardForPublicSpecialZone(card)
+		e.addToGraveyard(graveyardOwner, card)
+		e.emit(GameEvent{Type: "discard", Player: graveyardOwner, Data: map[string]any{
+			"card":   cardToInfo(card),
+			"reason": "under_card_released",
+		}})
+	}
+	host.UnderCards = nil
 }

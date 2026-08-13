@@ -202,6 +202,16 @@ body::before {
     color: var(--text-secondary);
     letter-spacing: 1px;
 }
+.shield-chip {
+    display: inline-block;
+    margin-top: 4px;
+    padding: 2px 5px;
+    border: 1px solid rgba(212, 175, 55, 0.45);
+    background: rgba(212, 175, 55, 0.12);
+    color: var(--gold);
+    font-size: 11px;
+    line-height: 1.1;
+}
 
 .player-meta {
     display: flex;
@@ -511,6 +521,35 @@ body::before {
     white-space: nowrap;
     font-size: 10px;
 }
+.pending-inline-card .pending-inline-position {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    overflow: visible;
+    white-space: normal;
+}
+.pending-inline-position-grid {
+    width: 32px;
+    height: 32px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 2px;
+    padding: 2px;
+    border: 1px solid rgba(198,174,116,0.28);
+    background: rgba(8,6,5,0.88);
+}
+.pending-inline-position-grid i {
+    display: block;
+    border: 1px solid rgba(198,174,116,0.22);
+    background: rgba(198,174,116,0.05);
+}
+.pending-inline-position-grid i.active {
+    border-color: var(--gold);
+    background: rgba(211,180,106,0.78);
+    box-shadow: 0 0 5px rgba(211,180,106,0.4);
+}
 .pending-inline-more {
     align-self: center;
     color: var(--text-muted);
@@ -771,11 +810,18 @@ body::before {
     opacity: 0.35;
     filter: grayscale(60%) brightness(0.7);
 }
-.cast-btn {
+.slot-actions {
     position: absolute;
     bottom: 2px;
     left: 2px;
     right: 2px;
+    z-index: 2;
+    display: flex;
+    gap: 2px;
+}
+.slot-action-btn,
+.cast-btn {
+    min-width: 0;
     font-size: 10px;
     padding: 2px 0;
     text-align: center;
@@ -787,8 +833,21 @@ body::before {
     font-weight: 600;
     border: 1px solid rgba(211,180,106,0.42);
     transition: all 0.2s;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
+.slot-action-btn {
+    flex: 1 1 0;
+    min-height: 19px;
+    font-family: inherit;
+}
+.slot-action-btn:hover,
 .cast-btn:hover { background: rgba(65, 48, 31, 0.96); }
+.slot-action-btn.ability {
+    border-color: rgba(142, 80, 210, 0.58);
+    color: #d9b3ff;
+}
 .slot-cost-hint {
     position: absolute;
     bottom: 2px;
@@ -2122,6 +2181,26 @@ body::before {
     border-radius: var(--radius-sm);
     font-weight: 600;
 }
+.detail-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin: 2px 0 8px;
+}
+.detail-actions button {
+    border: 1px solid rgba(211,180,106,0.46);
+    background: rgba(45,34,22,0.82);
+    color: var(--gold-bright);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 700;
+    padding: 5px 10px;
+    cursor: pointer;
+}
+.detail-actions button:hover {
+    border-color: rgba(211,180,106,0.78);
+    background: rgba(65,48,31,0.96);
+}
 .card-cost, .card-gain {
     font-size: 14px;
     color: var(--text-secondary);
@@ -2676,13 +2755,40 @@ body::before {
 .pending-position-tile {
     width: 100px;
     height: 140px;
-    display: grid;
-    place-items: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
     border: 1px solid rgba(198,174,116,0.3);
     background: rgba(8,6,5,0.8);
     color: var(--gold);
     font-size: 12px;
     line-height: 1.35;
+}
+.pending-position-board {
+    width: 64px;
+    height: 64px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 3px;
+    padding: 4px;
+    border: 1px solid rgba(198,174,116,0.34);
+    background: linear-gradient(180deg, rgba(22,16,10,0.95), rgba(8,6,5,0.9));
+}
+.pending-position-cell {
+    display: block;
+    border: 1px solid rgba(198,174,116,0.22);
+    background: rgba(198,174,116,0.05);
+}
+.pending-position-cell.front {
+    border-color: rgba(137,49,37,0.32);
+}
+.pending-position-cell.active {
+    border-color: var(--gold);
+    background: rgba(211,180,106,0.72);
+    box-shadow: 0 0 8px rgba(211,180,106,0.42);
 }
 .pending-card-name {
     font-size: 11px;

@@ -24,7 +24,7 @@ func PlayableCardsSorted() []model.Card {
 	return cards
 }
 
-// WriteSupportedCardInfoSnapshot writes the current playable base card pool as
+// WriteSupportedCardInfoSnapshot writes the current supported playable pool as
 // a stable balance/version snapshot.
 func WriteSupportedCardInfoSnapshot(path string) error {
 	if PlayableCardDB == nil {

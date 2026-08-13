@@ -61,7 +61,7 @@ func addGeneratedCardToHand(ctx *EffectContext, cardNumber string) {
 	if card == nil {
 		return
 	}
-	ctx.Engine.State.Players[ctx.PlayerID].Hand = append(ctx.Engine.State.Players[ctx.PlayerID].Hand, NewCardInstance(card, ctx.PlayerID, ctx.Engine.State.TurnNumber))
+	ctx.Engine.addCardToHand(ctx.PlayerID, NewCardInstance(card, ctx.PlayerID, ctx.Engine.State.TurnNumber))
 	emitBatchEffect(ctx, "add_generated_card_to_hand")
 }
 
@@ -86,6 +86,22 @@ func reduceCost(cost map[string]int, elem string, amount int) {
 	}
 }
 
+func reduceGenericCost(cost map[string]int, preferredElem string, amount int) {
+	if amount <= 0 {
+		return
+	}
+	if preferredElem != "" && cost[preferredElem] > 0 {
+		reduceCost(cost, preferredElem, amount)
+		return
+	}
+	for _, elem := range model.AllElements {
+		if cost[elem] > 0 {
+			reduceCost(cost, elem, amount)
+			return
+		}
+	}
+}
+
 func summonHandCompanionFree(ctx *EffectContext, predicate func(*CardInstance) bool) *CardInstance {
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	pos := ps.FindEmptyPosition()
@@ -101,6 +117,7 @@ func summonHandCompanionFree(ctx *EffectContext, predicate func(*CardInstance) b
 		card.IsHorizontal = true
 		card.EnterTurn = ctx.Engine.State.TurnNumber
 		ps.Units[pos.Col][pos.Row] = card
+		ctx.Engine.ApplySummonModifiersOnEnter(card)
 		ctx.Engine.triggerEffects(TriggerOnEnter, card, nil, nil)
 		ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.PlayerID, card, map[string]any{"entered_player": ctx.PlayerID})
 		return card
@@ -555,7 +572,9 @@ func summonGreatDruidLifeSeedAtPosition(ctx *EffectContext, pos Position) {
 		seed.ElementsGainSet = copyElementCost(ctx.Target.ElementsGainSet)
 	}
 	ps.Units[pos.Col][pos.Row] = seed
+	ctx.Engine.ApplySummonModifiersOnEnter(seed)
 	ctx.Engine.triggerEffects(TriggerOnEnter, seed, nil, nil)
+	ctx.Engine.notifyCardEntered(ctx.PlayerID, seed, map[string]any{"entered_player": ctx.PlayerID})
 	ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.PlayerID, seed, map[string]any{"entered_player": ctx.PlayerID})
 	ctx.Engine.triggerFieldEffectsWithData(TriggerOnUnitEnter, ctx.OpponentID, seed, map[string]any{"entered_player": ctx.PlayerID})
 }

@@ -19,6 +19,7 @@ var cardEffectMarkerStatuses = []string{
 	"地脉标记",
 	"暗影标记",
 	"雷鼓标记",
+	curseBoxMarkerStatus,
 }
 
 type Card2521003PurificationScroll struct{ AlwaysActive }
