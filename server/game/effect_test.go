@@ -4455,7 +4455,7 @@ func TestRoyalConflictSimpleTargetedEnterAndDeathEffects(t *testing.T) {
 	t.Run("swordsmanship teacher buffs adjacent friendly companion attack", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		teacher := placeUnit(baseCard(t, "1021102"), 0, 1, 1, engine)
-		adjacent := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		adjacent := placeUnit(baseCard(t, "1021013"), 0, 1, 0, engine)
 		far := placeUnit(baseCard(t, "1021002"), 0, 2, 2, engine)
 
 		engine.triggerEffects(TriggerOnEnter, teacher, nil, nil)
@@ -4474,6 +4474,22 @@ func TestRoyalConflictSimpleTargetedEnterAndDeathEffects(t *testing.T) {
 		}
 		if adjacent.AttackBonus != 1 || far.AttackBonus != 0 {
 			t.Fatalf("swordsmanship teacher should buff selected adjacent companion only, adjacent=%d far=%d", adjacent.AttackBonus, far.AttackBonus)
+		}
+		if info := engine.cardToInfo(adjacent); info["current_attack"] != adjacent.Card.Attack+1 {
+			t.Fatalf("swordsmanship teacher bonus should serialize as current attack, info=%v", info)
+		}
+		enemy := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		enemy.CurrentLife = 6
+		adjacent.IsHorizontal = false
+		if err := engine.HandleAction(0, ActionMessage{Action: "attack", Data: map[string]any{
+			"attacker_id": adjacent.InstanceID,
+			"target_col":  float64(enemy.Position.Col),
+			"target_row":  float64(enemy.Position.Row),
+		}}); err != nil {
+			t.Fatalf("buffed companion attack: %v", err)
+		}
+		if enemy.CurrentLife != 6-effectiveCurrentAttack(adjacent) {
+			t.Fatalf("buffed companion should deal displayed attack damage, life=%d attack=%d", enemy.CurrentLife, effectiveCurrentAttack(adjacent))
 		}
 	})
 
