@@ -449,7 +449,7 @@
                             使用 {{ skill.name }}
                         </button>
                     </div>
-                    <div class="card-desc">{{ detailCard.description }}</div>
+                    <div class="card-desc" v-html="descriptionHTML(detailCard.description)"></div>
                 </div>
                 <button @click="detailCard = null" class="close-btn">✕</button>
             </div>
@@ -1073,11 +1073,45 @@
             const ELEM_FULL = { '火':'火焰','水':'水纹','地':'地脉','气':'大气','光':'光辉','暗':'暗影','无':'奥术','血':'生命' };
             const ELEM_ICON = { '火':'fire','水':'water','地':'earth','气':'air','光':'light','暗':'dark','无':'none' };
             const ELEMENT_ORDER = ['火','水','地','气','光','暗','无'];
+            const DESCRIPTION_PLACEHOLDER_ICONS = {
+                '\\光': 'ele_light.png',
+                '\\暗': 'ele_dark.png',
+                '\\水': 'ele_water.png',
+                '\\火': 'ele_fire.png',
+                '\\地': 'ele_earth.png',
+                '\\气': 'ele_air.png',
+                '\\无': 'ele_none.png',
+                '\\攻': 'attack.png',
+                '\\持': 'duration.png',
+                '\\血': 'life.png',
+                '\\威': 'power.png',
+            };
             const SPELL_SCROLL_NUMBERS = new Set([
                 '2121003','2121008','2121009','2121011','2221008','2221009','2321003','2321009','2421008','2421009','2521008','2521009','2521013','2621008','2621009'
             ]);
             function elemFull(k) { return ELEM_FULL[k] || k; }
             function getElementIcon(k) { return `${ELEMENT_ICON_BASE}ele_${ELEM_ICON[k] || 'none'}.png`; }
+            function escapeHTML(value) {
+                return String(value ?? '').replace(/[&<>"']/g, ch => ({
+                    '&': '&amp;',
+                    '<': '&lt;',
+                    '>': '&gt;',
+                    '"': '&quot;',
+                    "'": '&#39;'
+                }[ch]));
+            }
+            function descriptionHTML(description) {
+                let html = escapeHTML(description);
+                for (const [placeholder, filename] of Object.entries(DESCRIPTION_PLACEHOLDER_ICONS)) {
+                    const escapedPlaceholder = escapeHTML(placeholder);
+                    const src = `${ELEMENT_ICON_BASE}${filename}`;
+                    html = html.replaceAll(
+                        escapedPlaceholder,
+                        `<img src="${src}" alt="${escapeHTML(placeholder.slice(1))}" class="description-placeholder-icon inline-image">`
+                    );
+                }
+                return html;
+            }
             function costHTML(cost) {
                 const entries = Object.entries(cost || {}).filter(([, v]) => Number(v) > 0);
                 if (!entries.length) return '<span class="element-free">免费</span>';
@@ -4095,7 +4129,7 @@
                 isTestRoom, testCardNumber, testElement, testElementAmount, ELEMENT_ORDER,
                 myState, opponent, myHand, opponentHandCards, mySkills, myEquipment, mySkillSlotCount, myEquipmentSlotCount, opponentSkillSlotCount, opponentEquipmentSlotCount, allMySkills, allMyBoundSkills,
                 isMyTurn, showDefenseWindow, pendingSpellView, myFrontRow, opponentFrontRow,
-                getCardImage, getElementIcon, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, costHTML, hasCost, hasUseCost, hasGain, playCost, learnCost, entryCostLabel, effectLabels,
+                getCardImage, getElementIcon, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, costHTML, descriptionHTML, hasCost, hasUseCost, hasGain, playCost, learnCost, entryCostLabel, effectLabels,
                 pendingSpellTargetLabel, pendingSpellExtraTargetLabels, pendingSpellSources,
                 showCardDetail, previewCard, mulligan, selectHandCard, isConsumable, canSummonAt,
                 handleCellClick, canConsumeUnit, consumeCard,
