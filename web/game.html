@@ -417,6 +417,11 @@
                         <span v-if="detailCard.attack >= 0" style="color:var(--crimson)">攻击 {{ detailCard.current_attack ?? detailCard.attack }}</span>
                         <span v-if="detailCard.power >= 0" style="color:var(--elem-arcane)">威力 {{ detailCard.power }}</span>
                     </div>
+                    <div class="detail-actions" v-if="canCastSkill(detailCard) || canUsePerTurn(detailCard) || canUseUltimate(detailCard)">
+                        <button v-if="canCastSkill(detailCard)" @click.stop="castDetailSkill(detailCard)">施放</button>
+                        <button v-if="canUsePerTurn(detailCard)" @click.stop="useDetailAbility(detailCard, 'per_turn')">{{ abilityLabel(detailCard, 'per_turn') }}</button>
+                        <button v-if="canUseUltimate(detailCard)" @click.stop="useDetailAbility(detailCard, 'ultimate')">绝技</button>
+                    </div>
                     <div class="status-badges detail-status-badges" v-if="statusEntries(detailCard, 0).length">
                         <span v-for="s in statusEntries(detailCard, 0)" :key="s.label" class="status-badge">{{ s.label }}</span>
                     </div>
@@ -839,11 +844,14 @@
                                                 <div class="status-badges compact" v-if="statusEntries(mySkills[i-1]).length">
                                                     <span v-for="s in statusEntries(mySkills[i-1])" :key="s.label" class="status-badge">{{ s.label }}</span>
                                                 </div>
-                                                <div v-if="canCastSkill(mySkills[i-1])" class="cast-btn"
-                                                     @click.stop="selectSkillToCast(mySkills[i-1])">施放</div>
-                                                <div v-if="canUsePerTurn(mySkills[i-1])" class="cast-btn ability"
-                                                     @click.stop="useAbility(mySkills[i-1], 'per_turn')">{{ abilityLabel(mySkills[i-1], 'per_turn') }}</div>
-                                                <div v-if="canShowCostHint(mySkills[i-1])" class="slot-cost-hint">
+                                                <div v-if="canCastSkill(mySkills[i-1]) || canUsePerTurn(mySkills[i-1])" class="slot-actions">
+                                                    <button v-if="canCastSkill(mySkills[i-1])" class="slot-action-btn"
+                                                            @click.stop="selectSkillToCast(mySkills[i-1])">施放</button>
+                                                    <button v-if="canUsePerTurn(mySkills[i-1])" class="slot-action-btn ability"
+                                                            :title="abilityLabel(mySkills[i-1], 'per_turn')"
+                                                            @click.stop="useAbility(mySkills[i-1], 'per_turn')">{{ compactAbilityLabel(mySkills[i-1], 'per_turn') }}</button>
+                                                </div>
+                                                <div v-if="canShowCostHint(mySkills[i-1]) && !(canCastSkill(mySkills[i-1]) || canUsePerTurn(mySkills[i-1]))" class="slot-cost-hint">
                                                     {{ missingCostText(skillUseCost(mySkills[i-1])) }}
                                                 </div>
                                                 <div v-if="selectedSkill && canBoostWith(mySkills[i-1])" class="boost-btn"
@@ -3374,12 +3382,32 @@
                 return unit?.per_turn_label || '回合技';
             }
 
+            function compactAbilityLabel(unit, abilityType) {
+                const label = abilityLabel(unit, abilityType);
+                if (label.includes('献祭')) return '献祭';
+                if (label.length > 4) return '技能';
+                return label;
+            }
+
             function useAbility(unit, abilityType) {
                 sendAction('use_ability', {
                     instance_id: unit.instance_id,
                     ability_type: abilityType
                 });
                 addLog(`${unit.name} 使用${abilityLabel(unit, abilityType)}`);
+            }
+
+            function castDetailSkill(skill) {
+                if (!canCastSkill(skill)) return;
+                selectSkillToCast(skill);
+                detailCard.value = null;
+            }
+
+            function useDetailAbility(unit, abilityType) {
+                if (abilityType === 'per_turn' && !canUsePerTurn(unit)) return;
+                if (abilityType === 'ultimate' && !canUseUltimate(unit)) return;
+                useAbility(unit, abilityType);
+                detailCard.value = null;
             }
 
             function learnSkill(card) {
@@ -4073,7 +4101,7 @@
                 handleCellClick, canConsumeUnit, consumeCard,
                 handleUnitImageClick,
                 canAttackWith, selectAttacker, isAttackTarget,
-                abilityLabel,
+                abilityLabel, compactAbilityLabel, castDetailSkill, useDetailAbility,
                 canCastSkill, selectSkillToCast, canBoostWith, toggleBoostSkill, noDefend,
                 guideKicker, currentHint, waitingNotice, clearSelection, statusEntries,
                 hasActiveTargeting, activeTargetSpell, isValidOpponentTarget, isSpellTarget, isFriendlySpellTarget, isFriendlyHeroSpellTarget, handleMyHeroClick, canUseMyCell,

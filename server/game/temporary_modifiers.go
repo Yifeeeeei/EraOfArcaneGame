@@ -40,6 +40,7 @@ const (
 	TempModNextDriveSpellExtraTarget    = "next_drive_spell_extra_target"
 	TempModNextSpellExtraTarget         = "next_spell_extra_target"
 	TempModCannotLearnElementSkill      = "cannot_learn_element_skill"
+	TempModLavaArmorYeYanShieldBreak    = "lava_armor_yeyan_shield_break"
 )
 
 const skillUseExtraCostStatusPrefix = "使用费用额外"

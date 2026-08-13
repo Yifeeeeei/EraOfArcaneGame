@@ -2752,7 +2752,7 @@ func (e *Engine) handleAttack(playerID int, action ActionMessage) error {
 	if attacker == nil {
 		return fmt.Errorf("attacker not found")
 	}
-	if attacker.Card.Attack <= 0 {
+	if effectiveCurrentAttack(attacker) <= 0 {
 		return fmt.Errorf("attacker has no attack")
 	}
 	if attacker.IsHorizontal {
@@ -2806,7 +2806,7 @@ func (e *Engine) handleAttack(playerID int, action ActionMessage) error {
 	e.triggerFieldEffectsWithData(TriggerOnAttacked, 1-playerID, attacker, attackData)
 	e.triggerFieldEffectsWithData(TriggerOnAttacked, playerID, attacker, attackData)
 
-	dmg := attacker.CurrentAttack
+	dmg := effectiveCurrentAttack(attacker)
 
 	e.emit(GameEvent{
 		Type:   "unit_attack",
@@ -2832,7 +2832,7 @@ func (e *Engine) handleAttack(playerID int, action ActionMessage) error {
 }
 
 func (e *Engine) resolveForcedUnitAttack(attackerOwnerID int, attacker *CardInstance, target *CardInstance, reason string) {
-	if attacker == nil || target == nil || attacker.CurrentAttack <= 0 {
+	if attacker == nil || target == nil || effectiveCurrentAttack(attacker) <= 0 {
 		return
 	}
 	attackData := map[string]any{
@@ -2854,7 +2854,7 @@ func (e *Engine) resolveForcedUnitAttack(attackerOwnerID int, attacker *CardInst
 		e.triggerFieldEffectsWithData(TriggerOnAttacked, ownerID, attacker, attackData)
 	}
 
-	dmg := attacker.CurrentAttack
+	dmg := effectiveCurrentAttack(attacker)
 	e.emit(GameEvent{
 		Type:   "unit_attack",
 		Player: -1,
@@ -4567,6 +4567,13 @@ func (e *Engine) finishEndTurnAfterOpponentTemp(ps *PlayerState) {
 	e.rollFriendlyUnitDamageHistory()
 	for _, player := range e.State.Players {
 		if player != nil {
+			kept := player.TempModifiers[:0]
+			for _, modifier := range player.TempModifiers {
+				if modifier.Type != TempModLavaArmorYeYanShieldBreak {
+					kept = append(kept, modifier)
+				}
+			}
+			player.TempModifiers = kept
 			player.ShieldBrokenThisTurn = false
 		}
 	}
@@ -5154,7 +5161,7 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		"elements_gain":             effectiveElementsGain(ci),
 		"elements_expense":          ci.Card.ElementsExpense,
 		"current_life":              ci.CurrentLife,
-		"current_attack":            ci.CurrentAttack,
+		"current_attack":            effectiveCurrentAttack(ci),
 		"is_horizontal":             ci.IsHorizontal,
 		"is_terrain":                cards.IsTerrain(ci.Card.Number),
 		"is_companion":              ci.Card.IsCompanion(),
@@ -5237,6 +5244,13 @@ func cardsToInfo(cards []*CardInstance) []map[string]any {
 		result[i] = cardToInfo(c)
 	}
 	return result
+}
+
+func effectiveCurrentAttack(card *CardInstance) int {
+	if card == nil {
+		return 0
+	}
+	return max(card.CurrentAttack+card.AttackBonus, 0)
 }
 
 func (e *Engine) cardToInfo(ci *CardInstance) map[string]any {

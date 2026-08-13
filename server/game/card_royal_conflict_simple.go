@@ -1100,18 +1100,72 @@ func (Card2111102LavaArmorYeYan) OnDeath(ctx *EffectContext) error {
 		return nil
 	}
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
-	if ps == nil || !ps.ShieldBrokenThisTurn {
+	if ps == nil {
 		return nil
 	}
-	equipped := ctx.Engine.equipCardFromHandOrDeckFree(ctx.PlayerID, "2121013")
+	if ps.ShieldBrokenThisTurn {
+		ctx.Engine.equipMoltenArmorForLavaArmorYeYan(ctx.PlayerID, ctx.Source)
+		return nil
+	}
+	sourceNumber, sourceName, sourceID := "", "", ""
+	if ctx.Source != nil && ctx.Source.Card != nil {
+		sourceNumber = ctx.Source.Card.Number
+		sourceName = ctx.Source.Card.Name
+	}
+	if ctx.Source != nil {
+		sourceID = ctx.Source.InstanceID
+	}
+	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
+		Type:             TempModLavaArmorYeYanShieldBreak,
+		SourceCardNumber: sourceNumber,
+		SourceName:       sourceName,
+		TargetInstanceID: sourceID,
+		RemainingUses:    1,
+		ExpiresTurn:      ctx.Engine.State.TurnNumber + 1,
+	})
+	return nil
+}
+
+func (e *Engine) equipMoltenArmorForLavaArmorYeYan(playerID int, source *CardInstance) *CardInstance {
+	if e == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return nil
+	}
+	equipped := e.equipCardFromHandOrDeckFree(playerID, "2121013")
 	if equipped != nil {
-		ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
-			"source": cardToInfo(ctx.Source),
+		e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
+			"source": cardToInfo(source),
 			"effect": "lava_armor_yeyan_equip_molten_armor",
 			"card":   cardToInfo(equipped),
 		}})
 	}
-	return nil
+	return equipped
+}
+
+func (e *Engine) resolveLavaArmorYeYanShieldBreak(playerID int) {
+	if e == nil || playerID < 0 || playerID >= len(e.State.Players) {
+		return
+	}
+	ps := e.State.Players[playerID]
+	if ps == nil {
+		return
+	}
+	kept := ps.TempModifiers[:0]
+	for _, modifier := range ps.TempModifiers {
+		if modifier.Type != TempModLavaArmorYeYanShieldBreak || modifier.RemainingUses == 0 {
+			kept = append(kept, modifier)
+			continue
+		}
+		source := &CardInstance{
+			InstanceID: modifier.TargetInstanceID,
+			OwnerID:    playerID,
+			Card: &model.Card{
+				Number: modifier.SourceCardNumber,
+				Name:   modifier.SourceName,
+			},
+		}
+		e.equipMoltenArmorForLavaArmorYeYan(playerID, source)
+	}
+	ps.TempModifiers = kept
 }
 
 var _ OnSpellHitBehavior = Card2111102LavaArmorYeYan{}
