@@ -1250,6 +1250,7 @@
                 myState.value.hero ||
                 null
             );
+            const activeOwnDefenseWindowKey = ref('');
 
             const myFrontRow = computed(() => {
                 if (!myState.value.units) return 0;
@@ -3680,6 +3681,7 @@
                 switch (evt.type) {
                     case 'state_sync':
                         gameState.value = mergePendingActionState(d);
+                        closeTransientOverlaysForDefenseWindow(gameState.value);
                         logPendingStateSync(gameState.value);
                         logDefenseWindowStateSync(gameState.value);
                         break;
@@ -3769,7 +3771,7 @@
                 ].join(':')).join('|');
             }
 
-            function closeTransientOverlaysForPending() {
+            function closeTransientOverlays() {
                 detailCard.value = null;
                 pileView.value = null;
                 skillReplaceRequest.value = null;
@@ -3777,6 +3779,35 @@
                 paymentRequest.value = null;
                 consumeGainRequest.value = null;
                 contextMenu.value.show = false;
+            }
+
+            function ownDefenseWindowKey(state) {
+                if (!state || state.phase !== 'defense_window' || isSpectator) return '';
+                const spell = normalizePendingSpell(state.pending_spell);
+                if (!spell || spell.defender_id !== currentPlayerSlot()) return '';
+                return [
+                    spell.attacker_id ?? '',
+                    spell.defender_id ?? '',
+                    spell.skill?.instance_id || spell.skill?.number || '',
+                    spell.power ?? '',
+                    JSON.stringify(spell.target || null),
+                    JSON.stringify(spell.extra_targets || []),
+                ].join('|');
+            }
+
+            function closeTransientOverlaysForDefenseWindow(state) {
+                const key = ownDefenseWindowKey(state);
+                if (!key) {
+                    activeOwnDefenseWindowKey.value = '';
+                    return;
+                }
+                if (key === activeOwnDefenseWindowKey.value) return;
+                activeOwnDefenseWindowKey.value = key;
+                closeTransientOverlays();
+                sendClientLog('info', 'closed_transient_overlays_for_defense_window', {
+                    key,
+                    my_slot: currentPlayerSlot(),
+                });
             }
 
             function mergePendingActionState(nextState) {
@@ -3792,7 +3823,7 @@
                     if (!samePendingAction(nextPending, pendingActionCache.value)) {
                         resetPendingSelectionState();
                     }
-                    closeTransientOverlaysForPending();
+                    closeTransientOverlays();
                     pendingActionCache.value = nextPending;
                     return nextState;
                 }
@@ -4009,7 +4040,7 @@
 
             function applyPendingActionEvent(action) {
                 if (!gameState.value) gameState.value = {};
-                closeTransientOverlaysForPending();
+                closeTransientOverlays();
                 if (!samePendingAction(action, pendingActionCache.value)) {
                     resetPendingSelectionState();
                 }
