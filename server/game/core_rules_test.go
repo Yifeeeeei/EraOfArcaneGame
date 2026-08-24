@@ -1084,3 +1084,63 @@ func TestHeroDeathEmitsGameOverOnce(t *testing.T) {
 		t.Fatalf("expected one game_over event, got %d", gameOverCount)
 	}
 }
+
+func TestSurrenderEndsGameForOpponent(t *testing.T) {
+	engine := setupCoreRulesEngine(t)
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "surrender", Data: map[string]any{}}); err != nil {
+		t.Fatalf("surrender: %v", err)
+	}
+	if engine.State.Phase != PhaseGameOver || engine.State.Winner != 1 {
+		t.Fatalf("surrender should make opponent win, phase=%s winner=%d", engine.State.Phase, engine.State.Winner)
+	}
+	last := engine.log[len(engine.log)-1]
+	if last.Type != "game_over" || last.Data["reason"] != "surrender" || last.Data["actor"] != 0 {
+		t.Fatalf("surrender should emit game_over with actor, last=%+v", last)
+	}
+}
+
+func TestDrawOfferAcceptEndsGameAsDraw(t *testing.T) {
+	engine := setupCoreRulesEngine(t)
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "offer_draw", Data: map[string]any{}}); err != nil {
+		t.Fatalf("offer draw: %v", err)
+	}
+	if engine.State.DrawOfferBy != 0 || engine.State.Phase == PhaseGameOver {
+		t.Fatalf("draw offer should remain pending without ending the game, offer=%d phase=%s", engine.State.DrawOfferBy, engine.State.Phase)
+	}
+	if err := engine.HandleAction(1, ActionMessage{Action: "respond_draw_offer", Data: map[string]any{"accept": true}}); err != nil {
+		t.Fatalf("accept draw offer: %v", err)
+	}
+	if engine.State.Phase != PhaseGameOver || engine.State.Winner != -2 || engine.State.DrawOfferBy != -1 {
+		t.Fatalf("accepted draw should end as draw and clear offer, phase=%s winner=%d offer=%d", engine.State.Phase, engine.State.Winner, engine.State.DrawOfferBy)
+	}
+	last := engine.log[len(engine.log)-1]
+	if last.Type != "game_over" || last.Data["reason"] != "draw_agreement" || last.Data["winner"] != -2 {
+		t.Fatalf("accepted draw should emit draw game_over, last=%+v", last)
+	}
+}
+
+func TestDrawOfferRejectClearsOffer(t *testing.T) {
+	engine := setupCoreRulesEngine(t)
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "offer_draw", Data: map[string]any{}}); err != nil {
+		t.Fatalf("offer draw: %v", err)
+	}
+	if err := engine.HandleAction(1, ActionMessage{Action: "respond_draw_offer", Data: map[string]any{"accept": false}}); err != nil {
+		t.Fatalf("reject draw offer: %v", err)
+	}
+	if engine.State.Phase == PhaseGameOver || engine.State.DrawOfferBy != -1 {
+		t.Fatalf("rejected draw should keep game active and clear offer, phase=%s offer=%d", engine.State.Phase, engine.State.DrawOfferBy)
+	}
+	last := engine.log[len(engine.log)-1]
+	if last.Type != "draw_offer_declined" || last.Data["player"] != 1 || last.Data["offer_by"] != 0 {
+		t.Fatalf("reject should emit declined event, last=%+v", last)
+	}
+	if err := engine.HandleAction(1, ActionMessage{Action: "offer_draw", Data: map[string]any{}}); err != nil {
+		t.Fatalf("opponent should be able to offer draw after rejection: %v", err)
+	}
+	if engine.State.DrawOfferBy != 1 {
+		t.Fatalf("new draw offer should be tracked, offer=%d", engine.State.DrawOfferBy)
+	}
+}

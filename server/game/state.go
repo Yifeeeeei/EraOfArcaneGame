@@ -415,6 +415,7 @@ type GameState struct {
 	HandLimit                    int             `json:"hand_limit"`
 	IsFirstTurn                  bool            `json:"is_first_turn"` // first player's first turn
 	CardEnteredGraveyardThisTurn bool            `json:"card_entered_graveyard_this_turn,omitempty"`
+	DrawOfferBy                  int             `json:"draw_offer_by"` // -1 when there is no active draw offer
 
 	// Combat state
 	PendingSpell *SpellCast `json:"pending_spell,omitempty"`
@@ -458,10 +459,11 @@ type SpellTarget struct {
 // NewGameState creates a new game state
 func NewGameState(gameID string) *GameState {
 	return &GameState{
-		GameID:    gameID,
-		Winner:    -1,
-		HandLimit: 5,
-		Phase:     PhaseWaitingPlayers,
+		GameID:      gameID,
+		Winner:      -1,
+		HandLimit:   5,
+		Phase:       PhaseWaitingPlayers,
+		DrawOfferBy: -1,
 	}
 }
 

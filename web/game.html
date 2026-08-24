@@ -40,6 +40,18 @@
             </div>
         </div>
 
+        <!-- ═══ DRAW OFFER OVERLAY ═══ -->
+        <div v-if="incomingDrawOffer" class="overlay interaction-overlay">
+            <div class="overlay-content interaction-panel draw-offer-panel">
+                <h2>对手请求和局</h2>
+                <p>接受后本局立即以平局结束。</p>
+                <div class="draw-offer-actions">
+                    <button @click="respondDrawOffer(true)" class="btn btn-success">接受和局</button>
+                    <button @click="respondDrawOffer(false)" class="btn btn-danger">拒绝</button>
+                </div>
+            </div>
+        </div>
+
         <!-- ═══ MULLIGAN OVERLAY ═══ -->
         <div v-if="!isSpectator && gameState && gameState.phase === 'mulligan' && !mulliganSubmitted" class="overlay interaction-overlay">
             <div class="overlay-content interaction-panel mulligan-panel">
@@ -627,6 +639,12 @@
                 <div class="end-turn-wrapper" v-if="isMyTurn && gameState.phase === 'main'">
                     <button @click="endTurn" class="btn-end-turn">结束回合</button>
                 </div>
+                <div class="match-actions" v-if="canUseMatchActions">
+                    <button @click="offerDraw" class="btn-match-action draw" :disabled="outgoingDrawOffer">
+                        {{ outgoingDrawOffer ? '等待和局回应' : '求和' }}
+                    </button>
+                    <button @click="surrender" class="btn-match-action surrender">投降</button>
+                </div>
             </div>
 
             <!-- ── CENTER BATTLEFIELD ── -->
@@ -1197,6 +1215,13 @@
                 return replaceableEquipmentForCard(card);
             });
             const isMyTurn = computed(() => !isSpectator && gameState.value && Number(gameState.value.current_turn) === currentPlayerSlot());
+            const drawOfferBy = computed(() => {
+                const value = Number(gameState.value?.draw_offer_by ?? -1);
+                return Number.isFinite(value) ? value : -1;
+            });
+            const incomingDrawOffer = computed(() => !isSpectator && gameState.value?.phase !== 'game_over' && drawOfferBy.value === 1 - currentPlayerSlot());
+            const outgoingDrawOffer = computed(() => !isSpectator && gameState.value?.phase !== 'game_over' && drawOfferBy.value === currentPlayerSlot());
+            const canUseMatchActions = computed(() => !isSpectator && gameState.value && gameState.value.phase !== 'game_over');
 
             function getMyTerrain(col, row) { return myState.value.terrain?.[col]?.[row] || null; }
             function getOpponentTerrain(col, row) { return opponent.value.terrain?.[col]?.[row] || null; }
@@ -1890,6 +1915,25 @@
                 sendAction('mulligan', { keep });
                 mulliganSubmitted.value = true;
                 addLog(keep ? '保留手牌' : '重抽手牌');
+            }
+
+            function surrender() {
+                if (!canUseMatchActions.value) return;
+                if (!window.confirm('确认投降？本局会立即结束。')) return;
+                sendAction('surrender', {});
+                addLog('你选择投降');
+            }
+
+            function offerDraw() {
+                if (!canUseMatchActions.value || outgoingDrawOffer.value) return;
+                sendAction('offer_draw', {});
+                addLog('已向对手请求和局');
+            }
+
+            function respondDrawOffer(accept) {
+                if (!incomingDrawOffer.value) return;
+                sendAction('respond_draw_offer', { accept: !!accept });
+                addLog(accept ? '接受和局' : '拒绝和局');
             }
 
             function isConsumable(card) {
@@ -3696,7 +3740,13 @@
                     case 'unit_moved': addLog(`${d.card.name} 移动到 (${d.to.col},${d.to.row})`); break;
                     case 'unit_destroyed': addLog(`${d.card.name} 被摧毁`); break;
                     case 'unit_returned': addLog(`${d.card.name} 返回手牌`); break;
-                    case 'game_over': addLog(d.winner === -2 ? '游戏结束 平局' : `游戏结束 玩家${d.winner+1} 获胜`); break;
+                    case 'game_over':
+                        if (d.reason === 'surrender') addLog(`玩家${d.actor+1} 投降，玩家${d.winner+1} 获胜`);
+                        else if (d.reason === 'draw_agreement') addLog('双方同意和局');
+                        else addLog(d.winner === -2 ? '游戏结束 平局' : `游戏结束 玩家${d.winner+1} 获胜`);
+                        break;
+                    case 'draw_offer': addLog(`玩家${d.player+1} 请求和局`); break;
+                    case 'draw_offer_declined': addLog(`玩家${d.player+1} 拒绝和局`); break;
                     case 'draw_card': addLog(`抽到 ${d.card.name}`); break;
                     case 'effect_trigger':
                         if (d.effect === 'charge') addLog(`充能+${d.amount}`);
@@ -4111,6 +4161,8 @@
                         mySlot,
                         pendingAction,
                         showPendingAction,
+                        incomingDrawOffer,
+                        outgoingDrawOffer,
                         pendingSpellView,
                         showDefenseWindow,
                         isMyTurn,
@@ -4160,6 +4212,7 @@
                 isTestRoom, testCardNumber, testElement, testElementAmount, ELEMENT_ORDER,
                 myState, opponent, myHand, opponentHandCards, mySkills, myEquipment, mySkillSlotCount, myEquipmentSlotCount, opponentSkillSlotCount, opponentEquipmentSlotCount, allMySkills, allMyBoundSkills,
                 isMyTurn, showDefenseWindow, pendingSpellView, myFrontRow, opponentFrontRow,
+                incomingDrawOffer, outgoingDrawOffer, canUseMatchActions,
                 getCardImage, getElementIcon, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, costHTML, descriptionHTML, hasCost, hasUseCost, hasGain, playCost, learnCost, entryCostLabel, effectLabels,
                 pendingSpellTargetLabel, pendingSpellExtraTargetLabels, pendingSpellSources,
                 showCardDetail, previewCard, mulligan, selectHandCard, isConsumable, canSummonAt,
@@ -4195,7 +4248,7 @@
                 openPileView, closePileView,
                 // Abilities
                 canUsePerTurn, canUseUltimate, useAbility, unitActionChips, skillActionChips, cardAvailabilityText,
-                learnSkill, endTurn,
+                learnSkill, endTurn, surrender, offerDraw, respondDrawOffer,
                 // Context menu
                 contextMenu, showCardContextMenu, hideContextMenu, contextMenuAction
             };
