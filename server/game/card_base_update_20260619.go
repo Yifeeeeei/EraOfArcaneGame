@@ -165,10 +165,10 @@ func (m markerEquipment) OnEnter(ctx *EffectContext) error {
 }
 func (m markerEquipment) OnPerTurn(ctx *EffectContext) error {
 	if ctx.Source.IsHorizontal {
-		return nil
+		return fmt.Errorf("%s is horizontal", m.name)
 	}
 	if ctx.Source.Statuses[m.counter] <= 0 {
-		return nil
+		return fmt.Errorf("%s has no markers", m.name)
 	}
 	if m.canUse != nil && !m.canUse(ctx) {
 		return fmt.Errorf("%s has no valid target", m.name)

@@ -3475,6 +3475,87 @@ func pendingCandidateIDContaining(t *testing.T, engine *Engine, fragment string)
 	return ""
 }
 
+func TestIssue147GiantSandwormOnlyTriggersOnSelfDamage(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+
+	firstWorm := placeUnit(baseCard(t, "1421114"), 0, 0, 0, engine)
+	secondWorm := placeUnit(baseCard(t, "1421114"), 0, 2, 0, engine)
+	otherUnit := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+
+	engine.dealDamageWithExtra(otherUnit, 1, 0, map[string]any{"damage_source": "test"})
+	if firstWorm.Statuses[StatusStealth] != 0 || secondWorm.Statuses[StatusStealth] != 0 {
+		t.Fatalf("sandworms should ignore other unit damage, first=%d second=%d", firstWorm.Statuses[StatusStealth], secondWorm.Statuses[StatusStealth])
+	}
+
+	engine.dealDamageWithExtra(firstWorm, 1, 0, map[string]any{"damage_source": "test"})
+	if firstWorm.Statuses[StatusStealth] != 1 {
+		t.Fatalf("damaged sandworm should gain stealth 1, got %d", firstWorm.Statuses[StatusStealth])
+	}
+	if secondWorm.Statuses[StatusStealth] != 0 {
+		t.Fatalf("undamaged sandworm should not gain stealth, got %d", secondWorm.Statuses[StatusStealth])
+	}
+}
+
+func TestIssue148LightforgedTitanOnlyAmplifiesSelfSpellDamage(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+
+	titan := placeUnit(baseCard(t, "1521002"), 0, 0, 0, engine)
+	otherUnit := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+	titan.CurrentLife = 2
+	otherUnit.CurrentLife = 3
+
+	taggedSpell := baseCard(t, "3621003")
+	engine.dealDamageWithExtra(otherUnit, 1, 0, map[string]any{
+		"damage_source": "spell",
+		"skill":         taggedSpell.Number,
+	})
+	if titan.CurrentLife != 2 || titan.DamageTakenThisTurn != 0 || containsCardInstance(p0.Graveyard, titan) {
+		t.Fatalf("titan should ignore tagged spell damage dealt to another unit, life=%d damage_taken=%d graveyard=%v", titan.CurrentLife, titan.DamageTakenThisTurn, containsCardInstance(p0.Graveyard, titan))
+	}
+
+	engine.dealDamageWithExtra(titan, 1, 0, map[string]any{
+		"damage_source": "spell",
+		"skill":         taggedSpell.Number,
+	})
+	if !containsCardInstance(p0.Graveyard, titan) || p0.Units[0][0] != nil {
+		t.Fatalf("titan should take the extra tagged spell damage and die, life=%d graveyard=%v field=%v", titan.CurrentLife, containsCardInstance(p0.Graveyard, titan), p0.Units[0][0])
+	}
+}
+
+func TestIssue149MarkerEquipmentInvalidUsesReturnErrors(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	staff := NewCardInstance(baseCard(t, "2521014"), 0, 1)
+	p0.Equipment[0] = staff
+
+	staff.IsHorizontal = true
+	staff.Statuses[blessingStaffCounter] = 3
+	err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+		"instance_id":  staff.InstanceID,
+		"ability_type": "per_turn",
+	}})
+	if err == nil {
+		t.Fatalf("horizontal marker equipment use should fail")
+	}
+	if staff.UsedThisTurn != 0 || staff.Statuses[blessingStaffCounter] != 3 || engine.State.PendingAction != nil {
+		t.Fatalf("failed horizontal use should not mutate state, used=%d markers=%d pending=%v", staff.UsedThisTurn, staff.Statuses[blessingStaffCounter], engine.State.PendingAction)
+	}
+
+	staff.IsHorizontal = false
+	staff.Statuses[blessingStaffCounter] = 0
+	err = engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
+		"instance_id":  staff.InstanceID,
+		"ability_type": "per_turn",
+	}})
+	if err == nil {
+		t.Fatalf("marker equipment with no markers should fail")
+	}
+	if staff.UsedThisTurn != 0 || staff.IsHorizontal || staff.Statuses[blessingStaffCounter] != 0 || engine.State.PendingAction != nil {
+		t.Fatalf("failed no-marker use should not mutate state, used=%d horizontal=%v markers=%d pending=%v", staff.UsedThisTurn, staff.IsHorizontal, staff.Statuses[blessingStaffCounter], engine.State.PendingAction)
+	}
+}
+
 func TestRoom5543CardAndTargetingRegressions(t *testing.T) {
 	t.Run("Fuye ultimate opens target choice when no target_id is supplied", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)

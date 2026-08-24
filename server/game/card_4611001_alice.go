@@ -18,10 +18,16 @@ func (Card4611001Alice) OnFriendlyDeath(ctx *EffectContext) error {
 	if len(candidates) == 0 {
 		return nil
 	}
+	ctx.Source.UsedThisTurn++
+	sourceID := ctx.Source.InstanceID
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "alice_boost_spell",
 		fmt.Sprintf("%s: 选择1个你的法术+1威", ctx.Source.Card.Name), candidates, 1, 1,
 		func(selected []string) {
 			if len(selected) == 0 {
+				return
+			}
+			source := ctx.Engine.findCardOnField(ctx.Engine.State.Players[ctx.PlayerID], sourceID)
+			if source == nil {
 				return
 			}
 			skill := ctx.Engine.findSkill(ctx.Engine.State.Players[ctx.PlayerID], selected[0])
@@ -29,9 +35,8 @@ func (Card4611001Alice) OnFriendlyDeath(ctx *EffectContext) error {
 				return
 			}
 			skill.PowerBonus++
-			ctx.Source.UsedThisTurn++
 			ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
-				"source": cardToInfo(ctx.Source),
+				"source": cardToInfo(source),
 				"target": cardToInfo(skill),
 				"effect": "modify_spell_power",
 				"amount": 1,
