@@ -548,6 +548,9 @@ func TestEveryRegisteredCardEffectHandlerRuns(t *testing.T) {
 					if card.Number == "2621103" && effect.Trigger == TriggerPerTurn {
 						source.Statuses[bloodGuMarkerStatus] = 2
 					}
+					if effect.Trigger == TriggerPerTurn {
+						prepareMarkerEquipmentSmokeState(source)
+					}
 					target := engine.State.Players[1].Hero
 					if card.Number == "4611002" && effect.Trigger == TriggerUltimate {
 						target = NewCardInstance(cards.PlayableCardDB["1011002"], 0, engine.State.TurnNumber)
@@ -586,5 +589,27 @@ func TestEveryRegisteredCardEffectHandlerRuns(t *testing.T) {
 				})
 			}
 		})
+	}
+}
+
+func prepareMarkerEquipmentSmokeState(source *CardInstance) {
+	if source == nil || source.Card == nil {
+		return
+	}
+	switch source.Card.Number {
+	case "2021023":
+		source.Statuses[arcaneCylinderCounter] = 1
+	case "2121014":
+		source.Statuses[fireBoxCounter] = 1
+	case "2221014":
+		source.Statuses[waterAriaCounter] = 1
+	case "2321014":
+		source.Statuses[windQuillCounter] = 1
+	case "2421014":
+		source.Statuses[forestStorageCounter] = 1
+	case "2521014":
+		source.Statuses[blessingStaffCounter] = 1
+	case "2621014":
+		source.Statuses[burierCounter] = 1
 	}
 }

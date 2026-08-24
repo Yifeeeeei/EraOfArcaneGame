@@ -97,6 +97,9 @@ func (Card1421114GiantSandworm) ID() string   { return "1421114" }
 func (Card1421114GiantSandworm) Name() string { return "巨型沙虫" }
 
 func (Card1421114GiantSandworm) OnDamaged(ctx *EffectContext) error {
+	if ctx == nil || ctx.Source == nil || ctx.Target != nil {
+		return nil
+	}
 	ctx.Engine.grantStealth(ctx.Source, 1)
 	return nil
 }

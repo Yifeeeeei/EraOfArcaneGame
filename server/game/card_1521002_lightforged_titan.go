@@ -10,7 +10,7 @@ func (Card1521002LightforgedTitan) OnEnter(ctx *EffectContext) error {
 	return DrawCards(2)(ctx)
 }
 func (Card1521002LightforgedTitan) OnDamaged(ctx *EffectContext) error {
-	if ctx == nil || ctx.Source == nil || ctx.ExtraData == nil || ctx.ExtraData["damage_source"] != "spell" {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target != nil || ctx.ExtraData == nil || ctx.ExtraData["damage_source"] != "spell" {
 		return nil
 	}
 	skillNumber, _ := ctx.ExtraData["skill"].(string)

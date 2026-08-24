@@ -209,6 +209,42 @@ func TestFriendlyDeathPendingActionsQueueWhenMultiplePromptsTrigger(t *testing.T
 	}
 }
 
+func TestAliceDoesNotQueueDuplicatePromptsBeforeFirstPromptResolves(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+
+	alice := placeUnit(baseCard(t, "4611001"), 0, 0, 0, engine)
+	firstDead := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+	secondDead := placeUnit(baseCard(t, "1021002"), 0, 2, 0, engine)
+	targetSkill := readySkill(baseCard(t, "3121001"), 0)
+	p0.Skills[0] = targetSkill
+
+	engine.destroyUnit(firstDead, 0)
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "alice_boost_spell" {
+		t.Fatalf("first friendly death should open Alice prompt, pending=%+v", engine.State.PendingAction)
+	}
+	if alice.UsedThisTurn != 1 {
+		t.Fatalf("Alice should reserve her per-turn trigger while prompt is pending, used=%d", alice.UsedThisTurn)
+	}
+
+	engine.destroyUnit(secondDead, 0)
+	if len(engine.State.PendingActionQueue) != 0 {
+		t.Fatalf("second friendly death should not queue another Alice prompt, queue=%+v", engine.State.PendingActionQueue)
+	}
+
+	if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
+		"selected": []any{targetSkill.InstanceID},
+	}}); err != nil {
+		t.Fatalf("resolve Alice prompt: %v", err)
+	}
+	if targetSkill.PowerBonus != 1 || alice.UsedThisTurn != 1 {
+		t.Fatalf("Alice should resolve exactly one boost, power_bonus=%d used=%d", targetSkill.PowerBonus, alice.UsedThisTurn)
+	}
+	if engine.State.PendingAction != nil || len(engine.State.PendingActionQueue) != 0 {
+		t.Fatalf("Alice duplicate prompt should not remain after resolving first prompt, pending=%+v queue=%+v", engine.State.PendingAction, engine.State.PendingActionQueue)
+	}
+}
+
 func hasEvent(events []GameEvent, eventType string, pendingType string) bool {
 	for _, event := range events {
 		if event.Type != eventType {
