@@ -194,6 +194,12 @@ func (e *Engine) HandleAction(playerID int, action ActionMessage) error {
 		return e.handleResolveAction(playerID, action)
 	case "end_turn":
 		return e.handleEndTurn(playerID, action)
+	case "surrender":
+		return e.handleSurrender(playerID)
+	case "offer_draw":
+		return e.handleOfferDraw(playerID)
+	case "respond_draw_offer":
+		return e.handleRespondDrawOffer(playerID, action)
 	default:
 		return fmt.Errorf("unknown action: %s", action.Action)
 	}
@@ -4721,10 +4727,98 @@ func (e *Engine) checkWinCondition() {
 	}
 }
 
+func (e *Engine) finishGame(winner int, reason string, actor int) {
+	if e.State.Phase == PhaseGameOver {
+		return
+	}
+	e.State.Winner = winner
+	e.State.Phase = PhaseGameOver
+	e.clearPendingForGameOver()
+	e.emit(GameEvent{
+		Type:   "game_over",
+		Player: -1,
+		Data: map[string]any{
+			"winner": e.State.Winner,
+			"reason": reason,
+			"actor":  actor,
+		},
+	})
+}
+
 func (e *Engine) clearPendingForGameOver() {
 	e.State.PendingAction = nil
+	e.State.PendingActionQueue = nil
 	e.State.PendingSpell = nil
+	e.State.DrawOfferBy = -1
 	e.State.ResumePhase = PhaseGameOver
+}
+
+func (e *Engine) handleSurrender(playerID int) error {
+	if err := e.ensureMatchActionPlayer(playerID); err != nil {
+		return err
+	}
+	e.finishGame(1-playerID, "surrender", playerID)
+	return nil
+}
+
+func (e *Engine) handleOfferDraw(playerID int) error {
+	if err := e.ensureMatchActionPlayer(playerID); err != nil {
+		return err
+	}
+	if e.State.DrawOfferBy == 1-playerID {
+		e.finishGame(-2, "draw_agreement", playerID)
+		return nil
+	}
+	if e.State.DrawOfferBy == playerID {
+		return fmt.Errorf("draw offer already pending")
+	}
+	e.State.DrawOfferBy = playerID
+	e.emit(GameEvent{
+		Type:   "draw_offer",
+		Player: -1,
+		Data: map[string]any{
+			"player": playerID,
+		},
+	})
+	return nil
+}
+
+func (e *Engine) handleRespondDrawOffer(playerID int, action ActionMessage) error {
+	if err := e.ensureMatchActionPlayer(playerID); err != nil {
+		return err
+	}
+	if e.State.DrawOfferBy != 1-playerID {
+		return fmt.Errorf("no draw offer to respond to")
+	}
+	accept, _ := action.Data["accept"].(bool)
+	offerBy := e.State.DrawOfferBy
+	if accept {
+		e.finishGame(-2, "draw_agreement", playerID)
+		return nil
+	}
+	e.State.DrawOfferBy = -1
+	e.emit(GameEvent{
+		Type:   "draw_offer_declined",
+		Player: -1,
+		Data: map[string]any{
+			"player":   playerID,
+			"offer_by": offerBy,
+		},
+	})
+	return nil
+}
+
+func (e *Engine) ensureMatchActionPlayer(playerID int) error {
+	if playerID < 0 || playerID >= len(e.State.Players) || e.State.Players[playerID] == nil {
+		return fmt.Errorf("invalid player")
+	}
+	if e.State.Phase == PhaseWaitingPlayers {
+		return fmt.Errorf("game has not started")
+	}
+	if e.State.Phase == PhaseGameOver {
+		return fmt.Errorf("game is already over")
+	}
+	return nil
 }
 
 func (e *Engine) payCostForAction(ps *PlayerState, cost map[string]int, action ActionMessage) bool {
@@ -4925,15 +5019,16 @@ func (e *Engine) GetStateForPlayer(playerID int) map[string]any {
 	op := state.Players[opponentID]
 
 	return map[string]any{
-		"game_id":      state.GameID,
-		"phase":        state.Phase.String(),
-		"current_turn": state.CurrentTurn,
-		"first_player": state.FirstPlayer,
-		"turn_order":   map[string]string{"you": turnOrderLabel(playerID, state.FirstPlayer), "opponent": turnOrderLabel(opponentID, state.FirstPlayer)},
-		"turn_number":  state.TurnNumber,
-		"winner":       state.Winner,
-		"you":          e.playerStateToInfo(ps, true),
-		"opponent":     e.playerStateToInfo(op, false),
+		"game_id":       state.GameID,
+		"phase":         state.Phase.String(),
+		"current_turn":  state.CurrentTurn,
+		"first_player":  state.FirstPlayer,
+		"turn_order":    map[string]string{"you": turnOrderLabel(playerID, state.FirstPlayer), "opponent": turnOrderLabel(opponentID, state.FirstPlayer)},
+		"turn_number":   state.TurnNumber,
+		"winner":        state.Winner,
+		"draw_offer_by": state.DrawOfferBy,
+		"you":           e.playerStateToInfo(ps, true),
+		"opponent":      e.playerStateToInfo(op, false),
 		"pending_spell": func() any {
 			if state.PendingSpell != nil {
 				return map[string]any{
@@ -4975,16 +5070,17 @@ func (e *Engine) GetStateForSpectator() map[string]any {
 
 	state := e.State
 	return map[string]any{
-		"game_id":      state.GameID,
-		"phase":        state.Phase.String(),
-		"current_turn": state.CurrentTurn,
-		"first_player": state.FirstPlayer,
-		"turn_order":   map[string]string{"you": turnOrderLabel(0, state.FirstPlayer), "opponent": turnOrderLabel(1, state.FirstPlayer)},
-		"turn_number":  state.TurnNumber,
-		"winner":       state.Winner,
-		"is_spectator": true,
-		"you":          e.playerStateToInfo(state.Players[0], false),
-		"opponent":     e.playerStateToInfo(state.Players[1], false),
+		"game_id":       state.GameID,
+		"phase":         state.Phase.String(),
+		"current_turn":  state.CurrentTurn,
+		"first_player":  state.FirstPlayer,
+		"turn_order":    map[string]string{"you": turnOrderLabel(0, state.FirstPlayer), "opponent": turnOrderLabel(1, state.FirstPlayer)},
+		"turn_number":   state.TurnNumber,
+		"winner":        state.Winner,
+		"draw_offer_by": state.DrawOfferBy,
+		"is_spectator":  true,
+		"you":           e.playerStateToInfo(state.Players[0], false),
+		"opponent":      e.playerStateToInfo(state.Players[1], false),
 		"pending_spell": func() any {
 			if state.PendingSpell != nil {
 				return map[string]any{
