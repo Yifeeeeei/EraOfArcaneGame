@@ -532,6 +532,147 @@ func TestDirectAttackTriggersAttackedBeforeDamage(t *testing.T) {
 		t.Fatalf("direct attack should trigger attacked before damaged, order=%v", order)
 	}
 }
+
+func TestCoordinateActionsRejectMissingOrInvalidCoordinates(t *testing.T) {
+	t.Run("summon does not default missing col row to zero", func(t *testing.T) {
+		engine := setupCoreRulesEngine(t)
+		p0 := engine.State.Players[0]
+		unit := NewCardInstance(getCardDB()["unit_basic"], 0, engine.State.TurnNumber)
+		p0.Hand = []*CardInstance{unit}
+		p0.Elements[model.ElementArcane] = 1
+
+		err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+			"instance_id": unit.InstanceID,
+			"position":    map[string]any{"col": float64(1), "row": float64(0)},
+		}})
+		if err == nil {
+			t.Fatalf("summon with nested position but missing top-level col/row should fail")
+		}
+		if p0.Units[0][0] != nil || len(p0.Hand) != 1 || p0.Hand[0] != unit {
+			t.Fatalf("invalid summon should not place or remove card, unit00=%v hand=%v", p0.Units[0][0], cardsToInfo(p0.Hand))
+		}
+	})
+
+	t.Run("attack does not default target id payload to zero position", func(t *testing.T) {
+		engine := setupCoreRulesEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		weapon := NewCardInstance(getCardDB()["item_weapon"], 0, engine.State.TurnNumber)
+		weapon.IsHorizontal = false
+		p0.Equipment[0] = weapon
+		target := NewCardInstance(getCardDB()["unit_basic"], 1, engine.State.TurnNumber)
+		target.Position = &Position{Col: 0, Row: 0}
+		target.CurrentLife = 5
+		p1.Units[0][0] = target
+
+		err := engine.HandleAction(0, ActionMessage{Action: "attack", Data: map[string]any{
+			"attacker_id": weapon.InstanceID,
+			"target_id":   target.InstanceID,
+		}})
+		if err == nil {
+			t.Fatalf("attack with target_id but missing target_col/target_row should fail")
+		}
+		if weapon.IsHorizontal || target.CurrentLife != 5 {
+			t.Fatalf("invalid attack should not tap attacker or damage target, horizontal=%v target_life=%d", weapon.IsHorizontal, target.CurrentLife)
+		}
+	})
+
+	t.Run("spell target coordinates must be numeric integers in range", func(t *testing.T) {
+		cases := []struct {
+			name string
+			data map[string]any
+		}{
+			{
+				name: "missing target row",
+				data: map[string]any{"target_type": "unit", "target_col": float64(0)},
+			},
+			{
+				name: "string target col",
+				data: map[string]any{"target_type": "unit", "target_col": "0", "target_row": float64(0)},
+			},
+			{
+				name: "fractional target row",
+				data: map[string]any{"target_type": "unit", "target_col": float64(0), "target_row": 0.5},
+			},
+			{
+				name: "out of range target col",
+				data: map[string]any{"target_type": "unit", "target_col": float64(3), "target_row": float64(0)},
+			},
+		}
+		for _, tc := range cases {
+			t.Run(tc.name, func(t *testing.T) {
+				engine := setupCoreRulesEngine(t)
+				p0 := engine.State.Players[0]
+				p1 := engine.State.Players[1]
+				skill := readySkill(getCardDB()["spell_attack"], 0)
+				p0.Skills[0] = skill
+				p0.Elements[model.ElementAir] = 1
+				target := NewCardInstance(getCardDB()["unit_basic"], 1, engine.State.TurnNumber)
+				target.Position = &Position{Col: 0, Row: 0}
+				target.CurrentLife = 5
+				p1.Units[0][0] = target
+
+				data := map[string]any{"instance_id": skill.InstanceID}
+				for key, value := range tc.data {
+					data[key] = value
+				}
+				err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: data})
+				if err == nil {
+					t.Fatalf("cast_spell with %s should fail", tc.name)
+				}
+				if skill.IsHorizontal || target.CurrentLife != 5 || engine.State.PendingSpell != nil {
+					t.Fatalf("invalid cast should not mutate state, horizontal=%v target_life=%d pending=%v", skill.IsHorizontal, target.CurrentLife, engine.State.PendingSpell)
+				}
+			})
+		}
+	})
+}
+
+func TestCoordinateActionsAllowExplicitZeroCoordinates(t *testing.T) {
+	t.Run("summon at zero zero", func(t *testing.T) {
+		engine := setupCoreRulesEngine(t)
+		p0 := engine.State.Players[0]
+		unit := NewCardInstance(getCardDB()["unit_basic"], 0, engine.State.TurnNumber)
+		p0.Hand = []*CardInstance{unit}
+		p0.Elements[model.ElementArcane] = 1
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "summon", Data: map[string]any{
+			"instance_id": unit.InstanceID,
+			"col":         float64(0),
+			"row":         float64(0),
+		}}); err != nil {
+			t.Fatalf("summon at explicit zero coordinates should work: %v", err)
+		}
+		if p0.Units[0][0] != unit || len(p0.Hand) != 0 {
+			t.Fatalf("unit should be summoned at (0,0), unit00=%v hand=%v", p0.Units[0][0], cardsToInfo(p0.Hand))
+		}
+	})
+
+	t.Run("attack at zero zero", func(t *testing.T) {
+		engine := setupCoreRulesEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		weapon := NewCardInstance(getCardDB()["item_weapon"], 0, engine.State.TurnNumber)
+		weapon.IsHorizontal = false
+		p0.Equipment[0] = weapon
+		target := NewCardInstance(getCardDB()["unit_basic"], 1, engine.State.TurnNumber)
+		target.Position = &Position{Col: 0, Row: 0}
+		target.CurrentLife = 5
+		p1.Units[0][0] = target
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "attack", Data: map[string]any{
+			"attacker_id": weapon.InstanceID,
+			"target_col":  float64(0),
+			"target_row":  float64(0),
+		}}); err != nil {
+			t.Fatalf("attack at explicit zero coordinates should work: %v", err)
+		}
+		if !weapon.IsHorizontal || target.CurrentLife != 3 {
+			t.Fatalf("attack should tap source and damage target, horizontal=%v target_life=%d", weapon.IsHorizontal, target.CurrentLife)
+		}
+	})
+}
+
 func TestSpellHitBeforeAndAfterDamageTiming(t *testing.T) {
 	engine := setupCoreRulesEngine(t)
 	p0 := engine.State.Players[0]

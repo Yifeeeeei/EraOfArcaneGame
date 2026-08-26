@@ -1020,12 +1020,11 @@ func (e *Engine) burrowExtraTargetsFromAction(playerID int, skill *CardInstance,
 		if !ok {
 			return nil, fmt.Errorf("invalid burrow extra target")
 		}
-		colF, hasCol := data["col"].(float64)
-		rowF, hasRow := data["row"].(float64)
-		if !hasCol || !hasRow {
+		pos, err := requiredBoardPosition(data, "col", "row")
+		if err != nil {
 			return nil, fmt.Errorf("invalid burrow extra target")
 		}
-		extra := SpellTarget{Type: "unit", Position: Position{Col: int(colF), Row: int(rowF)}}
+		extra := SpellTarget{Type: "unit", Position: pos}
 		if err := e.validateSpellExtraTarget(playerID, extra); err != nil {
 			return nil, err
 		}
