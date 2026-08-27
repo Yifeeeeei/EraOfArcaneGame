@@ -241,8 +241,13 @@ go test ./...
 go vet ./...
 ```
 
-Toolchain: Go 1.27.0 via Homebrew (`/opt/homebrew/bin/go`). `go.mod` declares `go 1.26.1` as the
-minimum, so a newer toolchain is fine.
+Toolchain: use the Go version in `server/go.mod` as the minimum; any newer toolchain is fine.
+Do not trust a version written down here — check the machine you are on:
+
+```bash
+go version          # actual toolchain
+grep '^go ' server/go.mod   # required minimum
+```
 
 Also run the race detector when touching `server/api`, `server/match`, or engine locking:
 
@@ -365,9 +370,19 @@ gh api repos/Yifeeeeei/EraOfArcaneGame/issues/147/comments \
   -q '.[]|"[\(.user.login)] \(.body)"'                   # follow-up findings and decisions
 ```
 
-Note: the installed `gh` is 2.16.0, whose `gh issue view` / `gh pr view` subcommands fail against
-current GitHub ("Projects (classic) is being deprecated"). The `gh api` REST calls above work.
-If `gh` is upgraded past ~2.40, `gh issue view 147 --comments` becomes the simpler form.
+Prefer `gh issue view` / `gh pr view` with `--json`. Older `gh` builds fail on the bare forms
+(`gh issue view 147` with no `--json`) against current GitHub, because they request the retired
+Projects-classic field; passing `--json` takes a different query path and works regardless:
+
+```bash
+gh issue view 147 --json title,state,body
+gh issue view 147 --json comments --comments
+gh pr view 151 --json title,state,body
+```
+
+If a command fails with `GraphQL: Projects (classic) is being deprecated`, drop to the `gh api`
+REST calls above, which work on every `gh` version. Check `gh --version` before assuming which
+form you need rather than relying on a version recorded in this file.
 
 Find how something was previously fixed:
 
