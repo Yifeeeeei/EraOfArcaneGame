@@ -7130,12 +7130,11 @@ func (e *Engine) fiveRainbowBeamExtraTargetsFromAction(playerID int, skill *Card
 		if !ok {
 			return nil, fmt.Errorf("invalid five rainbow beam extra target")
 		}
-		colF, colOK := data["col"].(float64)
-		rowF, rowOK := data["row"].(float64)
-		if !colOK || !rowOK {
+		pos, err := requiredBoardPosition(data, "col", "row")
+		if err != nil {
 			return nil, fmt.Errorf("invalid five rainbow beam extra target")
 		}
-		extra := SpellTarget{Type: "unit", Position: Position{Col: int(colF), Row: int(rowF)}}
+		extra := SpellTarget{Type: "unit", Position: pos}
 		if ownerF, ok := data["owner"].(float64); ok {
 			owner := int(ownerF)
 			extra.OwnerID = &owner

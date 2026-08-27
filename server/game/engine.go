@@ -866,10 +866,12 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 	}
 
 	instanceID, _ := action.Data["instance_id"].(string)
-	colF, _ := action.Data["col"].(float64)
-	rowF, _ := action.Data["row"].(float64)
-	col := int(colF)
-	row := int(rowF)
+	pos, err := requiredBoardPosition(action.Data, "col", "row")
+	if err != nil {
+		return err
+	}
+	col := pos.Col
+	row := pos.Row
 
 	ps := e.State.Players[playerID]
 
@@ -882,12 +884,6 @@ func (e *Engine) handleSummon(playerID int, action ActionMessage) error {
 	// Must be a companion or item
 	if !card.Card.IsCompanion() {
 		return fmt.Errorf("can only summon companions to unit area")
-	}
-
-	// Check position
-	pos := Position{Col: col, Row: row}
-	if !pos.Valid() {
-		return fmt.Errorf("invalid position")
 	}
 
 	cost := e.effectiveCardPlayCost(ps, card)
@@ -1188,10 +1184,18 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	}
 	instanceID, _ := action.Data["instance_id"].(string)
 	targetType, _ := action.Data["target_type"].(string)
-	targetColF, _ := action.Data["target_col"].(float64)
-	targetRowF, _ := action.Data["target_row"].(float64)
-	extraTargetColF, hasExtraTargetCol := action.Data["extra_target_col"].(float64)
-	extraTargetRowF, hasExtraTargetRow := action.Data["extra_target_row"].(float64)
+	targetPos := Position{}
+	var err error
+	if targetType == "unit" {
+		targetPos, err = requiredBoardPosition(action.Data, "target_col", "target_row")
+		if err != nil {
+			return err
+		}
+	}
+	extraTargetPos, hasExtraTarget, err := optionalBoardPosition(action.Data, "extra_target_col", "extra_target_row")
+	if err != nil {
+		return err
+	}
 	boostIDsRaw, _ := action.Data["boost_ids"].([]any)
 
 	ps := e.State.Players[playerID]
@@ -1214,7 +1218,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 
 	target := SpellTarget{
 		Type:     targetType,
-		Position: Position{Col: int(targetColF), Row: int(targetRowF)},
+		Position: targetPos,
 	}
 	if ownerF, ok := action.Data["target_owner"].(float64); ok {
 		ownerID := int(ownerF)
@@ -1253,8 +1257,8 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		return err
 	}
 	extraTargets := make([]SpellTarget, 0, 1)
-	if (skill.Card.Number == "3321001" || skill.Card.Number == "3621107" || e.hasNextDriveSpellExtraTarget(ps, skill)) && hasExtraTargetCol && hasExtraTargetRow {
-		extra := SpellTarget{Type: "unit", Position: Position{Col: int(extraTargetColF), Row: int(extraTargetRowF)}}
+	if (skill.Card.Number == "3321001" || skill.Card.Number == "3621107" || e.hasNextDriveSpellExtraTarget(ps, skill)) && hasExtraTarget {
+		extra := SpellTarget{Type: "unit", Position: extraTargetPos}
 		if err := e.validateSpellExtraTargetForSkill(playerID, skill, target, extra); err != nil {
 			return err
 		}
@@ -2740,10 +2744,12 @@ func (e *Engine) handleAttack(playerID int, action ActionMessage) error {
 	}
 
 	attackerID, _ := action.Data["attacker_id"].(string)
-	targetColF, _ := action.Data["target_col"].(float64)
-	targetRowF, _ := action.Data["target_row"].(float64)
-	targetCol := int(targetColF)
-	targetRow := int(targetRowF)
+	targetPos, err := requiredBoardPosition(action.Data, "target_col", "target_row")
+	if err != nil {
+		return err
+	}
+	targetCol := targetPos.Col
+	targetRow := targetPos.Row
 
 	ps := e.State.Players[playerID]
 	opponent := e.State.Players[1-playerID]
@@ -2776,11 +2782,6 @@ func (e *Engine) handleAttack(playerID int, action ActionMessage) error {
 		}
 	}
 
-	// Check target is in attacker's range (default: enemy front row)
-	targetPos := Position{Col: targetCol, Row: targetRow}
-	if !targetPos.Valid() {
-		return fmt.Errorf("invalid target position")
-	}
 	target := opponent.Units[targetCol][targetRow]
 	if target == nil {
 		return fmt.Errorf("no unit at target position")
@@ -3702,19 +3703,7 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 
 	// Check if this is a terrain card - terrain cards go to battlefield
 	if cards.IsTerrain(card.Card.Number) {
-		// Redirect to terrain placement handler
-		// Re-use the action but call the terrain handler
-		colF, _ := action.Data["col"].(float64)
-		rowF, _ := action.Data["row"].(float64)
-		return e.handlePlaceTerrain(playerID, ActionMessage{
-			Action: "place_terrain",
-			Data: map[string]any{
-				"instance_id": instanceID,
-				"col":         colF,
-				"row":         rowF,
-				"payment":     action.Data["payment"],
-			},
-		})
+		return e.handlePlaceTerrain(playerID, action)
 	}
 	if spellScrollUsesGenericCast(card.Card) {
 		return e.handleUseSpellScrollItem(playerID, action, card, handIdx)
@@ -3857,12 +3846,11 @@ func (e *Engine) handleUseSpellScrollItem(playerID int, action ActionMessage, ca
 				return err
 			}
 		} else {
-			colF, hasCol := action.Data["target_col"].(float64)
-			rowF, hasRow := action.Data["target_row"].(float64)
-			if !hasCol || !hasRow {
-				return fmt.Errorf("spell scroll requires a target")
+			targetPos, err := requiredBoardPosition(action.Data, "target_col", "target_row")
+			if err != nil {
+				return fmt.Errorf("spell scroll requires a target: %w", err)
 			}
-			target = SpellTarget{Type: "unit", Position: Position{Col: int(colF), Row: int(rowF)}}
+			target = SpellTarget{Type: "unit", Position: targetPos}
 			if ownerF, ok := action.Data["target_owner"].(float64); ok {
 				ownerID := int(ownerF)
 				target.OwnerID = &ownerID
@@ -4004,10 +3992,12 @@ func (e *Engine) handlePlaceTerrain(playerID int, action ActionMessage) error {
 	}
 
 	instanceID, _ := action.Data["instance_id"].(string)
-	colF, _ := action.Data["col"].(float64)
-	rowF, _ := action.Data["row"].(float64)
-	col := int(colF)
-	row := int(rowF)
+	pos, err := requiredBoardPosition(action.Data, "col", "row")
+	if err != nil {
+		return err
+	}
+	col := pos.Col
+	row := pos.Row
 
 	ps := e.State.Players[playerID]
 
@@ -4025,11 +4015,6 @@ func (e *Engine) handlePlaceTerrain(playerID int, action ActionMessage) error {
 		return fmt.Errorf("card is not a terrain")
 	}
 
-	// Check position
-	pos := Position{Col: col, Row: row}
-	if !pos.Valid() {
-		return fmt.Errorf("invalid position")
-	}
 	if ps.Terrain[col][row] != nil {
 		return fmt.Errorf("position already has terrain")
 	}
@@ -5006,6 +4991,63 @@ func paymentFromAction(action ActionMessage) map[string]int {
 		}
 	}
 	return payment
+}
+
+func requiredBoardPosition(data map[string]any, colKey string, rowKey string) (Position, error) {
+	col, err := requiredBoardCoordinate(data, colKey)
+	if err != nil {
+		return Position{}, err
+	}
+	row, err := requiredBoardCoordinate(data, rowKey)
+	if err != nil {
+		return Position{}, err
+	}
+	pos := Position{Col: col, Row: row}
+	if !pos.Valid() {
+		return Position{}, fmt.Errorf("invalid position")
+	}
+	return pos, nil
+}
+
+func optionalBoardPosition(data map[string]any, colKey string, rowKey string) (Position, bool, error) {
+	_, hasCol := data[colKey]
+	_, hasRow := data[rowKey]
+	if !hasCol && !hasRow {
+		return Position{}, false, nil
+	}
+	if hasCol != hasRow {
+		return Position{}, false, fmt.Errorf("%s and %s must be provided together", colKey, rowKey)
+	}
+	pos, err := requiredBoardPosition(data, colKey, rowKey)
+	if err != nil {
+		return Position{}, false, err
+	}
+	return pos, true, nil
+}
+
+func requiredBoardCoordinate(data map[string]any, key string) (int, error) {
+	value, ok := data[key]
+	if !ok {
+		return 0, fmt.Errorf("missing %s", key)
+	}
+	switch typed := value.(type) {
+	case float64:
+		coord := int(typed)
+		if typed != float64(coord) {
+			return 0, fmt.Errorf("%s must be an integer", key)
+		}
+		if coord < 0 || coord > 2 {
+			return 0, fmt.Errorf("%s must be between 0 and 2", key)
+		}
+		return coord, nil
+	case int:
+		if typed < 0 || typed > 2 {
+			return 0, fmt.Errorf("%s must be between 0 and 2", key)
+		}
+		return typed, nil
+	default:
+		return 0, fmt.Errorf("%s must be a number", key)
+	}
 }
 
 // GetStateForPlayer returns a filtered game state visible to the specified player
