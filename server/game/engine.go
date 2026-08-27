@@ -5036,8 +5036,14 @@ func requiredBoardCoordinate(data map[string]any, key string) (int, error) {
 		if typed != float64(coord) {
 			return 0, fmt.Errorf("%s must be an integer", key)
 		}
+		if coord < 0 || coord > 2 {
+			return 0, fmt.Errorf("%s must be between 0 and 2", key)
+		}
 		return coord, nil
 	case int:
+		if typed < 0 || typed > 2 {
+			return 0, fmt.Errorf("%s must be between 0 and 2", key)
+		}
 		return typed, nil
 	default:
 		return 0, fmt.Errorf("%s must be a number", key)

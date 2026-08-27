@@ -626,6 +626,34 @@ func TestCoordinateActionsRejectMissingOrInvalidCoordinates(t *testing.T) {
 			})
 		}
 	})
+
+	t.Run("out of range errors identify the coordinate field", func(t *testing.T) {
+		_, err := requiredBoardPosition(map[string]any{
+			"target_col": float64(3),
+			"target_row": float64(0),
+		}, "target_col", "target_row")
+		if err == nil || !strings.Contains(err.Error(), "target_col") {
+			t.Fatalf("out-of-range error should identify target_col, got %v", err)
+		}
+	})
+
+	t.Run("terrain placement rejects missing coordinates before changing state", func(t *testing.T) {
+		engine := setupCoreRulesEngine(t)
+		p0 := engine.State.Players[0]
+		item := NewCardInstance(getCardDB()["item_tool"], 0, engine.State.TurnNumber)
+		p0.Hand = []*CardInstance{item}
+		p0.Elements[model.ElementAir] = 1
+
+		err := engine.HandleAction(0, ActionMessage{Action: "place_terrain", Data: map[string]any{
+			"instance_id": item.InstanceID,
+		}})
+		if err == nil || !strings.Contains(err.Error(), "missing col") {
+			t.Fatalf("terrain placement should reject missing coordinates explicitly, got %v", err)
+		}
+		if len(p0.Hand) != 1 || p0.Hand[0] != item || p0.Elements[model.ElementAir] != 1 || p0.Terrain[0][0] != nil {
+			t.Fatalf("invalid terrain placement should not mutate state, hand=%v elements=%v terrain00=%v", cardsToInfo(p0.Hand), p0.Elements, p0.Terrain[0][0])
+		}
+	})
 }
 
 func TestCoordinateActionsAllowExplicitZeroCoordinates(t *testing.T) {
