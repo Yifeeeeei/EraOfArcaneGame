@@ -6,14 +6,15 @@ This file is for future coding agents working on EraOfArcaneGame. Treat it as th
 
 EraOfArcaneGame is a browser-playable prototype for the tabletop/card game "奥术纪元 / Era of Arcane".
 
-The current product goal is narrow: make the base set playable and testable in a real two-player frontend match. Do not assume any expansion cards are supported yet.
+The current product goal is narrow: make the released card packs playable and testable in a real two-player frontend match. Two packs ship today (`基础包` and `王权纷争`). Do not assume any other expansion is supported.
 
 ## Current Scope
 
-- Only the base set (`version_name == "基础包"`) is present in this repository and supported for live games.
-- `server/cards/definitions_gen.go` is the compiled Go definition file for the 379 playable base cards.
-- `data/supported_card_infos.json` is the base-card snapshot used for balance review and regeneration of compiled definitions.
-- Non-base cards are intentionally absent from the runtime card pool.
+- Two card packs are supported for live games: `基础包` (base set) and `王权纷争` (Royal Conflict). The authoritative list is `cards.SupportedVersionNames` in `server/cards/loader.go`; treat that constant as the source of truth, not this document.
+- `server/cards/definitions_gen.go` is the compiled Go definition file for all 728 playable cards (393 `基础包` + 335 `王权纷争`).
+- `cards.PlayableCardDB` is the active pool for deck validation and matches. `cards.BaseCardDB` holds only `基础包` and exists for release comparison, not for gameplay.
+- `data/supported_card_infos.json` is the snapshot of both supported packs, used for balance review and regeneration of compiled definitions.
+- Cards from unsupported versions are intentionally absent from the runtime card pool.
 - Runtime card behavior must be explicit Go code. Do not add text parsers that infer effects from card descriptions.
 
 ## Tech Stack
@@ -41,31 +42,39 @@ Serving:
   - `/api/room/create`
   - `/api/room/list`
   - `/api/room/info`
+  - `/api/test-room/create`
+  - `/api/test-room/add-card`
+  - `/api/test-room/elements`
+  - `/api/test-room/card-state`
+  - `/api/test-room/state`
   - `/ws`
+
+- The `/api/test-room/*` routes mutate live engine state and only work on rooms created with `test-room/create` (`Room.TestMode`). They back `card-test.html`; do not call them against a normal match.
+- `/ws` accepts `room`, `player_id`, `player_name`, and `deck_code`. Passing `role=spectator` opens a read-only connection that receives the public spectator view and needs no deck.
 
 ## Important Files
 
-- `server/main.go`: process entrypoint. Loads compiled base cards, sets playable card DB, registers behavior objects, serves routes.
-- `server/cards/definitions_gen.go`: generated Go definitions for all currently supported base cards.
+- `server/main.go`: process entrypoint. Loads compiled card definitions, sets playable card DB, registers behavior objects, serves routes on port 9090.
+- `server/cards/definitions_gen.go`: generated Go definitions for all currently supported cards across both packs.
 - `server/cards/interfaces.go` and `server/cards/category_markers_gen.go`: card category interfaces and generated marker methods for hero/companion/skill/item subtypes.
-- `server/cards/loader.go`: loads compiled base cards and builds `BaseCardDB` / `PlayableCardDB`.
+- `server/cards/loader.go`: declares `SupportedVersionNames` and loads compiled cards into `CardDB` / `BaseCardDB` / `PlayableCardDB`.
 - `server/cards/snapshot.go`: exports the playable card pool as a stable JSON snapshot.
-- `server/cmd/extract-supported-cards/main.go`: extracts `version_name == "基础包"` cards from `data/all_card_infos.json` into `data/supported_card_infos.json`.
+- `server/cmd/extract-supported-cards/main.go`: extracts cards whose `version_name` is in `cards.SupportedVersionNames` from `data/all_card_infos.json` into `data/supported_card_infos.json`.
 - `server/cmd/check-card-metadata/main.go`: audits structured card metadata such as `effect_categories` and `effect_optionality`.
 - `server/cmd/generate-card-definitions/main.go`: regenerates compiled Go card definitions from `data/supported_card_infos.json`.
 - `server/cmd/snapshot-supported-cards/main.go`: regenerates `data/supported_card_infos.json`.
 - `server/cmd/agent-player/main.go`: headless CLI used by Codex agents to initialize local match data, validate decks, create rooms, and play through the backend WebSocket without opening the frontend.
 - `server/game/card_behavior.go`: card behavior interfaces such as `OnEnterBehavior`, `OnDeathBehavior`, `PerTurnAbility`, and `UltimateAbility`.
-- `server/game/card_<number>_<name>.go`: one file per concrete base-set card with custom behavior.
+- `server/game/card_<number>_<name>.go`: the preferred layout — one file per concrete card with custom behavior. Some cards are instead grouped into shared files (`card_batch_more_base.go`, `card_royal_conflict_simple.go`, and others); see "Card Behavior File Layout" below.
 - `server/game/card_effects_catalog.go`: registers lazy behavior factories with the engine adapter; it should not instantiate every behavior at startup.
 - `server/game/engine.go`: main game engine and action handling.
 - `server/game/rules.go`: focused rules helpers.
 - `server/game/payment.go`: element payment logic.
-- `server/game/base_cards_smoke_test.go`: smoke coverage for all currently supported base cards.
+- `server/game/base_cards_smoke_test.go`: smoke coverage for all currently supported cards.
 - `server/logs/rooms/*.jsonl`: ignored local room replay/debug logs written at runtime; inspect these first when reproducing a live-game bug.
 - `web/index.html`: lobby.
 - `web/game.html`: actual match UI.
-- `web/card-test.html`: base-card testing workbench.
+- `web/card-test.html`: card testing workbench; drives the `/api/test-room/*` endpoints.
 - `web/css/main.css`, `web/css/lobby.css`, `web/css/game.css`: current visual language.
 - `docs/agent-player-protocol.md`: required machine-oriented workflow and action payload reference for headless Codex-agent matches.
 - `docs/agent-player-data-layout.md`: explains the ignored local archive, bounded context packs, and long-term knowledge layout.
@@ -157,7 +166,7 @@ The game should be understandable from Go code alone. JSON snapshots are referen
 - Defensive payment uses `透支`, not `消耗`. During a defense window the player selects defense skills, optional boost skills, and units to overexert, then confirms together. Overexerting a unit turns it horizontal only for paying that defense cost; it does not trigger consume effects, does not grant elements to the pool, and any excess load is lost.
 - End-of-turn cleanup follows the actual phase order: discard down to hand limit, reset cards, then settle marks. This matters for `冷却`: a horizontal skill with `冷却1` must fail to reset while the mark is still present, then the mark is removed, leaving the skill unavailable for the next turn as intended.
 - Reactive sorceries such as `冰封消解` are not normal main-phase attack spells. Model them with explicit reaction behavior and a frontend action during the defense/spell window.
-- If a card implements `SpellReactionBehavior`, make sure it is exposed to the frontend as `can_react`. Forgetting this makes the backend effect technically present but impossible for a human to use. Current base-set reaction examples include `冰封消解`, `风洞`, and `虹吸`.
+- If a card implements `SpellReactionBehavior`, make sure it is exposed to the frontend as `can_react`. Forgetting this makes the backend effect technically present but impossible for a human to use. Current reaction examples include `冰封消解`, `风洞`, and `虹吸`.
 - A player may inspect their own remaining deck only as an unordered summary. Opponent deck contents are hidden; opponent graveyards are public. If a hand card is revealed by a card effect or keyword, expose it through an explicit revealed-hand zone rather than by making the whole hand visible.
 - Skill card UI must distinguish learn/entry cost (`elements_cost`) from cast/use cost (`elements_expense`). Do not collapse them into a single generic "费用" label when both exist.
 - Card metadata lives in compiled Go definitions under `server/cards`.
@@ -169,7 +178,37 @@ The game should be understandable from Go code alone. JSON snapshots are referen
 - Runtime-granted abilities should use attached behavior objects on `CardInstance`, not ad hoc `Statuses` string checks. For example, "give a unit deathrattle" should attach an `AttachedDeathrattleBehavior`; then `cardHasActiveDeathrattle` and death resolution will see it like any printed deathrattle.
 - `EffectRegistry` still exists as an engine adapter, but new work should add or change card behavior structs, not description parsers or string-inferred effects.
 - Behavior registration is lazy. `RegisterAllCardEffects` registers factories only; concrete behavior objects should be constructed only when a card number is queried during play or serialization.
-- Expansion cards should not be added until the base-set scope changes.
+- Cards from packs outside `cards.SupportedVersionNames` should not be added until the supported scope changes.
+
+## Card Behavior File Layout
+
+Behavior files under `server/game` do not all follow one convention. Current reality:
+
+- `card_<number>_<name>.go` — one card per file. 211 files today (180 `基础包`, 31 `王权纷争`). This is the preferred layout for any card with non-trivial behavior.
+- Grouped files hold the rest. `王权纷争` groups by mechanic (`card_royal_conflict_stealth.go`, `card_royal_conflict_shield.go`, `card_royal_conflict_flip.go`, `card_royal_conflict_bound.go`, `card_royal_conflict_red_moon.go`, `card_royal_conflict_lightweight.go`) with `card_royal_conflict_simple.go` as the catch-all for short effects — it currently holds 189 cards in ~9k lines and is the largest hand-written file in the repo. `基础包` groups by work batch instead (`card_batch_more_base.go`, `card_batch_final_base.go`, `card_base_update_20260619.go`), which carries no semantic meaning and should not be extended.
+- `card_defense_success_base.go` groups by mechanic across both packs, which is fine. Pack identity is already on the card as `VersionName`; it is not a reason to split or merge files.
+
+### Card numbers already encode collection metadata
+
+A 7-digit card number is self-describing, so per-card filenames lose no grouping information.
+Verified against all 728 supported cards; every digit below is 100% consistent with the card data:
+
+| Position | Meaning | Values |
+| --- | --- | --- |
+| digit 1 | card type | `1`=伙伴 `2`=道具 `3`=技能 `4`=人物 |
+| digit 2 | element | `0`=无 `1`=火 `2`=水 `3`=气 `4`=地 `5`=光 `6`=暗 |
+| digit 5 | card pack | `0`=基础包 `1`=王权纷争 |
+
+So `card_1121104_magma_fortress_chariot.go` is already legible as 伙伴 / 火 / 王权纷争 without opening it,
+and the same facts are on the card as `Type`, `Category`, and `VersionName`. Pack membership is
+data, not file structure. To list a pack, query the data rather than relying on a directory:
+
+```bash
+# every 王权纷争 card that has its own behavior file
+ls server/game/card_[0-9]*.go | awk -F'card_|_' '$2 ~ /^[0-9]{7}$/ && substr($2,5,1)=="1"'
+```
+
+When adding a card: prefer a `card_<number>_<name>.go` file. Only add to a grouped file when the effect is a few lines and the group is mechanic-based. Do not add cards to `card_royal_conflict_simple.go` or to any `card_batch_*` file.
 
 ## Rule Clarifications From Prior Corrections
 
@@ -199,7 +238,26 @@ Always run:
 ```bash
 cd server
 go test ./...
+go vet ./...
 ```
+
+Toolchain: use the Go version in `server/go.mod` as the minimum; any newer toolchain is fine.
+Do not trust a version written down here — check the machine you are on:
+
+```bash
+go version          # actual toolchain
+grep '^go ' server/go.mod   # required minimum
+```
+
+Also run the race detector when touching `server/api`, `server/match`, or engine locking:
+
+```bash
+go test -race ./...
+```
+
+`go test ./...` and `go vet ./...` are clean as of 2026-08-26. `go test -race ./...` currently
+FAILS in `eraofarcane/api` with pre-existing data races on `Room` fields (see Known Constraints
+And Risks). Do not treat a race failure there as caused by your change without checking first.
 
 For frontend/gameplay changes, backend tests are not enough. The project has already found issues that only appear when operating the UI. Do a browser-level check when changing `web/game.html`, `web/css/game.css`, WebSocket state shape, targeting, pending actions, or turn flow.
 
@@ -217,7 +275,7 @@ Minimum frontend sanity check:
 
 ## Supported Card Snapshot Workflow
 
-After changing base card data or balance values from the spreadsheet export, regenerate the supported snapshot and compiled definitions:
+After changing card data or balance values from the spreadsheet export, regenerate the supported snapshot and compiled definitions:
 
 ```bash
 cd server
@@ -241,7 +299,7 @@ Then inspect:
 git diff -- data/supported_card_infos.json server/cards/definitions_gen.go server/cards/category_markers_gen.go
 ```
 
-This diff is intended to show exactly which base cards changed, were added, or were removed.
+This diff is intended to show exactly which cards changed, were added, or were removed.
 
 ## Design Language
 
@@ -278,7 +336,12 @@ Do not hardcode frontend API calls to `localhost`; in the browser, localhost mea
 ## Known Constraints And Risks
 
 - Room/game state is in memory. Restarting the server drops rooms.
-- No authentication or rate limiting exists yet.
+- No authentication or rate limiting exists yet. This includes `/api/test-room/*`, which any caller can reach.
+- `go test -race ./...` reports real data races in `eraofarcane/api`, found 2026-08-26:
+  - `Room.IsFull()` (`server/match/room.go`) reads `r.Players` with no lock while `Room.JoinRoom()` writes it under `r.mu`. Two players connecting at the same instant race here.
+  - `server/api/ws.go` reads `room.IsStarted` and `room.Engine` directly, unlocked, while `Room.StartGame()` writes both under `r.mu`.
+  These are latent today because matches are small and local, but they are genuine races, not test artifacts.
+- Engine WebSocket writes happen while `Engine.mu` is held (`HandleAction` -> `emit` -> room callback -> `conn.WriteJSON`), and no write deadline or keepalive is set. One stalled client can block the whole match.
 - Not ready for multi-instance deployment.
 - Many older root docs were written by a previous agent and may be stale. Prefer code, tests, this file, and recent git history over old status docs.
 - Be careful with existing dirty worktrees. Do not revert user changes unless explicitly asked.
@@ -293,6 +356,55 @@ Do not hardcode frontend API calls to `localhost`; in the browser, localhost mea
 
 ## Issue Workflow
 
+GitHub Issues and merged PRs are the project's authoritative history. Prefer them over
+markdown status files in this repo, which go stale. Agents have read access through the
+`gh` CLI, which is installed and authenticated against `Yifeeeeei/EraOfArcaneGame`.
+
+Read before starting work on a bug or a card:
+
+```bash
+gh issue list --state open --limit 30                   # what is currently broken
+gh issue list --state all --search "巨型沙虫"            # has this card been reported before?
+gh api repos/Yifeeeeei/EraOfArcaneGame/issues/147 -q '.title, .state, .body'
+gh api repos/Yifeeeeei/EraOfArcaneGame/issues/147/comments \
+  -q '.[]|"[\(.user.login)] \(.body)"'                   # follow-up findings and decisions
+```
+
+Prefer `gh issue view` / `gh pr view` with `--json`. Older `gh` builds fail on the bare forms
+(`gh issue view 147` with no `--json`) against current GitHub, because they request the retired
+Projects-classic field; passing `--json` takes a different query path and works regardless:
+
+```bash
+gh issue view 147 --json title,state,body
+gh issue view 147 --json comments --comments
+gh pr view 151 --json title,state,body
+```
+
+If a command fails with `GraphQL: Projects (classic) is being deprecated`, drop to the `gh api`
+REST calls above, which work on every `gh` version. Check `gh --version` before assuming which
+form you need rather than relying on a version recorded in this file.
+
+Find how something was previously fixed:
+
+```bash
+gh pr list --state merged --limit 20 \
+  --json number,title,mergedAt -q '.[]|"\(.number)\t\(.mergedAt[:10])\t\(.title)"'
+gh api repos/Yifeeeeei/EraOfArcaneGame/pulls/151 -q '.title, .body'
+gh pr diff 151                                          # the actual change
+git log --oneline -- server/game/card_1021006_grocer.go # per-card change history
+```
+
+Issue bodies follow the templates in `.github/ISSUE_TEMPLATE/`, so a Card Effect report always
+carries a commit hash and a `<number> <name>` card reference. Grep issue text for a card number
+to find every report that touched it.
+
+Rules:
+
+- Before implementing a fix, search closed issues first. A card bug that looks new is often a
+  regression of something already diagnosed, and the closed issue usually names the root cause.
+- Cite the issue or PR number when you explain a change. `gh` output is checkable; prose in a
+  status file is not.
+- Do not create issues, comment, or push without being asked. Reading is always fine.
 - Long-term bug and feature tracking should go through GitHub Issues, not only chat history.
 - Only use the supported issue forms: Bug Report, Card Effect, and Frontend UX. Blank issues are disabled intentionally.
 - Every issue must include a version or commit hash. If there is no formal version number yet, use the exact commit tested.
