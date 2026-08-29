@@ -44,7 +44,7 @@ type CardInstance struct {
 	UnderCards          []*CardInstance    `json:"under_cards,omitempty"`  // public cards placed under this card
 	AttachedBehaviors   []AttachedBehavior `json:"-"`                      // runtime-granted behavior objects
 
-	// Skill-specific
+	// Ability usage
 	UsedThisTurn int  `json:"used_this_turn"` // for 回合技
 	UltimateUsed bool `json:"ultimate_used"`  // for 绝技
 
@@ -401,6 +401,7 @@ type PendingAction struct {
 	Callback     func(selected []string)                            `json:"-"` // called when resolved
 	CallbackData func(selected []string, data map[string]any)       `json:"-"`
 	CallbackErr  func(selected []string, data map[string]any) error `json:"-"`
+	Available    func() bool                                        `json:"-"` // checked before a queued action is shown
 }
 
 // GameState holds the entire game state

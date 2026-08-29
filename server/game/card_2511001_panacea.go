@@ -33,7 +33,7 @@ func (Card2511001Panacea) OnUseItem(ctx *EffectContext) error {
 						}
 						target := ctx.Engine.findFieldCardByInstance(ctx.Engine.State.Players[ctx.PlayerID], selected[0])
 						if target != nil {
-							target.CurrentLife = target.Card.Life
+							ctx.Engine.healUnit(target, maxLife(target)-target.CurrentLife, ctx.Source)
 						}
 					})
 			case "reset":

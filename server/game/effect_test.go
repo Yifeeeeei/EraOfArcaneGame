@@ -7701,8 +7701,13 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 		wounded.CurrentLife = maxLife(wounded) - 2
 		dead := placeUnit(baseCard(t, "1021001"), 0, 2, 0, engine)
 		engine.destroyUnitWithData(dead, 0, map[string]any{"attacker": 1})
-		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "rose_garden_gardener_heal" || gardener.UsedThisTurn != 0 {
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "rose_garden_gardener_heal" || gardener.UsedThisTurn != 1 {
 			t.Fatalf("gardener should prompt once after friendly death, pending=%+v used=%d", engine.State.PendingAction, gardener.UsedThisTurn)
+		}
+		simultaneousDead := placeUnit(baseCard(t, "1021001"), 1, 2, 0, engine)
+		engine.destroyUnitWithData(simultaneousDead, 1, map[string]any{"attacker": 0})
+		if len(engine.State.PendingActionQueue) != 0 {
+			t.Fatalf("gardener should reserve its once-per-turn trigger before the first prompt resolves, queue=%d", len(engine.State.PendingActionQueue))
 		}
 		resolvePendingSelection(t, engine, 0, wounded.InstanceID)
 		if wounded.CurrentLife != maxLife(wounded) || gardener.UsedThisTurn != 1 {
@@ -7723,8 +7728,8 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 		staleEngine.destroyUnitWithData(staleDead, 0, map[string]any{"attacker": 1})
 		healUnit(staleWounded, 99)
 		resolvePendingSelection(t, staleEngine, 0, staleWounded.InstanceID)
-		if staleGardener.UsedThisTurn != 0 || staleWounded.CurrentLife != maxLife(staleWounded) {
-			t.Fatalf("gardener should not spend trigger on stale full-health target, used=%d life=%d", staleGardener.UsedThisTurn, staleWounded.CurrentLife)
+		if staleGardener.UsedThisTurn != 1 || staleWounded.CurrentLife != maxLife(staleWounded) {
+			t.Fatalf("gardener's mandatory trigger stays spent when its queued target becomes stale, used=%d life=%d", staleGardener.UsedThisTurn, staleWounded.CurrentLife)
 		}
 	})
 }
@@ -8863,8 +8868,7 @@ func TestRoyalConflictHolyChildBonusOnSelfLoadGain(t *testing.T) {
 
 	lifeGainEngine := setupEffectTest(t)
 	lifeGainChild := placeUnit(baseCard(t, "1521102"), 0, 0, 0, lifeGainEngine)
-	lifeGainChild.CurrentLife++
-	lifeGainEngine.triggerHolyChildAfterLifeGain(0, lifeGainChild)
+	lifeGainEngine.gainLife(lifeGainChild, 1, lifeGainChild)
 	if lifeGainEngine.State.PendingAction == nil || lifeGainEngine.State.PendingAction.Type != "holy_child_bonus" {
 		t.Fatalf("1521102 should prompt after gaining life, pending=%+v", lifeGainEngine.State.PendingAction)
 	}

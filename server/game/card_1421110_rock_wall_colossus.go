@@ -18,7 +18,7 @@ func (Card1421110RockWallColossus) OnUnitEnter(ctx *EffectContext) error {
 		return nil
 	}
 	ctx.Target.Statuses["max_life_bonus"]++
-	ctx.Target.CurrentLife++
+	ctx.Engine.gainLife(ctx.Target, 1, ctx.Source)
 	return nil
 }
 

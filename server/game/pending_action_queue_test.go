@@ -41,9 +41,10 @@ func TestDrawPendingActionsQueueByEquipmentOrder(t *testing.T) {
 		p0 := engine.State.Players[0]
 		drum := NewCardInstance(baseCard(t, "2311002"), 0, 1)
 		compass := NewCardInstance(baseCard(t, "2321001"), 0, 1)
+		drawn := NewCardInstance(baseCard(t, "1321001"), 0, 1)
 		p0.Equipment[0] = drum
 		p0.Equipment[1] = compass
-		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1)}
+		p0.Deck = []*CardInstance{drawn}
 
 		engine.drawCards(0, 1)
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "thunder_drum_mark" {
@@ -58,7 +59,7 @@ func TestDrawPendingActionsQueueByEquipmentOrder(t *testing.T) {
 			t.Fatalf("windbreath compass should remain queued after thunder drum, pending=%+v", engine.State.PendingAction)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
-			"selected": []any{compass.InstanceID},
+			"selected": []any{drawn.InstanceID},
 		}}); err != nil {
 			t.Fatalf("resolve windbreath compass trigger: %v", err)
 		}
@@ -75,9 +76,10 @@ func TestDrawPendingActionsQueueByEquipmentOrder(t *testing.T) {
 		p0 := engine.State.Players[0]
 		compass := NewCardInstance(baseCard(t, "2321001"), 0, 1)
 		drum := NewCardInstance(baseCard(t, "2311002"), 0, 1)
+		drawn := NewCardInstance(baseCard(t, "1321001"), 0, 1)
 		p0.Equipment[0] = compass
 		p0.Equipment[1] = drum
-		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1)}
+		p0.Deck = []*CardInstance{drawn}
 
 		engine.drawCards(0, 1)
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "windbreath_compass" {

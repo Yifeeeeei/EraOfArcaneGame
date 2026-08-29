@@ -9,7 +9,7 @@ func (Card1621006Nightmare) OnFriendlyDeath(ctx *EffectContext) error {
 	if ctx.Target == nil || ctx.Target == ctx.Source {
 		return nil
 	}
-	ctx.Source.CurrentLife++
+	ctx.Engine.gainLife(ctx.Source, 1, ctx.Source)
 	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 		"source": cardToInfo(ctx.Source),
 		"target": cardToInfo(ctx.Target),

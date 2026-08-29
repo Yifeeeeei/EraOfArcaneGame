@@ -34,6 +34,16 @@ func (e *Engine) addStatus(card *CardInstance, status string, amount int) bool {
 	if status == StatusPetrify && card.Card != nil && card.Card.Number == "3611101" {
 		e.refreshRedMoonState(card.OwnerID)
 	}
+	if card.OwnerID >= 0 && card.OwnerID < len(e.State.Players) {
+		data := map[string]any{
+			"status_gain_player": card.OwnerID,
+			"status_gain_target": card,
+			"status":             status,
+			"amount":             amount,
+		}
+		e.triggerFieldEffectsWithData(TriggerOnStatusGain, card.OwnerID, card, data)
+		e.triggerFieldEffectsWithData(TriggerOnStatusGain, 1-card.OwnerID, card, data)
+	}
 	return true
 }
 

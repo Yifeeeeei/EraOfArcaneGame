@@ -11,14 +11,16 @@ func (Card4611001Alice) OnFriendlyDeath(ctx *EffectContext) error {
 	if ctx == nil || ctx.Source == nil || ctx.Target == nil || ctx.Target.Card == nil {
 		return nil
 	}
-	if ctx.Source.UsedThisTurn > 0 || !ctx.Target.Card.IsCompanion() || ctx.Target.Card.IsHero() {
+	if !triggeredTurnAvailable(ctx.Source) || !ctx.Target.Card.IsCompanion() || ctx.Target.Card.IsHero() {
 		return nil
 	}
 	candidates := friendlySkillCandidates(ctx.Engine.State.Players[ctx.PlayerID])
 	if len(candidates) == 0 {
 		return nil
 	}
-	ctx.Source.UsedThisTurn++
+	if !useTriggeredTurn(ctx.Source) {
+		return nil
+	}
 	sourceID := ctx.Source.InstanceID
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "alice_boost_spell",
 		fmt.Sprintf("%s: 选择1个你的法术+1威", ctx.Source.Card.Name), candidates, 1, 1,

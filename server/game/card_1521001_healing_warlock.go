@@ -19,7 +19,7 @@ func (Card1521001HealingWarlock) OnPerTurn(ctx *EffectContext) error {
 				}
 				target := ctx.Engine.findFieldCardByInstance(ctx.Engine.State.Players[ctx.PlayerID], selected[0])
 				if target != nil {
-					healUnit(target, 1)
+					ctx.Engine.healUnit(target, 1, ctx.Source)
 				}
 			})
 		return nil
@@ -27,6 +27,6 @@ func (Card1521001HealingWarlock) OnPerTurn(ctx *EffectContext) error {
 	if ctx.Target == nil || ctx.Target.OwnerID != ctx.PlayerID {
 		return nil
 	}
-	healUnit(ctx.Target, 1)
+	ctx.Engine.healUnit(ctx.Target, 1, ctx.Source)
 	return nil
 }

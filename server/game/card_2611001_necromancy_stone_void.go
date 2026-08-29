@@ -11,10 +11,9 @@ func (Card2611001NecromancyStoneVoid) OnFriendlyDeath(ctx *EffectContext) error 
 	if ctx.Target == nil || !ctx.Target.Card.IsCompanion() {
 		return nil
 	}
-	if ctx.Source == nil || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) {
+	if !useTriggeredTurn(ctx.Source) {
 		return nil
 	}
 	ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementShadow, 1, ctx.Source)
-	ctx.Source.UsedThisTurn++
 	return nil
 }

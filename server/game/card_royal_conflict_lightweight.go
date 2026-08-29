@@ -171,7 +171,7 @@ func (Card2621104DevotionContract) OnSpellCast(ctx *EffectContext) error {
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.Target.Card == nil {
 		return nil
 	}
-	if ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) || !isFriendlySpellCast(ctx) || !hasCardTag(ctx.Target.Card, "代赎") {
+	if !isFriendlySpellCast(ctx) || !hasCardTag(ctx.Target.Card, "代赎") || !useTriggeredTurn(ctx.Source) {
 		return nil
 	}
 	hero := ctx.Engine.State.Players[ctx.PlayerID].Hero
@@ -182,7 +182,6 @@ func (Card2621104DevotionContract) OnSpellCast(ctx *EffectContext) error {
 		})
 	}
 	ctx.Engine.drawCards(ctx.PlayerID, 1)
-	ctx.Source.UsedThisTurn++
 	return nil
 }
 
@@ -283,11 +282,10 @@ func (Card2521108CouncilJudgmentHammer) OnSpellCast(ctx *EffectContext) error {
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.Target.Card == nil {
 		return nil
 	}
-	if ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) || !isEnemySpellCast(ctx) || isSorcerySkill(ctx.Target.Card) {
+	if !isEnemySpellCast(ctx) || spellUsePurpose(ctx) != skillPurposeAttack || isSorcerySkill(ctx.Target.Card) || !useTriggeredTurn(ctx.Source) {
 		return nil
 	}
 	addGeneratedCardsToPlayerDeck(ctx, ctx.OpponentID, "2001102", 3)
-	ctx.Source.UsedThisTurn++
 	return nil
 }
 
@@ -579,7 +577,7 @@ func (Card2521107PanaceaP) OnUseItem(ctx *EffectContext) error {
 			func(selected []string) {
 				target := selectedUnitFromCandidates(ctx.Engine, selected, targets)
 				if target != nil {
-					healUnit(target, 1)
+					ctx.Engine.healUnit(target, 1, ctx.Source)
 					ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 						"source": cardToInfo(ctx.Source),
 						"target": cardToInfo(target),

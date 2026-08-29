@@ -1352,6 +1352,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	spellCastData := map[string]any{
 		"cast_player": playerID,
 		"attacker":    playerID,
+		"purpose":     string(skillPurposeAttack),
 		"skill":       cardToInfo(skill),
 		"target":      target,
 		"power":       totalPower,
@@ -1468,6 +1469,7 @@ func (e *Engine) startFreeSpellCastNoBoost(playerID int, skill *CardInstance, ta
 	spellCastData := map[string]any{
 		"cast_player": playerID,
 		"attacker":    playerID,
+		"purpose":     string(skillPurposeAttack),
 		"skill":       cardToInfo(skill),
 		"target":      target,
 		"power":       totalPower,
@@ -1549,10 +1551,23 @@ func (e *Engine) promptAttackBoostSpellCastCounters(attackerID int, boostSkills 
 				"attacker":     attackerID,
 				"skill":        cardToInfo(boost),
 				"power":        e.effectiveSkillPowerForPurpose(attackerID, boost, skillPurposeAttackBoost),
+				"purpose":      string(skillPurposeAttackBoost),
 				"is_sorcery":   isSorcerySkill(boost.Card),
 				"boost_use":    true,
 				"attack_boost": true,
 				"cancel_boost": &cancelled,
+			}
+			continueAfterFieldEffects := func() {
+				counters := e.eligibleCounterTraps(defenderID, TriggerOnSpellCast, boost, data)
+				if e.promptCounterTrapQueue(counters, TriggerOnSpellCast, boost, data, func() {
+					promptNext(index, true)
+				}) {
+					return
+				}
+				promptNext(index, true)
+			}
+			if e.triggerSpellUseFieldEffectsWithContinuation(attackerID, boost, data, continueAfterFieldEffects) {
+				return
 			}
 			counters := e.eligibleCounterTraps(defenderID, TriggerOnSpellCast, boost, data)
 			if e.promptCounterTrapQueue(counters, TriggerOnSpellCast, boost, data, func() {
@@ -1566,7 +1581,7 @@ func (e *Engine) promptAttackBoostSpellCastCounters(attackerID int, boostSkills 
 		}
 	}
 	promptNext(0, false)
-	return e.State.PendingAction != nil && e.State.PendingAction.Type == "counter_trigger"
+	return e.State.PendingAction != nil
 }
 
 func (e *Engine) shouldResolveSorceryHit(skill *CardInstance) bool {
@@ -1714,11 +1729,24 @@ func (e *Engine) promptDefenseSpellCastCounters(attackerID int, defenderID int, 
 				"attacker":        defenderID,
 				"skill":           cardToInfo(source.card),
 				"power":           power,
+				"purpose":         string(source.purpose),
 				"is_sorcery":      isSorcerySkill(source.card.Card),
 				"defense_use":     true,
 				"boost_use":       source.purpose == skillPurposeDefenseBoost,
 				"cancel_boost":    &cancelled,
 				"overexert_units": overexertUnits,
+			}
+			continueAfterFieldEffects := func() {
+				counters := e.eligibleCounterTraps(attackerID, TriggerOnSpellCast, source.card, data)
+				if e.promptCounterTrapQueue(counters, TriggerOnSpellCast, source.card, data, func() {
+					promptNext(index, true)
+				}) {
+					return
+				}
+				promptNext(index, true)
+			}
+			if e.triggerSpellUseFieldEffectsWithContinuation(defenderID, source.card, data, continueAfterFieldEffects) {
+				return
 			}
 			counters := e.eligibleCounterTraps(attackerID, TriggerOnSpellCast, source.card, data)
 			if e.promptCounterTrapQueue(counters, TriggerOnSpellCast, source.card, data, func() {
@@ -1732,7 +1760,7 @@ func (e *Engine) promptDefenseSpellCastCounters(attackerID int, defenderID int, 
 		}
 	}
 	promptNext(0, false)
-	return e.State.PendingAction != nil && e.State.PendingAction.Type == "counter_trigger"
+	return e.State.PendingAction != nil
 }
 
 func mergeSkillIDSet(a map[string]bool, b map[string]bool) map[string]bool {
@@ -3938,6 +3966,7 @@ func (e *Engine) startSpellScrollCast(playerID int, scroll *CardInstance, target
 	spellCastData := map[string]any{
 		"cast_player":  playerID,
 		"attacker":     playerID,
+		"purpose":      string(skillPurposeAttack),
 		"skill":        cardToInfo(scroll),
 		"target":       target,
 		"power":        totalPower,
@@ -4326,19 +4355,22 @@ func (e *Engine) SetPendingActionWithData(playerID int, actionType string, promp
 }
 
 func (e *Engine) SetPendingActionWithError(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, callback func([]string, map[string]any) error) {
-	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, cost, canOverexert, nil, nil, callback, nil)
+	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, cost, canOverexert, nil, nil, callback, nil, nil)
 }
 
 func (e *Engine) SetPendingActionWithErrorAndContext(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, context map[string]any, callback func([]string, map[string]any) error) {
-	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, cost, canOverexert, nil, nil, callback, context)
+	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, cost, canOverexert, nil, nil, callback, context, nil)
 }
 
 func (e *Engine) setPendingAction(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, callback func([]string), callbackData func([]string, map[string]any)) {
-	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, nil, false, callback, callbackData, nil, nil)
+	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, nil, false, callback, callbackData, nil, nil, nil)
 }
 
-func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, callback func([]string), callbackData func([]string, map[string]any), callbackErr func([]string, map[string]any) error, context map[string]any) {
+func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, callback func([]string), callbackData func([]string, map[string]any), callbackErr func([]string, map[string]any) error, context map[string]any, available func() bool) {
 	if minSelect > 0 && len(candidates) == 0 {
+		return
+	}
+	if available != nil && !available() {
 		return
 	}
 	resumePhase := e.State.Phase
@@ -4358,6 +4390,7 @@ func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, pr
 		Callback:     callback,
 		CallbackData: callbackData,
 		CallbackErr:  callbackErr,
+		Available:    available,
 	}
 	if e.State.PendingAction != nil {
 		e.State.PendingActionQueue = append(e.State.PendingActionQueue, action)
@@ -4397,10 +4430,16 @@ func (e *Engine) advancePendingActionQueue() bool {
 	if e.State.PendingAction != nil || len(e.State.PendingActionQueue) == 0 {
 		return false
 	}
-	next := e.State.PendingActionQueue[0]
-	e.State.PendingActionQueue = e.State.PendingActionQueue[1:]
-	e.activatePendingAction(next, e.State.Phase)
-	return true
+	for len(e.State.PendingActionQueue) > 0 {
+		next := e.State.PendingActionQueue[0]
+		e.State.PendingActionQueue = e.State.PendingActionQueue[1:]
+		if next.Available != nil && !next.Available() {
+			continue
+		}
+		e.activatePendingAction(next, e.State.Phase)
+		return true
+	}
+	return false
 }
 
 func (e *Engine) emitPendingActionCleared(action *PendingAction) {

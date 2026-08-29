@@ -139,7 +139,7 @@ func (e *Engine) triggerScarletWingsAfterRedMoon(playerID int) {
 					"source_card":    wing,
 					"attacker":       playerID,
 				})
-				wing.CurrentLife++
+				e.gainLife(wing, 1, wing)
 				e.emit(GameEvent{
 					Type:   "scarlet_wings_red_moon_damage",
 					Player: -1,

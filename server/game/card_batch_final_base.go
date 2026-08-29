@@ -32,21 +32,44 @@ func addCardToOpponentDeck(ctx *EffectContext, cardNumber string, count int) {
 	emitBatchEffect(ctx, "add_card_to_opponent_deck")
 }
 
-func allFriendlyUnits(ctx *EffectContext) []*CardInstance {
-	return ctx.Engine.getAllFieldCards(ctx.Engine.State.Players[ctx.PlayerID])
-}
-
 type Card2411001AncientTreeHeart struct{ AlwaysActive }
 
 func (Card2411001AncientTreeHeart) ID() string   { return "2411001" }
 func (Card2411001AncientTreeHeart) Name() string { return "古树之心" }
-func (Card2411001AncientTreeHeart) OnPerTurn(ctx *EffectContext) error {
-	for _, unit := range allFriendlyUnits(ctx) {
-		if unit != nil {
-			healUnit(unit, 1)
-			ctx.Engine.addElementsGainBonus(unit, ctx.PlayerID, model.ElementEarth, 1, ctx.Source)
-		}
+func (Card2411001AncientTreeHeart) OnLoadGain(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.ExtraData == nil {
+		return nil
 	}
+	target, _ := ctx.ExtraData["load_gain_target"].(*CardInstance)
+	if target == nil || target.OwnerID != ctx.PlayerID || target.Position == nil {
+		return nil
+	}
+	ctx.Engine.SetTriggeredTurnAction(ctx.Source, ctx.PlayerID, "ancient_tree_heart_life",
+		"古树之心:是否使获得负载的友方单位获得+1血", []map[string]any{candidateInfo(target, "unit", "own")}, 0, 1,
+		func(selected []string) {
+			accepted := len(selected) > 0 && selected[0] == target.InstanceID && target.OwnerID == ctx.PlayerID && target.Position != nil
+			if accepted && useTriggeredTurn(ctx.Source) {
+				ctx.Engine.gainLife(target, 1, ctx.Source)
+			}
+		})
+	return nil
+}
+func (Card2411001AncientTreeHeart) OnLifeGain(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.ExtraData == nil {
+		return nil
+	}
+	target, _ := ctx.ExtraData["life_gain_target"].(*CardInstance)
+	if target == nil || target.OwnerID != ctx.PlayerID || target.Position == nil {
+		return nil
+	}
+	ctx.Engine.SetTriggeredTurnAction(ctx.Source, ctx.PlayerID, "ancient_tree_heart_load",
+		"古树之心:是否使获得生命的友方单位负载+1地", []map[string]any{candidateInfo(target, "unit", "own")}, 0, 1,
+		func(selected []string) {
+			accepted := len(selected) > 0 && selected[0] == target.InstanceID && target.OwnerID == ctx.PlayerID && target.Position != nil
+			if accepted && useTriggeredTurn(ctx.Source) {
+				ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementEarth, 1, ctx.Source)
+			}
+		})
 	return nil
 }
 
@@ -157,7 +180,7 @@ func (Card2511002ShiningShield) ModifySpellStats(ctx *EffectContext, stats *Spel
 func (Card2511002ShiningShield) OnDefend(ctx *EffectContext) error {
 	success, _ := ctx.ExtraData["defense_success"].(bool)
 	defender, _ := ctx.ExtraData["defender"].(int)
-	if !success || defender != ctx.PlayerID {
+	if !success || defender != ctx.PlayerID || !useTriggeredTurn(ctx.Source) {
 		return nil
 	}
 	for _, target := range ctx.Engine.getAllFieldCards(ctx.Engine.State.Players[ctx.OpponentID]) {
@@ -194,7 +217,7 @@ func (Card2601001PhantomPain) Name() string { return "幻痛" }
 func (Card2601001PhantomPain) OnDefend(ctx *EffectContext) error {
 	success, _ := ctx.ExtraData["defense_success"].(bool)
 	defender, _ := ctx.ExtraData["defender"].(int)
-	if !success || defender == ctx.PlayerID {
+	if !success || defender == ctx.PlayerID || !useTriggeredTurn(ctx.Source) {
 		return nil
 	}
 	weakenDefenseCards := func(key string) {
@@ -441,12 +464,20 @@ type Card2621013WitchcraftRing struct{ AlwaysActive }
 
 func (Card2621013WitchcraftRing) ID() string   { return "2621013" }
 func (Card2621013WitchcraftRing) Name() string { return "巫术指环" }
-func (Card2621013WitchcraftRing) OnPerTurn(ctx *EffectContext) error {
-	for _, skill := range ctx.Engine.State.Players[ctx.OpponentID].Skills {
-		if skill != nil && skill.Statuses[StatusWeaken] > 0 {
-			ctx.Engine.addStatus(skill, StatusWeaken, 1)
-		}
+func (Card2621013WitchcraftRing) OnStatusGain(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.Target.Card == nil || ctx.ExtraData == nil {
+		return nil
 	}
+	if ctx.ExtraData["status"] != StatusWeaken || ctx.Target.OwnerID == ctx.PlayerID || !canInstanceBeWeakened(ctx.Target) || !useTriggeredTurn(ctx.Source) {
+		return nil
+	}
+	ctx.Target.Statuses[StatusWeaken]++
+	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
+		"source": cardToInfo(ctx.Source),
+		"target": cardToInfo(ctx.Target),
+		"effect": "increase_weaken",
+		"amount": 1,
+	}})
 	return nil
 }
 
@@ -733,7 +764,7 @@ func (Card3621015Siphon) OnSpellReaction(ctx *EffectContext, spell *SpellCast) e
 	}
 	damage := ctx.Engine.effectiveSpellDamage(spell.AttackerID, spell.Skill, baseDamage, spell.BoostSkills)
 	for _, unit := range affected {
-		healUnit(unit, damage)
+		ctx.Engine.healUnit(unit, damage, ctx.Source)
 	}
 	ctx.Engine.cancelPendingSpell(ctx.PlayerID, ctx.Source, "siphon")
 	return nil

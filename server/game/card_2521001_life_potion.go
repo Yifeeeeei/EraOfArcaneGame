@@ -23,10 +23,7 @@ func (Card2521001LifePotion) OnUseItem(ctx *EffectContext) error {
 			if card == nil || zone != "unit" {
 				return
 			}
-			card.CurrentLife += 2
-			if card.CurrentLife > card.Card.Life {
-				card.CurrentLife = card.Card.Life
-			}
+			ctx.Engine.healUnit(card, 2, ctx.Source)
 			ctx.Engine.emit(GameEvent{
 				Type:   "effect_trigger",
 				Player: -1,

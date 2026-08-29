@@ -17,7 +17,7 @@ func (Card3521001Healing) OnSpellHit(ctx *EffectContext) error {
 	if target == nil || target.OwnerID != ctx.PlayerID {
 		return nil
 	}
-	healUnit(target, 2)
+	ctx.Engine.healUnit(target, 2, ctx.Source)
 	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 		"source": cardToInfo(ctx.Source),
 		"target": cardToInfo(target),

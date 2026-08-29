@@ -73,6 +73,8 @@ func (AlwaysActive) HasActiveDraw(*CardInstance) bool                      { ret
 func (AlwaysActive) HasActiveDiscard(*CardInstance) bool                   { return true }
 func (AlwaysActive) HasActiveLoadGain(*CardInstance) bool                  { return true }
 func (AlwaysActive) HasActiveLoadLoss(*CardInstance) bool                  { return true }
+func (AlwaysActive) HasActiveLifeGain(*CardInstance) bool                  { return true }
+func (AlwaysActive) HasActiveStatusGain(*CardInstance) bool                { return true }
 func (AlwaysActive) HasActiveMasteryAchieved(*CardInstance) bool           { return true }
 func (AlwaysActive) HasActiveCardEnter(*CardInstance) bool                 { return true }
 func (AlwaysActive) HasActivePrayer(*CardInstance) bool                    { return true }
@@ -365,6 +367,16 @@ type OnLoadGainBehavior interface {
 type OnLoadLossBehavior interface {
 	HasActiveLoadLoss(*CardInstance) bool
 	OnLoadLoss(*EffectContext) error
+}
+
+type OnLifeGainBehavior interface {
+	HasActiveLifeGain(*CardInstance) bool
+	OnLifeGain(*EffectContext) error
+}
+
+type OnStatusGainBehavior interface {
+	HasActiveStatusGain(*CardInstance) bool
+	OnStatusGain(*EffectContext) error
 }
 
 type OnMasteryAchievedBehavior interface {
@@ -698,6 +710,22 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 				return nil
 			}
 			return h.OnLoadLoss(ctx)
+		})
+	}
+	if h, ok := behavior.(OnLifeGainBehavior); ok {
+		r.Register(id, TriggerOnLifeGain, func(ctx *EffectContext) error {
+			if !h.HasActiveLifeGain(ctx.Source) {
+				return nil
+			}
+			return h.OnLifeGain(ctx)
+		})
+	}
+	if h, ok := behavior.(OnStatusGainBehavior); ok {
+		r.Register(id, TriggerOnStatusGain, func(ctx *EffectContext) error {
+			if !h.HasActiveStatusGain(ctx.Source) {
+				return nil
+			}
+			return h.OnStatusGain(ctx)
 		})
 	}
 	if h, ok := behavior.(OnMasteryAchievedBehavior); ok {
