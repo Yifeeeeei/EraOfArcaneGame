@@ -225,7 +225,11 @@ func ModifySelfAttack(delta int) EffectHandler {
 // ModifySelfLife 修改自身生命值
 func ModifySelfLife(delta int) EffectHandler {
 	return func(ctx *EffectContext) error {
-		ctx.Source.CurrentLife += delta
+		if delta > 0 {
+			ctx.Engine.gainLife(ctx.Source, delta, ctx.Source)
+		} else {
+			ctx.Source.CurrentLife += delta
+		}
 		return nil
 	}
 }
@@ -250,7 +254,11 @@ func ModifyTargetLife(delta int) EffectHandler {
 		if ctx.Target == nil {
 			return nil
 		}
-		ctx.Target.CurrentLife += delta
+		if delta > 0 {
+			ctx.Engine.gainLife(ctx.Target, delta, ctx.Source)
+		} else {
+			ctx.Target.CurrentLife += delta
+		}
 		return nil
 	}
 }
@@ -261,10 +269,7 @@ func HealTarget(n int) EffectHandler {
 		if ctx.Target == nil {
 			return nil
 		}
-		ctx.Target.CurrentLife += n
-		if ctx.Target.CurrentLife > ctx.Target.Card.Life {
-			ctx.Target.CurrentLife = ctx.Target.Card.Life
-		}
+		ctx.Engine.healUnit(ctx.Target, n, ctx.Source)
 		return nil
 	}
 }
@@ -272,10 +277,7 @@ func HealTarget(n int) EffectHandler {
 // HealSelf 治疗自身N点生命
 func HealSelf(n int) EffectHandler {
 	return func(ctx *EffectContext) error {
-		ctx.Source.CurrentLife += n
-		if ctx.Source.CurrentLife > ctx.Source.Card.Life {
-			ctx.Source.CurrentLife = ctx.Source.Card.Life
-		}
+		ctx.Engine.healUnit(ctx.Source, n, ctx.Source)
 		return nil
 	}
 }
@@ -285,10 +287,7 @@ func HealHero(n int) EffectHandler {
 	return func(ctx *EffectContext) error {
 		ps := ctx.Engine.State.Players[ctx.PlayerID]
 		if ps.Hero != nil {
-			ps.Hero.CurrentLife += n
-			if ps.Hero.CurrentLife > ps.Hero.Card.Life {
-				ps.Hero.CurrentLife = ps.Hero.Card.Life
-			}
+			ctx.Engine.healUnit(ps.Hero, n, ctx.Source)
 		}
 		return nil
 	}

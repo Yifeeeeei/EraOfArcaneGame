@@ -35,7 +35,7 @@ func (Card1621004WitchPriest) OnUltimate(ctx *EffectContext) error {
 					}
 					target := ctx.Engine.findFieldCardByInstance(ctx.Engine.State.Players[ctx.PlayerID], selected[0])
 					if target != nil {
-						target.CurrentLife += life
+						ctx.Engine.gainLife(target, life, ctx.Source)
 					}
 				})
 		})

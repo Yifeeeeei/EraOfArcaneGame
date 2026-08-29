@@ -816,9 +816,11 @@ func (e *Engine) resetCards(ps *PlayerState) {
 			if ps.Units[col][row] != nil {
 				e.resetCard(ps.Units[col][row])
 				ps.Units[col][row].UsedThisTurn = 0
+				ps.Units[col][row].PendingTriggeredUses = 0
 				for _, skill := range ps.Units[col][row].BoundSkills {
 					e.resetCard(skill)
 					skill.UsedThisTurn = 0
+					skill.PendingTriggeredUses = 0
 				}
 			}
 		}
@@ -828,6 +830,7 @@ func (e *Engine) resetCards(ps *PlayerState) {
 		if ps.Skills[i] != nil {
 			e.resetCard(ps.Skills[i])
 			ps.Skills[i].UsedThisTurn = 0
+			ps.Skills[i].PendingTriggeredUses = 0
 		}
 	}
 	// Reset equipment
@@ -835,9 +838,11 @@ func (e *Engine) resetCards(ps *PlayerState) {
 		if ps.Equipment[i] != nil {
 			e.resetCard(ps.Equipment[i])
 			ps.Equipment[i].UsedThisTurn = 0
+			ps.Equipment[i].PendingTriggeredUses = 0
 			for _, skill := range ps.Equipment[i].BoundSkills {
 				e.resetCard(skill)
 				skill.UsedThisTurn = 0
+				skill.PendingTriggeredUses = 0
 			}
 		}
 	}
@@ -3666,6 +3671,7 @@ func returnSkillToPool(skill *CardInstance) {
 	skill.SlotIndex = -1
 	skill.EnterTurn = 0
 	skill.UsedThisTurn = 0
+	skill.PendingTriggeredUses = 0
 	skill.UltimateUsed = false
 	skill.Statuses = make(map[string]int)
 	skill.ElementsGainBonus = make(map[string]int)

@@ -44,9 +44,10 @@ type CardInstance struct {
 	UnderCards          []*CardInstance    `json:"under_cards,omitempty"`  // public cards placed under this card
 	AttachedBehaviors   []AttachedBehavior `json:"-"`                      // runtime-granted behavior objects
 
-	// Skill-specific
-	UsedThisTurn int  `json:"used_this_turn"` // for 回合技
-	UltimateUsed bool `json:"ultimate_used"`  // for 绝技
+	// Ability usage
+	UsedThisTurn         int  `json:"used_this_turn"` // for 回合技
+	PendingTriggeredUses int  `json:"-"`              // reserved optional 诱发回合技 windows
+	UltimateUsed         bool `json:"ultimate_used"`  // for 绝技
 
 	// Equipment uses
 	UsesRemaining int `json:"uses_remaining"` // for 法宝

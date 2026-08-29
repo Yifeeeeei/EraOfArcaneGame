@@ -743,13 +743,17 @@ func (Card4111102GeneralKelan) OnDefend(ctx *EffectContext) error {
 		return nil
 	}
 	success, _ := ctx.ExtraData["defense_success"].(bool)
-	if !success || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) || !deckHasMatch(ctx.Engine.State.Players[ctx.PlayerID], isFireCard) {
+	if !success || !triggeredTurnAvailable(ctx.Source) || !deckHasMatch(ctx.Engine.State.Players[ctx.PlayerID], isFireCard) {
+		return nil
+	}
+	if !reserveTriggeredTurn(ctx.Source) {
 		return nil
 	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "general_kelan_flip_fire_card",
 		"大将军 克兰:是否翻取1张火焰卡牌并弃1张手牌", []map[string]any{candidateInfo(ctx.Source, "hero", "own")}, 0, 1,
 		func(selected []string) {
-			if len(selected) == 0 || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) {
+			if len(selected) == 0 {
+				resolveTriggeredTurn(ctx.Source, false)
 				return
 			}
 			drawn := ctx.Engine.flipDeckMatchesToHandThen(ctx.PlayerID, 1, 0, isFireCard, func(drawn []*CardInstance) {
@@ -767,9 +771,10 @@ func (Card4111102GeneralKelan) OnDefend(ctx *EffectContext) error {
 					})
 			})
 			if len(drawn) == 0 {
+				resolveTriggeredTurn(ctx.Source, false)
 				return
 			}
-			ctx.Source.UsedThisTurn++
+			resolveTriggeredTurn(ctx.Source, true)
 		})
 	return nil
 }
@@ -1878,7 +1883,7 @@ func (Card3601101BloodFeast) OnSpellHit(ctx *EffectContext) error {
 			case "heal_hero":
 				hero := ctx.Engine.playerHeroCard(ctx.PlayerID)
 				if hero != nil && hero.CurrentLife < maxLife(hero) {
-					hero.CurrentLife++
+					ctx.Engine.healUnit(hero, 1, ctx.Source)
 				}
 			}
 		})
@@ -2082,7 +2087,7 @@ func (Card3521109Regroup) OnSpellHit(ctx *EffectContext) error {
 			ctx.Engine.ApplyKeywordOnSkillUse(source)
 			ctx.Engine.applySkillUseCooldownModifiers(ctx.Engine.State.Players[ctx.PlayerID], source)
 			target.Statuses["max_life_bonus"]++
-			target.CurrentLife++
+			ctx.Engine.gainLife(target, 1, source)
 			ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementLight, 1, source)
 			ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 				"source": cardToInfo(source),
@@ -2367,20 +2372,25 @@ func (Card1121115LegionStaffOfficer) OnSpellCast(ctx *EffectContext) error {
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.Target.Card == nil {
 		return nil
 	}
-	if ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) || !isFriendlySpellCast(ctx) || !hasCardTag(ctx.Target.Card, "创造") {
+	if !triggeredTurnAvailable(ctx.Source) || !isFriendlySpellCast(ctx) || !hasCardTag(ctx.Target.Card, "创造") {
 		return nil
 	}
 	if !deckHasMatch(ctx.Engine.State.Players[ctx.PlayerID], isFireConsumableItem) {
 		return nil
 	}
+	if !reserveTriggeredTurn(ctx.Source) {
+		return nil
+	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "legion_staff_officer_flip_fire_consumable",
 		"军团参谋:是否翻取1个火焰消耗品道具", []map[string]any{candidateInfo(ctx.Source, "unit", "own")}, 0, 1,
 		func(selected []string) {
-			if len(selected) == 0 || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) {
+			if len(selected) == 0 {
+				resolveTriggeredTurn(ctx.Source, false)
 				return
 			}
 			drawn := ctx.Engine.flipDeckMatchesToHand(ctx.PlayerID, 1, 0, isFireConsumableItem)
 			if len(drawn) == 0 {
+				resolveTriggeredTurn(ctx.Source, false)
 				return
 			}
 			ps := ctx.Engine.State.Players[ctx.PlayerID]
@@ -2388,7 +2398,7 @@ func (Card1121115LegionStaffOfficer) OnSpellCast(ctx *EffectContext) error {
 				ps.DiscardAtTurnEnd = make(map[string]bool)
 			}
 			ps.DiscardAtTurnEnd[drawn[0].InstanceID] = true
-			ctx.Source.UsedThisTurn++
+			resolveTriggeredTurn(ctx.Source, true)
 		})
 	return nil
 }
@@ -3732,8 +3742,7 @@ func (Card1321111ThunderlightWarrior) OnEnter(ctx *EffectContext) error {
 				reward, _, _ := strings.Cut(id, "#")
 				switch reward {
 				case "life":
-					ctx.Source.CurrentLife += 2
-					ctx.Engine.triggerHolyChildAfterLifeGain(ctx.PlayerID, ctx.Source)
+					ctx.Engine.gainLife(ctx.Source, 2, ctx.Source)
 				case "attack":
 					ctx.Source.AttackBonus++
 				case "air":
@@ -3828,11 +3837,10 @@ type Card2321107PigeonArrestOrder struct{ AlwaysActive }
 func (Card2321107PigeonArrestOrder) ID() string   { return "2321107" }
 func (Card2321107PigeonArrestOrder) Name() string { return "飞鸽拘捕令" }
 func (Card2321107PigeonArrestOrder) OnSpellHit(ctx *EffectContext) error {
-	if !isFriendlySpellHit(ctx) || ctx.Source == nil || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) {
+	if !isFriendlySpellHit(ctx) || !useTriggeredTurn(ctx.Source) {
 		return nil
 	}
 	addGeneratedCardToPlayerHand(ctx, ctx.OpponentID, "2001102")
-	ctx.Source.UsedThisTurn++
 	return nil
 }
 
@@ -4039,7 +4047,7 @@ func (Card3621103BloodSoulSlash) OnSpellCast(ctx *EffectContext) error {
 func (Card3621103BloodSoulSlash) OnSpellHit(ctx *EffectContext) error {
 	hero := ctx.Engine.State.Players[ctx.PlayerID].Hero
 	if hero != nil {
-		healUnit(hero, 2)
+		ctx.Engine.healUnit(hero, 2, ctx.Source)
 	}
 	return nil
 }
@@ -4222,7 +4230,7 @@ func (Card1521115LoneStarIronKnight) OnEnter(ctx *EffectContext) error {
 	if ctx.Source == nil || ctx.Source.Position == nil || ps == nil || ctx.Source.Position.Row != ps.GetFrontRow() || len(adjacentFriendlyCompanions(ctx)) > 0 {
 		return nil
 	}
-	ctx.Source.CurrentLife++
+	ctx.Engine.gainLife(ctx.Source, 1, ctx.Source)
 	ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementLight, 1, ctx.Source)
 	return nil
 }
@@ -4264,7 +4272,7 @@ type Card1121113LavaFortHellhound struct{ AlwaysActive }
 func (Card1121113LavaFortHellhound) ID() string   { return "1121113" }
 func (Card1121113LavaFortHellhound) Name() string { return "熔岩堡地狱犬" }
 func (Card1121113LavaFortHellhound) OnConsume(ctx *EffectContext) error {
-	if ctx == nil || ctx.Source == nil || ctx.Engine == nil || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) || ctx.ExtraData == nil {
+	if ctx == nil || ctx.Source == nil || ctx.Engine == nil || !triggeredTurnAvailable(ctx.Source) || ctx.ExtraData == nil {
 		return nil
 	}
 	if ctx.Target != nil && ctx.Target != ctx.Source {
@@ -4277,7 +4285,9 @@ func (Card1121113LavaFortHellhound) OnConsume(ctx *EffectContext) error {
 	if len(candidates) < 2 {
 		return nil
 	}
-	ctx.Source.UsedThisTurn++
+	if !useTriggeredTurn(ctx.Source) {
+		return nil
+	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "lava_fort_hellhound_damage",
 		"熔岩堡地狱犬:选择法力范围内2个不同单位各造成1点伤害", candidates, 2, 2,
 		func(selected []string) {
@@ -4305,14 +4315,16 @@ type Card1421108CelticDeer struct{ AlwaysActive }
 func (Card1421108CelticDeer) ID() string   { return "1421108" }
 func (Card1421108CelticDeer) Name() string { return "凯尔特灵鹿" }
 func (Card1421108CelticDeer) OnSpellCast(ctx *EffectContext) error {
-	if ctx == nil || ctx.Source == nil || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) || ctx.Target == nil || ctx.Target.Card == nil {
+	if ctx == nil || ctx.Source == nil || !triggeredTurnAvailable(ctx.Source) || ctx.Target == nil || ctx.Target.Card == nil {
 		return nil
 	}
 	if !ctx.Target.Card.IsSkill() || !hasCardTag(ctx.Target.Card, "灵媒") {
 		return nil
 	}
+	if !useTriggeredTurn(ctx.Source) {
+		return nil
+	}
 	resetCard(ctx.Source)
-	ctx.Source.UsedThisTurn++
 	return nil
 }
 
@@ -5510,7 +5522,7 @@ func (Card1521103LoneStarGuardianSpirit) OnEnter(ctx *EffectContext) error {
 		func(selected []string) {
 			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, firstSelected(selected))
 			if target != nil && zone == "unit" && target.Card != nil && target.Card.IsCompanion() {
-				target.CurrentLife++
+				ctx.Engine.gainLife(target, 1, ctx.Source)
 			}
 		})
 	return nil
@@ -5574,6 +5586,7 @@ func (Card1521108ContradictoryKnight) OnDeath(ctx *EffectContext) error {
 			ctx.Source.PowerBonus = 0
 			ctx.Source.AttackBonus = 0
 			ctx.Source.UsedThisTurn = 0
+			ctx.Source.PendingTriggeredUses = 0
 			ctx.Source.UltimateUsed = false
 			ctx.Engine.exileTransferredBoundSkills(ctx.PlayerID, ctx.Source)
 			ctx.Source.BoundSkills = nil
@@ -5701,7 +5714,7 @@ type Card1621106SoulHunter struct{ AlwaysActive }
 func (Card1621106SoulHunter) ID() string   { return "1621106" }
 func (Card1621106SoulHunter) Name() string { return "猎魂者" }
 func (Card1621106SoulHunter) OnSpellHit(ctx *EffectContext) error {
-	if !isFriendlySpellHit(ctx) || ctx.Source == nil || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) {
+	if !isFriendlySpellHit(ctx) || !triggeredTurnAvailable(ctx.Source) {
 		return nil
 	}
 	skill := ctx.Target
@@ -5713,8 +5726,9 @@ func (Card1621106SoulHunter) OnSpellHit(ctx *EffectContext) error {
 	if skill == nil || skill.Card == nil || !isSpellLikeCard(skill.Card) {
 		return nil
 	}
-	addSoulMarkerToSpell(skill)
-	ctx.Source.UsedThisTurn++
+	if useTriggeredTurn(ctx.Source) {
+		addSoulMarkerToSpell(skill)
+	}
 	return nil
 }
 
@@ -5751,11 +5765,10 @@ type Card1621101PainSoul struct{ AlwaysActive }
 func (Card1621101PainSoul) ID() string   { return "1621101" }
 func (Card1621101PainSoul) Name() string { return "苦痛之魂" }
 func (Card1621101PainSoul) OnDamaged(ctx *EffectContext) error {
-	if ctx.Source == nil || ctx.Target != nil || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) {
+	if ctx.Target != nil || !useTriggeredTurn(ctx.Source) {
 		return nil
 	}
 	ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementShadow, 1, ctx.Source)
-	ctx.Source.UsedThisTurn++
 	return nil
 }
 
@@ -5764,11 +5777,10 @@ type Card1621102PainAvenger struct{ AlwaysActive }
 func (Card1621102PainAvenger) ID() string   { return "1621102" }
 func (Card1621102PainAvenger) Name() string { return "苦痛复仇者" }
 func (Card1621102PainAvenger) OnDamaged(ctx *EffectContext) error {
-	if ctx.Source == nil || ctx.Target != nil || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) {
+	if ctx.Target != nil || !useTriggeredTurn(ctx.Source) {
 		return nil
 	}
 	ctx.Source.CurrentAttack++
-	ctx.Source.UsedThisTurn++
 	return nil
 }
 
@@ -5777,7 +5789,13 @@ type Card1621104RoseGardenGardener struct{ AlwaysActive }
 func (Card1621104RoseGardenGardener) ID() string   { return "1621104" }
 func (Card1621104RoseGardenGardener) Name() string { return "蔷薇花园园丁" }
 func (Card1621104RoseGardenGardener) OnFriendlyDeath(ctx *EffectContext) error {
-	if ctx.Source == nil || ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) {
+	return triggerRoseGardenGardener(ctx)
+}
+func (Card1621104RoseGardenGardener) OnEnemyDeath(ctx *EffectContext) error {
+	return triggerRoseGardenGardener(ctx)
+}
+func triggerRoseGardenGardener(ctx *EffectContext) error {
+	if ctx == nil || ctx.Source == nil || !triggeredTurnAvailable(ctx.Source) {
 		return nil
 	}
 	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
@@ -5786,13 +5804,15 @@ func (Card1621104RoseGardenGardener) OnFriendlyDeath(ctx *EffectContext) error {
 	if len(candidates) == 0 {
 		return nil
 	}
+	if !useTriggeredTurn(ctx.Source) {
+		return nil
+	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "rose_garden_gardener_heal",
 		"蔷薇花园园丁:选择1个友方单位回复2血", candidates, 1, 1,
 		func(selected []string) {
 			target := ctx.Engine.findUnitByInstanceID(firstSelected(selected))
-			if target != nil && target.OwnerID == ctx.PlayerID && target.CurrentLife < maxLife(target) && ctx.Source.UsedThisTurn < perTurnLimit(ctx.Source) {
-				healUnit(target, 2)
-				ctx.Source.UsedThisTurn++
+			if target != nil && target.OwnerID == ctx.PlayerID && target.CurrentLife < maxLife(target) {
+				ctx.Engine.healUnit(target, 2, ctx.Source)
 			}
 		})
 	return nil
@@ -5816,10 +5836,10 @@ func (Card3521108Grace) OnSpellCast(ctx *EffectContext) error {
 			if target == nil || target.OwnerID != ctx.PlayerID || target.Card == nil || !target.Card.IsCompanion() || target.Card.IsHero() || target.CurrentLife >= maxLife(target) {
 				return
 			}
-			healUnit(target, 2)
+			ctx.Engine.healUnit(target, 2, ctx.Source)
 			if target.CurrentLife >= maxLife(target) {
 				target.Statuses["max_life_bonus"]++
-				target.CurrentLife++
+				ctx.Engine.gainLife(target, 1, ctx.Source)
 				ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementLight, 1, ctx.Source)
 			}
 		})
@@ -6140,7 +6160,7 @@ func (Card2521101BlessedLoneStar) OnUseItem(ctx *EffectContext) error {
 			if target == nil || zone != "unit" || target.Card == nil || !target.Card.IsCompanion() {
 				return
 			}
-			target.CurrentLife++
+			ctx.Engine.gainLife(target, 1, ctx.Source)
 			ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementLight, 1, ctx.Source)
 			ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 				"source":  cardToInfo(ctx.Source),
@@ -6160,7 +6180,7 @@ func (Card2521106MoonlightScroll) ID() string   { return "2521106" }
 func (Card2521106MoonlightScroll) Name() string { return "沐光卷轴" }
 func (Card2521106MoonlightScroll) OnUseItem(ctx *EffectContext) error {
 	for _, unit := range royalFriendlyUnits(ctx) {
-		healUnit(unit, 2)
+		ctx.Engine.healUnit(unit, 2, ctx.Source)
 	}
 	return nil
 }
@@ -7688,6 +7708,7 @@ func resetCardForResummon(card *CardInstance) {
 	card.PowerBonus = 0
 	card.AttackBonus = 0
 	card.UsedThisTurn = 0
+	card.PendingTriggeredUses = 0
 	card.UltimateUsed = false
 	card.BoundSkills = nil
 	card.UnderCards = nil
@@ -7747,7 +7768,7 @@ func (Card1611103RobertBlackPine) OnPerTurn(ctx *EffectContext) error {
 			ctx.Source.Statuses[robertBlackPineMarkerStatus] -= 3
 			switch firstSelected(selected) {
 			case "life":
-				ctx.Source.CurrentLife++
+				ctx.Engine.gainLife(ctx.Source, 1, ctx.Source)
 			case "load":
 				ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementShadow, 1, ctx.Source)
 			case "attack":
@@ -8330,6 +8351,14 @@ func (Card1521102HolyChild) OnLoadGain(ctx *EffectContext) error {
 	return nil
 }
 
+func (Card1521102HolyChild) OnLifeGain(ctx *EffectContext) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target != ctx.Source {
+		return nil
+	}
+	ctx.Engine.triggerHolyChildBonus(ctx.PlayerID, ctx.Source)
+	return nil
+}
+
 func (e *Engine) triggerHolyChildBonus(playerID int, child *CardInstance) {
 	if e == nil || child == nil || child.Card == nil || child.Card.Number != "1521102" || child.UltimateUsed || child.Statuses[holyChildResolvingStatus] > 0 {
 		return
@@ -8349,7 +8378,7 @@ func (e *Engine) triggerHolyChildBonus(playerID int, child *CardInstance) {
 			defer delete(child.Statuses, holyChildResolvingStatus)
 			switch firstSelected(selected) {
 			case "gain_life":
-				child.CurrentLife++
+				e.gainLife(child, 1, child)
 				e.emit(GameEvent{
 					Type:   "life_gain",
 					Player: -1,
@@ -8365,14 +8394,8 @@ func (e *Engine) triggerHolyChildBonus(playerID int, child *CardInstance) {
 		})
 }
 
-func (e *Engine) triggerHolyChildAfterLifeGain(playerID int, target *CardInstance) {
-	if target == nil || target.OwnerID != playerID || target.Card == nil || target.Card.Number != "1521102" {
-		return
-	}
-	e.triggerHolyChildBonus(playerID, target)
-}
-
 var _ OnLoadGainBehavior = Card1521102HolyChild{}
+var _ OnLifeGainBehavior = Card1521102HolyChild{}
 
 type Card2321101ThunderChain struct{ AlwaysActive }
 
@@ -8559,8 +8582,7 @@ func (Card3621106RedMoonDevour) OnSpellHit(ctx *EffectContext) error {
 			if target == nil || zone != "unit" || target.Card == nil || target.Card.Category != model.ElementShadow {
 				return
 			}
-			target.CurrentLife += totalRemainingLife
-			ctx.Engine.triggerHolyChildAfterLifeGain(ctx.PlayerID, target)
+			ctx.Engine.gainLife(target, totalRemainingLife, ctx.Source)
 			ctx.Engine.emit(GameEvent{
 				Type:   "effect_trigger",
 				Player: ctx.PlayerID,
@@ -8586,7 +8608,7 @@ func (Card3621108Moonshadow) OnDefend(ctx *EffectContext) error {
 		return nil
 	}
 	attackSkill, _ := ctx.ExtraData["attack_skill"].(*CardInstance)
-	if attackSkill != ctx.Source {
+	if attackSkill != ctx.Source || !triggeredTurnAvailable(ctx.Source) {
 		return nil
 	}
 	defenseSkills, _ := ctx.ExtraData["defense_skills"].([]*CardInstance)
@@ -8595,10 +8617,17 @@ func (Card3621108Moonshadow) OnDefend(ctx *EffectContext) error {
 		if skill != nil && skill.OwnerID != ctx.PlayerID && skill.Statuses[StatusWeaken] > 0 && ctx.Engine.hasEffectiveStatus(skill, StatusWeaken) {
 			source := ctx.Source
 			reason := skill
+			if !reserveTriggeredTurn(source) {
+				return nil
+			}
 			ctx.Engine.SetPendingAction(ctx.PlayerID, "moonshadow_reset",
 				"月影:是否重置此卡", []map[string]any{candidateInfo(source, "skill", "own")}, 0, 1,
 				func(selected []string) {
 					if len(selected) == 0 || source == nil || source.Card == nil {
+						resolveTriggeredTurn(source, false)
+						return
+					}
+					if !resolveTriggeredTurn(source, true) {
 						return
 					}
 					ctx.Engine.resetCard(source)
@@ -8679,8 +8708,7 @@ func (Card4511102RedeemerEveAutumnMaple) OnUltimate(ctx *EffectContext) error {
 			}
 			ps.Elements[model.ElementLight] -= x
 			target.Statuses["max_life_bonus"] += x
-			target.CurrentLife += x
-			ctx.Engine.triggerHolyChildAfterLifeGain(ctx.PlayerID, target)
+			ctx.Engine.gainLife(target, x, ctx.Source)
 			ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementLight, x, ctx.Source)
 			ctx.Source.UltimateUsed = true
 			ctx.Engine.emit(GameEvent{

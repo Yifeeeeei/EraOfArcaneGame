@@ -1716,19 +1716,22 @@ func TestHighRiskRemainingCompanionActivesAndAuras(t *testing.T) {
 		}
 	})
 
-	t.Run("1321015 风语者 gains one air with current active implementation", func(t *testing.T) {
+	t.Run("1321015 风语者 gains one air after discarding once per turn", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		speaker := placeUnit(baseCard(t, "1321015"), 0, 1, 1, engine)
-
-		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
-			"instance_id":  speaker.InstanceID,
-			"ability_type": "per_turn",
-		}}); err != nil {
-			t.Fatalf("use wind speaker: %v", err)
+		p0.Hand = []*CardInstance{
+			NewCardInstance(baseCard(t, "1021001"), 0, 1),
+			NewCardInstance(baseCard(t, "1021002"), 0, 1),
 		}
+
+		engine.discardHandCardAt(0, 0)
+		engine.discardHandCardAt(0, 0)
 		if p0.Elements[model.ElementAir] != 1 {
 			t.Fatalf("wind speaker should gain one air, elements=%v", p0.Elements)
+		}
+		if info := engine.cardToInfoForPlayer(p0, speaker); info["has_per_turn"] == true {
+			t.Fatalf("wind speaker's triggered ability must not be exposed as an active button, info=%v", info)
 		}
 	})
 
@@ -2505,10 +2508,9 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		p0 := engine.State.Players[0]
 		compass := NewCardInstance(baseCard(t, "2321001"), 0, 1)
 		p0.Equipment[0] = compass
-		p0.Deck = []*CardInstance{
-			NewCardInstance(baseCard(t, "1021001"), 0, 1),
-			NewCardInstance(baseCard(t, "1021001"), 0, 1),
-		}
+		first := NewCardInstance(baseCard(t, "1321001"), 0, 1)
+		second := NewCardInstance(baseCard(t, "1321001"), 0, 1)
+		p0.Deck = []*CardInstance{first, second}
 		engine.drawCards(0, 2)
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "windbreath_compass" {
 			t.Fatalf("windbreath compass should ask on draw, pending=%+v", engine.State.PendingAction)
@@ -2522,7 +2524,7 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 			t.Fatalf("windbreath compass should queue one prompt per drawn card, pending=%+v", engine.State.PendingAction)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
-			"selected": []any{compass.InstanceID},
+			"selected": []any{second.InstanceID},
 		}}); err != nil {
 			t.Fatalf("resolve windbreath compass: %v", err)
 		}
@@ -2595,12 +2597,11 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1), NewCardInstance(baseCard(t, "1021002"), 0, 1)}
 		highCost := NewCardInstance(baseCard(t, "1021013"), 0, 1)
 
-		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
-			"instance_id":  treeHeart.InstanceID,
-			"ability_type": "per_turn",
-		}}); err != nil {
-			t.Fatalf("use ancient tree heart: %v", err)
+		engine.addElementsGainBonus(unit, 0, model.ElementEarth, 1, treeHeart)
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "ancient_tree_heart_heal" {
+			t.Fatalf("ancient tree heart should react to friendly load gain, pending=%+v", engine.State.PendingAction)
 		}
+		resolvePendingSelection(t, engine, 0, unit.InstanceID)
 		engine.advanceMastery(mastered, 0, 1)
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "knowledge_tree_care" {
 			t.Fatalf("knowledge tree care should ask to trigger on mastery, pending=%+v", engine.State.PendingAction)
@@ -2624,6 +2625,9 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 		if cost[model.ElementEarth] != max(highCost.Card.ElementsCost[model.ElementEarth]-2, 0) {
 			t.Fatalf("geography primer should reduce high-cost card earth cost by 2, cost=%v base=%v", cost, highCost.Card.ElementsCost)
+		}
+		if info := engine.cardToInfoForPlayer(p0, treeHeart); info["has_per_turn"] == true {
+			t.Fatalf("ancient tree heart's triggered ability must not be exposed as an active button, info=%v", info)
 		}
 	})
 
@@ -3011,25 +3015,36 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		if engine.State.PendingAction != nil {
 			t.Fatalf("drawing windbreath compass itself should not open prompt, pending=%+v", engine.State.PendingAction)
 		}
-		if compass.Statuses[windbreathCompassPendingStatus] != 0 {
-			t.Fatalf("drawing windbreath compass itself should not add pending status, statuses=%v", compass.Statuses)
+		if compass.PendingTriggeredUses != 0 {
+			t.Fatalf("drawing windbreath compass itself should not reserve a trigger, pending=%d", compass.PendingTriggeredUses)
 		}
 	})
 
-	t.Run("2321001 风息罗盘 still triggers from field when owner draws", func(t *testing.T) {
+	t.Run("2321001 风息罗盘 triggers from field only when owner draws an air card", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		compass := NewCardInstance(baseCard(t, "2321001"), 0, 1)
 		p0.Equipment[0] = compass
-		p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1)}
+		nonAir := NewCardInstance(baseCard(t, "1021001"), 0, 1)
+		air := NewCardInstance(baseCard(t, "1321001"), 0, 1)
+		p0.Deck = []*CardInstance{nonAir, air}
+
+		engine.drawCards(0, 1)
+		if engine.State.PendingAction != nil || compass.PendingTriggeredUses != 0 {
+			t.Fatalf("windbreath compass should ignore non-air draws, pending=%+v reserved=%d", engine.State.PendingAction, compass.PendingTriggeredUses)
+		}
 
 		engine.drawCards(0, 1)
 
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "windbreath_compass" {
-			t.Fatalf("field windbreath compass should prompt on owner draw, pending=%+v", engine.State.PendingAction)
+			t.Fatalf("field windbreath compass should prompt on an air draw, pending=%+v", engine.State.PendingAction)
 		}
-		if compass.Statuses[windbreathCompassPendingStatus] != 1 {
-			t.Fatalf("field windbreath compass should add one pending status, statuses=%v", compass.Statuses)
+		if compass.PendingTriggeredUses != 1 || !candidateContains(engine.State.PendingAction.Candidates, air.InstanceID) {
+			t.Fatalf("field windbreath compass should reserve one trigger for the drawn air card, pending=%d candidates=%+v", compass.PendingTriggeredUses, engine.State.PendingAction.Candidates)
+		}
+		resolvePendingSelection(t, engine, 0, air.InstanceID)
+		if compass.UsedThisTurn != 1 || compass.PendingTriggeredUses != 0 || !p0.RevealedHand[air.InstanceID] || effectiveElementsGain(compass)[model.ElementAir] != compass.Card.ElementsGain[model.ElementAir]+1 {
+			t.Fatalf("accepted compass trigger should reveal air card and add temporary load, used=%d pending=%d revealed=%v load=%v", compass.UsedThisTurn, compass.PendingTriggeredUses, p0.RevealedHand, effectiveElementsGain(compass))
 		}
 	})
 
@@ -3222,19 +3237,18 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		ring := NewCardInstance(baseCard(t, "2621013"), 0, 1)
 		p0.Equipment[0] = ring
 		enemySkill := readySkill(baseCard(t, "3121001"), 1)
-		enemySkill.Statuses[StatusWeaken] = 1
 		engine.State.Players[1].Skills[0] = enemySkill
 
 		engine.triggerEffects(TriggerOnSpellHit, veil, nil, map[string]any{"cast_player": 1})
-		if err := engine.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{
-			"instance_id":  ring.InstanceID,
-			"ability_type": "per_turn",
-		}}); err != nil {
-			t.Fatalf("use witchcraft ring: %v", err)
+		if !engine.addStatus(enemySkill, StatusWeaken, 1) {
+			t.Fatalf("apply initial weaken to enemy spell")
 		}
 
 		if hero.Statuses["引魔"] != 1 || enemy.CurrentLife != 3 || enemy.Statuses[StatusStun] != 0 || enemySkill.Statuses[StatusWeaken] != 2 {
 			t.Fatalf("shadow item adapters wrong, hero=%v enemy_life=%d enemy_status=%v skill=%v", hero.Statuses, enemy.CurrentLife, enemy.Statuses, enemySkill.Statuses)
+		}
+		if info := engine.cardToInfoForPlayer(p0, ring); info["has_per_turn"] == true {
+			t.Fatalf("witchcraft ring's triggered ability must not be exposed as an active button, info=%v", info)
 		}
 	})
 }
@@ -10193,6 +10207,10 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 		p1.Skills[3] = vertical
 
 		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, used, map[string]any{"cast_player": 1})
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "word_spirit_weaken" {
+			t.Fatalf("word spirit should offer its optional triggered effect, pending=%+v", engine.State.PendingAction)
+		}
+		resolvePendingSelection(t, engine, 0, wordSpirit.InstanceID)
 		if used.Statuses[StatusWeaken] != 1 || otherHorizontal.Statuses[StatusWeaken] != 1 || sorcery.Statuses[StatusWeaken] != 0 || vertical.Statuses[StatusWeaken] != 0 {
 			t.Fatalf("word spirit should weaken enemy horizontal spells only, source=%v used=%v other=%v sorcery=%v vertical=%v", wordSpirit.Statuses, used.Statuses, otherHorizontal.Statuses, sorcery.Statuses, vertical.Statuses)
 		}

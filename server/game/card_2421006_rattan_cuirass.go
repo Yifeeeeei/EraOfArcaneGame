@@ -10,7 +10,7 @@ func (Card2421006RattanCuirass) OnEnter(ctx *EffectContext) error {
 	if hero == nil {
 		return nil
 	}
-	hero.CurrentLife += 2
+	ctx.Engine.gainLife(hero, 2, ctx.Source)
 	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 		"source": cardToInfo(ctx.Source),
 		"target": cardToInfo(hero),

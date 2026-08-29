@@ -226,8 +226,8 @@ func newBlessingStaff() CardBehavior {
 		ctx.Engine.SetPendingAction(ctx.PlayerID, "blessing_staff", "祝福之杖:选择1个友方单位+1血", candidates, 1, 1, func(selected []string) {
 			target := selectedUnitFromCandidates(ctx.Engine, selected, candidates)
 			if target != nil {
-				target.CurrentLife++
 				target.Statuses["max_life_bonus"]++
+				ctx.Engine.gainLife(target, 1, ctx.Source)
 			}
 			ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementLight: 2})
 		})

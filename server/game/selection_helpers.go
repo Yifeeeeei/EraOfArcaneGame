@@ -416,6 +416,7 @@ func resetCardForPublicSpecialZone(card *CardInstance) {
 	card.UnderCards = nil
 	card.AttachedBehaviors = nil
 	card.UsedThisTurn = 0
+	card.PendingTriggeredUses = 0
 	card.UltimateUsed = false
 	card.UsesRemaining = 0
 }

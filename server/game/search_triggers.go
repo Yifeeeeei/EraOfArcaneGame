@@ -40,7 +40,7 @@ func (e *Engine) promptSnowWomanAfterWaterSearch(playerID int) {
 		if source == nil || source.Card == nil || source.Card.Number != "1211003" || e.hasEffectiveStatus(source, StatusPetrify) {
 			continue
 		}
-		if source.UsedThisTurn >= 3 {
+		if !triggeredTurnAvailable(source) {
 			continue
 		}
 		targets := e.enemyUnits(playerID, true, func(target *CardInstance) bool {
@@ -49,15 +49,17 @@ func (e *Engine) promptSnowWomanAfterWaterSearch(playerID int) {
 		if len(targets) == 0 {
 			return
 		}
+		if !useTriggeredTurn(source) {
+			return
+		}
 		e.SetPendingAction(playerID, "snow_woman_freeze_after_search",
 			"雪女:你检索了水纹卡牌,选择1个法力范围内的敌人冻结1",
 			targets, 1, 1, func(selected []string) {
 				target := selectedUnitFromCandidates(e, selected, targets)
-				if target == nil || source.UsedThisTurn >= 3 {
+				if target == nil {
 					return
 				}
 				e.addStatus(target, StatusFreeze, 1)
-				source.UsedThisTurn++
 			})
 		return
 	}

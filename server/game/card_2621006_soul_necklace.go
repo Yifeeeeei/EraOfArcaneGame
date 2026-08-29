@@ -8,7 +8,7 @@ func (Card2621006SoulNecklace) ID() string   { return "2621006" }
 func (Card2621006SoulNecklace) Name() string { return "亡魂项链" }
 
 func (Card2621006SoulNecklace) OnFriendlyDeath(ctx *EffectContext) error {
-	if ctx.Target == nil || !ctx.Target.Card.IsCompanion() {
+	if ctx == nil || ctx.Source == nil || ctx.Target == nil || ctx.Target.Card == nil || !ctx.Target.Card.IsCompanion() || !useTriggeredTurn(ctx.Source) {
 		return nil
 	}
 	ps := ctx.Engine.State.Players[ctx.PlayerID]

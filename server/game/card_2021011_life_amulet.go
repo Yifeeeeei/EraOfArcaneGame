@@ -20,7 +20,7 @@ func (Card2021011LifeAmulet) OnEnter(ctx *EffectContext) error {
 			if target == nil || zone != "unit" {
 				return
 			}
-			target.CurrentLife++
+			ctx.Engine.gainLife(target, 1, ctx.Source)
 			ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 				"source": cardToInfo(ctx.Source),
 				"target": cardToInfo(target),

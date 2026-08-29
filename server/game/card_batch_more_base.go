@@ -49,6 +49,44 @@ func healUnit(card *CardInstance, amount int) {
 	}
 }
 
+func (e *Engine) healUnit(card *CardInstance, amount int, source *CardInstance) int {
+	if e == nil || card == nil || amount <= 0 {
+		return 0
+	}
+	before := card.CurrentLife
+	healUnit(card, amount)
+	return e.notifyLifeGain(card, source, before)
+}
+
+func (e *Engine) gainLife(card *CardInstance, amount int, source *CardInstance) int {
+	if e == nil || card == nil || amount <= 0 {
+		return 0
+	}
+	before := card.CurrentLife
+	card.CurrentLife += amount
+	return e.notifyLifeGain(card, source, before)
+}
+
+func (e *Engine) notifyLifeGain(card *CardInstance, source *CardInstance, before int) int {
+	if e == nil || card == nil || card.OwnerID < 0 || card.OwnerID >= len(e.State.Players) {
+		return 0
+	}
+	healed := card.CurrentLife - before
+	if healed <= 0 {
+		return 0
+	}
+	data := map[string]any{
+		"life_gain_player": card.OwnerID,
+		"life_gain_source": source,
+		"life_gain_target": card,
+		"amount":           healed,
+	}
+	e.triggerEffects(TriggerOnLifeGain, card, card, data)
+	e.triggerFieldEffectsWithData(TriggerOnLifeGain, card.OwnerID, card, data)
+	e.triggerFieldEffectsWithData(TriggerOnLifeGain, 1-card.OwnerID, card, data)
+	return healed
+}
+
 func maxLife(card *CardInstance) int {
 	if card == nil || card.Card == nil {
 		return 0
@@ -72,6 +110,7 @@ func resetInstance(card *CardInstance) {
 	card.IsHorizontal = false
 	card.Statuses[StatusCooldown] = 0
 	card.UsedThisTurn = 0
+	card.PendingTriggeredUses = 0
 }
 
 func reduceCost(cost map[string]int, elem string, amount int) {
@@ -205,10 +244,11 @@ type Card1121012FireInsight struct{ AlwaysActive }
 func (Card1121012FireInsight) ID() string   { return "1121012" }
 func (Card1121012FireInsight) Name() string { return "火焰洞察者" }
 func (Card1121012FireInsight) OnDamaged(ctx *EffectContext) error {
-	if ctx.ExtraData != nil {
-		if ctx.ExtraData["damage_element"] == model.ElementFire || ctx.ExtraData["status_damage"] == StatusBurn {
-			ctx.Engine.drawCards(ctx.PlayerID, 1)
-		}
+	if ctx.ExtraData == nil || (ctx.ExtraData["damage_element"] != model.ElementFire && ctx.ExtraData["status_damage"] != StatusBurn) {
+		return nil
+	}
+	if useTriggeredTurn(ctx.Source) {
+		ctx.Engine.drawCards(ctx.PlayerID, 1)
 	}
 	return nil
 }
@@ -218,7 +258,7 @@ type Card1121013Arsonist struct{ AlwaysActive }
 func (Card1121013Arsonist) ID() string   { return "1121013" }
 func (Card1121013Arsonist) Name() string { return "纵火者" }
 func (Card1121013Arsonist) OnSpellCast(ctx *EffectContext) error {
-	if ctx.Source.UsedThisTurn > 0 || !isFriendlySpellCast(ctx) || spellCastSourceElement(ctx) != model.ElementFire || ctx.Target == nil || isSorcerySkill(ctx.Target.Card) {
+	if !triggeredTurnAvailable(ctx.Source) || !isFriendlySpellCast(ctx) || spellCastSourceElement(ctx) != model.ElementFire || ctx.Target == nil || isSorcerySkill(ctx.Target.Card) {
 		return nil
 	}
 	candidates := append(ctx.Engine.friendlyUnits(ctx.PlayerID, true, nil), ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
@@ -227,13 +267,19 @@ func (Card1121013Arsonist) OnSpellCast(ctx *EffectContext) error {
 	if len(candidates) == 0 {
 		return nil
 	}
+	if !reserveTriggeredTurn(ctx.Source) {
+		return nil
+	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "arsonist_burn",
 		"纵火者:可以选择法力范围内1个单位点燃1", candidates, 0, 1,
 		func(selected []string) {
 			target := selectedUnitFromCandidates(ctx.Engine, selected, candidates)
-			if target != nil {
+			if target == nil {
+				resolveTriggeredTurn(ctx.Source, false)
+				return
+			}
+			if resolveTriggeredTurn(ctx.Source, true) {
 				ctx.Engine.addStatus(target, StatusBurn, 1)
-				ctx.Source.UsedThisTurn++
 			}
 		})
 	return nil
@@ -292,28 +338,6 @@ func (Card1211003SnowWoman) ID() string   { return "1211003" }
 func (Card1211003SnowWoman) Name() string { return "\"雪女\" 天户凌" }
 func (Card1211003SnowWoman) OnEnter(ctx *EffectContext) error {
 	ctx.Source.Statuses["引魔"] = 1
-	return nil
-}
-func (Card1211003SnowWoman) HasActivePerTurn(*CardInstance) bool { return false }
-func (Card1211003SnowWoman) OnPerTurn(ctx *EffectContext) error {
-	frontRow := ctx.Engine.State.Players[ctx.OpponentID].GetFrontRow()
-	if frontRow < 0 {
-		return nil
-	}
-	targets := ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
-		return card.Position != nil && card.Position.Row == frontRow
-	})
-	if len(targets) == 0 {
-		return nil
-	}
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "snow_woman_freeze",
-		"雪女:选择1个前排敌人冻结1", targets, 1, 1,
-		func(selected []string) {
-			target := selectedUnitFromCandidates(ctx.Engine, selected, targets)
-			if target != nil {
-				ctx.Engine.addStatus(target, StatusFreeze, 1)
-			}
-		})
 	return nil
 }
 
@@ -384,8 +408,14 @@ type Card1321015WindSpeaker struct{ AlwaysActive }
 
 func (Card1321015WindSpeaker) ID() string   { return "1321015" }
 func (Card1321015WindSpeaker) Name() string { return "风语者" }
-func (Card1321015WindSpeaker) OnPerTurn(ctx *EffectContext) error {
-	ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementAir: 1})
+func (Card1321015WindSpeaker) OnDiscard(ctx *EffectContext) error {
+	if ctx.ExtraData == nil {
+		return nil
+	}
+	discardedPlayer, _ := ctx.ExtraData["discarded_player"].(int)
+	if discardedPlayer == ctx.PlayerID && useTriggeredTurn(ctx.Source) {
+		ctx.Engine.State.Players[ctx.PlayerID].GainElements(map[string]int{model.ElementAir: 1})
+	}
 	return nil
 }
 
@@ -619,7 +649,7 @@ func (Card1421003GrowingTreant) OnMastery(ctx *EffectContext, level int) error {
 			return
 		}
 		if selected[0] == lifeID {
-			source.CurrentLife++
+			ctx.Engine.gainLife(source, 1, source)
 			return
 		}
 		if selected[0] == loadID {
@@ -637,7 +667,7 @@ func (Card1421004ForestGuard) MasteryMax() int { return 5 }
 func (Card1421004ForestGuard) OnMastery(ctx *EffectContext, level int) error {
 	switch level {
 	case 1:
-		ctx.Source.CurrentLife++
+		ctx.Engine.gainLife(ctx.Source, 1, ctx.Source)
 	case 3:
 		ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementEarth, 1, ctx.Source)
 	case 5:
@@ -838,14 +868,31 @@ type Card1621013WordSpirit struct{ AlwaysActive }
 func (Card1621013WordSpirit) ID() string   { return "1621013" }
 func (Card1621013WordSpirit) Name() string { return "言灵" }
 func (Card1621013WordSpirit) OnSpellCast(ctx *EffectContext) error {
-	if !isEnemySpellCast(ctx) {
+	if !isEnemySpellCast(ctx) || !triggeredTurnAvailable(ctx.Source) {
 		return nil
 	}
-	for _, skill := range ctx.Engine.State.Players[ctx.OpponentID].Skills {
+	targets := make([]*CardInstance, 0)
+	for _, skill := range friendlySpellInstancesIncludingBound(ctx.Engine, ctx.OpponentID) {
 		if skill != nil && skill.IsHorizontal && canInstanceBeWeakened(skill) {
-			ctx.Engine.addStatus(skill, StatusWeaken, 1)
+			targets = append(targets, skill)
 		}
 	}
+	if len(targets) == 0 || !reserveTriggeredTurn(ctx.Source) {
+		return nil
+	}
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "word_spirit_weaken",
+		"言灵:是否使敌方所有横置法术虚弱1", []map[string]any{candidateInfo(ctx.Source, "unit", "own")}, 0, 1,
+		func(selected []string) {
+			accepted := len(selected) > 0 && selected[0] == ctx.Source.InstanceID
+			if !resolveTriggeredTurn(ctx.Source, accepted) {
+				return
+			}
+			for _, skill := range targets {
+				if skill != nil && skill.IsHorizontal && canInstanceBeWeakened(skill) {
+					ctx.Engine.addStatus(skill, StatusWeaken, 1)
+				}
+			}
+		})
 	return nil
 }
 
@@ -1180,7 +1227,7 @@ func (Card2221011RainOfGrace) ID() string   { return "2221011" }
 func (Card2221011RainOfGrace) Name() string { return "恩惠之雨" }
 func (Card2221011RainOfGrace) OnUseItem(ctx *EffectContext) error {
 	for _, unit := range ctx.Engine.getAllFieldCards(ctx.Engine.State.Players[ctx.PlayerID]) {
-		healUnit(unit, 2)
+		ctx.Engine.healUnit(unit, 2, ctx.Source)
 	}
 	return nil
 }
@@ -1277,7 +1324,6 @@ func (Card2321001WindbreathCompass) ID() string   { return "2321001" }
 func (Card2321001WindbreathCompass) Name() string { return "风息罗盘" }
 
 const (
-	windbreathCompassPendingStatus      = "风息罗盘待触发"
 	windbreathCompassTemporaryAirStatus = "风息罗盘临时气负载"
 )
 
@@ -1288,31 +1334,26 @@ func (Card2321001WindbreathCompass) OnDraw(ctx *EffectContext) error {
 	if player, ok := ctx.ExtraData["drawn_player"].(int); !ok || player != ctx.PlayerID {
 		return nil
 	}
-	ctx.Source.Statuses[windbreathCompassPendingStatus]++
-	openWindbreathCompassPrompt(ctx.Engine, ctx.PlayerID, ctx.Source)
-	return nil
-}
-
-func openWindbreathCompassPrompt(e *Engine, playerID int, source *CardInstance) {
-	if e == nil || source == nil || source.Statuses[windbreathCompassPendingStatus] <= 0 {
-		return
+	drawn, _ := ctx.ExtraData["drawn_card"].(*CardInstance)
+	if drawn == nil || drawn.Card == nil || drawn.Card.Category != model.ElementAir || !reserveTriggeredTurn(ctx.Source) {
+		return nil
 	}
-	if e.State.PendingAction != nil && e.State.PendingAction.Type == "windbreath_compass" && e.State.PendingAction.PlayerID == playerID {
-		return
-	}
-	candidates := []map[string]any{candidateInfo(source, "equipment", "own")}
-	e.SetPendingAction(playerID, "windbreath_compass",
-		"你抽牌了，是否触发风息罗盘获得临时负载+1气？", candidates, 0, 1,
+	ctx.Engine.SetPendingAction(ctx.PlayerID, "windbreath_compass",
+		"风息罗盘:是否展示抽到的大气卡牌并临时获得负载+1气", []map[string]any{candidateInfo(drawn, "hand", "own")}, 0, 1,
 		func(selected []string) {
-			if source.Statuses[windbreathCompassPendingStatus] > 0 {
-				source.Statuses[windbreathCompassPendingStatus]--
+			accepted := len(selected) > 0 && selected[0] == drawn.InstanceID && ctx.Engine.findFriendlyHandCard(ctx.PlayerID, drawn.InstanceID) == drawn
+			if !resolveTriggeredTurn(ctx.Source, accepted) {
+				return
 			}
-			if len(selected) > 0 && selected[0] == source.InstanceID {
-				e.addElementsGainBonus(source, playerID, model.ElementAir, 1, source)
-				source.Statuses[windbreathCompassTemporaryAirStatus]++
+			ps := ctx.Engine.State.Players[ctx.PlayerID]
+			if ps.RevealedHand == nil {
+				ps.RevealedHand = make(map[string]bool)
 			}
-			openWindbreathCompassPrompt(e, playerID, source)
+			ps.RevealedHand[drawn.InstanceID] = true
+			ctx.Engine.addElementsGainBonus(ctx.Source, ctx.PlayerID, model.ElementAir, 1, ctx.Source)
+			ctx.Source.Statuses[windbreathCompassTemporaryAirStatus]++
 		})
+	return nil
 }
 
 func (Card2321001WindbreathCompass) OnTurnEnd(ctx *EffectContext) error {
@@ -1321,7 +1362,6 @@ func (Card2321001WindbreathCompass) OnTurnEnd(ctx *EffectContext) error {
 		addElementsGainBonus(ctx.Source, model.ElementAir, -count)
 		delete(ctx.Source.Statuses, windbreathCompassTemporaryAirStatus)
 	}
-	delete(ctx.Source.Statuses, windbreathCompassPendingStatus)
 	return nil
 }
 
