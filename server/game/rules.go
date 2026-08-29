@@ -335,6 +335,32 @@ func mergeElementCosts(costs ...map[string]int) map[string]int {
 	return merged
 }
 
+type actionCostPlan struct {
+	player PlayerState
+}
+
+func newActionCostPlan(ps *PlayerState) *actionCostPlan {
+	plan := &actionCostPlan{}
+	if ps == nil {
+		return plan
+	}
+	plan.player = *ps
+	plan.player.TempModifiers = append([]TemporaryModifier(nil), ps.TempModifiers...)
+	return plan
+}
+
+func (p *actionCostPlan) skillUseCost(e *Engine, skill *CardInstance, purpose skillPurpose, extra map[string]any) map[string]int {
+	cost := e.effectiveSkillUseCostForPurposeWithData(&p.player, skill, purpose, extra)
+	p.player.TempModifiers = consumeSkillUseCostModifiers(p.player.TempModifiers, skill, purpose)
+	return cost
+}
+
+func (p *actionCostPlan) cardPlayCost(e *Engine, card *CardInstance) map[string]int {
+	cost := e.effectiveCardPlayCost(&p.player, card)
+	p.player.TempModifiers = consumeCardPlayCostModifiers(p.player.TempModifiers, card)
+	return cost
+}
+
 func (e *Engine) handLimitForPlayer(ps *PlayerState) int {
 	if ps == nil {
 		return e.State.HandLimit
@@ -454,6 +480,7 @@ func playerCanEquipDuplicateSubtypes(ps *PlayerState) bool {
 func (e *Engine) collectSkillUses(ps *PlayerState, ids []string, purpose skillPurpose, reserved map[string]bool) ([]*CardInstance, map[string]int, error) {
 	skills := make([]*CardInstance, 0, len(ids))
 	totalCost := make(map[string]int)
+	costPlan := newActionCostPlan(ps)
 	seen := make(map[string]bool)
 	for id := range reserved {
 		seen[id] = true
@@ -474,7 +501,7 @@ func (e *Engine) collectSkillUses(ps *PlayerState, ids []string, purpose skillPu
 		}
 
 		skills = append(skills, skill)
-		for elem, amount := range e.effectiveSkillUseCostForPurpose(ps, skill, purpose) {
+		for elem, amount := range costPlan.skillUseCost(e, skill, purpose, nil) {
 			totalCost[elem] += amount
 		}
 	}

@@ -2698,6 +2698,95 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 	})
 
+	t.Run("attack action shares one-shot discount between main spell and hand boost scroll", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		main := readySkill(baseCard(t, "3221001"), 0)
+		scroll := NewCardInstance(baseCard(t, "2221008"), 0, 1)
+		p0.Skills[0] = main
+		p0.Hand = []*CardInstance{scroll}
+		p0.Elements[model.ElementWater] = 1
+		p0.TempModifiers = []TemporaryModifier{{
+			Type:          TempModNextItemOrSkillCostMinus,
+			Element:       model.ElementWater,
+			Amount:        3,
+			RemainingUses: 1,
+		}}
+		action := ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": main.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+			"boost_ids":   []any{scroll.InstanceID},
+		}}
+
+		if err := engine.HandleAction(0, action); err == nil {
+			t.Fatal("main spell and boost scroll should still require 2 water after one-shot discount")
+		}
+		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].RemainingUses != 1 || len(p0.Hand) != 1 || main.IsHorizontal {
+			t.Fatalf("failed validation must preserve action state, modifiers=%+v hand=%v horizontal=%v", p0.TempModifiers, cardsToInfo(p0.Hand), main.IsHorizontal)
+		}
+
+		p0.Elements[model.ElementWater] = 2
+		if err := engine.HandleAction(0, action); err != nil {
+			t.Fatalf("cast main spell with one discounted source: %v", err)
+		}
+		if p0.Elements[model.ElementWater] != 0 || len(p0.TempModifiers) != 0 || len(p0.Hand) != 0 || len(p0.Graveyard) != 1 {
+			t.Fatalf("successful attack should pay 2 water and consume modifier once, elements=%v modifiers=%+v hand=%v graveyard=%v", p0.Elements, p0.TempModifiers, cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
+		}
+	})
+
+	t.Run("defense action shares one-shot discount between defense spell and hand boost scroll", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		target := placeUnit(baseCard(t, "1021004"), 0, 1, 0, engine)
+		defense := readySkill(baseCard(t, "3221004"), 0)
+		scroll := NewCardInstance(baseCard(t, "2221008"), 0, 1)
+		p0.Skills[0] = defense
+		p0.Hand = []*CardInstance{scroll}
+		p0.Elements[model.ElementWater] = 1
+		p0.TempModifiers = []TemporaryModifier{{
+			Type:          TempModNextItemOrSkillCostMinus,
+			Element:       model.ElementWater,
+			Amount:        3,
+			RemainingUses: 1,
+		}}
+		targetOwner := 0
+		engine.State.Phase = PhaseDefenseWindow
+		engine.State.PendingSpell = &SpellCast{
+			AttackerID: 1,
+			Skill:      readySkill(baseCard(t, "3121002"), 1),
+			Target: SpellTarget{
+				Type:     "unit",
+				Position: *target.Position,
+				OwnerID:  &targetOwner,
+			},
+			TotalPower: 5,
+		}
+		action := ActionMessage{Action: "defend", Data: map[string]any{
+			"skill_ids":     []any{defense.InstanceID},
+			"scroll_ids":    []any{},
+			"boost_ids":     []any{scroll.InstanceID},
+			"overexert_ids": []any{},
+		}}
+
+		if err := engine.HandleAction(0, action); err == nil {
+			t.Fatal("defense spell and boost scroll should still require 2 water after one-shot discount")
+		}
+		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].RemainingUses != 1 || len(p0.Hand) != 1 || defense.IsHorizontal {
+			t.Fatalf("failed defense validation must preserve action state, modifiers=%+v hand=%v horizontal=%v", p0.TempModifiers, cardsToInfo(p0.Hand), defense.IsHorizontal)
+		}
+
+		p0.Elements[model.ElementWater] = 2
+		if err := engine.HandleAction(0, action); err != nil {
+			t.Fatalf("defend with one discounted source: %v", err)
+		}
+		if p0.Elements[model.ElementWater] != 0 || len(p0.TempModifiers) != 0 || len(p0.Hand) != 0 || len(p0.Graveyard) != 1 {
+			t.Fatalf("successful defense should pay 2 water and consume modifier once, elements=%v modifiers=%+v hand=%v graveyard=%v", p0.Elements, p0.TempModifiers, cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
+		}
+	})
+
 	t.Run("2321012 随风斗篷 moves hero to empty position", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
