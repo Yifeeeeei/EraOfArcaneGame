@@ -705,6 +705,8 @@
                                      'attack-target': isAttackTarget(col, row),
                                      'spell-target': isSpellTarget(col, row),
                                      'spell-area-preview': isSpellAreaPreview(col, row),
+                                     'pending-spell-center': isPendingSpellCenter(opponentBoardOwnerID(), col, row),
+                                     'pending-spell-affected': isPendingSpellAffected(opponentBoardOwnerID(), col, row),
                                      'invalid-target': hasActiveTargeting && !isValidOpponentTarget(col, row)
                                  }"
                                  @mouseenter="hoverOpponentCell(col, row)"
@@ -806,6 +808,8 @@
                                      'summon-target': selectedHandCard && canSummonAt(col, row),
                                      'terrain-target': selectedHandCard && selectedHandCard.is_terrain && !getMyTerrain(col, row),
                                      'spell-target': isFriendlySpellTarget(col, row),
+                                     'pending-spell-center': isPendingSpellCenter(myBoardOwnerID(), col, row),
+                                     'pending-spell-affected': isPendingSpellAffected(myBoardOwnerID(), col, row),
                                      'invalid-target': (selectedHandCard && !canUseMyCell(col, row)) || (activeTargetSpell() && !isFriendlySpellTarget(col, row))
                                  }"
                                  @click="handleCellClick(mySlot, col, row)">
@@ -1016,12 +1020,16 @@
                          class="hand-card"
                          :data-instance-id="card.instance_id"
                          :data-card-number="card.number"
-                         :class="{ selected: selectedHandCard === card, playable: canPlayHandCard(card), unaffordable: isMyTurn && gameState.phase === 'main' && !canPlayHandCard(card) }"
+                         :class="{ selected: selectedHandCard === card, 'boost-selected': selectedBoostSkills.includes(card.instance_id), playable: canPlayHandCard(card), unaffordable: isMyTurn && gameState.phase === 'main' && !canPlayHandCard(card) && !canBoostWith(card) }"
                          @mouseenter="previewCard(card)"
                          @click="selectHandCard(card)"
                          @contextmenu.prevent="showCardContextMenu($event, card, 'hand')"
                          title="右键点击查看选项">
                         <img :src="getCardImage(card)" class="hand-card-img">
+                        <div v-if="selectedSkill && canBoostWith(card)" class="boost-btn"
+                             @click.stop="toggleBoostSkill(card)">
+                            {{ selectedBoostSkills.includes(card.instance_id) ? '取消强化' : '强化' }}
+                        </div>
                         <div class="hand-card-info">
                             <div class="hand-card-name">{{ card.name }}</div>
                             <div class="hand-card-cost" v-if="hasCost(card)">
@@ -1254,6 +1262,7 @@
                     skill: spell.skill || null,
                     target: spell.target || null,
                     extra_targets: Array.isArray(spell.extra_targets) ? spell.extra_targets : [],
+                    affected_positions: Array.isArray(spell.affected_positions) ? spell.affected_positions : [],
                     boost_skills: Array.isArray(spell.boost_skills) ? spell.boost_skills : [],
                     power_sources: Array.isArray(spell.power_sources) ? spell.power_sources : [],
                     power: Number.isFinite(power) ? power : 0,
@@ -1294,6 +1303,40 @@
 
             function getMyUnit(col, row) { return myState.value.units?.[col]?.[row] || null; }
             function getOpponentUnit(col, row) { return opponent.value.units?.[col]?.[row] || null; }
+            function myBoardOwnerID() {
+                return isSpectator ? 0 : currentPlayerSlot();
+            }
+            function opponentBoardOwnerID() {
+                const ownerID = myBoardOwnerID();
+                return ownerID >= 0 ? 1 - ownerID : -1;
+            }
+            function spellTargetPosition(target) {
+                if (!target || target.type !== 'unit') return null;
+                const pos = target.position || target.Position || {};
+                const col = Number(pos.col ?? pos.Col);
+                const row = Number(pos.row ?? pos.Row);
+                return Number.isInteger(col) && Number.isInteger(row) ? { col, row } : null;
+            }
+            function spellTargetOwnerID(target, spell = pendingSpellView.value) {
+                if (!spell) return -1;
+                const ownerID = Number(target?.owner_id ?? target?.OwnerID);
+                return Number.isInteger(ownerID) ? ownerID : spell.defender_id;
+            }
+            function isPendingSpellCenter(ownerID, col, row) {
+                const spell = pendingSpellView.value;
+                if (!spell || ownerID < 0) return false;
+                return [spell.target, ...spell.extra_targets].some(target => {
+                    const pos = spellTargetPosition(target);
+                    return pos && spellTargetOwnerID(target, spell) === ownerID && pos.col === col && pos.row === row;
+                });
+            }
+            function isPendingSpellAffected(ownerID, col, row) {
+                const spell = pendingSpellView.value;
+                if (!spell || ownerID < 0) return false;
+                return spell.affected_positions.some(pos =>
+                    Number(pos?.owner_id) === ownerID && Number(pos?.col) === col && Number(pos?.row) === row
+                );
+            }
             function pendingSpellTargetOwnerState() {
                 const spell = pendingSpellView.value;
                 if (!spell) return myState.value;
@@ -2417,7 +2460,7 @@
                 if (spell.has_pierce) return true;
                 if (!selectedSkill.value) return false;
                 return selectedBoostSkills.value.some(id => {
-                    const boost = allMySkills.value.find(skill => skill && skill.instance_id === id);
+                    const boost = defensePaymentCardById(id);
                     return boost?.number === '3121015';
                 });
             }
@@ -2477,11 +2520,18 @@
             const pendingExtraTargetCast = ref(null);
 
             function canBoostWith(skill) {
-                if (!selectedSkill.value || !skill || skill.is_horizontal) return false;
+                if (!selectedSkill.value || !skill) return false;
                 if (selectedSkill.value.can_be_boosted === false) return false;
                 if (skill.instance_id === selectedSkill.value.instance_id) return false;
-                if (!canUseSkillAsAttackBoost(skill)) return false;
-                if (!canPayCost(mergedDefenseCost([selectedSkill.value.instance_id, ...selectedBoostSkills.value, skill.instance_id]))) return false;
+                if (skill.type === '道具') {
+                    if (!isSpellScrollItem(skill) || skill.statuses?.['石化'] > 0 || !skill.can_attack_boost) return false;
+                } else if (!canUseSkillAsAttackBoost(skill)) {
+                    return false;
+                }
+                const boostIds = selectedBoostSkills.value.includes(skill.instance_id)
+                    ? [...selectedBoostSkills.value]
+                    : [...selectedBoostSkills.value, skill.instance_id];
+                if (!canPayCost(mergedDefenseCost([selectedSkill.value.instance_id, ...boostIds]))) return false;
                 return true;
             }
             function selectedSkillHasPierce() {
@@ -4223,6 +4273,7 @@
                 canCastSkill, selectSkillToCast, canBoostWith, toggleBoostSkill, noDefend,
                 guideKicker, currentHint, waitingNotice, clearSelection, statusEntries,
                 hasActiveTargeting, activeTargetSpell, isValidOpponentTarget, isSpellTarget, isFriendlySpellTarget, isFriendlyHeroSpellTarget, handleMyHeroClick, canUseMyCell,
+                myBoardOwnerID, opponentBoardOwnerID, isPendingSpellCenter, isPendingSpellAffected,
                 canShowCostHint, missingCostText, skillUseCost, canLearnSkill, costLabel,
                 skillReplaceRequest, replaceableSkills, confirmSkillReplacement,
                 equipmentReplaceRequest, replaceableEquipment, confirmEquipmentReplacement,

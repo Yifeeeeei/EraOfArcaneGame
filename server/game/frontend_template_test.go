@@ -208,6 +208,39 @@ func TestGameHTMLDefenseWindowDoesNotReadRawPendingSpellPower(t *testing.T) {
 	}
 }
 
+func TestGameHTMLIssue156SpellRangeAndScrollBoostControls(t *testing.T) {
+	content, err := os.ReadFile("../../web/game.html")
+	if err != nil {
+		t.Fatalf("read game.html: %v", err)
+	}
+	html := string(content)
+	for _, want := range []string{
+		"'pending-spell-center': isPendingSpellCenter(opponentBoardOwnerID(), col, row)",
+		"'pending-spell-affected': isPendingSpellAffected(myBoardOwnerID(), col, row)",
+		"affected_positions: Array.isArray(spell.affected_positions)",
+		"function isPendingSpellCenter(ownerID, col, row)",
+		"function isPendingSpellAffected(ownerID, col, row)",
+		"myBoardOwnerID, opponentBoardOwnerID, isPendingSpellCenter, isPendingSpellAffected,",
+		"selectedSkill && canBoostWith(card)",
+		"isSpellScrollItem(skill) || skill.statuses?.['石化'] > 0 || !skill.can_attack_boost",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("issue #156 frontend behavior missing %q", want)
+		}
+	}
+
+	cssContent, err := os.ReadFile("../../web/css/game.css")
+	if err != nil {
+		t.Fatalf("read game.css: %v", err)
+	}
+	css := string(cssContent)
+	for _, want := range []string{".unit-cell.pending-spell-affected", ".unit-cell.pending-spell-center", ".hand-card.boost-selected"} {
+		if !strings.Contains(css, want) {
+			t.Fatalf("issue #156 styling missing %q", want)
+		}
+	}
+}
+
 func TestGameHTMLRoom5543TargetingRegressions(t *testing.T) {
 	content, err := os.ReadFile("../../web/game.html")
 	if err != nil {

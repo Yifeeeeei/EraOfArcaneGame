@@ -642,6 +642,80 @@ func TestIssue33PlaytestRegressions(t *testing.T) {
 		if len(boosts) != 1 || boosts[0]["number"] != boost.Card.Number {
 			t.Fatalf("opponent state should reveal boost skills, pending=%v", pending)
 		}
+		affected, _ := pending["affected_positions"].([]map[string]int)
+		if len(affected) != 1 || affected[0]["owner_id"] != 1 || affected[0]["col"] != 1 || affected[0]["row"] != 0 {
+			t.Fatalf("pending spell should expose affected board positions, affected=%v", affected)
+		}
+	})
+
+	t.Run("pending square spell exposes its full area including empty cells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		targetOwner := 1
+		engine.State.PendingSpell = &SpellCast{
+			AttackerID: 0,
+			Skill:      readySkill(baseCard(t, "3621011"), 0),
+			Target: SpellTarget{
+				Type:     "unit",
+				Position: Position{Col: 2, Row: 2},
+				OwnerID:  &targetOwner,
+			},
+		}
+
+		state := engine.GetStateForPlayer(1)
+		pending, _ := state["pending_spell"].(map[string]any)
+		affected, _ := pending["affected_positions"].([]map[string]int)
+		want := map[[3]int]bool{
+			{1, 1, 1}: true,
+			{1, 1, 2}: true,
+			{1, 2, 1}: true,
+			{1, 2, 2}: true,
+		}
+		if len(affected) != len(want) {
+			t.Fatalf("square spell should expose all four cells, affected=%v", affected)
+		}
+		for _, position := range affected {
+			key := [3]int{position["owner_id"], position["col"], position["row"]}
+			if !want[key] {
+				t.Fatalf("unexpected square spell position %v in %v", position, affected)
+			}
+		}
+	})
+
+	t.Run("2121003 scorching scroll can boost an attack spell from hand", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		main := readySkill(baseCard(t, "3121002"), 0)
+		scroll := NewCardInstance(baseCard(t, "2121003"), 0, 1)
+		p0.Skills[0] = main
+		p0.Hand = []*CardInstance{scroll}
+		p0.Elements[model.ElementFire] = 10
+		p0.Elements[model.ElementArcane] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": main.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+			"boost_ids":   []any{scroll.InstanceID},
+		}}); err != nil {
+			t.Fatalf("cast attack spell with scorching scroll boost: %v", err)
+		}
+		if engine.State.PendingSpell == nil || len(engine.State.PendingSpell.BoostSkills) != 1 || engine.State.PendingSpell.BoostSkills[0] != scroll {
+			t.Fatalf("scorching scroll should be retained as the pending boost source, pending=%+v", engine.State.PendingSpell)
+		}
+		if engine.State.PendingSpell.TotalPower != main.Card.Power+scroll.Card.Power {
+			t.Fatalf("scorching scroll should add its power, total=%d want=%d", engine.State.PendingSpell.TotalPower, main.Card.Power+scroll.Card.Power)
+		}
+		if len(p0.Hand) != 0 || len(p0.Graveyard) != 1 || p0.Graveyard[0] != scroll {
+			t.Fatalf("used boost scroll should move from hand to graveyard, hand=%v graveyard=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
+		}
+		if p0.Elements[model.ElementFire] != 7 || p0.Elements[model.ElementArcane] != 9 {
+			t.Fatalf("main use and scroll play costs should both be paid, elements=%v", p0.Elements)
+		}
+		if target.Statuses[StatusBurn] != 0 {
+			t.Fatalf("boost scroll should not trigger its own hit effect under the default boost rule, statuses=%v", target.Statuses)
+		}
 	})
 }
 
@@ -2548,7 +2622,7 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		scroll := NewCardInstance(baseCard(t, "2121011"), 0, 1)
 		p0.Hand = []*CardInstance{scroll}
 
-		boosts, cost, err := engine.collectDefenseBoostScrollUses(p0, []string{scroll.InstanceID}, nil)
+		boosts, cost, err := engine.collectHandBoostScrollUses(p0, []string{scroll.InstanceID}, nil, skillPurposeDefenseBoost)
 		if err != nil {
 			t.Fatalf("collect meteor scroll as defense boost: %v", err)
 		}
@@ -7206,10 +7280,15 @@ func TestRuntimeLoadBonusCards(t *testing.T) {
 		necklace := NewCardInstance(baseCard(t, "2621006"), 0, 1)
 		p0.Equipment[0] = necklace
 		unit := placeUnit(baseCard(t, "1021007"), 0, 0, 0, engine)
+		secondUnit := placeUnit(baseCard(t, "1021007"), 0, 1, 0, engine)
 
 		engine.destroyUnit(unit, 0)
+		engine.destroyUnit(secondUnit, 0)
 		if p0.Elements[model.ElementShadow] != 1 {
-			t.Fatalf("soul necklace should gain 1 shadow, elements=%v", p0.Elements)
+			t.Fatalf("soul necklace should gain shadow only once per turn, elements=%v", p0.Elements)
+		}
+		if necklace.UsedThisTurn != 1 {
+			t.Fatalf("soul necklace should consume its triggered turn use, used=%d", necklace.UsedThisTurn)
 		}
 	})
 }

@@ -8443,11 +8443,23 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		if hero.CurrentLife != maxLife(hero)-2 {
 			t.Fatalf("3621103 should deal 1 damage to own hero on attack cast, life=%d max=%d", hero.CurrentLife, maxLife(hero))
 		}
-		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, Target: engine.State.Players[1].Hero, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, Target: engine.State.Players[1].Hero, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0, "spell_source": skill}}); err != nil {
 			t.Fatalf("3621103 hit: %v", err)
 		}
 		if hero.CurrentLife != maxLife(hero) {
 			t.Fatalf("3621103 should heal own hero by 2 on hit, life=%d max=%d", hero.CurrentLife, maxLife(hero))
+		}
+
+		hero.CurrentLife = maxLife(hero) - 2
+		otherSkill := readySkill(baseCard(t, "3121005"), 0)
+		if err := behavior.OnSpellCast(&EffectContext{Engine: engine, Source: skill, Target: otherSkill, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"cast_player": 0}}); err != nil {
+			t.Fatalf("3621103 observe other cast: %v", err)
+		}
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, Target: otherSkill, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0, "spell_source": otherSkill}}); err != nil {
+			t.Fatalf("3621103 observe other hit: %v", err)
+		}
+		if hero.CurrentLife != maxLife(hero)-2 {
+			t.Fatalf("3621103 should ignore other spells, life=%d max=%d", hero.CurrentLife, maxLife(hero))
 		}
 	})
 

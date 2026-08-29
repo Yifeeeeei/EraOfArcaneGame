@@ -1248,11 +1248,18 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	}
 	// Process boost skills (法术强化)
 	boostIDs := stringsFromAnySlice(boostIDsRaw)
-	boostSkills, boostCost, err := e.collectSkillUses(ps, boostIDs, skillPurposeAttackBoost, map[string]bool{instanceID: true})
+	boostSkillIDs, boostScrollIDs := e.splitBoostIDs(ps, boostIDs)
+	boostSkills, boostCost, err := e.collectSkillUses(ps, boostSkillIDs, skillPurposeAttackBoost, map[string]bool{instanceID: true})
 	if err != nil {
 		return err
 	}
-	hasPierce := e.spellHasPierceWithBoosts(playerID, skill, boostSkills) || rainbowMarkers[model.ElementAir] > 0
+	usedBoostIDs := mergeSkillIDSet(map[string]bool{instanceID: true}, skillIDSet(boostSkills))
+	boostScrolls, boostScrollCost, err := e.collectHandBoostScrollUses(ps, boostScrollIDs, usedBoostIDs, skillPurposeAttackBoost)
+	if err != nil {
+		return err
+	}
+	boostSources := append(append([]*CardInstance{}, boostSkills...), boostScrolls...)
+	hasPierce := e.spellHasPierceWithBoosts(playerID, skill, boostSources) || rainbowMarkers[model.ElementAir] > 0
 	if err := e.validateSpellTargetWithPierce(playerID, skill, target, hasPierce); err != nil {
 		return err
 	}
@@ -1282,11 +1289,11 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	}
 	consumeNextExtraTargetModifier := e.hasNextSpellExtraTarget(ps, skill)
 	extraTargets = e.addExileSotorAdjacentSpellTargets(playerID, target, extraTargets)
-	totalCost := mergeElementCosts(cost, boostCost)
+	totalCost := mergeElementCosts(cost, boostCost, boostScrollCost)
 	if !e.canPayCost(ps, totalCost) {
 		return fmt.Errorf("not enough elements for boost skills")
 	}
-	powerSacrifice, powerSacrificeSource, powerSacrificeBonus, err := e.validateSpellPowerSacrificeForSources(playerID, append([]*CardInstance{skill}, boostSkills...), action)
+	powerSacrifice, powerSacrificeSource, powerSacrificeBonus, err := e.validateSpellPowerSacrificeForSources(playerID, append([]*CardInstance{skill}, boostSources...), action)
 	if err != nil {
 		return err
 	}
@@ -1298,6 +1305,10 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	e.applyFiveRainbowBeamMarkers(skill, rainbowRing, rainbowMarkers)
 	skill.IsHorizontal = true
 	tapSkills(boostSkills)
+	for _, scroll := range boostScrolls {
+		e.notifyCardPlayCostPaid(ps, scroll)
+	}
+	e.moveHandSpellScrollsToGraveyard(ps, boostScrolls, "attack_boost")
 
 	// Apply cooldown from keyword
 	if !e.shouldSkipCooldown(ps, skill) {
@@ -1333,11 +1344,11 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	}
 	e.applyCoralBellyFirstSpellAttackBonus(playerID, skill)
 	powerTargets := append([]SpellTarget{target}, extraTargets...)
-	totalPower := e.effectiveSpellPower(playerID, skill, boostSkills, powerTargets...)
+	totalPower := e.effectiveSpellPower(playerID, skill, boostSources, powerTargets...)
 	if powerSacrificeSource != nil && powerSacrificeBonus > 0 {
 		totalPower += powerSacrificeBonus
 	}
-	powerSources := e.spellPowerSources(playerID, skill, boostSkills, totalPower, powerTargets...)
+	powerSources := e.spellPowerSources(playerID, skill, boostSources, totalPower, powerTargets...)
 	e.consumeNextSpellPowerBonuses(ps, skill)
 	if len(extraTargets) > 0 {
 		e.consumeNextDriveSpellExtraTarget(ps, skill)
@@ -1356,7 +1367,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		"skill":       cardToInfo(skill),
 		"target":      target,
 		"power":       totalPower,
-		"boost_count": len(boostSkills),
+		"boost_count": len(boostSources),
 		"is_sorcery":  isSorcery,
 	}
 	e.emit(GameEvent{
@@ -1369,7 +1380,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	if isSorcery {
 		resolveSorcery := func() {
 			if e.shouldResolveSorceryHit(skill) {
-				e.resolveSpellHit(playerID, skill, target, boostSkills, extraTargets)
+				e.resolveSpellHit(playerID, skill, target, boostSources, extraTargets)
 			}
 			e.removeStoredArchmageStaffSkillAfterUse(playerID, skill)
 			if skill.Card.Number == "3611101" {
@@ -1387,7 +1398,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 			Target:       target,
 			TotalPower:   totalPower,
 			PowerSources: powerSources,
-			BoostSkills:  boostSkills,
+			BoostSkills:  boostSources,
 			ExtraTargets: extraTargets,
 		}
 		resolveWithoutDefense := func() {
@@ -1412,7 +1423,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 			continueSpell = resolveWithoutDefense
 		}
 		continueAfterMainCounters := func() {
-			if e.promptAttackBoostSpellCastCounters(playerID, boostSkills, continueSpell) {
+			if e.promptAttackBoostSpellCastCounters(playerID, boostSources, continueSpell) {
 				if e.spellAllowsDefense(playerID, skill, target) {
 					e.State.ResumePhase = PhaseDefenseWindow
 				}
@@ -1629,13 +1640,13 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		return err
 	}
 	usedIDs = mergeSkillIDSet(usedIDs, skillIDSet(defenseScrolls))
-	boostSkillIDs, boostScrollIDs := e.splitDefenseBoostIDs(ps, boostIDs)
+	boostSkillIDs, boostScrollIDs := e.splitBoostIDs(ps, boostIDs)
 	boostSkills, boostCost, err := e.collectSkillUses(ps, boostSkillIDs, skillPurposeDefenseBoost, usedIDs)
 	if err != nil {
 		return err
 	}
 	usedIDs = mergeSkillIDSet(usedIDs, skillIDSet(boostSkills))
-	boostScrolls, boostScrollCost, err := e.collectDefenseBoostScrollUses(ps, boostScrollIDs, usedIDs)
+	boostScrolls, boostScrollCost, err := e.collectHandBoostScrollUses(ps, boostScrollIDs, usedIDs, skillPurposeDefenseBoost)
 	if err != nil {
 		return err
 	}
@@ -1664,7 +1675,7 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		}
 		tapSkills(defenseSkills)
 		tapSkills(boostSkills)
-		e.moveHandConsumablesToGraveyard(ps, append(defenseScrolls, boostScrolls...))
+		e.moveHandSpellScrollsToGraveyard(ps, append(defenseScrolls, boostScrolls...), "defense")
 		usedSkills := append([]*CardInstance{}, defenseSkills...)
 		usedSkills = append(usedSkills, boostSkills...)
 		for _, defenseSkill := range defenseSkills {
@@ -1804,7 +1815,7 @@ func (e *Engine) collectDefenseScrollUses(ps *PlayerState, ids []string, reserve
 	return scrolls, totalCost, nil
 }
 
-func (e *Engine) splitDefenseBoostIDs(ps *PlayerState, ids []string) ([]string, []string) {
+func (e *Engine) splitBoostIDs(ps *PlayerState, ids []string) ([]string, []string) {
 	skillIDs := make([]string, 0, len(ids))
 	scrollIDs := make([]string, 0)
 	for _, id := range ids {
@@ -1817,7 +1828,7 @@ func (e *Engine) splitDefenseBoostIDs(ps *PlayerState, ids []string) ([]string, 
 	return skillIDs, scrollIDs
 }
 
-func (e *Engine) collectDefenseBoostScrollUses(ps *PlayerState, ids []string, reserved map[string]bool) ([]*CardInstance, map[string]int, error) {
+func (e *Engine) collectHandBoostScrollUses(ps *PlayerState, ids []string, reserved map[string]bool, purpose skillPurpose) ([]*CardInstance, map[string]int, error) {
 	scrolls := make([]*CardInstance, 0, len(ids))
 	totalCost := make(map[string]int)
 	seen := make(map[string]bool)
@@ -1826,18 +1837,18 @@ func (e *Engine) collectDefenseBoostScrollUses(ps *PlayerState, ids []string, re
 	}
 	for _, id := range ids {
 		if seen[id] {
-			return nil, nil, fmt.Errorf("defense source %s selected more than once", id)
+			return nil, nil, fmt.Errorf("boost source %s selected more than once", id)
 		}
 		seen[id] = true
 		card, _ := ps.FindHandCard(id)
 		if card == nil {
-			return nil, nil, fmt.Errorf("defense boost scroll not found: %s", id)
+			return nil, nil, fmt.Errorf("boost scroll not found: %s", id)
 		}
 		if !isSpellScrollCard(card.Card) {
 			return nil, nil, fmt.Errorf("card %s is not a spell scroll", id)
 		}
-		if err := e.validateHandSpellScrollForPurpose(card, skillPurposeDefenseBoost); err != nil {
-			return nil, nil, fmt.Errorf("defense boost scroll %s cannot be used for %s: %w", id, skillPurposeDefenseBoost, err)
+		if err := e.validateHandSpellScrollForPurpose(card, purpose); err != nil {
+			return nil, nil, fmt.Errorf("boost scroll %s cannot be used for %s: %w", id, purpose, err)
 		}
 		scrolls = append(scrolls, card)
 		for elem, amount := range e.effectiveCardPlayCost(ps, card) {
@@ -1860,7 +1871,7 @@ func (e *Engine) validateHandSpellScrollForPurpose(card *CardInstance, purpose s
 	return e.validateSkillUsePermissionModifiers(card, purpose)
 }
 
-func (e *Engine) moveHandConsumablesToGraveyard(ps *PlayerState, cards []*CardInstance) {
+func (e *Engine) moveHandSpellScrollsToGraveyard(ps *PlayerState, cards []*CardInstance, use string) {
 	for _, card := range cards {
 		if card == nil {
 			continue
@@ -1875,10 +1886,12 @@ func (e *Engine) moveHandConsumablesToGraveyard(ps *PlayerState, cards []*CardIn
 			Type:   "use_item",
 			Player: -1,
 			Data: map[string]any{
-				"player":         ps.PlayerID,
-				"card":           cardToInfo(card),
-				"elements":       ps.Elements,
-				"defense_scroll": true,
+				"player":           ps.PlayerID,
+				"card":             cardToInfo(card),
+				"elements":         ps.Elements,
+				"spell_scroll_use": use,
+				"defense_scroll":   use == "defense",
+				"attack_boost":     use == "attack_boost",
 			},
 		})
 	}
@@ -5089,6 +5102,83 @@ func requiredBoardCoordinate(data map[string]any, key string) (int, error) {
 	}
 }
 
+func (e *Engine) pendingSpellAffectedPositions(spell *SpellCast) []map[string]int {
+	if e == nil || spell == nil || spell.Skill == nil {
+		return []map[string]int{}
+	}
+	defenderID := e.spellDefenderID(spell.AttackerID, spell.Skill, spell.Target)
+	positions := make([]map[string]int, 0, 9+len(spell.ExtraTargets))
+	seen := make(map[[3]int]bool)
+	addPosition := func(ownerID, col, row int) {
+		if ownerID < 0 || ownerID >= len(e.State.Players) || !validGridPosition(col, row) {
+			return
+		}
+		key := [3]int{ownerID, col, row}
+		if seen[key] {
+			return
+		}
+		seen[key] = true
+		positions = append(positions, map[string]int{"owner_id": ownerID, "col": col, "row": row})
+	}
+
+	if spell.Target.Type == "unit" && spell.Target.Position.Valid() {
+		if spell.Skill.Card != nil && spell.Skill.Card.Number == "3511010" {
+			for _, unit := range e.spellAffectedUnits(defenderID, spell.Skill, spell.Target) {
+				if unit != nil && unit.Position != nil {
+					addPosition(unit.OwnerID, unit.Position.Col, unit.Position.Row)
+				}
+			}
+		} else {
+			col := spell.Target.Position.Col
+			row := spell.Target.Position.Row
+			switch e.effectiveSpellArea(spell.Skill) {
+			case SpellAreaSquare:
+				startCol := min(max(col, 0), 1)
+				startRow := min(max(row, 0), 1)
+				for areaCol := startCol; areaCol < startCol+2; areaCol++ {
+					for areaRow := startRow; areaRow < startRow+2; areaRow++ {
+						addPosition(defenderID, areaCol, areaRow)
+					}
+				}
+			case SpellAreaAll:
+				for areaCol := 0; areaCol < 3; areaCol++ {
+					for areaRow := 0; areaRow < 3; areaRow++ {
+						addPosition(defenderID, areaCol, areaRow)
+					}
+				}
+			case SpellAreaColumn:
+				for areaRow := 0; areaRow < 3; areaRow++ {
+					addPosition(defenderID, col, areaRow)
+				}
+			case SpellAreaFrontRow:
+				if frontRow := e.State.Players[defenderID].GetFrontRow(); frontRow >= 0 {
+					for areaCol := 0; areaCol < 3; areaCol++ {
+						addPosition(defenderID, areaCol, frontRow)
+					}
+				}
+			case SpellAreaSplashCross:
+				for _, delta := range []struct{ col, row int }{{0, 0}, {-1, 0}, {1, 0}, {0, -1}, {0, 1}} {
+					addPosition(defenderID, col+delta.col, row+delta.row)
+				}
+			default:
+				addPosition(defenderID, col, row)
+			}
+		}
+	}
+
+	for _, extraTarget := range spell.ExtraTargets {
+		if extraTarget.Type != "unit" || !extraTarget.Position.Valid() {
+			continue
+		}
+		ownerID := defenderID
+		if extraTarget.OwnerID != nil {
+			ownerID = *extraTarget.OwnerID
+		}
+		addPosition(ownerID, extraTarget.Position.Col, extraTarget.Position.Row)
+	}
+	return positions
+}
+
 // GetStateForPlayer returns a filtered game state visible to the specified player
 func (e *Engine) GetStateForPlayer(playerID int) map[string]any {
 	e.mu.Lock()
@@ -5113,13 +5203,14 @@ func (e *Engine) GetStateForPlayer(playerID int) map[string]any {
 		"pending_spell": func() any {
 			if state.PendingSpell != nil {
 				return map[string]any{
-					"attacker":      state.PendingSpell.AttackerID,
-					"skill":         cardToInfo(state.PendingSpell.Skill),
-					"target":        state.PendingSpell.Target,
-					"power":         state.PendingSpell.TotalPower,
-					"power_sources": state.PendingSpell.PowerSources,
-					"boost_skills":  cardsToInfo(state.PendingSpell.BoostSkills),
-					"extra_targets": state.PendingSpell.ExtraTargets,
+					"attacker":           state.PendingSpell.AttackerID,
+					"skill":              cardToInfo(state.PendingSpell.Skill),
+					"target":             state.PendingSpell.Target,
+					"power":              state.PendingSpell.TotalPower,
+					"power_sources":      state.PendingSpell.PowerSources,
+					"boost_skills":       cardsToInfo(state.PendingSpell.BoostSkills),
+					"extra_targets":      state.PendingSpell.ExtraTargets,
+					"affected_positions": e.pendingSpellAffectedPositions(state.PendingSpell),
 				}
 			}
 			return nil
@@ -5165,13 +5256,14 @@ func (e *Engine) GetStateForSpectator() map[string]any {
 		"pending_spell": func() any {
 			if state.PendingSpell != nil {
 				return map[string]any{
-					"attacker":      state.PendingSpell.AttackerID,
-					"skill":         cardToInfo(state.PendingSpell.Skill),
-					"target":        state.PendingSpell.Target,
-					"power":         state.PendingSpell.TotalPower,
-					"power_sources": state.PendingSpell.PowerSources,
-					"boost_skills":  cardsToInfo(state.PendingSpell.BoostSkills),
-					"extra_targets": state.PendingSpell.ExtraTargets,
+					"attacker":           state.PendingSpell.AttackerID,
+					"skill":              cardToInfo(state.PendingSpell.Skill),
+					"target":             state.PendingSpell.Target,
+					"power":              state.PendingSpell.TotalPower,
+					"power_sources":      state.PendingSpell.PowerSources,
+					"boost_skills":       cardsToInfo(state.PendingSpell.BoostSkills),
+					"extra_targets":      state.PendingSpell.ExtraTargets,
+					"affected_positions": e.pendingSpellAffectedPositions(state.PendingSpell),
 				}
 			}
 			return nil
