@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -2631,6 +2632,69 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 		if len(cost) == 0 {
 			t.Fatalf("meteor scroll defense boost should require its play cost")
+		}
+	})
+
+	t.Run("hand boost scroll pricing consumes one-shot discounts in order", func(t *testing.T) {
+		testCases := []struct {
+			name              string
+			cards             [2]string
+			modifier          TemporaryModifier
+			expectedElement   string
+			expectedTotalCost int
+		}{
+			{
+				name:  "quick ice bullet water discount",
+				cards: [2]string{"2221008", "2221009"},
+				modifier: TemporaryModifier{
+					Type:          TempModNextItemOrSkillCostMinus,
+					Element:       model.ElementWater,
+					Amount:        3,
+					RemainingUses: 1,
+				},
+				expectedElement:   model.ElementWater,
+				expectedTotalCost: 4,
+			},
+			{
+				name:  "felin fire card discount",
+				cards: [2]string{"2121003", "2121011"},
+				modifier: TemporaryModifier{
+					Type:          TempModNextFireCardPlayCostMinus,
+					Element:       model.ElementFire,
+					Amount:        1,
+					RemainingUses: 1,
+				},
+				expectedElement:   model.ElementFire,
+				expectedTotalCost: 2,
+			},
+		}
+		for _, purpose := range []skillPurpose{skillPurposeAttackBoost, skillPurposeDefenseBoost} {
+			for _, testCase := range testCases {
+				t.Run(fmt.Sprintf("%s/%s", purpose, testCase.name), func(t *testing.T) {
+					engine := setupReportedBugEngine(t)
+					p0 := engine.State.Players[0]
+					first := NewCardInstance(baseCard(t, testCase.cards[0]), 0, 1)
+					second := NewCardInstance(baseCard(t, testCase.cards[1]), 0, 1)
+					p0.Hand = []*CardInstance{first, second}
+					p0.TempModifiers = []TemporaryModifier{testCase.modifier}
+
+					scrolls, cost, err := engine.collectHandBoostScrollUses(p0, []string{first.InstanceID, second.InstanceID}, nil, purpose)
+					if err != nil {
+						t.Fatalf("collect hand boost scrolls: %v", err)
+					}
+					if len(scrolls) != 2 || cost[testCase.expectedElement] != testCase.expectedTotalCost {
+						t.Fatalf("one-shot discount should apply only to first scroll, scrolls=%v cost=%v", cardsToInfo(scrolls), cost)
+					}
+					if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].RemainingUses != 1 {
+						t.Fatalf("pricing must not consume real modifiers, modifiers=%+v", p0.TempModifiers)
+					}
+
+					engine.moveHandSpellScrollsToGraveyard(p0, scrolls, string(purpose))
+					if len(p0.TempModifiers) != 0 || len(p0.Hand) != 0 || len(p0.Graveyard) != 2 {
+						t.Fatalf("successful use should consume the discount and both scrolls, modifiers=%+v hand=%v graveyard=%v", p0.TempModifiers, cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
+					}
+				})
+			}
 		}
 	})
 

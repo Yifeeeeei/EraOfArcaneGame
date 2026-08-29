@@ -223,27 +223,36 @@ func (e *Engine) consumeNextCardPlayCostModifiers(ps *PlayerState, card *CardIns
 	if ps == nil || card == nil || card.Card == nil {
 		return
 	}
-	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
-		if modifier.RemainingUses == 0 || modifier.TargetInstanceID != "" && modifier.TargetInstanceID != card.InstanceID {
-			continue
-		}
-		switch modifier.Type {
-		case TempModNextItemOrSkillCostMinus:
-			if !isConsumableOrSkillCardInstance(card) {
-				continue
-			}
-		case TempModNextFireCardPlayCostMinus:
-			if card.Card.Category != model.ElementFire {
-				continue
-			}
-		default:
-			continue
-		}
-		modifier.RemainingUses--
-		if modifier.RemainingUses <= 0 {
-			e.removeTemporaryModifier(ps.PlayerID, modifier.ID)
-		}
+	ps.TempModifiers = consumeCardPlayCostModifiers(ps.TempModifiers, card)
+}
+
+func consumeCardPlayCostModifiers(modifiers []TemporaryModifier, card *CardInstance) []TemporaryModifier {
+	if card == nil || card.Card == nil {
+		return modifiers
 	}
+	kept := modifiers[:0]
+	for _, modifier := range modifiers {
+		consume := modifier.RemainingUses != 0 &&
+			(modifier.TargetInstanceID == "" || modifier.TargetInstanceID == card.InstanceID)
+		if consume {
+			switch modifier.Type {
+			case TempModNextItemOrSkillCostMinus:
+				consume = isConsumableOrSkillCardInstance(card)
+			case TempModNextFireCardPlayCostMinus:
+				consume = card.Card.Category == model.ElementFire
+			default:
+				consume = false
+			}
+		}
+		if consume {
+			modifier.RemainingUses--
+			if modifier.RemainingUses <= 0 {
+				continue
+			}
+		}
+		kept = append(kept, modifier)
+	}
+	return kept
 }
 
 func isConsumableOrSkillCardInstance(card *CardInstance) bool {

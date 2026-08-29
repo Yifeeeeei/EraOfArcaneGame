@@ -1305,9 +1305,6 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	e.applyFiveRainbowBeamMarkers(skill, rainbowRing, rainbowMarkers)
 	skill.IsHorizontal = true
 	tapSkills(boostSkills)
-	for _, scroll := range boostScrolls {
-		e.notifyCardPlayCostPaid(ps, scroll)
-	}
 	e.moveHandSpellScrollsToGraveyard(ps, boostScrolls, "attack_boost")
 
 	// Apply cooldown from keyword
@@ -1832,6 +1829,8 @@ func (e *Engine) collectHandBoostScrollUses(ps *PlayerState, ids []string, reser
 	scrolls := make([]*CardInstance, 0, len(ids))
 	totalCost := make(map[string]int)
 	seen := make(map[string]bool)
+	pricingPlayer := *ps
+	pricingPlayer.TempModifiers = append([]TemporaryModifier(nil), ps.TempModifiers...)
 	for id := range reserved {
 		seen[id] = true
 	}
@@ -1851,9 +1850,10 @@ func (e *Engine) collectHandBoostScrollUses(ps *PlayerState, ids []string, reser
 			return nil, nil, fmt.Errorf("boost scroll %s cannot be used for %s: %w", id, purpose, err)
 		}
 		scrolls = append(scrolls, card)
-		for elem, amount := range e.effectiveCardPlayCost(ps, card) {
+		for elem, amount := range e.effectiveCardPlayCost(&pricingPlayer, card) {
 			totalCost[elem] += amount
 		}
+		pricingPlayer.TempModifiers = consumeCardPlayCostModifiers(pricingPlayer.TempModifiers, card)
 	}
 	return scrolls, totalCost, nil
 }
@@ -1880,6 +1880,7 @@ func (e *Engine) moveHandSpellScrollsToGraveyard(ps *PlayerState, cards []*CardI
 		if idx < 0 {
 			continue
 		}
+		e.notifyCardPlayCostPaid(ps, card)
 		ps.RemoveFromHand(idx)
 		e.addToGraveyard(ps.PlayerID, card)
 		e.emit(GameEvent{
