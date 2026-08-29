@@ -45,9 +45,8 @@ type CardInstance struct {
 	AttachedBehaviors   []AttachedBehavior `json:"-"`                      // runtime-granted behavior objects
 
 	// Ability usage
-	UsedThisTurn         int  `json:"used_this_turn"` // for 回合技
-	PendingTriggeredUses int  `json:"-"`              // reserved optional 诱发回合技 windows
-	UltimateUsed         bool `json:"ultimate_used"`  // for 绝技
+	UsedThisTurn int  `json:"used_this_turn"` // for 回合技
+	UltimateUsed bool `json:"ultimate_used"`  // for 绝技
 
 	// Equipment uses
 	UsesRemaining int `json:"uses_remaining"` // for 法宝
@@ -402,6 +401,7 @@ type PendingAction struct {
 	Callback     func(selected []string)                            `json:"-"` // called when resolved
 	CallbackData func(selected []string, data map[string]any)       `json:"-"`
 	CallbackErr  func(selected []string, data map[string]any) error `json:"-"`
+	Available    func() bool                                        `json:"-"` // checked before a queued action is shown
 }
 
 // GameState holds the entire game state

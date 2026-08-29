@@ -282,7 +282,7 @@ func (Card2521108CouncilJudgmentHammer) OnSpellCast(ctx *EffectContext) error {
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.Target.Card == nil {
 		return nil
 	}
-	if !isEnemySpellCast(ctx) || isSorcerySkill(ctx.Target.Card) || !useTriggeredTurn(ctx.Source) {
+	if !isEnemySpellCast(ctx) || spellUsePurpose(ctx) != skillPurposeAttack || isSorcerySkill(ctx.Target.Card) || !useTriggeredTurn(ctx.Source) {
 		return nil
 	}
 	addGeneratedCardsToPlayerDeck(ctx, ctx.OpponentID, "2001102", 3)

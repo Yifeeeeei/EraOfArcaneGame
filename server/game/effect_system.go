@@ -28,7 +28,7 @@ const (
 	TriggerOnDiscard                                   // 弃牌时: card is discarded from hand
 	TriggerOnLoadGain                                  // 获得负载时: a friendly card gains load
 	TriggerOnLoadLoss                                  // 失去负载时: a friendly card loses load
-	TriggerOnLifeGain                                  // 获得生命时: a unit recovers life
+	TriggerOnLifeGain                                  // 获得生命时: a unit explicitly gains life
 	TriggerOnStatusGain                                // 获得状态时: a card gains status stacks
 	TriggerOnMastery                                   // 达到精通时: a friendly card reaches a mastery level
 	TriggerOnSummon                                    // 召唤时: any friendly unit is summoned

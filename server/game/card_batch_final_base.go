@@ -41,15 +41,15 @@ func (Card2411001AncientTreeHeart) OnLoadGain(ctx *EffectContext) error {
 		return nil
 	}
 	target, _ := ctx.ExtraData["load_gain_target"].(*CardInstance)
-	if target == nil || target.OwnerID != ctx.PlayerID || target.Position == nil || target.CurrentLife >= maxLife(target) || !reserveTriggeredTurn(ctx.Source) {
+	if target == nil || target.OwnerID != ctx.PlayerID || target.Position == nil {
 		return nil
 	}
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "ancient_tree_heart_heal",
-		"古树之心:是否使获得负载的友方单位回复1生命", []map[string]any{candidateInfo(target, "unit", "own")}, 0, 1,
+	ctx.Engine.SetTriggeredTurnAction(ctx.Source, ctx.PlayerID, "ancient_tree_heart_life",
+		"古树之心:是否使获得负载的友方单位获得+1血", []map[string]any{candidateInfo(target, "unit", "own")}, 0, 1,
 		func(selected []string) {
 			accepted := len(selected) > 0 && selected[0] == target.InstanceID && target.OwnerID == ctx.PlayerID && target.Position != nil
-			if resolveTriggeredTurn(ctx.Source, accepted) {
-				ctx.Engine.healUnit(target, 1, ctx.Source)
+			if accepted && useTriggeredTurn(ctx.Source) {
+				ctx.Engine.gainLife(target, 1, ctx.Source)
 			}
 		})
 	return nil
@@ -59,14 +59,14 @@ func (Card2411001AncientTreeHeart) OnLifeGain(ctx *EffectContext) error {
 		return nil
 	}
 	target, _ := ctx.ExtraData["life_gain_target"].(*CardInstance)
-	if target == nil || target.OwnerID != ctx.PlayerID || target.Position == nil || !reserveTriggeredTurn(ctx.Source) {
+	if target == nil || target.OwnerID != ctx.PlayerID || target.Position == nil {
 		return nil
 	}
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "ancient_tree_heart_load",
+	ctx.Engine.SetTriggeredTurnAction(ctx.Source, ctx.PlayerID, "ancient_tree_heart_load",
 		"古树之心:是否使获得生命的友方单位负载+1地", []map[string]any{candidateInfo(target, "unit", "own")}, 0, 1,
 		func(selected []string) {
 			accepted := len(selected) > 0 && selected[0] == target.InstanceID && target.OwnerID == ctx.PlayerID && target.Position != nil
-			if resolveTriggeredTurn(ctx.Source, accepted) {
+			if accepted && useTriggeredTurn(ctx.Source) {
 				ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementEarth, 1, ctx.Source)
 			}
 		})

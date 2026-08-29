@@ -54,8 +54,13 @@ func (e *Engine) healUnit(card *CardInstance, amount int, source *CardInstance) 
 		return 0
 	}
 	before := card.CurrentLife
+	convertsToLifeGain := maxLife(card) > 0 && card.CurrentLife >= maxLife(card) && card.Card != nil && card.Card.Number == "1521016"
 	healUnit(card, amount)
-	return e.notifyLifeGain(card, source, before)
+	recovered := card.CurrentLife - before
+	if convertsToLifeGain && recovered > 0 {
+		e.notifyLifeGain(card, source, before)
+	}
+	return recovered
 }
 
 func (e *Engine) gainLife(card *CardInstance, amount int, source *CardInstance) int {
@@ -71,20 +76,20 @@ func (e *Engine) notifyLifeGain(card *CardInstance, source *CardInstance, before
 	if e == nil || card == nil || card.OwnerID < 0 || card.OwnerID >= len(e.State.Players) {
 		return 0
 	}
-	healed := card.CurrentLife - before
-	if healed <= 0 {
+	gained := card.CurrentLife - before
+	if gained <= 0 {
 		return 0
 	}
 	data := map[string]any{
 		"life_gain_player": card.OwnerID,
 		"life_gain_source": source,
 		"life_gain_target": card,
-		"amount":           healed,
+		"amount":           gained,
 	}
 	e.triggerEffects(TriggerOnLifeGain, card, card, data)
 	e.triggerFieldEffectsWithData(TriggerOnLifeGain, card.OwnerID, card, data)
 	e.triggerFieldEffectsWithData(TriggerOnLifeGain, 1-card.OwnerID, card, data)
-	return healed
+	return gained
 }
 
 func maxLife(card *CardInstance) int {
@@ -110,7 +115,6 @@ func resetInstance(card *CardInstance) {
 	card.IsHorizontal = false
 	card.Statuses[StatusCooldown] = 0
 	card.UsedThisTurn = 0
-	card.PendingTriggeredUses = 0
 }
 
 func reduceCost(cost map[string]int, elem string, amount int) {
@@ -267,20 +271,14 @@ func (Card1121013Arsonist) OnSpellCast(ctx *EffectContext) error {
 	if len(candidates) == 0 {
 		return nil
 	}
-	if !reserveTriggeredTurn(ctx.Source) {
-		return nil
-	}
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "arsonist_burn",
+	ctx.Engine.SetTriggeredTurnAction(ctx.Source, ctx.PlayerID, "arsonist_burn",
 		"纵火者:可以选择法力范围内1个单位点燃1", candidates, 0, 1,
 		func(selected []string) {
 			target := selectedUnitFromCandidates(ctx.Engine, selected, candidates)
-			if target == nil {
-				resolveTriggeredTurn(ctx.Source, false)
+			if target == nil || !useTriggeredTurn(ctx.Source) {
 				return
 			}
-			if resolveTriggeredTurn(ctx.Source, true) {
-				ctx.Engine.addStatus(target, StatusBurn, 1)
-			}
+			ctx.Engine.addStatus(target, StatusBurn, 1)
 		})
 	return nil
 }
@@ -877,14 +875,14 @@ func (Card1621013WordSpirit) OnSpellCast(ctx *EffectContext) error {
 			targets = append(targets, skill)
 		}
 	}
-	if len(targets) == 0 || !reserveTriggeredTurn(ctx.Source) {
+	if len(targets) == 0 {
 		return nil
 	}
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "word_spirit_weaken",
+	ctx.Engine.SetTriggeredTurnAction(ctx.Source, ctx.PlayerID, "word_spirit_weaken",
 		"言灵:是否使敌方所有横置法术虚弱1", []map[string]any{candidateInfo(ctx.Source, "unit", "own")}, 0, 1,
 		func(selected []string) {
 			accepted := len(selected) > 0 && selected[0] == ctx.Source.InstanceID
-			if !resolveTriggeredTurn(ctx.Source, accepted) {
+			if !accepted || !useTriggeredTurn(ctx.Source) {
 				return
 			}
 			for _, skill := range targets {
@@ -1335,14 +1333,14 @@ func (Card2321001WindbreathCompass) OnDraw(ctx *EffectContext) error {
 		return nil
 	}
 	drawn, _ := ctx.ExtraData["drawn_card"].(*CardInstance)
-	if drawn == nil || drawn.Card == nil || drawn.Card.Category != model.ElementAir || !reserveTriggeredTurn(ctx.Source) {
+	if drawn == nil || drawn.Card == nil || drawn.Card.Category != model.ElementAir {
 		return nil
 	}
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "windbreath_compass",
+	ctx.Engine.SetTriggeredTurnAction(ctx.Source, ctx.PlayerID, "windbreath_compass",
 		"风息罗盘:是否展示抽到的大气卡牌并临时获得负载+1气", []map[string]any{candidateInfo(drawn, "hand", "own")}, 0, 1,
 		func(selected []string) {
 			accepted := len(selected) > 0 && selected[0] == drawn.InstanceID && ctx.Engine.findFriendlyHandCard(ctx.PlayerID, drawn.InstanceID) == drawn
-			if !resolveTriggeredTurn(ctx.Source, accepted) {
+			if !accepted || !useTriggeredTurn(ctx.Source) {
 				return
 			}
 			ps := ctx.Engine.State.Players[ctx.PlayerID]

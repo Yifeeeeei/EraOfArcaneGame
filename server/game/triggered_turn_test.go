@@ -6,32 +6,6 @@ import (
 	"eraofarcane/model"
 )
 
-func TestTriggeredTurnReservationsCountPendingWindows(t *testing.T) {
-	setupReportedBugEngine(t)
-	card := NewCardInstance(baseCard(t, "2321001"), 0, 1)
-	if !reserveTriggeredTurn(card) || !reserveTriggeredTurn(card) || !reserveTriggeredTurn(card) {
-		t.Fatal("triggered turn 3 should reserve three simultaneous windows")
-	}
-	if reserveTriggeredTurn(card) {
-		t.Fatal("a fourth simultaneous window must not exceed the per-turn limit")
-	}
-	if !resolveTriggeredTurn(card, true) {
-		t.Fatal("accepted reserved window should commit")
-	}
-	if resolveTriggeredTurn(card, false) {
-		t.Fatal("declined reserved window should release without committing")
-	}
-	if !resolveTriggeredTurn(card, true) {
-		t.Fatal("a later accepted reserved window should still commit")
-	}
-	if card.UsedThisTurn != 2 || card.PendingTriggeredUses != 0 {
-		t.Fatalf("unexpected trigger counters: used=%d pending=%d", card.UsedThisTurn, card.PendingTriggeredUses)
-	}
-	if !reserveTriggeredTurn(card) {
-		t.Fatal("declining an optional window should leave one use available")
-	}
-}
-
 func TestTriggeredTurnOncePerTurnRegressions(t *testing.T) {
 	t.Run("fire insight draws once for multiple fire damage events", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
@@ -78,8 +52,8 @@ func TestTriggeredTurnOncePerTurnRegressions(t *testing.T) {
 		data := map[string]any{"cast_player": 1}
 		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, enemySpell, data)
 		resolvePendingSelection(t, engine, 0)
-		if wordSpirit.UsedThisTurn != 0 || wordSpirit.PendingTriggeredUses != 0 {
-			t.Fatalf("declining should release the window, used=%d pending=%d", wordSpirit.UsedThisTurn, wordSpirit.PendingTriggeredUses)
+		if wordSpirit.UsedThisTurn != 0 {
+			t.Fatalf("declining should not consume the trigger, used=%d", wordSpirit.UsedThisTurn)
 		}
 
 		engine.triggerFieldEffectsWithData(TriggerOnSpellCast, 0, enemySpell, data)
@@ -92,7 +66,7 @@ func TestTriggeredTurnOncePerTurnRegressions(t *testing.T) {
 		}
 	})
 
-	t.Run("windbreath compass caps simultaneous draw windows at three", func(t *testing.T) {
+	t.Run("windbreath compass retains all simultaneous draw windows", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		compass := NewCardInstance(baseCard(t, "2321001"), 0, 1)
@@ -104,17 +78,42 @@ func TestTriggeredTurnOncePerTurnRegressions(t *testing.T) {
 		p0.Deck = append([]*CardInstance(nil), drawn...)
 
 		engine.drawCards(0, 4)
-		if compass.PendingTriggeredUses != 3 || len(engine.State.PendingActionQueue) != 2 {
-			t.Fatalf("compass should reserve exactly three prompts, pending_uses=%d queue=%d", compass.PendingTriggeredUses, len(engine.State.PendingActionQueue))
+		if engine.State.PendingAction == nil || len(engine.State.PendingActionQueue) != 3 {
+			t.Fatalf("compass should retain all four draw opportunities, pending=%+v queue=%d", engine.State.PendingAction, len(engine.State.PendingActionQueue))
 		}
 		resolvePendingSelection(t, engine, 0)
 		resolvePendingSelection(t, engine, 0, drawn[1].InstanceID)
 		resolvePendingSelection(t, engine, 0, drawn[2].InstanceID)
-		if compass.UsedThisTurn != 2 || compass.PendingTriggeredUses != 0 || engine.State.PendingAction != nil {
-			t.Fatalf("compass should commit only accepted prompts, used=%d pending=%d action=%+v", compass.UsedThisTurn, compass.PendingTriggeredUses, engine.State.PendingAction)
+		resolvePendingSelection(t, engine, 0, drawn[3].InstanceID)
+		if compass.UsedThisTurn != 3 || engine.State.PendingAction != nil {
+			t.Fatalf("compass should commit three accepted prompts after a decline, used=%d action=%+v", compass.UsedThisTurn, engine.State.PendingAction)
 		}
-		if p0.RevealedHand[drawn[0].InstanceID] || !p0.RevealedHand[drawn[1].InstanceID] || !p0.RevealedHand[drawn[2].InstanceID] || p0.RevealedHand[drawn[3].InstanceID] {
+		if p0.RevealedHand[drawn[0].InstanceID] || !p0.RevealedHand[drawn[1].InstanceID] || !p0.RevealedHand[drawn[2].InstanceID] || !p0.RevealedHand[drawn[3].InstanceID] {
 			t.Fatalf("only accepted eligible draws should be revealed, revealed=%v", p0.RevealedHand)
+		}
+	})
+
+	t.Run("windbreath compass skips queued windows after reaching its limit", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		compass := NewCardInstance(baseCard(t, "2321001"), 0, 1)
+		p0.Equipment[0] = compass
+		drawn := make([]*CardInstance, 4)
+		for i := range drawn {
+			drawn[i] = NewCardInstance(baseCard(t, "1321001"), 0, 1)
+		}
+		p0.Deck = append([]*CardInstance(nil), drawn...)
+
+		engine.drawCards(0, 4)
+		resolvePendingSelection(t, engine, 0, drawn[0].InstanceID)
+		resolvePendingSelection(t, engine, 0, drawn[1].InstanceID)
+		resolvePendingSelection(t, engine, 0, drawn[2].InstanceID)
+
+		if compass.UsedThisTurn != 3 || engine.State.PendingAction != nil || len(engine.State.PendingActionQueue) != 0 {
+			t.Fatalf("the fourth window should expire after three accepted uses, used=%d pending=%+v queue=%d", compass.UsedThisTurn, engine.State.PendingAction, len(engine.State.PendingActionQueue))
+		}
+		if p0.RevealedHand[drawn[3].InstanceID] {
+			t.Fatal("an expired compass window must not reveal its card")
 		}
 	})
 
@@ -124,7 +123,7 @@ func TestTriggeredTurnOncePerTurnRegressions(t *testing.T) {
 		tree := NewCardInstance(baseCard(t, "2411001"), 0, 1)
 		p0.Equipment[0] = tree
 		unit := placeUnit(baseCard(t, "1021002"), 0, 0, 0, engine)
-		unit.CurrentLife = maxLife(unit) - 2
+		unit.CurrentLife = maxLife(unit)
 		startLife := unit.CurrentLife
 		startEarth := effectiveElementsGain(unit)[model.ElementEarth]
 
@@ -136,6 +135,38 @@ func TestTriggeredTurnOncePerTurnRegressions(t *testing.T) {
 		}
 		if engine.State.PendingAction != nil || len(engine.State.PendingActionQueue) != 0 {
 			t.Fatalf("tree heart life gain must not recursively queue its other mode, pending=%+v queue=%d", engine.State.PendingAction, len(engine.State.PendingActionQueue))
+		}
+	})
+
+	t.Run("ordinary healing does not count as gaining life", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		tree := NewCardInstance(baseCard(t, "2411001"), 0, 1)
+		p0.Equipment[0] = tree
+		child := placeUnit(baseCard(t, "1521102"), 0, 0, 0, engine)
+		child.CurrentLife = maxLife(child) - 1
+
+		engine.healUnit(child, 1, tree)
+
+		if engine.State.PendingAction != nil || tree.UsedThisTurn != 0 || child.UltimateUsed {
+			t.Fatalf("healing should not emit a life-gain event, pending=%+v tree_used=%d child_used=%v", engine.State.PendingAction, tree.UsedThisTurn, child.UltimateUsed)
+		}
+	})
+
+	t.Run("explicit life gain notifies ancient tree and holy child", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		tree := NewCardInstance(baseCard(t, "2411001"), 0, 1)
+		p0.Equipment[0] = tree
+		child := placeUnit(baseCard(t, "1521102"), 0, 0, 0, engine)
+
+		engine.gainLife(child, 1, tree)
+
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "holy_child_bonus" || len(engine.State.PendingActionQueue) != 1 {
+			t.Fatalf("life gain should notify both listeners, pending=%+v queue=%d", engine.State.PendingAction, len(engine.State.PendingActionQueue))
+		}
+		if engine.State.PendingActionQueue[0].Type != "ancient_tree_heart_load" {
+			t.Fatalf("ancient tree should queue its response to the same life-gain event, queue=%+v", engine.State.PendingActionQueue)
 		}
 	})
 
@@ -174,6 +205,97 @@ func TestTriggeredTurnOncePerTurnRegressions(t *testing.T) {
 
 		if shield.UsedThisTurn != 1 || phantomPain.UsedThisTurn != 1 || defenseSpell.Statuses[StatusWeaken] != 2 {
 			t.Fatalf("defense triggers should resolve once, shield=%d pain=%d weaken=%d", shield.UsedThisTurn, phantomPain.UsedThisTurn, defenseSpell.Statuses[StatusWeaken])
+		}
+	})
+}
+
+func TestSpellUseEventsCoverBoostAndDefensePurposes(t *testing.T) {
+	t.Run("attack boost notifies field listeners", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		deer := placeUnit(baseCard(t, "1421108"), 0, 1, 1, engine)
+		deer.IsHorizontal = true
+		attack := readySkill(baseCard(t, "3121001"), 0)
+		mediumBoost := readySkill(baseCard(t, "3421104"), 0)
+		p0.Skills[0] = attack
+		p0.Skills[1] = mediumBoost
+		setAllElements(p0, 20)
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": attack.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(target.Position.Col),
+			"target_row":  float64(target.Position.Row),
+			"boost_ids":   []any{mediumBoost.InstanceID},
+		}}); err != nil {
+			t.Fatalf("cast with medium boost: %v", err)
+		}
+		if deer.IsHorizontal || deer.UsedThisTurn != 1 {
+			t.Fatalf("celtic deer should observe the real attack-boost use, horizontal=%v used=%d", deer.IsHorizontal, deer.UsedThisTurn)
+		}
+	})
+
+	t.Run("defense notifies field listeners without triggering attack-only listeners", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		hammer := NewCardInstance(baseCard(t, "2521108"), 0, engine.State.TurnNumber)
+		p0.Equipment[0] = hammer
+		medium := placeUnit(baseCard(t, "1321012"), 1, 0, 0, engine)
+		defense := readySkill(baseCard(t, "3321002"), 1)
+		p1.Skills[0] = defense
+		p1.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 1, engine.State.TurnNumber)}
+		setAllElements(p1, 20)
+		engine.State.CurrentTurn = 0
+		engine.State.Phase = PhaseDefenseWindow
+		engine.State.PendingSpell = &SpellCast{
+			AttackerID: 0,
+			Skill:      readySkill(baseCard(t, "3121001"), 0),
+			Target:     SpellTarget{Type: "hero"},
+			TotalPower: defense.Card.Power,
+		}
+
+		if err := engine.HandleAction(1, ActionMessage{Action: "defend", Data: map[string]any{
+			"skill_ids": []any{defense.InstanceID},
+		}}); err != nil {
+			t.Fatalf("defend with air spell: %v", err)
+		}
+		if len(p1.Hand) != 1 || medium.UsedThisTurn != 1 {
+			t.Fatalf("wind medium should observe the real defense use, hand=%d used=%d", len(p1.Hand), medium.UsedThisTurn)
+		}
+		if countCardNumber(p1.Deck, "2001102") != 0 || hammer.UsedThisTurn != 0 {
+			t.Fatalf("council judgment hammer must ignore defense uses, marks=%d used=%d", countCardNumber(p1.Deck, "2001102"), hammer.UsedThisTurn)
+		}
+	})
+
+	t.Run("defense boost notifies field listeners", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p1 := engine.State.Players[1]
+		medium := placeUnit(baseCard(t, "1321012"), 1, 0, 0, engine)
+		defense := readySkill(baseCard(t, "3121001"), 1)
+		airBoost := readySkill(baseCard(t, "3321002"), 1)
+		p1.Skills[0] = defense
+		p1.Skills[1] = airBoost
+		p1.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 1, engine.State.TurnNumber)}
+		setAllElements(p1, 20)
+		engine.State.CurrentTurn = 0
+		engine.State.Phase = PhaseDefenseWindow
+		engine.State.PendingSpell = &SpellCast{
+			AttackerID: 0,
+			Skill:      readySkill(baseCard(t, "3121001"), 0),
+			Target:     SpellTarget{Type: "hero"},
+			TotalPower: defense.Card.Power + airBoost.Card.Power,
+		}
+
+		if err := engine.HandleAction(1, ActionMessage{Action: "defend", Data: map[string]any{
+			"skill_ids": []any{defense.InstanceID},
+			"boost_ids": []any{airBoost.InstanceID},
+		}}); err != nil {
+			t.Fatalf("defend with air boost: %v", err)
+		}
+		if len(p1.Hand) != 1 || medium.UsedThisTurn != 1 {
+			t.Fatalf("wind medium should observe the real defense-boost use, hand=%d used=%d", len(p1.Hand), medium.UsedThisTurn)
 		}
 	})
 }

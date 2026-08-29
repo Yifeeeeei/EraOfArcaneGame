@@ -20,6 +20,15 @@ func isSpellBeingCast(ctx *EffectContext) bool {
 	return ctx != nil && ctx.Target == nil
 }
 
+func spellUsePurpose(ctx *EffectContext) skillPurpose {
+	if ctx != nil && ctx.ExtraData != nil {
+		if purpose, ok := ctx.ExtraData["purpose"].(string); ok && purpose != "" {
+			return skillPurpose(purpose)
+		}
+	}
+	return skillPurposeAttack
+}
+
 func spellCastSourceElement(ctx *EffectContext) string {
 	if ctx == nil {
 		return ""
@@ -61,6 +70,32 @@ func spellCasterFromData(ctx *EffectContext) (int, bool) {
 
 func isOwnSpellHit(ctx *EffectContext) bool {
 	return ctx != nil && ctx.ExtraData != nil && ctx.ExtraData["spell_source"] == ctx.Source
+}
+
+func (e *Engine) triggerSpellUseFieldEffectsWithContinuation(casterID int, source *CardInstance, extraData map[string]any, afterDone func()) bool {
+	runFieldEffects := func() bool {
+		fieldData := cloneExtraData(extraData)
+		fieldData["skip_counter_traps"] = true
+		e.triggerFieldEffectsWithData(TriggerOnSpellCast, casterID, source, fieldData)
+		if !spellSuppressesOpponentResponses(source) {
+			e.triggerFieldEffectsWithData(TriggerOnSpellCast, 1-casterID, source, fieldData)
+		}
+		if e.State.PendingAction == nil {
+			return false
+		}
+		e.wrapPendingActionContinuation(afterDone)
+		return true
+	}
+
+	if e.State.PendingAction != nil {
+		e.wrapPendingActionContinuation(func() {
+			if !runFieldEffects() && afterDone != nil {
+				afterDone()
+			}
+		})
+		return true
+	}
+	return runFieldEffects()
 }
 
 func (e *Engine) triggerSpellCastFieldEffectsWithContinuation(casterID int, source *CardInstance, extraData map[string]any, afterDone func()) bool {

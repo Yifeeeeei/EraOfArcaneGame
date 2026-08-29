@@ -2598,7 +2598,7 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		highCost := NewCardInstance(baseCard(t, "1021013"), 0, 1)
 
 		engine.addElementsGainBonus(unit, 0, model.ElementEarth, 1, treeHeart)
-		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "ancient_tree_heart_heal" {
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "ancient_tree_heart_life" {
 			t.Fatalf("ancient tree heart should react to friendly load gain, pending=%+v", engine.State.PendingAction)
 		}
 		resolvePendingSelection(t, engine, 0, unit.InstanceID)
@@ -3015,9 +3015,6 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		if engine.State.PendingAction != nil {
 			t.Fatalf("drawing windbreath compass itself should not open prompt, pending=%+v", engine.State.PendingAction)
 		}
-		if compass.PendingTriggeredUses != 0 {
-			t.Fatalf("drawing windbreath compass itself should not reserve a trigger, pending=%d", compass.PendingTriggeredUses)
-		}
 	})
 
 	t.Run("2321001 风息罗盘 triggers from field only when owner draws an air card", func(t *testing.T) {
@@ -3030,8 +3027,8 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		p0.Deck = []*CardInstance{nonAir, air}
 
 		engine.drawCards(0, 1)
-		if engine.State.PendingAction != nil || compass.PendingTriggeredUses != 0 {
-			t.Fatalf("windbreath compass should ignore non-air draws, pending=%+v reserved=%d", engine.State.PendingAction, compass.PendingTriggeredUses)
+		if engine.State.PendingAction != nil {
+			t.Fatalf("windbreath compass should ignore non-air draws, pending=%+v", engine.State.PendingAction)
 		}
 
 		engine.drawCards(0, 1)
@@ -3039,12 +3036,12 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "windbreath_compass" {
 			t.Fatalf("field windbreath compass should prompt on an air draw, pending=%+v", engine.State.PendingAction)
 		}
-		if compass.PendingTriggeredUses != 1 || !candidateContains(engine.State.PendingAction.Candidates, air.InstanceID) {
-			t.Fatalf("field windbreath compass should reserve one trigger for the drawn air card, pending=%d candidates=%+v", compass.PendingTriggeredUses, engine.State.PendingAction.Candidates)
+		if !candidateContains(engine.State.PendingAction.Candidates, air.InstanceID) {
+			t.Fatalf("field windbreath compass should offer the drawn air card, candidates=%+v", engine.State.PendingAction.Candidates)
 		}
 		resolvePendingSelection(t, engine, 0, air.InstanceID)
-		if compass.UsedThisTurn != 1 || compass.PendingTriggeredUses != 0 || !p0.RevealedHand[air.InstanceID] || effectiveElementsGain(compass)[model.ElementAir] != compass.Card.ElementsGain[model.ElementAir]+1 {
-			t.Fatalf("accepted compass trigger should reveal air card and add temporary load, used=%d pending=%d revealed=%v load=%v", compass.UsedThisTurn, compass.PendingTriggeredUses, p0.RevealedHand, effectiveElementsGain(compass))
+		if compass.UsedThisTurn != 1 || !p0.RevealedHand[air.InstanceID] || effectiveElementsGain(compass)[model.ElementAir] != compass.Card.ElementsGain[model.ElementAir]+1 {
+			t.Fatalf("accepted compass trigger should reveal air card and add temporary load, used=%d revealed=%v load=%v", compass.UsedThisTurn, p0.RevealedHand, effectiveElementsGain(compass))
 		}
 	})
 
@@ -8650,6 +8647,8 @@ func TestSelectionSorcerySkillEffects(t *testing.T) {
 func TestRemainingPassiveSkillEffects(t *testing.T) {
 	t.Run("1521016 独守城卫 gains max life when a healing effect resolves at full life", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
+		tree := NewCardInstance(baseCard(t, "2411001"), 0, 1)
+		engine.State.Players[0].Equipment[0] = tree
 		guard := placeUnit(baseCard(t, "1521016"), 0, 1, 0, engine)
 		guard.CurrentLife = guard.Card.Life
 		healing := readySkill(baseCard(t, "3521001"), 0)
@@ -8666,6 +8665,9 @@ func TestRemainingPassiveSkillEffects(t *testing.T) {
 		}
 		if guard.Statuses["max_life_bonus"] != 1 || guard.CurrentLife != guard.Card.Life+1 {
 			t.Fatalf("solo city defender should gain one max/current life at full life, life=%d statuses=%v", guard.CurrentLife, guard.Statuses)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "ancient_tree_heart_load" {
+			t.Fatalf("converted full-health healing should emit exactly one life-gain event, pending=%+v", engine.State.PendingAction)
 		}
 	})
 

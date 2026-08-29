@@ -295,7 +295,6 @@ func (e *Engine) replaceUnitCard(unit *CardInstance, number string, reset bool) 
 		unit.IsHorizontal = false
 		unit.Statuses = make(map[string]int)
 		unit.UsedThisTurn = 0
-		unit.PendingTriggeredUses = 0
 		unit.UltimateUsed = false
 		return
 	}

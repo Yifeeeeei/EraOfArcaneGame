@@ -1,7 +1,7 @@
 package game
 
 func triggeredTurnAvailable(card *CardInstance) bool {
-	return card != nil && card.UsedThisTurn+card.PendingTriggeredUses < perTurnLimit(card)
+	return card != nil && card.UsedThisTurn < perTurnLimit(card)
 }
 
 func useTriggeredTurn(card *CardInstance) bool {
@@ -12,22 +12,11 @@ func useTriggeredTurn(card *CardInstance) bool {
 	return true
 }
 
-func reserveTriggeredTurn(card *CardInstance) bool {
-	if !triggeredTurnAvailable(card) {
-		return false
+func (e *Engine) SetTriggeredTurnAction(source *CardInstance, playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, callback func([]string)) {
+	if !triggeredTurnAvailable(source) {
+		return
 	}
-	card.PendingTriggeredUses++
-	return true
-}
-
-func resolveTriggeredTurn(card *CardInstance, use bool) bool {
-	if card == nil || card.PendingTriggeredUses <= 0 {
-		return false
-	}
-	card.PendingTriggeredUses--
-	if !use || card.UsedThisTurn >= perTurnLimit(card) {
-		return false
-	}
-	card.UsedThisTurn++
-	return true
+	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, nil, false, callback, nil, nil, nil, func() bool {
+		return triggeredTurnAvailable(source)
+	})
 }

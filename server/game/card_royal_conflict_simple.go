@@ -746,17 +746,13 @@ func (Card4111102GeneralKelan) OnDefend(ctx *EffectContext) error {
 	if !success || !triggeredTurnAvailable(ctx.Source) || !deckHasMatch(ctx.Engine.State.Players[ctx.PlayerID], isFireCard) {
 		return nil
 	}
-	if !reserveTriggeredTurn(ctx.Source) {
-		return nil
-	}
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "general_kelan_flip_fire_card",
+	ctx.Engine.SetTriggeredTurnAction(ctx.Source, ctx.PlayerID, "general_kelan_flip_fire_card",
 		"大将军 克兰:是否翻取1张火焰卡牌并弃1张手牌", []map[string]any{candidateInfo(ctx.Source, "hero", "own")}, 0, 1,
 		func(selected []string) {
-			if len(selected) == 0 {
-				resolveTriggeredTurn(ctx.Source, false)
+			if len(selected) == 0 || !deckHasMatch(ctx.Engine.State.Players[ctx.PlayerID], isFireCard) || !useTriggeredTurn(ctx.Source) {
 				return
 			}
-			drawn := ctx.Engine.flipDeckMatchesToHandThen(ctx.PlayerID, 1, 0, isFireCard, func(drawn []*CardInstance) {
+			ctx.Engine.flipDeckMatchesToHandThen(ctx.PlayerID, 1, 0, isFireCard, func(drawn []*CardInstance) {
 				if len(drawn) == 0 {
 					return
 				}
@@ -770,11 +766,6 @@ func (Card4111102GeneralKelan) OnDefend(ctx *EffectContext) error {
 						ctx.Engine.discardFriendlyCandidate(ctx.PlayerID, firstSelected(discardSelected))
 					})
 			})
-			if len(drawn) == 0 {
-				resolveTriggeredTurn(ctx.Source, false)
-				return
-			}
-			resolveTriggeredTurn(ctx.Source, true)
 		})
 	return nil
 }
@@ -2378,19 +2369,14 @@ func (Card1121115LegionStaffOfficer) OnSpellCast(ctx *EffectContext) error {
 	if !deckHasMatch(ctx.Engine.State.Players[ctx.PlayerID], isFireConsumableItem) {
 		return nil
 	}
-	if !reserveTriggeredTurn(ctx.Source) {
-		return nil
-	}
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "legion_staff_officer_flip_fire_consumable",
+	ctx.Engine.SetTriggeredTurnAction(ctx.Source, ctx.PlayerID, "legion_staff_officer_flip_fire_consumable",
 		"军团参谋:是否翻取1个火焰消耗品道具", []map[string]any{candidateInfo(ctx.Source, "unit", "own")}, 0, 1,
 		func(selected []string) {
-			if len(selected) == 0 {
-				resolveTriggeredTurn(ctx.Source, false)
+			if len(selected) == 0 || !deckHasMatch(ctx.Engine.State.Players[ctx.PlayerID], isFireConsumableItem) || !useTriggeredTurn(ctx.Source) {
 				return
 			}
 			drawn := ctx.Engine.flipDeckMatchesToHand(ctx.PlayerID, 1, 0, isFireConsumableItem)
 			if len(drawn) == 0 {
-				resolveTriggeredTurn(ctx.Source, false)
 				return
 			}
 			ps := ctx.Engine.State.Players[ctx.PlayerID]
@@ -2398,7 +2384,6 @@ func (Card1121115LegionStaffOfficer) OnSpellCast(ctx *EffectContext) error {
 				ps.DiscardAtTurnEnd = make(map[string]bool)
 			}
 			ps.DiscardAtTurnEnd[drawn[0].InstanceID] = true
-			resolveTriggeredTurn(ctx.Source, true)
 		})
 	return nil
 }
@@ -5586,7 +5571,6 @@ func (Card1521108ContradictoryKnight) OnDeath(ctx *EffectContext) error {
 			ctx.Source.PowerBonus = 0
 			ctx.Source.AttackBonus = 0
 			ctx.Source.UsedThisTurn = 0
-			ctx.Source.PendingTriggeredUses = 0
 			ctx.Source.UltimateUsed = false
 			ctx.Engine.exileTransferredBoundSkills(ctx.PlayerID, ctx.Source)
 			ctx.Source.BoundSkills = nil
@@ -7708,7 +7692,6 @@ func resetCardForResummon(card *CardInstance) {
 	card.PowerBonus = 0
 	card.AttackBonus = 0
 	card.UsedThisTurn = 0
-	card.PendingTriggeredUses = 0
 	card.UltimateUsed = false
 	card.BoundSkills = nil
 	card.UnderCards = nil
@@ -8617,17 +8600,13 @@ func (Card3621108Moonshadow) OnDefend(ctx *EffectContext) error {
 		if skill != nil && skill.OwnerID != ctx.PlayerID && skill.Statuses[StatusWeaken] > 0 && ctx.Engine.hasEffectiveStatus(skill, StatusWeaken) {
 			source := ctx.Source
 			reason := skill
-			if !reserveTriggeredTurn(source) {
-				return nil
-			}
-			ctx.Engine.SetPendingAction(ctx.PlayerID, "moonshadow_reset",
+			ctx.Engine.SetTriggeredTurnAction(source, ctx.PlayerID, "moonshadow_reset",
 				"月影:是否重置此卡", []map[string]any{candidateInfo(source, "skill", "own")}, 0, 1,
 				func(selected []string) {
 					if len(selected) == 0 || source == nil || source.Card == nil {
-						resolveTriggeredTurn(source, false)
 						return
 					}
-					if !resolveTriggeredTurn(source, true) {
+					if !useTriggeredTurn(source) {
 						return
 					}
 					ctx.Engine.resetCard(source)
