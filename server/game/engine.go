@@ -19,8 +19,9 @@ type GameEvent struct {
 
 // ActionMessage is a player action received via WebSocket
 type ActionMessage struct {
-	Action string         `json:"action"`
-	Data   map[string]any `json:"data"`
+	Action    string         `json:"action"`
+	Data      map[string]any `json:"data"`
+	RequestID string         `json:"request_id,omitempty"`
 }
 
 // EventCallback is called when events occur (to send to clients)
@@ -5731,6 +5732,7 @@ func (e *Engine) cardsToInfoWithEffectiveCosts(ps *PlayerState, cards []*CardIns
 				info["effective_learn_cost"] = e.effectiveSkillLearnCost(ps, c)
 			} else {
 				info["effective_elements_cost"] = e.effectiveCardPlayCost(ps, c)
+				info["action_base_play_cost"] = e.actionBaseCardPlayCost(ps, c)
 			}
 		}
 		result[i] = info
@@ -5750,6 +5752,18 @@ func (e *Engine) cardToInfoForPlayer(ps *PlayerState, card *CardInstance) map[st
 		info["effective_defense_boost_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeDefenseBoost)
 		info["effective_attack_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeAttack)
 		info["effective_attack_boost_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeAttackBoost)
+		info["action_base_attack_cost"] = e.actionBaseSkillUseCost(ps, card, skillPurposeAttack)
+		info["action_base_attack_boost_cost"] = e.actionBaseSkillUseCost(ps, card, skillPurposeAttackBoost)
+		info["action_base_defense_cost"] = e.actionBaseSkillUseCost(ps, card, skillPurposeDefend)
+		info["action_base_defense_boost_cost"] = e.actionBaseSkillUseCost(ps, card, skillPurposeDefenseBoost)
+		info["action_base_reaction_cost"] = e.actionBaseSkillUseCost(ps, card, skillPurposeReaction)
+	}
+	if len(card.BoundSkills) > 0 {
+		boundSkills := make([]map[string]any, len(card.BoundSkills))
+		for i, bound := range card.BoundSkills {
+			boundSkills[i] = e.cardToInfoForPlayer(ps, bound)
+		}
+		info["bound_skills"] = boundSkills
 	}
 	return info
 }

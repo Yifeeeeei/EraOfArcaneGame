@@ -339,6 +339,40 @@ type actionCostPlan struct {
 	player PlayerState
 }
 
+func isSequentialCostModifier(modifier TemporaryModifier) bool {
+	switch modifier.Type {
+	case TempModNextSkillCostZero,
+		TempModNextSkillUseCostMinus,
+		TempModNextItemOrSkillCostMinus,
+		TempModNextFireCardPlayCostMinus:
+		return true
+	default:
+		return false
+	}
+}
+
+func playerWithoutSequentialCostModifiers(ps *PlayerState) *PlayerState {
+	if ps == nil {
+		return nil
+	}
+	base := *ps
+	base.TempModifiers = make([]TemporaryModifier, 0, len(ps.TempModifiers))
+	for _, modifier := range ps.TempModifiers {
+		if !isSequentialCostModifier(modifier) {
+			base.TempModifiers = append(base.TempModifiers, modifier)
+		}
+	}
+	return &base
+}
+
+func (e *Engine) actionBaseSkillUseCost(ps *PlayerState, skill *CardInstance, purpose skillPurpose) map[string]int {
+	return e.effectiveSkillUseCostForPurpose(playerWithoutSequentialCostModifiers(ps), skill, purpose)
+}
+
+func (e *Engine) actionBaseCardPlayCost(ps *PlayerState, card *CardInstance) map[string]int {
+	return e.effectiveCardPlayCost(playerWithoutSequentialCostModifiers(ps), card)
+}
+
 func newActionCostPlan(ps *PlayerState) *actionCostPlan {
 	plan := &actionCostPlan{}
 	if ps == nil {

@@ -34,6 +34,24 @@ func (wsc *WSConnection) SendJSON(v any) error {
 	return wsc.conn.WriteJSON(v)
 }
 
+func sendActionResult(wsc *WSConnection, requestID string, err error) {
+	if requestID == "" {
+		if err != nil {
+			wsc.SendJSON(map[string]any{"type": "error", "message": err.Error()})
+		}
+		return
+	}
+	result := map[string]any{
+		"type":       "action_result",
+		"request_id": requestID,
+		"ok":         err == nil,
+	}
+	if err != nil {
+		result["message"] = err.Error()
+	}
+	wsc.SendJSON(result)
+}
+
 // HandleWebSocket handles WebSocket connections for game communication
 func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -200,23 +218,26 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 				continue
 			}
 			if isSpectator {
-				room.LogActionError(slot, playerID, action, fmt.Errorf("spectators cannot act"))
-				wsc.SendJSON(map[string]any{"type": "error", "message": "spectators cannot act"})
+				actionErr := fmt.Errorf("spectators cannot act")
+				room.LogActionError(slot, playerID, action, actionErr)
+				sendActionResult(wsc, action.RequestID, actionErr)
 				continue
 			}
 			room.LogClientAction(slot, playerID, action)
 
 			if room.Engine == nil {
-				room.LogActionError(slot, playerID, action, fmt.Errorf("game not started"))
-				wsc.SendJSON(map[string]any{"type": "error", "message": "game not started"})
+				actionErr := fmt.Errorf("game not started")
+				room.LogActionError(slot, playerID, action, actionErr)
+				sendActionResult(wsc, action.RequestID, actionErr)
 				continue
 			}
 
 			if err := room.Engine.HandleAction(slot, action); err != nil {
 				room.LogActionError(slot, playerID, action, err)
-				wsc.SendJSON(map[string]any{"type": "error", "message": err.Error()})
+				sendActionResult(wsc, action.RequestID, err)
 				continue
 			}
+			sendActionResult(wsc, action.RequestID, nil)
 
 			// Send updated state after each action
 			room.BroadcastState()

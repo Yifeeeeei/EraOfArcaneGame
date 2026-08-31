@@ -5723,6 +5723,47 @@ func TestManaBoosterMakesNextSkillUseFree(t *testing.T) {
 	}
 }
 
+func TestActionCostStateKeepsSequentialDiscountOutOfBaseCosts(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	mainSkill := readySkill(baseCard(t, "3221001"), 0)
+	firstScroll := NewCardInstance(baseCard(t, "2221008"), 0, 1)
+	secondScroll := NewCardInstance(baseCard(t, "2221009"), 0, 1)
+	p0.Skills[0] = mainSkill
+	p0.Hand = []*CardInstance{firstScroll, secondScroll}
+	p0.TempModifiers = []TemporaryModifier{{
+		Type:          TempModNextItemOrSkillCostMinus,
+		Element:       model.ElementWater,
+		Amount:        3,
+		RemainingUses: 1,
+	}}
+
+	state := engine.GetStateForPlayer(0)
+	you := state["you"].(map[string]any)
+	skills := you["skills"].([]any)
+	skillInfo := skills[0].(map[string]any)
+	if got := skillInfo["action_base_attack_cost"].(map[string]int)[model.ElementWater]; got != 2 {
+		t.Fatalf("attack base cost should omit the one-shot discount, got %v", skillInfo["action_base_attack_cost"])
+	}
+
+	hand := you["hand"].([]map[string]any)
+	if got := hand[0]["effective_elements_cost"].(map[string]int)[model.ElementWater]; got != 0 {
+		t.Fatalf("first independently displayed scroll should include the active discount, got %v", hand[0]["effective_elements_cost"])
+	}
+	if got := hand[1]["effective_elements_cost"].(map[string]int)[model.ElementWater]; got != 1 {
+		t.Fatalf("second independently displayed scroll should include the active discount, got %v", hand[1]["effective_elements_cost"])
+	}
+	if got := hand[0]["action_base_play_cost"].(map[string]int)[model.ElementWater]; got != 2 {
+		t.Fatalf("first scroll base cost should be 2 water, got %v", hand[0]["action_base_play_cost"])
+	}
+	if got := hand[1]["action_base_play_cost"].(map[string]int)[model.ElementWater]; got != 4 {
+		t.Fatalf("second scroll base cost should be 4 water, got %v", hand[1]["action_base_play_cost"])
+	}
+	if p0.TempModifiers[0].RemainingUses != 1 {
+		t.Fatalf("state serialization must not consume the real modifier, modifiers=%v", p0.TempModifiers)
+	}
+}
+
 func TestManaBoosterADoesNotMakeBoostSkillFree(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
