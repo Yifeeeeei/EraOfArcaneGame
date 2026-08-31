@@ -573,14 +573,17 @@ func (e *Engine) executePrayerAbility(playerID int, card *CardInstance) {
 }
 
 func (e *Engine) wrapPendingActionContinuation(continueFn func()) {
+	e.wrapPendingActionContinuationWithSpellBaseline(e.State.PendingSpell, continueFn)
+}
+
+func (e *Engine) wrapPendingActionContinuationWithSpellBaseline(pendingSpellAtWrap *SpellCast, continueFn func()) {
 	pa := e.State.PendingAction
 	if pa == nil || continueFn == nil {
 		return
 	}
-	pendingSpellAtWrap := e.State.PendingSpell
 	after := func() {
 		if e.State.PendingAction != nil {
-			e.wrapPendingActionContinuation(continueFn)
+			e.wrapPendingActionContinuationWithSpellBaseline(pendingSpellAtWrap, continueFn)
 			return
 		}
 		if e.State.PendingSpell != nil && e.State.PendingSpell != pendingSpellAtWrap {

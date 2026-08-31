@@ -5945,6 +5945,38 @@ func TestIssue158EmbersWaitsForItsOwnersSpellToFinish(t *testing.T) {
 			t.Fatalf("cancelled Embers should finish the turn after cancellation, turn=%d action=%+v spell=%+v", engine.State.CurrentTurn, engine.State.PendingAction, engine.State.PendingSpell)
 		}
 	})
+
+	t.Run("spell cast prompts finish before the turn advances", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		embers := readySkill(baseCard(t, "3121105"), 0)
+		p0.Skills[0] = embers
+		placeUnit(baseCard(t, "1211103"), 0, 1, 1, engine)
+		p0.Elements[model.ElementWater] = 2
+		target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "end_turn"}); err != nil {
+			t.Fatalf("end owner turn: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{"selected": []any{target.InstanceID}}}); err != nil {
+			t.Fatalf("cast Embers: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.PlayerID != 0 || engine.State.PendingSpell == nil {
+			t.Fatalf("Coral Wendy should prompt while Embers remains pending, action=%+v spell=%+v", engine.State.PendingAction, engine.State.PendingSpell)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{"selected": []any{}}}); err != nil {
+			t.Fatalf("decline Coral Wendy: %v", err)
+		}
+		if engine.State.CurrentTurn != 0 || engine.State.Phase != PhaseDefenseWindow || engine.State.PendingSpell == nil {
+			t.Fatalf("turn must wait after the spell-cast prompt, turn=%d phase=%s spell=%+v", engine.State.CurrentTurn, engine.State.Phase, engine.State.PendingSpell)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend"}); err != nil {
+			t.Fatalf("decline defense: %v", err)
+		}
+		if engine.State.PendingAction != nil || engine.State.PendingSpell != nil || engine.State.CurrentTurn != 1 {
+			t.Fatalf("turn should advance only after Embers resolves, turn=%d action=%+v spell=%+v", engine.State.CurrentTurn, engine.State.PendingAction, engine.State.PendingSpell)
+		}
+	})
 }
 
 func TestBoundSkillStateIncludesPersistentCostModifiers(t *testing.T) {
