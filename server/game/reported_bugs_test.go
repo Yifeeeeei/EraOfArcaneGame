@@ -1,6 +1,7 @@
 package game
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 
@@ -641,6 +642,80 @@ func TestIssue33PlaytestRegressions(t *testing.T) {
 		boosts, _ := pending["boost_skills"].([]map[string]any)
 		if len(boosts) != 1 || boosts[0]["number"] != boost.Card.Number {
 			t.Fatalf("opponent state should reveal boost skills, pending=%v", pending)
+		}
+		affected, _ := pending["affected_positions"].([]map[string]int)
+		if len(affected) != 1 || affected[0]["owner_id"] != 1 || affected[0]["col"] != 1 || affected[0]["row"] != 0 {
+			t.Fatalf("pending spell should expose affected board positions, affected=%v", affected)
+		}
+	})
+
+	t.Run("pending square spell exposes its full area including empty cells", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		targetOwner := 1
+		engine.State.PendingSpell = &SpellCast{
+			AttackerID: 0,
+			Skill:      readySkill(baseCard(t, "3621011"), 0),
+			Target: SpellTarget{
+				Type:     "unit",
+				Position: Position{Col: 2, Row: 2},
+				OwnerID:  &targetOwner,
+			},
+		}
+
+		state := engine.GetStateForPlayer(1)
+		pending, _ := state["pending_spell"].(map[string]any)
+		affected, _ := pending["affected_positions"].([]map[string]int)
+		want := map[[3]int]bool{
+			{1, 1, 1}: true,
+			{1, 1, 2}: true,
+			{1, 2, 1}: true,
+			{1, 2, 2}: true,
+		}
+		if len(affected) != len(want) {
+			t.Fatalf("square spell should expose all four cells, affected=%v", affected)
+		}
+		for _, position := range affected {
+			key := [3]int{position["owner_id"], position["col"], position["row"]}
+			if !want[key] {
+				t.Fatalf("unexpected square spell position %v in %v", position, affected)
+			}
+		}
+	})
+
+	t.Run("2121003 scorching scroll can boost an attack spell from hand", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		main := readySkill(baseCard(t, "3121002"), 0)
+		scroll := NewCardInstance(baseCard(t, "2121003"), 0, 1)
+		p0.Skills[0] = main
+		p0.Hand = []*CardInstance{scroll}
+		p0.Elements[model.ElementFire] = 10
+		p0.Elements[model.ElementArcane] = 10
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": main.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+			"boost_ids":   []any{scroll.InstanceID},
+		}}); err != nil {
+			t.Fatalf("cast attack spell with scorching scroll boost: %v", err)
+		}
+		if engine.State.PendingSpell == nil || len(engine.State.PendingSpell.BoostSkills) != 1 || engine.State.PendingSpell.BoostSkills[0] != scroll {
+			t.Fatalf("scorching scroll should be retained as the pending boost source, pending=%+v", engine.State.PendingSpell)
+		}
+		if engine.State.PendingSpell.TotalPower != main.Card.Power+scroll.Card.Power {
+			t.Fatalf("scorching scroll should add its power, total=%d want=%d", engine.State.PendingSpell.TotalPower, main.Card.Power+scroll.Card.Power)
+		}
+		if len(p0.Hand) != 0 || len(p0.Graveyard) != 1 || p0.Graveyard[0] != scroll {
+			t.Fatalf("used boost scroll should move from hand to graveyard, hand=%v graveyard=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
+		}
+		if p0.Elements[model.ElementFire] != 7 || p0.Elements[model.ElementArcane] != 9 {
+			t.Fatalf("main use and scroll play costs should both be paid, elements=%v", p0.Elements)
+		}
+		if target.Statuses[StatusBurn] != 0 {
+			t.Fatalf("boost scroll should not trigger its own hit effect under the default boost rule, statuses=%v", target.Statuses)
 		}
 	})
 }
@@ -2548,7 +2623,7 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		scroll := NewCardInstance(baseCard(t, "2121011"), 0, 1)
 		p0.Hand = []*CardInstance{scroll}
 
-		boosts, cost, err := engine.collectDefenseBoostScrollUses(p0, []string{scroll.InstanceID}, nil)
+		boosts, cost, err := engine.collectHandBoostScrollUses(p0, []string{scroll.InstanceID}, nil, skillPurposeDefenseBoost)
 		if err != nil {
 			t.Fatalf("collect meteor scroll as defense boost: %v", err)
 		}
@@ -2557,6 +2632,158 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		}
 		if len(cost) == 0 {
 			t.Fatalf("meteor scroll defense boost should require its play cost")
+		}
+	})
+
+	t.Run("hand boost scroll pricing consumes one-shot discounts in order", func(t *testing.T) {
+		testCases := []struct {
+			name              string
+			cards             [2]string
+			modifier          TemporaryModifier
+			expectedElement   string
+			expectedTotalCost int
+		}{
+			{
+				name:  "quick ice bullet water discount",
+				cards: [2]string{"2221008", "2221009"},
+				modifier: TemporaryModifier{
+					Type:          TempModNextItemOrSkillCostMinus,
+					Element:       model.ElementWater,
+					Amount:        3,
+					RemainingUses: 1,
+				},
+				expectedElement:   model.ElementWater,
+				expectedTotalCost: 4,
+			},
+			{
+				name:  "felin fire card discount",
+				cards: [2]string{"2121003", "2121011"},
+				modifier: TemporaryModifier{
+					Type:          TempModNextFireCardPlayCostMinus,
+					Element:       model.ElementFire,
+					Amount:        1,
+					RemainingUses: 1,
+				},
+				expectedElement:   model.ElementFire,
+				expectedTotalCost: 2,
+			},
+		}
+		for _, purpose := range []skillPurpose{skillPurposeAttackBoost, skillPurposeDefenseBoost} {
+			for _, testCase := range testCases {
+				t.Run(fmt.Sprintf("%s/%s", purpose, testCase.name), func(t *testing.T) {
+					engine := setupReportedBugEngine(t)
+					p0 := engine.State.Players[0]
+					first := NewCardInstance(baseCard(t, testCase.cards[0]), 0, 1)
+					second := NewCardInstance(baseCard(t, testCase.cards[1]), 0, 1)
+					p0.Hand = []*CardInstance{first, second}
+					p0.TempModifiers = []TemporaryModifier{testCase.modifier}
+
+					scrolls, cost, err := engine.collectHandBoostScrollUses(p0, []string{first.InstanceID, second.InstanceID}, nil, purpose)
+					if err != nil {
+						t.Fatalf("collect hand boost scrolls: %v", err)
+					}
+					if len(scrolls) != 2 || cost[testCase.expectedElement] != testCase.expectedTotalCost {
+						t.Fatalf("one-shot discount should apply only to first scroll, scrolls=%v cost=%v", cardsToInfo(scrolls), cost)
+					}
+					if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].RemainingUses != 1 {
+						t.Fatalf("pricing must not consume real modifiers, modifiers=%+v", p0.TempModifiers)
+					}
+
+					engine.moveHandSpellScrollsToGraveyard(p0, scrolls, string(purpose))
+					if len(p0.TempModifiers) != 0 || len(p0.Hand) != 0 || len(p0.Graveyard) != 2 {
+						t.Fatalf("successful use should consume the discount and both scrolls, modifiers=%+v hand=%v graveyard=%v", p0.TempModifiers, cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
+					}
+				})
+			}
+		}
+	})
+
+	t.Run("attack action shares one-shot discount between main spell and hand boost scroll", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		main := readySkill(baseCard(t, "3221001"), 0)
+		scroll := NewCardInstance(baseCard(t, "2221008"), 0, 1)
+		p0.Skills[0] = main
+		p0.Hand = []*CardInstance{scroll}
+		p0.Elements[model.ElementWater] = 1
+		p0.TempModifiers = []TemporaryModifier{{
+			Type:          TempModNextItemOrSkillCostMinus,
+			Element:       model.ElementWater,
+			Amount:        3,
+			RemainingUses: 1,
+		}}
+		action := ActionMessage{Action: "cast_spell", Data: map[string]any{
+			"instance_id": main.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(1),
+			"target_row":  float64(0),
+			"boost_ids":   []any{scroll.InstanceID},
+		}}
+
+		if err := engine.HandleAction(0, action); err == nil {
+			t.Fatal("main spell and boost scroll should still require 2 water after one-shot discount")
+		}
+		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].RemainingUses != 1 || len(p0.Hand) != 1 || main.IsHorizontal {
+			t.Fatalf("failed validation must preserve action state, modifiers=%+v hand=%v horizontal=%v", p0.TempModifiers, cardsToInfo(p0.Hand), main.IsHorizontal)
+		}
+
+		p0.Elements[model.ElementWater] = 2
+		if err := engine.HandleAction(0, action); err != nil {
+			t.Fatalf("cast main spell with one discounted source: %v", err)
+		}
+		if p0.Elements[model.ElementWater] != 0 || len(p0.TempModifiers) != 0 || len(p0.Hand) != 0 || len(p0.Graveyard) != 1 {
+			t.Fatalf("successful attack should pay 2 water and consume modifier once, elements=%v modifiers=%+v hand=%v graveyard=%v", p0.Elements, p0.TempModifiers, cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
+		}
+	})
+
+	t.Run("defense action shares one-shot discount between defense spell and hand boost scroll", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		target := placeUnit(baseCard(t, "1021004"), 0, 1, 0, engine)
+		defense := readySkill(baseCard(t, "3221004"), 0)
+		scroll := NewCardInstance(baseCard(t, "2221008"), 0, 1)
+		p0.Skills[0] = defense
+		p0.Hand = []*CardInstance{scroll}
+		p0.Elements[model.ElementWater] = 1
+		p0.TempModifiers = []TemporaryModifier{{
+			Type:          TempModNextItemOrSkillCostMinus,
+			Element:       model.ElementWater,
+			Amount:        3,
+			RemainingUses: 1,
+		}}
+		targetOwner := 0
+		engine.State.Phase = PhaseDefenseWindow
+		engine.State.PendingSpell = &SpellCast{
+			AttackerID: 1,
+			Skill:      readySkill(baseCard(t, "3121002"), 1),
+			Target: SpellTarget{
+				Type:     "unit",
+				Position: *target.Position,
+				OwnerID:  &targetOwner,
+			},
+			TotalPower: 5,
+		}
+		action := ActionMessage{Action: "defend", Data: map[string]any{
+			"skill_ids":     []any{defense.InstanceID},
+			"scroll_ids":    []any{},
+			"boost_ids":     []any{scroll.InstanceID},
+			"overexert_ids": []any{},
+		}}
+
+		if err := engine.HandleAction(0, action); err == nil {
+			t.Fatal("defense spell and boost scroll should still require 2 water after one-shot discount")
+		}
+		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].RemainingUses != 1 || len(p0.Hand) != 1 || defense.IsHorizontal {
+			t.Fatalf("failed defense validation must preserve action state, modifiers=%+v hand=%v horizontal=%v", p0.TempModifiers, cardsToInfo(p0.Hand), defense.IsHorizontal)
+		}
+
+		p0.Elements[model.ElementWater] = 2
+		if err := engine.HandleAction(0, action); err != nil {
+			t.Fatalf("defend with one discounted source: %v", err)
+		}
+		if p0.Elements[model.ElementWater] != 0 || len(p0.TempModifiers) != 0 || len(p0.Hand) != 0 || len(p0.Graveyard) != 1 {
+			t.Fatalf("successful defense should pay 2 water and consume modifier once, elements=%v modifiers=%+v hand=%v graveyard=%v", p0.Elements, p0.TempModifiers, cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
 		}
 	})
 
@@ -5496,6 +5723,73 @@ func TestManaBoosterMakesNextSkillUseFree(t *testing.T) {
 	}
 }
 
+func TestActionCostStateKeepsSequentialDiscountOutOfBaseCosts(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	mainSkill := readySkill(baseCard(t, "3221001"), 0)
+	firstScroll := NewCardInstance(baseCard(t, "2221008"), 0, 1)
+	secondScroll := NewCardInstance(baseCard(t, "2221009"), 0, 1)
+	p0.Skills[0] = mainSkill
+	p0.Hand = []*CardInstance{firstScroll, secondScroll}
+	p0.TempModifiers = []TemporaryModifier{{
+		Type:          TempModNextItemOrSkillCostMinus,
+		Element:       model.ElementWater,
+		Amount:        3,
+		RemainingUses: 1,
+	}}
+
+	state := engine.GetStateForPlayer(0)
+	you := state["you"].(map[string]any)
+	skills := you["skills"].([]any)
+	skillInfo := skills[0].(map[string]any)
+	if got := skillInfo["action_base_attack_cost"].(map[string]int)[model.ElementWater]; got != 2 {
+		t.Fatalf("attack base cost should omit the one-shot discount, got %v", skillInfo["action_base_attack_cost"])
+	}
+
+	hand := you["hand"].([]map[string]any)
+	if got := hand[0]["effective_elements_cost"].(map[string]int)[model.ElementWater]; got != 0 {
+		t.Fatalf("first independently displayed scroll should include the active discount, got %v", hand[0]["effective_elements_cost"])
+	}
+	if got := hand[1]["effective_elements_cost"].(map[string]int)[model.ElementWater]; got != 1 {
+		t.Fatalf("second independently displayed scroll should include the active discount, got %v", hand[1]["effective_elements_cost"])
+	}
+	if got := hand[0]["action_base_play_cost"].(map[string]int)[model.ElementWater]; got != 2 {
+		t.Fatalf("first scroll base cost should be 2 water, got %v", hand[0]["action_base_play_cost"])
+	}
+	if got := hand[1]["action_base_play_cost"].(map[string]int)[model.ElementWater]; got != 4 {
+		t.Fatalf("second scroll base cost should be 4 water, got %v", hand[1]["action_base_play_cost"])
+	}
+	if p0.TempModifiers[0].RemainingUses != 1 {
+		t.Fatalf("state serialization must not consume the real modifier, modifiers=%v", p0.TempModifiers)
+	}
+}
+
+func TestBoundSkillStateIncludesPersistentCostModifiers(t *testing.T) {
+	engine := setupReportedBugEngine(t)
+	p0 := engine.State.Players[0]
+	placeUnit(baseCard(t, "1321010"), 0, 0, 0, engine)
+	ailaya := placeUnit(baseCard(t, "1311002"), 0, 1, 0, engine)
+	engine.triggerEffects(TriggerOnEnter, ailaya, nil, nil)
+	if len(ailaya.BoundSkills) != 1 {
+		t.Fatalf("expected Ailaya to bind Storm Fury, bound=%v", cardsToInfo(ailaya.BoundSkills))
+	}
+	ailaya.BoundSkills[0].IsHorizontal = false
+	p0.Elements[model.ElementAir] = 1
+
+	state := engine.GetStateForPlayer(0)
+	you := state["you"].(map[string]any)
+	units := you["units"].([3][3]any)
+	ailayaInfo := units[1][0].(map[string]any)
+	bound := ailayaInfo["bound_skills"].([]map[string]any)
+	boundCost := bound[0]["action_base_attack_cost"].(map[string]int)
+	if got := boundCost[model.ElementAir]; got != 1 {
+		t.Fatalf("Storm Chimera should reduce serialized Storm Fury cost to 1 air, got %v", boundCost)
+	}
+	if got := ailaya.BoundSkills[0].Card.ElementsExpense[model.ElementAir]; got != 2 {
+		t.Fatalf("test requires Storm Fury raw cost to remain 2 air, got %v", ailaya.BoundSkills[0].Card.ElementsExpense)
+	}
+}
+
 func TestManaBoosterADoesNotMakeBoostSkillFree(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
@@ -7206,10 +7500,15 @@ func TestRuntimeLoadBonusCards(t *testing.T) {
 		necklace := NewCardInstance(baseCard(t, "2621006"), 0, 1)
 		p0.Equipment[0] = necklace
 		unit := placeUnit(baseCard(t, "1021007"), 0, 0, 0, engine)
+		secondUnit := placeUnit(baseCard(t, "1021007"), 0, 1, 0, engine)
 
 		engine.destroyUnit(unit, 0)
+		engine.destroyUnit(secondUnit, 0)
 		if p0.Elements[model.ElementShadow] != 1 {
-			t.Fatalf("soul necklace should gain 1 shadow, elements=%v", p0.Elements)
+			t.Fatalf("soul necklace should gain shadow only once per turn, elements=%v", p0.Elements)
+		}
+		if necklace.UsedThisTurn != 1 {
+			t.Fatalf("soul necklace should consume its triggered turn use, used=%d", necklace.UsedThisTurn)
 		}
 	})
 }

@@ -212,6 +212,33 @@ func TestWebSocketSpectatorCanWatchWithoutDeck(t *testing.T) {
 	}
 }
 
+func TestWebSocketActionResultCorrelatesRejectedAction(t *testing.T) {
+	server, rm := setupTestServer(t)
+	defer server.Close()
+
+	room := rm.CreateRoom()
+	conn := connectWS(t, server, room.ID, "p1", "Player1")
+	defer conn.Close()
+	if msg := readMessage(t, conn); msg["type"] != "joined" {
+		t.Fatalf("expected joined, got %v", msg["type"])
+	}
+
+	if err := conn.WriteJSON(map[string]any{
+		"action":     "mulligan",
+		"data":       map[string]any{"keep": true},
+		"request_id": "request-17",
+	}); err != nil {
+		t.Fatalf("send requested action: %v", err)
+	}
+	result := readMessage(t, conn)
+	if result["type"] != "action_result" || result["request_id"] != "request-17" || result["ok"] != false {
+		t.Fatalf("unexpected action result: %v", result)
+	}
+	if !strings.Contains(result["message"].(string), "game not started") {
+		t.Fatalf("unexpected action error: %v", result["message"])
+	}
+}
+
 func TestDeckValidationRejectsNonBaseCards(t *testing.T) {
 	server, _ := setupTestServer(t)
 	defer server.Close()

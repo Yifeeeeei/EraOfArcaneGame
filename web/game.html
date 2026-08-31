@@ -112,7 +112,7 @@
                             <img :src="getCardImage(skill)" class="defense-skill-img">
                             <div class="defense-skill-info">
                                 <div class="defense-skill-name">{{ skill.name }}</div>
-                                <div class="defense-skill-power">费用 {{ costLabel(skillUseCost(skill)) }}</div>
+                                <div class="defense-skill-power">费用 {{ costLabel(reactionActionCost(skill)) }}</div>
                             </div>
                             <span class="interaction-detail-link" :data-instance-id="skill.instance_id" data-defense-action="detail">查看</span>
                         </button>
@@ -705,6 +705,8 @@
                                      'attack-target': isAttackTarget(col, row),
                                      'spell-target': isSpellTarget(col, row),
                                      'spell-area-preview': isSpellAreaPreview(col, row),
+                                     'pending-spell-center': isPendingSpellCenter(opponentBoardOwnerID(), col, row),
+                                     'pending-spell-affected': isPendingSpellAffected(opponentBoardOwnerID(), col, row),
                                      'invalid-target': hasActiveTargeting && !isValidOpponentTarget(col, row)
                                  }"
                                  @mouseenter="hoverOpponentCell(col, row)"
@@ -806,6 +808,8 @@
                                      'summon-target': selectedHandCard && canSummonAt(col, row),
                                      'terrain-target': selectedHandCard && selectedHandCard.is_terrain && !getMyTerrain(col, row),
                                      'spell-target': isFriendlySpellTarget(col, row),
+                                     'pending-spell-center': isPendingSpellCenter(myBoardOwnerID(), col, row),
+                                     'pending-spell-affected': isPendingSpellAffected(myBoardOwnerID(), col, row),
                                      'invalid-target': (selectedHandCard && !canUseMyCell(col, row)) || (activeTargetSpell() && !isFriendlySpellTarget(col, row))
                                  }"
                                  @click="handleCellClick(mySlot, col, row)">
@@ -870,7 +874,7 @@
                                                             @click.stop="useAbility(mySkills[i-1], 'per_turn')">{{ compactAbilityLabel(mySkills[i-1], 'per_turn') }}</button>
                                                 </div>
                                                 <div v-if="canShowCostHint(mySkills[i-1]) && !(canCastSkill(mySkills[i-1]) || canUsePerTurn(mySkills[i-1]))" class="slot-cost-hint">
-                                                    {{ missingCostText(skillUseCost(mySkills[i-1])) }}
+                                                    {{ missingCostText(attackActionCost(mySkills[i-1], [])) }}
                                                 </div>
                                                 <div v-if="selectedSkill && canBoostWith(mySkills[i-1])" class="boost-btn"
                                                      @click.stop="toggleBoostSkill(mySkills[i-1])">
@@ -917,7 +921,7 @@
                                             @mouseenter="previewCard(skill)"
                                             @click.stop="selectSkillToCast(skill)">
                                         <span>{{ skill.name }}</span>
-                                        <small v-if="canShowCostHint(skill)">{{ missingCostText(skillUseCost(skill)) }}</small>
+                                        <small v-if="canShowCostHint(skill)">{{ missingCostText(attackActionCost(skill, [])) }}</small>
                                     </button>
                                 </div>
                             </div>
@@ -1016,12 +1020,16 @@
                          class="hand-card"
                          :data-instance-id="card.instance_id"
                          :data-card-number="card.number"
-                         :class="{ selected: selectedHandCard === card, playable: canPlayHandCard(card), unaffordable: isMyTurn && gameState.phase === 'main' && !canPlayHandCard(card) }"
+                         :class="{ selected: selectedHandCard === card, 'boost-selected': selectedBoostSkills.includes(card.instance_id), playable: canPlayHandCard(card), unaffordable: isMyTurn && gameState.phase === 'main' && !canPlayHandCard(card) && !canBoostWith(card) }"
                          @mouseenter="previewCard(card)"
                          @click="selectHandCard(card)"
                          @contextmenu.prevent="showCardContextMenu($event, card, 'hand')"
                          title="右键点击查看选项">
                         <img :src="getCardImage(card)" class="hand-card-img">
+                        <div v-if="selectedSkill && canBoostWith(card)" class="boost-btn"
+                             @click.stop="toggleBoostSkill(card)">
+                            {{ selectedBoostSkills.includes(card.instance_id) ? '取消强化' : '强化' }}
+                        </div>
                         <div class="hand-card-info">
                             <div class="hand-card-name">{{ card.name }}</div>
                             <div class="hand-card-cost" v-if="hasCost(card)">
@@ -1042,6 +1050,119 @@
     </div>
 
     <script>
+    /* ACTION_COST_PLAN_START */
+    window.ArcaneActionCostPlan = (function () {
+        const NEXT_SKILL_ZERO = 'next_skill_cost_zero';
+        const NEXT_SKILL_MINUS = 'next_skill_use_cost_minus';
+        const NEXT_ITEM_OR_SKILL_MINUS = 'next_item_or_skill_cost_minus';
+        const NEXT_FIRE_CARD_MINUS = 'next_fire_card_play_cost_minus';
+
+        function copyCost(cost) {
+            const result = {};
+            for (const [element, amount] of Object.entries(cost || {})) {
+                const value = Number(amount || 0);
+                if (value > 0) result[element] = value;
+            }
+            return result;
+        }
+
+        function copyModifiers(modifiers) {
+            return (modifiers || []).map(modifier => ({ ...modifier }));
+        }
+
+        function modifierCanApply(modifier, card) {
+            if (!modifier || Number(modifier.remaining_uses || 0) === 0) return false;
+            return !modifier.target_instance_id || modifier.target_instance_id === card?.instance_id;
+        }
+
+        function applyReduction(cost, modifier) {
+            const amount = Number(modifier.amount || 0) > 0 ? Number(modifier.amount) : 1;
+            const elements = modifier.element ? [modifier.element] : Object.keys(cost);
+            for (const element of elements) {
+                const remaining = Math.max(0, Number(cost[element] || 0) - amount);
+                if (remaining > 0) cost[element] = remaining;
+                else delete cost[element];
+            }
+        }
+
+        function consumeMatching(modifiers, card, allowedTypes) {
+            for (const modifier of modifiers) {
+                if (!allowedTypes.has(modifier.type) || !modifierCanApply(modifier, card)) continue;
+                modifier.remaining_uses = Number(modifier.remaining_uses || 0) - 1;
+            }
+        }
+
+        function skillBaseCost(card, purpose) {
+            const fields = {
+                attack: 'action_base_attack_cost',
+                attack_boost: 'action_base_attack_boost_cost',
+                defend: 'action_base_defense_cost',
+                defense_boost: 'action_base_defense_boost_cost',
+                reaction: 'action_base_reaction_cost',
+            };
+            return copyCost(card?.[fields[purpose]] || card?.elements_expense || {});
+        }
+
+        function planSkillCost(card, purpose, modifiers) {
+            const cost = skillBaseCost(card, purpose);
+            const isBoost = purpose === 'attack_boost' || purpose === 'defense_boost' || purpose === 'boost';
+            for (const modifier of modifiers) {
+                if (!modifierCanApply(modifier, card)) continue;
+                if (modifier.type === NEXT_SKILL_MINUS || modifier.type === NEXT_ITEM_OR_SKILL_MINUS) {
+                    applyReduction(cost, modifier);
+                }
+            }
+            if (!isBoost && modifiers.some(modifier => modifier.type === NEXT_SKILL_ZERO && modifierCanApply(modifier, card))) {
+                for (const element of Object.keys(cost)) delete cost[element];
+            }
+            consumeMatching(
+                modifiers,
+                card,
+                isBoost
+                    ? new Set([NEXT_SKILL_MINUS, NEXT_ITEM_OR_SKILL_MINUS])
+                    : new Set([NEXT_SKILL_ZERO, NEXT_SKILL_MINUS, NEXT_ITEM_OR_SKILL_MINUS])
+            );
+            return cost;
+        }
+
+        function planCardPlayCost(card, modifiers) {
+            const cost = copyCost(card?.action_base_play_cost || card?.elements_cost || {});
+            const isConsumableOrSkill = !!card?.is_consumable || card?.type === '技能';
+            for (const modifier of modifiers) {
+                if (!modifierCanApply(modifier, card)) continue;
+                if (modifier.type === NEXT_ITEM_OR_SKILL_MINUS && isConsumableOrSkill) applyReduction(cost, modifier);
+                if (modifier.type === NEXT_FIRE_CARD_MINUS && card?.category === '火') applyReduction(cost, modifier);
+            }
+            const allowed = new Set();
+            if (isConsumableOrSkill) allowed.add(NEXT_ITEM_OR_SKILL_MINUS);
+            if (card?.category === '火') allowed.add(NEXT_FIRE_CARD_MINUS);
+            consumeMatching(modifiers, card, allowed);
+            return cost;
+        }
+
+        function mergeCost(total, cost) {
+            for (const [element, amount] of Object.entries(cost || {})) {
+                total[element] = Number(total[element] || 0) + Number(amount || 0);
+            }
+        }
+
+        function planActionCost(entries, sourceModifiers) {
+            const modifiers = copyModifiers(sourceModifiers);
+            const total = {};
+            for (const entry of entries || []) {
+                if (!entry?.card) continue;
+                const cost = entry.kind === 'card'
+                    ? planCardPlayCost(entry.card, modifiers)
+                    : planSkillCost(entry.card, entry.purpose, modifiers);
+                mergeCost(total, cost);
+            }
+            return total;
+        }
+
+        return { planActionCost };
+    }());
+    /* ACTION_COST_PLAN_END */
+
     const { createApp, ref, computed, onMounted, onUnmounted, nextTick } = Vue;
 
     createApp({
@@ -1254,6 +1375,7 @@
                     skill: spell.skill || null,
                     target: spell.target || null,
                     extra_targets: Array.isArray(spell.extra_targets) ? spell.extra_targets : [],
+                    affected_positions: Array.isArray(spell.affected_positions) ? spell.affected_positions : [],
                     boost_skills: Array.isArray(spell.boost_skills) ? spell.boost_skills : [],
                     power_sources: Array.isArray(spell.power_sources) ? spell.power_sources : [],
                     power: Number.isFinite(power) ? power : 0,
@@ -1294,6 +1416,40 @@
 
             function getMyUnit(col, row) { return myState.value.units?.[col]?.[row] || null; }
             function getOpponentUnit(col, row) { return opponent.value.units?.[col]?.[row] || null; }
+            function myBoardOwnerID() {
+                return isSpectator ? 0 : currentPlayerSlot();
+            }
+            function opponentBoardOwnerID() {
+                const ownerID = myBoardOwnerID();
+                return ownerID >= 0 ? 1 - ownerID : -1;
+            }
+            function spellTargetPosition(target) {
+                if (!target || target.type !== 'unit') return null;
+                const pos = target.position || target.Position || {};
+                const col = Number(pos.col ?? pos.Col);
+                const row = Number(pos.row ?? pos.Row);
+                return Number.isInteger(col) && Number.isInteger(row) ? { col, row } : null;
+            }
+            function spellTargetOwnerID(target, spell = pendingSpellView.value) {
+                if (!spell) return -1;
+                const ownerID = Number(target?.owner_id ?? target?.OwnerID);
+                return Number.isInteger(ownerID) ? ownerID : spell.defender_id;
+            }
+            function isPendingSpellCenter(ownerID, col, row) {
+                const spell = pendingSpellView.value;
+                if (!spell || ownerID < 0) return false;
+                return [spell.target, ...spell.extra_targets].some(target => {
+                    const pos = spellTargetPosition(target);
+                    return pos && spellTargetOwnerID(target, spell) === ownerID && pos.col === col && pos.row === row;
+                });
+            }
+            function isPendingSpellAffected(ownerID, col, row) {
+                const spell = pendingSpellView.value;
+                if (!spell || ownerID < 0) return false;
+                return spell.affected_positions.some(pos =>
+                    Number(pos?.owner_id) === ownerID && Number(pos?.col) === col && Number(pos?.row) === row
+                );
+            }
             function pendingSpellTargetOwnerState() {
                 const spell = pendingSpellView.value;
                 if (!spell) return myState.value;
@@ -1672,8 +1828,7 @@
                     paymentRequest.value = { action, data, cost: { ...(cost || {}) }, title, afterSend };
                     return;
                 }
-                sendAction(action, data);
-                if (afterSend) afterSend();
+                sendAction(action, data, { onSuccess: afterSend });
             }
 
             function paymentElements() {
@@ -1715,10 +1870,13 @@
             function confirmPayment() {
                 if (!isPaymentSelectionValid()) return;
                 const req = paymentRequest.value;
-                sendAction(req.action, { ...req.data, payment: { ...paymentSelection.value } });
-                if (req.afterSend) req.afterSend();
-                paymentRequest.value = null;
-                paymentSelection.value = {};
+                sendAction(req.action, { ...req.data, payment: { ...paymentSelection.value } }, {
+                    onSuccess: () => {
+                        if (req.afterSend) req.afterSend();
+                        paymentRequest.value = null;
+                        paymentSelection.value = {};
+                    },
+                });
             }
 
             function cancelPayment() {
@@ -1887,13 +2045,26 @@
                 hideContextMenu();
             }
 
-            function sendAction(action, data = {}) {
+            let nextRequestID = 1;
+            const pendingActionCallbacks = new Map();
+
+            function sendAction(action, data = {}, callbacks = null) {
                 if (isSpectator) {
                     addLog('观战模式不能操作对局');
-                    return;
+                    return false;
                 }
-                if (ws && ws.readyState === WebSocket.OPEN)
-                    ws.send(JSON.stringify({ action, data }));
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    addLog('连接未就绪，操作未发送');
+                    return false;
+                }
+                const message = { action, data };
+                if (callbacks) {
+                    const requestID = `${Date.now()}-${nextRequestID++}`;
+                    message.request_id = requestID;
+                    pendingActionCallbacks.set(requestID, callbacks);
+                }
+                ws.send(JSON.stringify(message));
+                return true;
             }
 
             function sendClientLog(level, message, data = {}) {
@@ -2417,7 +2588,7 @@
                 if (spell.has_pierce) return true;
                 if (!selectedSkill.value) return false;
                 return selectedBoostSkills.value.some(id => {
-                    const boost = allMySkills.value.find(skill => skill && skill.instance_id === id);
+                    const boost = defensePaymentCardById(id);
                     return boost?.number === '3121015';
                 });
             }
@@ -2444,7 +2615,7 @@
                 if (!isMyTurn.value || gameState.value.phase !== 'main' || !skill || skill.is_horizontal) return false;
                 if (skill.statuses?.['冷却'] > 0 || skill.statuses?.['石化'] > 0) return false;
                 if (!skill.can_attack) return false;
-                if (!canPayCost(skillUseCost(skill))) return false;
+                if (!canPayCost(attackActionCost(skill, []))) return false;
                 return true;
             }
             function skillActionChips(skill) {
@@ -2457,7 +2628,7 @@
             }
             function canShowCostHint(skill) {
                 return !!skill && isMyTurn.value && gameState.value.phase === 'main' &&
-                    !skill.is_horizontal && !canCastSkill(skill) && !canPayCost(skillUseCost(skill));
+                    !skill.is_horizontal && !canCastSkill(skill) && !canPayCost(attackActionCost(skill, []));
             }
             function selectSkillToCast(skill) {
                 selectedHandCard.value = null; selectedAttacker.value = null;
@@ -2477,11 +2648,18 @@
             const pendingExtraTargetCast = ref(null);
 
             function canBoostWith(skill) {
-                if (!selectedSkill.value || !skill || skill.is_horizontal) return false;
+                if (!selectedSkill.value || !skill) return false;
                 if (selectedSkill.value.can_be_boosted === false) return false;
                 if (skill.instance_id === selectedSkill.value.instance_id) return false;
-                if (!canUseSkillAsAttackBoost(skill)) return false;
-                if (!canPayCost(mergedDefenseCost([selectedSkill.value.instance_id, ...selectedBoostSkills.value, skill.instance_id]))) return false;
+                if (skill.type === '道具') {
+                    if (!isSpellScrollItem(skill) || skill.statuses?.['石化'] > 0 || !skill.can_attack_boost) return false;
+                } else if (!canUseSkillAsAttackBoost(skill)) {
+                    return false;
+                }
+                const boostIds = selectedBoostSkills.value.includes(skill.instance_id)
+                    ? [...selectedBoostSkills.value]
+                    : [...selectedBoostSkills.value, skill.instance_id];
+                if (!canPayCost(attackActionCost(selectedSkill.value, boostIds))) return false;
                 return true;
             }
             function selectedSkillHasPierce() {
@@ -2561,7 +2739,7 @@
                     }
                     const skillName = selectedSkill.value.name;
                     const boostCount = selectedBoostSkills.value.length;
-                    const cost = mergedDefenseCost([selectedSkill.value.instance_id, ...selectedBoostSkills.value]);
+                    const cost = attackActionCost(selectedSkill.value, selectedBoostSkills.value);
                     sendPaidAction('cast_spell', data, cost, `施放 ${skillName}`, () => {
                         addLog(`施放 ${skillName} → (${data.target_col},${data.target_row})` +
                             (data.extra_target_col !== undefined ? ` + 额外(${data.extra_target_col},${data.extra_target_row})` : '') +
@@ -2594,7 +2772,7 @@
                 }
                 const skillName = selectedSkill.value.name;
                 const boostCount = selectedBoostSkills.value.length;
-                const cost = mergedDefenseCost([selectedSkill.value.instance_id, ...selectedBoostSkills.value]);
+                const cost = attackActionCost(selectedSkill.value, selectedBoostSkills.value);
                 sendPaidAction('cast_spell', data, cost, `施放 ${skillName}`, () => {
                     addLog(`施放 ${skillName} → (${col},${row})` +
                         (boostCount > 0 ? ` (+${boostCount}强化)` : ''));
@@ -2619,7 +2797,7 @@
                 }
                 const skillName = selectedSkill.value.name;
                 const boostCount = selectedBoostSkills.value.length;
-                const cost = mergedDefenseCost([selectedSkill.value.instance_id, ...selectedBoostSkills.value]);
+                const cost = attackActionCost(selectedSkill.value, selectedBoostSkills.value);
                 sendPaidAction('cast_spell', data, cost, `施放 ${skillName}`, () => {
                     addLog(`施放 ${skillName} → 人物` +
                         (boostCount > 0 ? ` (+${boostCount}强化)` : ''));
@@ -2651,7 +2829,7 @@
                     data.sacrifice_id = selectedSpellPowerSacrificeId.value;
                 }
                 const skillName = selectedSkill.value.name;
-                const cost = mergedDefenseCost([selectedSkill.value.instance_id, ...selectedBoostSkills.value]);
+                const cost = attackActionCost(selectedSkill.value, selectedBoostSkills.value);
                 sendPaidAction('cast_spell', data, cost, `施放 ${skillName}`, () => {
                     addLog(`施放 ${skillName}`);
                     selectedSkill.value = null;
@@ -2780,22 +2958,52 @@
                 return card.type === '道具' ? playCost(card) : skillUseCost(card, applyNextSkillFree);
             }
 
-            function mergedDefenseCost(ids) {
-                const merged = {};
-                let freeSkillCostAvailable = hasNextSkillCostZero();
-                for (const id of ids) {
-                    const card = defensePaymentCardById(id);
-                    if (!card) continue;
-                    const applyFree = freeSkillCostAvailable && card.type === '技能';
-                    for (const [elem, amount] of Object.entries(defensePaymentCost(card, applyFree))) {
-                        merged[elem] = (merged[elem] || 0) + Number(amount || 0);
+            function splitActionCostCards(ids) {
+                const skills = [];
+                const cards = [];
+                for (const id of ids || []) {
+                    const skill = allMySkills.value.find(candidate => candidate?.instance_id === id);
+                    if (skill) {
+                        skills.push(skill);
+                        continue;
                     }
-                    if (applyFree) freeSkillCostAvailable = false;
+                    const card = myHand.value.find(candidate => candidate?.instance_id === id);
+                    if (card) cards.push(card);
                 }
-                return merged;
+                return { skills, cards };
             }
 
-            const totalDefenseCost = computed(() => mergedDefenseCost([...defenseSelected.value, ...defenseScrollSelected.value, ...defenseBoostSelected.value]));
+            function plannedActionCost(entries) {
+                return ArcaneActionCostPlan.planActionCost(entries, myState.value.temp_modifiers || []);
+            }
+
+            function attackActionCost(mainSkill, boostIDs) {
+                if (!mainSkill) return {};
+                const boosts = splitActionCostCards(boostIDs);
+                return plannedActionCost([
+                    { kind: 'skill', purpose: 'attack', card: mainSkill },
+                    ...boosts.skills.map(card => ({ kind: 'skill', purpose: 'attack_boost', card })),
+                    ...boosts.cards.map(card => ({ kind: 'card', card })),
+                ]);
+            }
+
+            function defenseActionCost() {
+                const defenseSkills = splitActionCostCards(defenseSelected.value).skills;
+                const defenseScrolls = splitActionCostCards(defenseScrollSelected.value).cards;
+                const boosts = splitActionCostCards(defenseBoostSelected.value);
+                return plannedActionCost([
+                    ...defenseSkills.map(card => ({ kind: 'skill', purpose: 'defend', card })),
+                    ...defenseScrolls.map(card => ({ kind: 'card', card })),
+                    ...boosts.skills.map(card => ({ kind: 'skill', purpose: 'defense_boost', card })),
+                    ...boosts.cards.map(card => ({ kind: 'card', card })),
+                ]);
+            }
+
+            function reactionActionCost(skill) {
+                return plannedActionCost([{ kind: 'skill', purpose: 'reaction', card: skill }]);
+            }
+
+            const totalDefenseCost = computed(defenseActionCost);
 
             const defenseAvailableElements = computed(() => {
                 const available = cloneElements(myState.value.elements || {});
@@ -2842,11 +3050,11 @@
                 if (!skill.can_react) return false;
                 if (skill.type === '技能' && !isSkillReady(skill)) return false;
                 if (skill.type !== '技能' && skill.statuses?.['石化'] > 0) return false;
-                return calculatePaymentWithAvailable(reactionAvailableElements(true), skillUseCost(skill)) !== null;
+                return calculatePaymentWithAvailable(reactionAvailableElements(true), reactionActionCost(skill)) !== null;
             }
 
             function canPaySelectedReaction(skill) {
-                return calculatePaymentWithAvailable(reactionAvailableElements(false), skillUseCost(skill)) !== null;
+                return calculatePaymentWithAvailable(reactionAvailableElements(false), reactionActionCost(skill)) !== null;
             }
 
             function canUseSkillAsAttackBoost(skill) {
@@ -3127,14 +3335,17 @@
                 const skillCount = defenseSelected.value.length + defenseScrollSelected.value.length;
                 const boostCount = defenseBoostSelected.value.length;
                 const overexertCount = defenseOverexertSelected.value.length;
-                sendAction('defend', data);
-                addLog(`防御 (${skillCount}来源, +${boostCount}强化, ${overexertCount}透支)`);
-                logDefenseSelection('defense_submit_sent');
-                defenseSelected.value = [];
-                defenseScrollSelected.value = [];
-                defenseBoostSelected.value = [];
-                defenseOverexertSelected.value = [];
-                defensePowerSacrificeId.value = '';
+                sendAction('defend', data, {
+                    onSuccess: () => {
+                        addLog(`防御 (${skillCount}来源, +${boostCount}强化, ${overexertCount}透支)`);
+                        logDefenseSelection('defense_submit_sent');
+                        defenseSelected.value = [];
+                        defenseScrollSelected.value = [];
+                        defenseBoostSelected.value = [];
+                        defenseOverexertSelected.value = [];
+                        defensePowerSacrificeId.value = '';
+                    },
+                });
             }
 
             function noDefend() {
@@ -3695,7 +3906,11 @@
                         throw err;
                     }
                 };
-                ws.onclose = () => { connected.value = false; connectionStatus.value = '连接断开'; };
+                ws.onclose = () => {
+                    connected.value = false;
+                    connectionStatus.value = '连接断开';
+                    pendingActionCallbacks.clear();
+                };
                 ws.onerror = () => {
                     error.value = '连接错误';
                     sendClientLog('error', 'websocket_error');
@@ -3717,6 +3932,16 @@
                     }
                 }
                 else if (msg.type === 'game_event') handleGameEvent(msg.event);
+                else if (msg.type === 'action_result') {
+                    const callbacks = pendingActionCallbacks.get(msg.request_id);
+                    pendingActionCallbacks.delete(msg.request_id);
+                    if (msg.ok) {
+                        if (callbacks?.onSuccess) callbacks.onSuccess();
+                    } else {
+                        addLog(`错误: ${msg.message || '操作失败'}`);
+                        if (callbacks?.onError) callbacks.onError(msg.message);
+                    }
+                }
                 else if (msg.type === 'error') addLog(`错误: ${msg.message}`);
             }
 
@@ -4223,7 +4448,8 @@
                 canCastSkill, selectSkillToCast, canBoostWith, toggleBoostSkill, noDefend,
                 guideKicker, currentHint, waitingNotice, clearSelection, statusEntries,
                 hasActiveTargeting, activeTargetSpell, isValidOpponentTarget, isSpellTarget, isFriendlySpellTarget, isFriendlyHeroSpellTarget, handleMyHeroClick, canUseMyCell,
-                canShowCostHint, missingCostText, skillUseCost, canLearnSkill, costLabel,
+                myBoardOwnerID, opponentBoardOwnerID, isPendingSpellCenter, isPendingSpellAffected,
+                canShowCostHint, missingCostText, skillUseCost, attackActionCost, reactionActionCost, canLearnSkill, costLabel,
                 skillReplaceRequest, replaceableSkills, confirmSkillReplacement,
                 equipmentReplaceRequest, replaceableEquipment, confirmEquipmentReplacement,
                 paymentRequest, paymentSelection, paymentElements, selectedPaymentTotal,

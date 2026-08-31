@@ -33,7 +33,7 @@ func TestGameHTMLPendingActionCostUsesPaymentRequest(t *testing.T) {
 		"paymentRequest.value = {",
 		"action: 'resolve_action'",
 		"afterSend: resetPendingSelectionState",
-		"sendAction(req.action, { ...req.data, payment: { ...paymentSelection.value } })",
+		"sendAction(req.action, { ...req.data, payment: { ...paymentSelection.value } }, {",
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("pending action costs should route through payment request, missing %q", want)
@@ -205,6 +205,72 @@ func TestGameHTMLDefenseWindowDoesNotReadRawPendingSpellPower(t *testing.T) {
 	}
 	if strings.Contains(html, "gameState.value?.pending_spell?.power") {
 		t.Fatalf("defense logging should use pendingAttackPower, not raw pending_spell.power")
+	}
+}
+
+func TestGameHTMLIssue156SpellRangeAndScrollBoostControls(t *testing.T) {
+	content, err := os.ReadFile("../../web/game.html")
+	if err != nil {
+		t.Fatalf("read game.html: %v", err)
+	}
+	html := string(content)
+	for _, want := range []string{
+		"'pending-spell-center': isPendingSpellCenter(opponentBoardOwnerID(), col, row)",
+		"'pending-spell-affected': isPendingSpellAffected(myBoardOwnerID(), col, row)",
+		"affected_positions: Array.isArray(spell.affected_positions)",
+		"function isPendingSpellCenter(ownerID, col, row)",
+		"function isPendingSpellAffected(ownerID, col, row)",
+		"myBoardOwnerID, opponentBoardOwnerID, isPendingSpellCenter, isPendingSpellAffected,",
+		"selectedSkill && canBoostWith(card)",
+		"isSpellScrollItem(skill) || skill.statuses?.['石化'] > 0 || !skill.can_attack_boost",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("issue #156 frontend behavior missing %q", want)
+		}
+	}
+
+	cssContent, err := os.ReadFile("../../web/css/game.css")
+	if err != nil {
+		t.Fatalf("read game.css: %v", err)
+	}
+	css := string(cssContent)
+	for _, want := range []string{".unit-cell.pending-spell-affected", ".unit-cell.pending-spell-center", ".hand-card.boost-selected"} {
+		if !strings.Contains(css, want) {
+			t.Fatalf("issue #156 styling missing %q", want)
+		}
+	}
+}
+
+func TestGameHTMLCompositeCostsUseSequentialPlannerAndActionAcknowledgement(t *testing.T) {
+	content, err := os.ReadFile("../../web/game.html")
+	if err != nil {
+		t.Fatalf("read game.html: %v", err)
+	}
+	html := string(content)
+	for _, want := range []string{
+		"/* ACTION_COST_PLAN_START */",
+		"function attackActionCost(mainSkill, boostIDs)",
+		"function defenseActionCost()",
+		"ArcaneActionCostPlan.planActionCost(entries, myState.value.temp_modifiers || [])",
+		"missingCostText(attackActionCost(mySkills[i-1], []))",
+		"missingCostText(attackActionCost(skill, []))",
+		"costLabel(reactionActionCost(skill))",
+		"skillUseCost, attackActionCost, reactionActionCost, canLearnSkill",
+		"const pendingActionCallbacks = new Map();",
+		"message.request_id = requestID;",
+		"else if (msg.type === 'action_result')",
+		"sendAction('defend', data, {",
+		"onSuccess: () => {",
+	} {
+		if !strings.Contains(html, want) {
+			t.Fatalf("composite actions should use sequential pricing and wait for acknowledgement, missing %q", want)
+		}
+	}
+	if strings.Contains(html, "mergedDefenseCost(") {
+		t.Fatalf("frontend should not merge independently discounted card costs")
+	}
+	if strings.Contains(html, "missingCostText(skillUseCost(") {
+		t.Fatalf("skill affordability hints should use the same action cost planner as button availability")
 	}
 }
 
