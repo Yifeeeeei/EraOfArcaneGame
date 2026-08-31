@@ -5645,7 +5645,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 	info := map[string]any{
 		"player_id":                      ps.PlayerID,
 		"player_name":                    ps.PlayerName,
-		"hero":                           e.cardToInfo(ps.Hero),
+		"hero":                           e.cardToInfoForPlayer(ps, ps.Hero),
 		"elements":                       ps.Elements,
 		"strict_arcane":                  ps.StrictArcane,
 		"shield":                         ps.Shield,
@@ -5664,7 +5664,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 	units := [3][3]any{}
 	for col := 0; col < 3; col++ {
 		for row := 0; row < 3; row++ {
-			units[col][row] = e.cardToInfo(ps.Units[col][row])
+			units[col][row] = e.cardToInfoForPlayer(ps, ps.Units[col][row])
 		}
 	}
 	info["units"] = units
@@ -5673,7 +5673,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 	terrain := [3][3]any{}
 	for col := 0; col < 3; col++ {
 		for row := 0; row < 3; row++ {
-			terrain[col][row] = e.cardToInfo(ps.Terrain[col][row])
+			terrain[col][row] = e.cardToInfoForPlayer(ps, ps.Terrain[col][row])
 		}
 	}
 	info["terrain"] = terrain
@@ -5692,7 +5692,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 		if !isOwner && ps.Equipment[i] != nil && ps.Equipment[i].IsSetCounter {
 			equipment[i] = hiddenCounterInfo(ps.Equipment[i])
 		} else {
-			equipment[i] = e.cardToInfo(ps.Equipment[i])
+			equipment[i] = e.cardToInfoForPlayer(ps, ps.Equipment[i])
 		}
 	}
 	info["equipment"] = equipment
@@ -5764,6 +5764,13 @@ func (e *Engine) cardToInfoForPlayer(ps *PlayerState, card *CardInstance) map[st
 			boundSkills[i] = e.cardToInfoForPlayer(ps, bound)
 		}
 		info["bound_skills"] = boundSkills
+	}
+	if len(card.UnderCards) > 0 {
+		underCards := make([]map[string]any, len(card.UnderCards))
+		for i, under := range card.UnderCards {
+			underCards[i] = e.cardToInfoForPlayer(ps, under)
+		}
+		info["under_cards"] = underCards
 	}
 	return info
 }

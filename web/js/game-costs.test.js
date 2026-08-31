@@ -63,4 +63,13 @@ assert.deepEqual(plain(planActionCost([
     { kind: 'skill', purpose: 'attack_boost', card: hail },
 ], freeNextSkill)), { 水: 2 });
 
+const stormFury = card('storm-fury', {
+    type: '技能',
+    elements_expense: { 气: 2 },
+    action_base_attack_cost: { 气: 1 },
+});
+assert.deepEqual(plain(planActionCost([
+    { kind: 'skill', purpose: 'attack', card: stormFury },
+], [])), { 气: 1 });
+
 console.log('game-costs tests passed');

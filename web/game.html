@@ -112,7 +112,7 @@
                             <img :src="getCardImage(skill)" class="defense-skill-img">
                             <div class="defense-skill-info">
                                 <div class="defense-skill-name">{{ skill.name }}</div>
-                                <div class="defense-skill-power">费用 {{ costLabel(skillUseCost(skill)) }}</div>
+                                <div class="defense-skill-power">费用 {{ costLabel(reactionActionCost(skill)) }}</div>
                             </div>
                             <span class="interaction-detail-link" :data-instance-id="skill.instance_id" data-defense-action="detail">查看</span>
                         </button>
@@ -874,7 +874,7 @@
                                                             @click.stop="useAbility(mySkills[i-1], 'per_turn')">{{ compactAbilityLabel(mySkills[i-1], 'per_turn') }}</button>
                                                 </div>
                                                 <div v-if="canShowCostHint(mySkills[i-1]) && !(canCastSkill(mySkills[i-1]) || canUsePerTurn(mySkills[i-1]))" class="slot-cost-hint">
-                                                    {{ missingCostText(skillUseCost(mySkills[i-1])) }}
+                                                    {{ missingCostText(attackActionCost(mySkills[i-1], [])) }}
                                                 </div>
                                                 <div v-if="selectedSkill && canBoostWith(mySkills[i-1])" class="boost-btn"
                                                      @click.stop="toggleBoostSkill(mySkills[i-1])">
@@ -921,7 +921,7 @@
                                             @mouseenter="previewCard(skill)"
                                             @click.stop="selectSkillToCast(skill)">
                                         <span>{{ skill.name }}</span>
-                                        <small v-if="canShowCostHint(skill)">{{ missingCostText(skillUseCost(skill)) }}</small>
+                                        <small v-if="canShowCostHint(skill)">{{ missingCostText(attackActionCost(skill, [])) }}</small>
                                     </button>
                                 </div>
                             </div>
@@ -4449,7 +4449,7 @@
                 guideKicker, currentHint, waitingNotice, clearSelection, statusEntries,
                 hasActiveTargeting, activeTargetSpell, isValidOpponentTarget, isSpellTarget, isFriendlySpellTarget, isFriendlyHeroSpellTarget, handleMyHeroClick, canUseMyCell,
                 myBoardOwnerID, opponentBoardOwnerID, isPendingSpellCenter, isPendingSpellAffected,
-                canShowCostHint, missingCostText, skillUseCost, canLearnSkill, costLabel,
+                canShowCostHint, missingCostText, skillUseCost, attackActionCost, reactionActionCost, canLearnSkill, costLabel,
                 skillReplaceRequest, replaceableSkills, confirmSkillReplacement,
                 equipmentReplaceRequest, replaceableEquipment, confirmEquipmentReplacement,
                 paymentRequest, paymentSelection, paymentElements, selectedPaymentTotal,

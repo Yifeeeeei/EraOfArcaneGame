@@ -252,6 +252,10 @@ func TestGameHTMLCompositeCostsUseSequentialPlannerAndActionAcknowledgement(t *t
 		"function attackActionCost(mainSkill, boostIDs)",
 		"function defenseActionCost()",
 		"ArcaneActionCostPlan.planActionCost(entries, myState.value.temp_modifiers || [])",
+		"missingCostText(attackActionCost(mySkills[i-1], []))",
+		"missingCostText(attackActionCost(skill, []))",
+		"costLabel(reactionActionCost(skill))",
+		"skillUseCost, attackActionCost, reactionActionCost, canLearnSkill",
 		"const pendingActionCallbacks = new Map();",
 		"message.request_id = requestID;",
 		"else if (msg.type === 'action_result')",
@@ -264,6 +268,9 @@ func TestGameHTMLCompositeCostsUseSequentialPlannerAndActionAcknowledgement(t *t
 	}
 	if strings.Contains(html, "mergedDefenseCost(") {
 		t.Fatalf("frontend should not merge independently discounted card costs")
+	}
+	if strings.Contains(html, "missingCostText(skillUseCost(") {
+		t.Fatalf("skill affordability hints should use the same action cost planner as button availability")
 	}
 }
 
