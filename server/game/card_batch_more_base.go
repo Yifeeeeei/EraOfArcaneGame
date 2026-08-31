@@ -1057,7 +1057,15 @@ func (Card2021018ArcaneRune) OnUseItem(ctx *EffectContext) error {
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "arcane_rune_skill", "奥术符文:选择己方1个法术获得+3威", candidates, 1, 1, func(selected []string) {
 		skill := ctx.Engine.findSkill(ctx.Engine.State.Players[ctx.PlayerID], firstSelected(selected))
 		if skill != nil {
-			skill.PowerBonus += 3
+			ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
+				Type:              TempModSkillPowerBonus,
+				SourceCardNumber:  ctx.Source.Card.Number,
+				SourceName:        ctx.Source.Card.Name,
+				TargetInstanceID:  skill.InstanceID,
+				Amount:            3,
+				ExpiresAtTurnEnd:  true,
+				ExpiresOnPlayerID: ctx.Engine.State.CurrentTurn,
+			})
 			ctx.Engine.refreshPendingSpellPowerForModifiedSkill(ctx.PlayerID, skill)
 		}
 	})

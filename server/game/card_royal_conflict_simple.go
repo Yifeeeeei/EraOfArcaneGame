@@ -6749,6 +6749,9 @@ func (Card3121105Embers) OnTurnEnd(ctx *EffectContext) error {
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.PlayerID < 0 || ctx.PlayerID >= len(ctx.Engine.State.Players) {
 		return nil
 	}
+	if ctx.Engine.State.CurrentTurn != ctx.PlayerID {
+		return nil
+	}
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	if ps.Elements[model.ElementFire] != 0 || ctx.Engine.findSkill(ps, ctx.Source.InstanceID) != ctx.Source {
 		return nil
@@ -6762,8 +6765,11 @@ func (Card3121105Embers) OnTurnEnd(ctx *EffectContext) error {
 	}
 	sourceID := ctx.Source.InstanceID
 	ctx.Engine.SetPendingActionWithError(ctx.PlayerID, "embers_free_cast_target",
-		"余火:选择目标免费使用此卡", candidates, 1, 1, nil, false,
+		"余火:可以选择目标免费使用此卡", candidates, 0, 1, nil, false,
 		func(selected []string, _ map[string]any) error {
+			if len(selected) == 0 {
+				return nil
+			}
 			source := ctx.Engine.findSkill(ctx.Engine.State.Players[ctx.PlayerID], sourceID)
 			if source == nil {
 				return nil
@@ -7225,14 +7231,31 @@ func (e *Engine) promptCounterWindHoleScroll(counter *CardInstance, original *Ca
 			if targetUnit.OwnerID == ownerID {
 				target.OwnerID = &ownerID
 			}
+			var afterResolve func()
 			if e.State.PendingSpell != nil {
 				clearFiveRainbowBeamSelection(e.State.PendingSpell.Skill)
+				afterResolve = e.State.PendingSpell.AfterResolve
+				e.State.PendingSpell.AfterResolve = nil
 				e.State.PendingSpell = nil
 			}
-			return e.startVirtualSpellCastWithBoosts(ownerID, virtual, target, boosts, map[string]any{
+			err := e.startVirtualSpellCastWithBoosts(ownerID, virtual, target, boosts, map[string]any{
 				"triggered_by": "2321111",
 				"source_item":  counterID,
 			})
+			if err != nil {
+				if afterResolve != nil {
+					afterResolve()
+				}
+				return err
+			}
+			if afterResolve != nil {
+				if e.State.PendingSpell != nil {
+					e.wrapPendingSpellContinuation(afterResolve)
+				} else {
+					afterResolve()
+				}
+			}
+			return nil
 		})
 }
 

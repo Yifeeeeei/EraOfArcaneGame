@@ -2292,9 +2292,11 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 
 	t.Run("2021018 奥术符文 gives one friendly skill +3 power", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
+		engine.State.CurrentTurn = 1
 		skill := readySkill(baseCard(t, "3021005"), 0)
 		engine.State.Players[0].Skills[0] = skill
 		rune := NewCardInstance(baseCard(t, "2021018"), 0, 1)
+		basePower := engine.effectiveSkillPowerForPurpose(0, skill, skillPurposeAttack)
 
 		engine.triggerEffects(TriggerOnUseItem, rune, nil, nil)
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "arcane_rune_skill" {
@@ -2306,8 +2308,19 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 			t.Fatalf("resolve arcane rune target: %v", err)
 		}
 
-		if skill.PowerBonus != 3 {
-			t.Fatalf("arcane rune should add +3 power to a friendly skill, bonus=%d", skill.PowerBonus)
+		if skill.PowerBonus != 0 || engine.effectiveSkillPowerForPurpose(0, skill, skillPurposeAttack) != basePower+3 {
+			t.Fatalf("arcane rune should add temporary +3 power without mutating the card, power_bonus=%d effective=%d", skill.PowerBonus, engine.effectiveSkillPowerForPurpose(0, skill, skillPurposeAttack))
+		}
+		modifiers := engine.State.Players[0].TempModifiers
+		if len(modifiers) != 1 || modifiers[0].Type != TempModSkillPowerBonus || modifiers[0].TargetInstanceID != skill.InstanceID ||
+			!modifiers[0].ExpiresAtTurnEnd || modifiers[0].ExpiresOnPlayerID != 1 {
+			t.Fatalf("arcane rune should create a target-scoped current-turn modifier, modifiers=%+v", modifiers)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "end_turn"}); err != nil {
+			t.Fatalf("end triggering turn: %v", err)
+		}
+		if len(engine.State.Players[0].TempModifiers) != 0 || engine.effectiveSkillPowerForPurpose(0, skill, skillPurposeAttack) != basePower {
+			t.Fatalf("arcane rune bonus should expire at current turn end, modifiers=%+v effective=%d", engine.State.Players[0].TempModifiers, engine.effectiveSkillPowerForPurpose(0, skill, skillPurposeAttack))
 		}
 	})
 
@@ -4060,6 +4073,92 @@ func TestSetCounterTrapDoesNotAutoTriggerBehindExistingPrompt(t *testing.T) {
 	}
 }
 
+func TestIssue160CounterTrapsQueueAcrossPlayers(t *testing.T) {
+	for _, tc := range []struct {
+		name          string
+		firstSelected bool
+	}{
+		{name: "declining turn player still asks opponent", firstSelected: false},
+		{name: "resolving turn player still asks opponent", firstSelected: true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			engine := setupReportedBugEngine(t)
+			p0 := engine.State.Players[0]
+			p1 := engine.State.Players[1]
+			for _, elem := range model.AllElements {
+				p0.Elements[elem] = 10
+				p1.Elements[elem] = 10
+			}
+			turnCounter := NewCardInstance(baseCard(t, "2121002"), 0, 1)
+			opponentCounter := NewCardInstance(baseCard(t, "2121002"), 1, 1)
+			turnCounter.IsSetCounter = true
+			opponentCounter.IsSetCounter = true
+			p0.Equipment[0] = turnCounter
+			p1.Equipment[0] = opponentCounter
+			target := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+
+			if err := engine.HandleAction(0, ActionMessage{Action: "consume", Data: map[string]any{"instance_id": target.InstanceID}}); err != nil {
+				t.Fatalf("consume with counters on both sides: %v", err)
+			}
+			if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "counter_trigger" || engine.State.PendingAction.PlayerID != 0 {
+				t.Fatalf("turn player counter should be first, pending=%+v", engine.State.PendingAction)
+			}
+			selected := []any{}
+			if tc.firstSelected {
+				selected = []any{turnCounter.InstanceID}
+			}
+			if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{"selected": selected}}); err != nil {
+				t.Fatalf("resolve first counter: %v", err)
+			}
+			if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "counter_trigger" || engine.State.PendingAction.PlayerID != 1 ||
+				len(engine.State.PendingAction.Candidates) != 1 || engine.State.PendingAction.Candidates[0]["instance_id"] != opponentCounter.InstanceID {
+				t.Fatalf("opponent counter should follow first decision, pending=%+v queue=%+v", engine.State.PendingAction, engine.State.PendingActionQueue)
+			}
+			if err := engine.HandleAction(1, ActionMessage{Action: "resolve_action", Data: map[string]any{"selected": []any{opponentCounter.InstanceID}}}); err != nil {
+				t.Fatalf("resolve opponent counter: %v", err)
+			}
+			wantBurn := 1
+			if tc.firstSelected {
+				wantBurn = 2
+			}
+			if target.Statuses[StatusBurn] != wantBurn || engine.State.PendingAction != nil || len(engine.State.PendingActionQueue) != 0 {
+				t.Fatalf("both counter windows should settle in order, burn=%d want=%d pending=%+v queue=%+v", target.Statuses[StatusBurn], wantBurn, engine.State.PendingAction, engine.State.PendingActionQueue)
+			}
+		})
+	}
+
+	t.Run("stale opponent counter is skipped without stalling", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p1 := engine.State.Players[1]
+		for _, elem := range model.AllElements {
+			p0.Elements[elem] = 10
+			p1.Elements[elem] = 10
+		}
+		turnCounter := NewCardInstance(baseCard(t, "2121002"), 0, 1)
+		opponentCounter := NewCardInstance(baseCard(t, "2121002"), 1, 1)
+		turnCounter.IsSetCounter = true
+		opponentCounter.IsSetCounter = true
+		p0.Equipment[0] = turnCounter
+		p1.Equipment[0] = opponentCounter
+		target := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "consume", Data: map[string]any{"instance_id": target.InstanceID}}); err != nil {
+			t.Fatalf("consume with counters on both sides: %v", err)
+		}
+		opponentCounter.IsSetCounter = false
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{"selected": []any{}}}); err != nil {
+			t.Fatalf("decline first counter: %v", err)
+		}
+		if engine.State.PendingAction != nil || len(engine.State.PendingActionQueue) != 0 {
+			t.Fatalf("stale queued counter should be skipped, pending=%+v queue=%+v", engine.State.PendingAction, engine.State.PendingActionQueue)
+		}
+		if target.Statuses[StatusBurn] != 0 {
+			t.Fatalf("neither declined nor stale counter should resolve, statuses=%v", target.Statuses)
+		}
+	})
+}
+
 func TestSpellCastCounterPromptResumesDefenseWindow(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
@@ -4147,8 +4246,8 @@ func TestArcaneRuneCanTriggerOnEnemyDefenseSpell(t *testing.T) {
 	}}); err != nil {
 		t.Fatalf("choose arcane rune spell: %v", err)
 	}
-	if attack.PowerBonus != 3 {
-		t.Fatalf("arcane rune should add 3 power to chosen spell, bonus=%d", attack.PowerBonus)
+	if attack.PowerBonus != 0 || len(p0.TempModifiers) != 1 || p0.TempModifiers[0].TargetInstanceID != attack.InstanceID || p0.TempModifiers[0].Amount != 3 {
+		t.Fatalf("arcane rune should add temporary 3 power to chosen spell, bonus=%d modifiers=%+v", attack.PowerBonus, p0.TempModifiers)
 	}
 	if target.CurrentLife >= 5 {
 		t.Fatalf("arcane rune should update pending spell power and beat the original defense, life=%d", target.CurrentLife)
@@ -5762,6 +5861,90 @@ func TestActionCostStateKeepsSequentialDiscountOutOfBaseCosts(t *testing.T) {
 	if p0.TempModifiers[0].RemainingUses != 1 {
 		t.Fatalf("state serialization must not consume the real modifier, modifiers=%v", p0.TempModifiers)
 	}
+}
+
+func TestIssue158EmbersWaitsForItsOwnersSpellToFinish(t *testing.T) {
+	t.Run("opponent turn end does not trigger", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p0.Skills[0] = readySkill(baseCard(t, "3121105"), 0)
+		placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		engine.State.CurrentTurn = 1
+
+		if err := engine.HandleAction(1, ActionMessage{Action: "end_turn"}); err != nil {
+			t.Fatalf("end opponent turn: %v", err)
+		}
+		if engine.State.PendingAction != nil || engine.State.PendingSpell != nil || engine.State.CurrentTurn != 0 {
+			t.Fatalf("Embers must not trigger at opponent turn end, turn=%d action=%+v spell=%+v", engine.State.CurrentTurn, engine.State.PendingAction, engine.State.PendingSpell)
+		}
+	})
+
+	t.Run("owner may decline", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		p0.Skills[0] = readySkill(baseCard(t, "3121105"), 0)
+		placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "end_turn"}); err != nil {
+			t.Fatalf("end owner turn: %v", err)
+		}
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "embers_free_cast_target" || engine.State.PendingAction.MinSelect != 0 {
+			t.Fatalf("Embers should offer an optional target, pending=%+v", engine.State.PendingAction)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{"selected": []any{}}}); err != nil {
+			t.Fatalf("decline Embers: %v", err)
+		}
+		if engine.State.PendingAction != nil || engine.State.PendingSpell != nil || engine.State.CurrentTurn != 1 {
+			t.Fatalf("declining Embers should finish the turn, turn=%d action=%+v spell=%+v", engine.State.CurrentTurn, engine.State.PendingAction, engine.State.PendingSpell)
+		}
+	})
+
+	t.Run("accepted spell fully resolves before turn advances", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		embers := readySkill(baseCard(t, "3121105"), 0)
+		p0.Skills[0] = embers
+		target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+		startLife := target.CurrentLife
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "end_turn"}); err != nil {
+			t.Fatalf("end owner turn: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{"selected": []any{target.InstanceID}}}); err != nil {
+			t.Fatalf("cast Embers: %v", err)
+		}
+		if engine.State.CurrentTurn != 0 || engine.State.Phase != PhaseDefenseWindow || engine.State.PendingSpell == nil {
+			t.Fatalf("turn must wait in the defense window, turn=%d phase=%s spell=%+v", engine.State.CurrentTurn, engine.State.Phase, engine.State.PendingSpell)
+		}
+		if err := engine.HandleAction(1, ActionMessage{Action: "no_defend"}); err != nil {
+			t.Fatalf("decline defense: %v", err)
+		}
+		if target.CurrentLife >= startLife || engine.State.PendingAction != nil || engine.State.PendingSpell != nil || engine.State.CurrentTurn != 1 {
+			t.Fatalf("Embers should hit before the turn advances, life=%d start=%d turn=%d action=%+v spell=%+v", target.CurrentLife, startLife, engine.State.CurrentTurn, engine.State.PendingAction, engine.State.PendingSpell)
+		}
+	})
+
+	t.Run("cancelled spell finishes cancellation before turn advances", func(t *testing.T) {
+		engine := setupReportedBugEngine(t)
+		p0 := engine.State.Players[0]
+		embers := readySkill(baseCard(t, "3121105"), 0)
+		p0.Skills[0] = embers
+		target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
+
+		if err := engine.HandleAction(0, ActionMessage{Action: "end_turn"}); err != nil {
+			t.Fatalf("end owner turn: %v", err)
+		}
+		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{"selected": []any{target.InstanceID}}}); err != nil {
+			t.Fatalf("cast Embers: %v", err)
+		}
+		if engine.State.CurrentTurn != 0 || engine.State.PendingSpell == nil {
+			t.Fatalf("turn must wait while Embers is pending, turn=%d spell=%+v", engine.State.CurrentTurn, engine.State.PendingSpell)
+		}
+		engine.cancelPendingSpell(1, embers, "test cancellation")
+		if engine.State.PendingAction != nil || engine.State.PendingSpell != nil || engine.State.CurrentTurn != 1 {
+			t.Fatalf("cancelled Embers should finish the turn after cancellation, turn=%d action=%+v spell=%+v", engine.State.CurrentTurn, engine.State.PendingAction, engine.State.PendingSpell)
+		}
+	})
 }
 
 func TestBoundSkillStateIncludesPersistentCostModifiers(t *testing.T) {
