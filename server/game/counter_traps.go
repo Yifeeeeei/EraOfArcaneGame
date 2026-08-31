@@ -92,7 +92,7 @@ func (e *Engine) placeCounterTrap(playerID int, card *CardInstance, handIdx int)
 }
 
 func (e *Engine) promptCounterTrapIfEligible(counter *CardInstance, trigger EffectTrigger, eventSource *CardInstance, extraData map[string]any, afterResolve func()) bool {
-	if counter == nil || counter.Card == nil || !counter.IsSetCounter || e.State.PendingAction != nil {
+	if counter == nil || counter.Card == nil || !counter.IsSetCounter {
 		return false
 	}
 	if !counterTrapHasTrigger(counter.Card.Number, trigger) || !e.counterTrapConditionMet(counter, trigger, eventSource, extraData) {
@@ -105,9 +105,13 @@ func (e *Engine) promptCounterTrapIfEligible(counter *CardInstance, trigger Effe
 	candidate["zone"] = "equipment"
 	candidate["side"] = "own"
 	context := e.counterTrapPendingContext(trigger, eventSource, extraData)
-	e.SetPendingActionWithErrorAndContext(ownerID, "counter_trigger",
+	available := func() bool {
+		return !counterWindowCancelled(extraData) && counter.IsSetCounter &&
+			e.counterTrapConditionMet(counter, trigger, eventSource, extraData)
+	}
+	action := e.setPendingActionWithOptions(ownerID, "counter_trigger",
 		fmt.Sprintf("是否发动盖放的「%s」？", counter.Card.Name),
-		[]map[string]any{candidate}, 0, 1, cost, true, context,
+		[]map[string]any{candidate}, 0, 1, cost, true, nil, nil,
 		func(selected []string, data map[string]any) error {
 			if len(selected) == 0 {
 				if afterResolve != nil {
@@ -130,8 +134,12 @@ func (e *Engine) promptCounterTrapIfEligible(counter *CardInstance, trigger Effe
 				afterResolve()
 			}
 			return nil
-		})
-	return e.State.PendingAction != nil && e.State.PendingAction.Type == "counter_trigger"
+		}, context, available)
+	if action == nil {
+		return false
+	}
+	action.OnSkip = afterResolve
+	return true
 }
 
 func (e *Engine) eligibleCounterTraps(playerID int, trigger EffectTrigger, eventSource *CardInstance, extraData map[string]any) []*CardInstance {
@@ -149,9 +157,7 @@ func (e *Engine) eligibleCounterTraps(playerID int, trigger EffectTrigger, event
 }
 
 func (e *Engine) promptCounterTrapQueue(counters []*CardInstance, trigger EffectTrigger, eventSource *CardInstance, extraData map[string]any, afterDone func()) bool {
-	if e.State.PendingAction != nil {
-		return false
-	}
+	prompted := false
 	var promptNext func(int, bool)
 	promptNext = func(index int, continuing bool) {
 		if counterWindowCancelled(extraData) {
@@ -166,6 +172,7 @@ func (e *Engine) promptCounterTrapQueue(counters []*CardInstance, trigger Effect
 			if e.promptCounterTrapIfEligible(counter, trigger, eventSource, extraData, func() {
 				promptNext(index, true)
 			}) {
+				prompted = true
 				return
 			}
 		}
@@ -174,7 +181,7 @@ func (e *Engine) promptCounterTrapQueue(counters []*CardInstance, trigger Effect
 		}
 	}
 	promptNext(0, false)
-	return e.State.PendingAction != nil && e.State.PendingAction.Type == "counter_trigger"
+	return prompted
 }
 
 func (e *Engine) counterTrapPendingContext(trigger EffectTrigger, eventSource *CardInstance, extraData map[string]any) map[string]any {

@@ -402,6 +402,7 @@ type PendingAction struct {
 	CallbackData func(selected []string, data map[string]any)       `json:"-"`
 	CallbackErr  func(selected []string, data map[string]any) error `json:"-"`
 	Available    func() bool                                        `json:"-"` // checked before a queued action is shown
+	OnSkip       func()                                             `json:"-"`
 }
 
 // GameState holds the entire game state
@@ -441,6 +442,7 @@ type SpellCast struct {
 	PowerSources []SpellPowerSource `json:"power_sources,omitempty"`
 	BoostSkills  []*CardInstance    `json:"boost_skills"` // skills used to boost
 	ExtraTargets []SpellTarget      `json:"extra_targets,omitempty"`
+	AfterResolve func()             `json:"-"`
 }
 
 type SpellPowerSource struct {

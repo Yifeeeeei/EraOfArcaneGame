@@ -46,17 +46,19 @@ const (
 const skillUseExtraCostStatusPrefix = "使用费用额外"
 
 type TemporaryModifier struct {
-	ID               string `json:"id"`
-	Type             string `json:"type"`
-	SourceCardNumber string `json:"source_card_number,omitempty"`
-	SourceName       string `json:"source_name,omitempty"`
-	TargetInstanceID string `json:"target_instance_id,omitempty"`
-	Element          string `json:"element,omitempty"`
-	Status           string `json:"status,omitempty"`
-	Amount           int    `json:"amount,omitempty"`
-	RemainingUses    int    `json:"remaining_uses,omitempty"`
-	ExpiresTurn      int    `json:"expires_turn,omitempty"`
-	AllowSameTarget  bool   `json:"allow_same_target,omitempty"`
+	ID                string `json:"id"`
+	Type              string `json:"type"`
+	SourceCardNumber  string `json:"source_card_number,omitempty"`
+	SourceName        string `json:"source_name,omitempty"`
+	TargetInstanceID  string `json:"target_instance_id,omitempty"`
+	Element           string `json:"element,omitempty"`
+	Status            string `json:"status,omitempty"`
+	Amount            int    `json:"amount,omitempty"`
+	RemainingUses     int    `json:"remaining_uses,omitempty"`
+	ExpiresTurn       int    `json:"expires_turn,omitempty"`
+	ExpiresAtTurnEnd  bool   `json:"expires_at_turn_end,omitempty"`
+	ExpiresOnPlayerID int    `json:"expires_on_player_id,omitempty"`
+	AllowSameTarget   bool   `json:"allow_same_target,omitempty"`
 }
 
 func (e *Engine) addTemporaryModifier(playerID int, modifier TemporaryModifier) {
@@ -95,6 +97,22 @@ func (e *Engine) clearExpiredTemporaryModifiers(playerID int) {
 		kept = append(kept, modifier)
 	}
 	ps.TempModifiers = kept
+}
+
+func (e *Engine) clearTemporaryModifiersAtTurnEnd(endedPlayerID int) {
+	for _, ps := range e.State.Players {
+		if ps == nil {
+			continue
+		}
+		kept := ps.TempModifiers[:0]
+		for _, modifier := range ps.TempModifiers {
+			if modifier.ExpiresAtTurnEnd && modifier.ExpiresOnPlayerID == endedPlayerID {
+				continue
+			}
+			kept = append(kept, modifier)
+		}
+		ps.TempModifiers = kept
+	}
 }
 
 func (e *Engine) nextSkillCostZeroModifier(ps *PlayerState, skill *CardInstance) *TemporaryModifier {

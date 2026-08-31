@@ -573,13 +573,21 @@ func (e *Engine) executePrayerAbility(playerID int, card *CardInstance) {
 }
 
 func (e *Engine) wrapPendingActionContinuation(continueFn func()) {
+	e.wrapPendingActionContinuationWithSpellBaseline(e.State.PendingSpell, continueFn)
+}
+
+func (e *Engine) wrapPendingActionContinuationWithSpellBaseline(pendingSpellAtWrap *SpellCast, continueFn func()) {
 	pa := e.State.PendingAction
 	if pa == nil || continueFn == nil {
 		return
 	}
 	after := func() {
 		if e.State.PendingAction != nil {
-			e.wrapPendingActionContinuation(continueFn)
+			e.wrapPendingActionContinuationWithSpellBaseline(pendingSpellAtWrap, continueFn)
+			return
+		}
+		if e.State.PendingSpell != nil && e.State.PendingSpell != pendingSpellAtWrap {
+			e.wrapPendingSpellContinuation(continueFn)
 			return
 		}
 		continueFn()
@@ -610,6 +618,42 @@ func (e *Engine) wrapPendingActionContinuation(continueFn func()) {
 		}
 		after()
 	}
+}
+
+func (e *Engine) wrapPendingSpellContinuation(continueFn func()) {
+	if continueFn == nil {
+		return
+	}
+	spell := e.State.PendingSpell
+	if spell == nil {
+		continueFn()
+		return
+	}
+	original := spell.AfterResolve
+	spell.AfterResolve = func() {
+		if original != nil {
+			original()
+		}
+		continueFn()
+	}
+}
+
+func (e *Engine) completePendingSpell(spell *SpellCast) bool {
+	if spell == nil || e.State.PendingSpell != spell {
+		return false
+	}
+	e.State.PendingSpell = nil
+	afterResolve := spell.AfterResolve
+	spell.AfterResolve = nil
+	if afterResolve == nil {
+		return false
+	}
+	if e.State.PendingAction != nil {
+		e.wrapPendingActionContinuation(afterResolve)
+		return true
+	}
+	afterResolve()
+	return true
 }
 
 func (e *Engine) cardStillOnField(card *CardInstance) bool {
@@ -1985,8 +2029,8 @@ func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInst
 		clearFiveRainbowBeamSelection(e.State.PendingSpell.Skill)
 	}
 
-	e.State.PendingSpell = nil
-	if e.State.PendingAction == nil {
+	continued := e.completePendingSpell(e.State.PendingSpell)
+	if !continued && e.State.PendingAction == nil {
 		e.State.Phase = PhaseMain
 	}
 	e.checkWinCondition()
@@ -2185,10 +2229,8 @@ func (e *Engine) resolvePendingSpellHit() {
 
 	e.removeStoredArchmageStaffSkillAfterUse(spell.AttackerID, spell.Skill)
 	clearFiveRainbowBeamSelection(spell.Skill)
-	if e.State.PendingSpell == spell {
-		e.State.PendingSpell = nil
-	}
-	if e.State.PendingAction == nil {
+	continued := e.completePendingSpell(spell)
+	if !continued && e.State.PendingAction == nil {
 		e.State.Phase = PhaseMain
 	}
 	e.checkWinCondition()
@@ -2211,10 +2253,10 @@ func (e *Engine) cancelPendingSpell(playerID int, source *CardInstance, reason s
 	if e.promptSpellMissOrCancelledCounters(spell.AttackerID, spell.Skill, spell.BoostSkills, spell.ExtraTargets, reason) {
 		return
 	}
-	e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
-	clearFiveRainbowBeamSelection(e.State.PendingSpell.Skill)
-	e.State.PendingSpell = nil
-	if e.State.PendingAction == nil {
+	e.removeStoredArchmageStaffSkillAfterUse(spell.AttackerID, spell.Skill)
+	clearFiveRainbowBeamSelection(spell.Skill)
+	continued := e.completePendingSpell(spell)
+	if !continued && e.State.PendingAction == nil {
 		e.State.Phase = PhaseMain
 	}
 }
@@ -2240,10 +2282,11 @@ func (e *Engine) promptSpellMissOrCancelledCounters(attackerID int, skill *CardI
 	}
 	return e.promptCounterTrapQueue(counters, TriggerOnSpellMissOrCancelled, skill, data, func() {
 		if e.State.PendingSpell != nil && e.State.PendingSpell.Skill == skill {
-			e.removeStoredArchmageStaffSkillAfterUse(e.State.PendingSpell.AttackerID, e.State.PendingSpell.Skill)
-			clearFiveRainbowBeamSelection(e.State.PendingSpell.Skill)
-			e.State.PendingSpell = nil
-			if e.State.PendingAction == nil {
+			spell := e.State.PendingSpell
+			e.removeStoredArchmageStaffSkillAfterUse(spell.AttackerID, spell.Skill)
+			clearFiveRainbowBeamSelection(spell.Skill)
+			continued := e.completePendingSpell(spell)
+			if !continued && e.State.PendingAction == nil {
 				e.State.Phase = PhaseMain
 			}
 		}
@@ -2492,9 +2535,10 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 				e.wrapPendingActionContinuation(func() {
 					continueAfterBeforeDamage()
 					if e.State.PendingSpell != nil && e.State.PendingSpell.Skill == skill {
+						spell := e.State.PendingSpell
 						e.removeStoredArchmageStaffSkillAfterUse(attackerID, skill)
-						e.State.PendingSpell = nil
-						if e.State.PendingAction == nil {
+						continued := e.completePendingSpell(spell)
+						if !continued && e.State.PendingAction == nil {
 							e.State.Phase = PhaseMain
 						}
 						e.checkWinCondition()
@@ -2510,9 +2554,10 @@ func (e *Engine) resolveSpellHit(attackerID int, skill *CardInstance, target Spe
 				return
 			}
 			if e.State.PendingSpell != nil && e.State.PendingSpell.Skill == skill {
+				spell := e.State.PendingSpell
 				e.removeStoredArchmageStaffSkillAfterUse(attackerID, skill)
-				e.State.PendingSpell = nil
-				if e.State.PendingAction == nil {
+				continued := e.completePendingSpell(spell)
+				if !continued && e.State.PendingAction == nil {
 					e.State.Phase = PhaseMain
 				}
 				e.checkWinCondition()
@@ -4397,12 +4442,12 @@ func (e *Engine) setPendingAction(playerID int, actionType string, prompt string
 	e.setPendingActionWithOptions(playerID, actionType, prompt, candidates, minSelect, maxSelect, nil, false, callback, callbackData, nil, nil, nil)
 }
 
-func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, callback func([]string), callbackData func([]string, map[string]any), callbackErr func([]string, map[string]any) error, context map[string]any, available func() bool) {
+func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, callback func([]string), callbackData func([]string, map[string]any), callbackErr func([]string, map[string]any) error, context map[string]any, available func() bool) *PendingAction {
 	if minSelect > 0 && len(candidates) == 0 {
-		return
+		return nil
 	}
 	if available != nil && !available() {
-		return
+		return nil
 	}
 	resumePhase := e.State.Phase
 	if e.State.PendingAction != nil {
@@ -4425,9 +4470,10 @@ func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, pr
 	}
 	if e.State.PendingAction != nil {
 		e.State.PendingActionQueue = append(e.State.PendingActionQueue, action)
-		return
+		return action
 	}
 	e.activatePendingAction(action, resumePhase)
+	return action
 }
 
 func (e *Engine) activatePendingAction(action *PendingAction, resumePhase GamePhase) {
@@ -4465,6 +4511,12 @@ func (e *Engine) advancePendingActionQueue() bool {
 		next := e.State.PendingActionQueue[0]
 		e.State.PendingActionQueue = e.State.PendingActionQueue[1:]
 		if next.Available != nil && !next.Available() {
+			if next.OnSkip != nil {
+				next.OnSkip()
+			}
+			if e.State.PendingAction != nil {
+				return true
+			}
 			continue
 		}
 		e.activatePendingAction(next, e.State.Phase)
@@ -4595,6 +4647,7 @@ func (e *Engine) finishEndTurnAfterOpponentTemp(ps *PlayerState) {
 	e.discardMarkedEndOfTurnCards(ps)
 	e.applyLoadGainAtTurnEnd(ps)
 
+	e.clearTemporaryModifiersAtTurnEnd(ps.PlayerID)
 	e.clearExpiredTemporaryModifiers(ps.PlayerID)
 	e.processAbilityDurations(ps)
 
