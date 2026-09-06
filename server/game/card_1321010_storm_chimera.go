@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card1321010StormChimera struct{ AlwaysActive }
 
-func (Card1321010StormChimera) ID() string   { return "1321010" }
+func (Card1321010StormChimera) ID() string { return "1321010" }
+
 func (Card1321010StormChimera) Name() string { return "风暴奇美拉" }
 
 func (Card1321010StormChimera) DevourRequirement() map[string]int {

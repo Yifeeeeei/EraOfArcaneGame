@@ -2,7 +2,8 @@ package game
 
 type Card3021002Foresight struct{ AlwaysActive }
 
-func (Card3021002Foresight) ID() string   { return "3021002" }
+func (Card3021002Foresight) ID() string { return "3021002" }
+
 func (Card3021002Foresight) Name() string { return "预见" }
 
 func (Card3021002Foresight) OnSpellCast(ctx *EffectContext) error {

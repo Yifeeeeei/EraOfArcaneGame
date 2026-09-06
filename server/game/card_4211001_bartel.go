@@ -1,10 +1,14 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+	"fmt"
+)
 
 type Card4211001Bartel struct{ AlwaysActive }
 
-func (Card4211001Bartel) ID() string   { return "4211001" }
+func (Card4211001Bartel) ID() string { return "4211001" }
+
 func (Card4211001Bartel) Name() string { return "\"浪之人\" 巴特尔" }
 
 func (Card4211001Bartel) OnUltimate(ctx *EffectContext) error {
@@ -65,4 +69,14 @@ func convertElementMapToWater(elements map[string]int) map[string]int {
 		return map[string]int{}
 	}
 	return map[string]int{model.ElementWater: total}
+}
+
+func (Card4211001Bartel) ValidateAbility(ctx *EffectContext, trigger EffectTrigger) error {
+	if trigger != TriggerUltimate {
+		return nil
+	}
+	if len(ctx.Engine.State.Players[ctx.PlayerID].Hand) == 0 {
+		return fmt.Errorf("Bartel ultimate requires a hand card")
+	}
+	return nil
 }

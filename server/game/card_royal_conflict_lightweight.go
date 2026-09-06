@@ -176,10 +176,7 @@ func (Card2621104DevotionContract) OnSpellCast(ctx *EffectContext) error {
 	}
 	hero := ctx.Engine.State.Players[ctx.PlayerID].Hero
 	if hero != nil {
-		ctx.Engine.dealDamageWithExtra(hero, 1, ctx.PlayerID, map[string]any{
-			"damage_source": "devotion_contract",
-			"attacker":      ctx.PlayerID,
-		})
+		ctx.Engine.ApplyDamage(DamageRequest{Target: hero, Amount: 1, Kind: "devotion_contract", SourcePlayer: ctx.PlayerID, SourceKnown: true, Source: ctx.Source})
 	}
 	ctx.Engine.drawCards(ctx.PlayerID, 1)
 	return nil
@@ -220,10 +217,7 @@ func (Card2311101SkyCityZenithStone) OnDraw(ctx *EffectContext) error {
 		}
 	}
 	for _, target := range targets {
-		ctx.Engine.dealDamageWithExtra(target, 1, drawnPlayer, map[string]any{
-			"damage_source": "sky_city_zenith_stone",
-			"attacker":      ctx.PlayerID,
-		})
+		ctx.Engine.ApplyDamage(DamageRequest{Target: target, Amount: 1, Kind: "sky_city_zenith_stone", SourcePlayer: ctx.PlayerID, SourceKnown: true, Source: ctx.Source})
 		ctx.Engine.addStatus(target, StatusStun, 1)
 	}
 	return nil
@@ -233,17 +227,19 @@ const bloodGuMarkerStatus = "血蛊标记物"
 
 type Card2621103BloodGu struct{ AlwaysActive }
 
-func (Card2621103BloodGu) ID() string   { return "2621103" }
-func (Card2621103BloodGu) Name() string { return "血蛊" }
-func (Card2621103BloodGu) OnDamaged(ctx *EffectContext) error {
-	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.ExtraData == nil {
+func (Card2621103BloodGu) ID() string               { return "2621103" }
+func (Card2621103BloodGu) Name() string             { return "血蛊" }
+func (Card2621103BloodGu) DamageScope() DamageScope { return DamageFriendly }
+
+func (Card2621103BloodGu) OnDamaged(ctx *EffectContext, event DamageEvent) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || event.Target == nil {
 		return nil
 	}
-	damagedPlayer, ok := ctx.ExtraData["damaged_player"].(int)
-	if !ok || damagedPlayer != ctx.PlayerID || ctx.Target != ctx.Engine.playerHeroCard(ctx.PlayerID) {
+	damagedPlayer := event.Target.OwnerID
+	if damagedPlayer != ctx.PlayerID || event.Target != ctx.Engine.playerHeroCard(ctx.PlayerID) {
 		return nil
 	}
-	damage, _ := ctx.ExtraData["damage"].(int)
+	damage := event.Amount
 	if damage <= 0 {
 		damage = 1
 	}
@@ -599,10 +595,7 @@ func (Card2521107PanaceaP) OnUseItem(ctx *EffectContext) error {
 		func(selected []string) {
 			target := selectedUnitFromCandidates(ctx.Engine, selected, targets)
 			if target != nil {
-				ctx.Engine.dealDamageWithExtra(target, 1, target.OwnerID, map[string]any{
-					"damage_source": "panacea_p",
-					"attacker":      ctx.PlayerID,
-				})
+				ctx.Engine.ApplyDamage(DamageRequest{Target: target, Amount: 1, Kind: "panacea_p", SourcePlayer: ctx.PlayerID, SourceKnown: true, Source: ctx.Source})
 			}
 			resolveHealAndDraw()
 		})

@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card3021106ArcaneFlow struct{ AlwaysActive }
 
-func (Card3021106ArcaneFlow) ID() string   { return "3021106" }
+func (Card3021106ArcaneFlow) ID() string { return "3021106" }
+
 func (Card3021106ArcaneFlow) Name() string { return "奥能流贯" }
 
 func (Card3021106ArcaneFlow) ModifySpellStats(ctx *EffectContext, stats *SpellStats) {

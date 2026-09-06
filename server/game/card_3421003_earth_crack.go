@@ -2,9 +2,12 @@ package game
 
 type Card3421003EarthCrack struct{ AlwaysActive }
 
-func (Card3421003EarthCrack) ID() string      { return "3421003" }
-func (Card3421003EarthCrack) Name() string    { return "裂地重击" }
+func (Card3421003EarthCrack) ID() string { return "3421003" }
+
+func (Card3421003EarthCrack) Name() string { return "裂地重击" }
+
 func (Card3421003EarthCrack) MasteryMax() int { return 3 }
+
 func (Card3421003EarthCrack) OnMastery(ctx *EffectContext, level int) error {
 	return nil
 }

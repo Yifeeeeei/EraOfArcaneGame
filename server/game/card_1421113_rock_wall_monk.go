@@ -2,7 +2,8 @@ package game
 
 type Card1421113RockWallMonk struct{ AlwaysActive }
 
-func (Card1421113RockWallMonk) ID() string   { return "1421113" }
+func (Card1421113RockWallMonk) ID() string { return "1421113" }
+
 func (Card1421113RockWallMonk) Name() string { return "岩壁修道士" }
 
 func (Card1421113RockWallMonk) OnSpellHitBeforeDamage(ctx *EffectContext) error {

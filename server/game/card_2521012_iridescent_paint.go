@@ -1,11 +1,15 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card2521012IridescentPaint struct{ AlwaysActive }
 
-func (Card2521012IridescentPaint) ID() string   { return "2521012" }
+func (Card2521012IridescentPaint) ID() string { return "2521012" }
+
 func (Card2521012IridescentPaint) Name() string { return "幻彩颜料" }
+
 func (Card2521012IridescentPaint) OnUseItem(ctx *EffectContext) error {
 	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
 		return effectiveElementsGain(card)[model.ElementLight] > 0

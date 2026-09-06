@@ -1,8 +1,17 @@
 package game
 
+func (Card2121012HellfireRune) CounterTriggers() []EffectTrigger {
+	return []EffectTrigger{TriggerOnUnitEnter}
+}
+
+func (Card2121012HellfireRune) CanTriggerCounter(ctx *CounterContext) bool {
+	return ctx.Event.Trigger == TriggerOnUnitEnter && ctx.Event.PlayerID != ctx.Source.OwnerID && ctx.Event.Card != nil && ctx.Event.Card.Card.IsCompanion()
+}
+
 type Card2121012HellfireRune struct{ AlwaysActive }
 
-func (Card2121012HellfireRune) ID() string   { return "2121012" }
+func (Card2121012HellfireRune) ID() string { return "2121012" }
+
 func (Card2121012HellfireRune) Name() string { return "狱火符文" }
 
 func (Card2121012HellfireRune) OnUnitEnter(ctx *EffectContext) error {

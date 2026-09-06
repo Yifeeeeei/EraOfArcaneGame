@@ -1,7 +1,6 @@
 package game
 
 import (
-	"math/rand"
 	"strings"
 
 	"eraofarcane/cards"
@@ -312,7 +311,7 @@ func (e *Engine) flipDeckMatchesToHandThen(playerID int, count int, limit int, p
 		afterFlip(drawn)
 	}
 	if e.State.PendingAction != nil {
-		e.wrapPendingActionContinuation(func() {
+		e.continueAfterPendingAction(func() {
 			e.enforceImmediateHandLimitAfterHandGain(playerID)
 		})
 	} else {
@@ -332,7 +331,13 @@ func (e *Engine) flipDeckMatchesToHandThen(playerID int, count int, limit int, p
 }
 
 func canFlipOrSearchCard(card *CardInstance) bool {
-	return card != nil && card.Card != nil && card.Card.Number != "2211101"
+	if card == nil || card.Card == nil {
+		return false
+	}
+	if b, ok := cardBehavior(card).(DeckSearchPermissionBehavior); ok {
+		return b.CanBeFlippedOrSearched(card)
+	}
+	return true
 }
 
 func (e *Engine) drawFirstDeckMatch(playerID int, predicate func(*CardInstance) bool) *CardInstance {
@@ -422,9 +427,7 @@ func resetCardForPublicSpecialZone(card *CardInstance) {
 
 func (e *Engine) shuffleDeck(playerID int) {
 	deck := e.State.Players[playerID].Deck
-	rand.Shuffle(len(deck), func(i, j int) {
-		deck[i], deck[j] = deck[j], deck[i]
-	})
+	e.shuffleCards(deck)
 	e.triggerRoseProphetAfterOpponentShuffle(playerID)
 }
 

@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card1121112SparkMoth struct{ AlwaysActive }
 
-func (Card1121112SparkMoth) ID() string   { return "1121112" }
+func (Card1121112SparkMoth) ID() string { return "1121112" }
+
 func (Card1121112SparkMoth) Name() string { return "火花飞蛾" }
 
 func (e *Engine) triggerSparkMothAfterSpellHit(skill *CardInstance) {

@@ -2,7 +2,8 @@ package game
 
 type Card3621012SoulRecall struct{ AlwaysActive }
 
-func (Card3621012SoulRecall) ID() string   { return "3621012" }
+func (Card3621012SoulRecall) ID() string { return "3621012" }
+
 func (Card3621012SoulRecall) Name() string { return "回魂术" }
 
 func (Card3621012SoulRecall) OnSpellCast(ctx *EffectContext) error {

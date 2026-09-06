@@ -2,8 +2,10 @@ package game
 
 type Card1121014Firethorn struct{ AlwaysActive }
 
-func (Card1121014Firethorn) ID() string   { return "1121014" }
+func (Card1121014Firethorn) ID() string { return "1121014" }
+
 func (Card1121014Firethorn) Name() string { return "火荆" }
+
 func (Card1121014Firethorn) OnDeath(ctx *EffectContext) error {
 	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
 		return card.Position != nil && ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)

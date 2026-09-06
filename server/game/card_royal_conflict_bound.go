@@ -29,11 +29,7 @@ func (Card1011103Gambler) OnUltimate(ctx *EffectContext) error {
 				if target == nil || target.Card == nil || target.Card.Number != "1001101" {
 					continue
 				}
-				ctx.Engine.dealDamageWithExtra(target, 1, playerID, map[string]any{
-					"damage_source": "effect",
-					"source_card":   ctx.Source.Card.Number,
-					"attacker":      ctx.PlayerID,
-				})
+				ctx.Engine.ApplyDamage(DamageRequest{Target: target, Amount: 1, Kind: "effect", Source: ctx.Source, SourcePlayer: ctx.PlayerID, SourceKnown: true})
 				if target.CurrentLife <= 0 && ctx.Engine.unitInOwnerGrid(target, playerID) {
 					ctx.Engine.destroyUnitWithData(target, playerID, map[string]any{
 						"death_cause": "gambler_ultimate",

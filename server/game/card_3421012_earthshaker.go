@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card3421012Earthshaker struct{ AlwaysActive }
 
-func (Card3421012Earthshaker) ID() string   { return "3421012" }
+func (Card3421012Earthshaker) ID() string { return "3421012" }
+
 func (Card3421012Earthshaker) Name() string { return "石破天惊" }
 
 func (Card3421012Earthshaker) ModifySkillContribution(ctx *EffectContext, stats *SpellStats) {

@@ -1,15 +1,18 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card4411001Whitebeard struct{ AlwaysActive }
 
-func (Card4411001Whitebeard) ID() string   { return "4411001" }
+func (Card4411001Whitebeard) ID() string { return "4411001" }
+
 func (Card4411001Whitebeard) Name() string { return "森林隐士 白须" }
 
 const whitebeardFirstTurnChecked = "whitebeard_first_turn_checked"
 
-func (Card4411001Whitebeard) OnTurnStart(ctx *EffectContext) error {
+func (Card4411001Whitebeard) OnBeforeDraw(ctx *EffectContext) error {
 	if ctx.Source.Statuses[whitebeardFirstTurnChecked] > 0 {
 		return nil
 	}

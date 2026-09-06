@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card3021101ArcaneImpact struct{ AlwaysActive }
 
-func (Card3021101ArcaneImpact) ID() string   { return "3021101" }
+func (Card3021101ArcaneImpact) ID() string { return "3021101" }
+
 func (Card3021101ArcaneImpact) Name() string { return "奥术冲击" }
 
 func (Card3021101ArcaneImpact) ModifySkillContribution(ctx *EffectContext, stats *SpellStats) {

@@ -2,9 +2,12 @@ package game
 
 type Card1521001HealingWarlock struct{ AlwaysActive }
 
-func (Card1521001HealingWarlock) ID() string            { return "1521001" }
-func (Card1521001HealingWarlock) Name() string          { return "治疗术士" }
+func (Card1521001HealingWarlock) ID() string { return "1521001" }
+
+func (Card1521001HealingWarlock) Name() string { return "治疗术士" }
+
 func (Card1521001HealingWarlock) IsPrayerAbility() bool { return true }
+
 func (Card1521001HealingWarlock) OnPerTurn(ctx *EffectContext) error {
 	if ctx.ExtraData != nil && ctx.ExtraData["prayer"] == true {
 		candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, true, nil)

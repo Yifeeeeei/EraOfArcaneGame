@@ -233,8 +233,8 @@ func (e *Engine) validateSkillLearnPermissionModifiers(playerID int, skill *Card
 		return nil
 	}
 	ps := e.State.Players[playerID]
-	if e.timeCycleLockActive() {
-		return fmt.Errorf("time cycle prevents learning skills")
+	if e.actionRestricted(RuleLearnSkill, skill) {
+		return fmt.Errorf("a field rule prevents learning skills")
 	}
 	if e.playerCannotLearnElementSkill(ps, skill.Card.Category) {
 		return fmt.Errorf("cannot learn %s skills", skill.Card.Category)
@@ -278,23 +278,6 @@ func (e *Engine) playerCannotLearnElementSkill(ps *PlayerState, element string) 
 	for _, modifier := range ps.TempModifiers {
 		if modifier.Type == TempModCannotLearnElementSkill && modifier.Element == element {
 			return true
-		}
-	}
-	return false
-}
-
-func (e *Engine) timeCycleLockActive() bool {
-	if e == nil {
-		return false
-	}
-	for _, ps := range e.State.Players {
-		if ps == nil {
-			continue
-		}
-		for _, card := range e.getAllFieldCards(ps) {
-			if card != nil && card.Card != nil && card.Card.Number == "3411101" && !e.hasEffectiveStatus(card, StatusPetrify) {
-				return true
-			}
 		}
 	}
 	return false
@@ -395,24 +378,6 @@ func (p *actionCostPlan) cardPlayCost(e *Engine, card *CardInstance) map[string]
 	return cost
 }
 
-func (e *Engine) handLimitForPlayer(ps *PlayerState) int {
-	if ps == nil {
-		return e.State.HandLimit
-	}
-	limit := e.State.HandLimit
-	if ps.Hero != nil && ps.Hero.Card != nil && ps.Hero.Card.Number == "4311002" {
-		limit++
-	}
-	opponentID := 1 - ps.PlayerID
-	if opponentID >= 0 && opponentID < len(e.State.Players) && e.playerHasActiveCard(e.State.Players[opponentID], "1311103") {
-		limit--
-	}
-	if limit < 0 {
-		return 0
-	}
-	return limit
-}
-
 func stringsFromAnySlice(values []any) []string {
 	result := make([]string, 0, len(values))
 	for _, value := range values {
@@ -421,94 +386,6 @@ func stringsFromAnySlice(values []any) []string {
 		}
 	}
 	return result
-}
-
-func skillSlotCapacity(ps *PlayerState) int {
-	capacity := baseSkillSlotCapacity(ps)
-	if hasActiveSpiritCandle(ps) {
-		capacity += 2
-	}
-	if capacity > MaxSkillSlots {
-		return MaxSkillSlots
-	}
-	return capacity
-}
-
-func baseSkillSlotCapacity(ps *PlayerState) int {
-	if ps == nil {
-		return BaseSkillSlots
-	}
-	capacity := BaseSkillSlots
-	for _, equipment := range ps.Equipment {
-		if equipment != nil && equipment.Card != nil && equipment.Card.Number == "2021002" && equipment.Statuses[StatusPetrify] <= 0 {
-			capacity++
-			break
-		}
-	}
-	if capacity > MaxSkillSlots {
-		return MaxSkillSlots
-	}
-	return capacity
-}
-
-func hasActiveSpiritCandle(ps *PlayerState) bool {
-	if ps == nil {
-		return false
-	}
-	for _, equipment := range ps.Equipment {
-		if equipment != nil && equipment.Card != nil && equipment.Card.Number == "2611102" && equipment.Statuses[StatusPetrify] <= 0 {
-			return true
-		}
-	}
-	return false
-}
-
-func skillAllowedInSlot(ps *PlayerState, skill *CardInstance, slotIdx int) bool {
-	if slotIdx < 0 || slotIdx >= skillSlotCapacity(ps) {
-		return false
-	}
-	if slotIdx < baseSkillSlotCapacity(ps) {
-		return true
-	}
-	if !hasActiveSpiritCandle(ps) || skill == nil || skill.Card == nil {
-		return false
-	}
-	return hasCardTag(skill.Card, "灵媒") || hasCardTag(skill.Card, "神秘")
-}
-
-func equipmentSlotCapacity(ps *PlayerState) int {
-	if ps == nil {
-		return BaseEquipmentSlots
-	}
-	capacity := BaseEquipmentSlots
-	for _, equipment := range ps.Equipment {
-		if equipment != nil && equipment.Card != nil && equipment.Card.Number == "2021017" && equipment.Statuses[StatusPetrify] <= 0 {
-			capacity += 3
-			break
-		}
-	}
-	for _, equipment := range ps.Equipment {
-		if equipment != nil && equipment.Card != nil && equipment.Card.Number == "2021105" && equipment.Statuses[StatusPetrify] <= 0 {
-			capacity++
-			break
-		}
-	}
-	if capacity > MaxEquipmentSlots {
-		return MaxEquipmentSlots
-	}
-	return capacity
-}
-
-func playerCanEquipDuplicateSubtypes(ps *PlayerState) bool {
-	if ps == nil {
-		return false
-	}
-	for _, equipment := range ps.Equipment {
-		if equipment != nil && equipment.Card != nil && equipment.Card.Number == "2021105" && equipment.Statuses[StatusPetrify] <= 0 {
-			return true
-		}
-	}
-	return false
 }
 
 func (e *Engine) collectSkillUses(ps *PlayerState, ids []string, purpose skillPurpose, reserved map[string]bool) ([]*CardInstance, map[string]int, error) {
@@ -544,8 +421,8 @@ func (e *Engine) collectSkillUses(ps *PlayerState, ids []string, purpose skillPu
 }
 
 func (e *Engine) validateSkillForPurpose(skill *CardInstance, purpose skillPurpose) error {
-	if e.timeCycleLockActive() && (skill == nil || skill.Card == nil || skill.Card.Number != "3411101") {
-		return fmt.Errorf("time cycle prevents skill use")
+	if e.actionRestricted(RuleUseSkill, skill) {
+		return fmt.Errorf("a field rule prevents skill use")
 	}
 	if skill.Statuses[StatusCannotUseSkillUntilTurn] >= e.State.TurnNumber {
 		return fmt.Errorf("skill cannot be used this turn")
@@ -778,9 +655,7 @@ func (e *Engine) effectiveSkillPowerForPurposeWithData(playerID int, skill *Card
 	if weak := skill.Statuses[StatusWeaken]; weak > 0 && e.hasEffectiveStatus(skill, StatusWeaken) {
 		power -= weak
 	}
-	if hasActiveSpiritCandle(e.State.Players[playerID]) && !hasCardTag(skill.Card, "灵媒") && !hasCardTag(skill.Card, "神秘") {
-		power = (power + 1) / 2
-	}
+	power = e.scaleSpellPower(playerID, skill, power)
 	return max(power, 0)
 }
 
@@ -968,7 +843,7 @@ func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance
 	if e.hasStealthFromOpponent(playerID, targetUnit) && e.spellAllowsStealthTarget(skill) {
 		return nil
 	}
-	if e.fireCloudFanGrantsTarget(playerID, skill, target) {
+	if e.spellTargetGrants(playerID, skill, target).IgnoreRange {
 		return nil
 	}
 	if !e.IsInSpellRange(playerID, target.Position.Col, target.Position.Row, hasPierce) {
@@ -976,36 +851,6 @@ func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance
 	}
 
 	return nil
-}
-
-func (e *Engine) fireCloudFanGrantsTarget(playerID int, skill *CardInstance, target SpellTarget) bool {
-	if e == nil || skill == nil || skill.Card == nil || target.Type != "unit" || !target.Position.Valid() {
-		return false
-	}
-	if skill.Card.Category != model.ElementFire && skill.Card.Category != model.ElementAir {
-		return false
-	}
-	ps := e.State.Players[playerID]
-	if ps == nil {
-		return false
-	}
-	hasFan := false
-	for _, card := range e.getAllFieldCards(ps) {
-		if card != nil && card.Card != nil && card.Card.Number == "2121102" && !e.hasEffectiveStatus(card, StatusPetrify) {
-			hasFan = true
-			break
-		}
-	}
-	if !hasFan {
-		return false
-	}
-	opponent := e.State.Players[1-playerID]
-	frontRow := opponent.GetFrontRow()
-	if frontRow < 0 || target.Position.Row <= frontRow {
-		return false
-	}
-	frontOfTarget := target.Position.Row - 1
-	return frontOfTarget >= 0 && opponent.Units[target.Position.Col][frontOfTarget] == nil
 }
 
 func (e *Engine) validateCardSpecificSpellTarget(playerID int, skill *CardInstance, target SpellTarget, targetUnit *CardInstance) error {
@@ -1056,53 +901,11 @@ func (e *Engine) validateSpellExtraTargetForSkill(playerID int, skill *CardInsta
 	return e.validateSpellExtraTarget(playerID, extra)
 }
 
-func (e *Engine) burrowExtraTargetsFromAction(playerID int, skill *CardInstance, mainTarget SpellTarget, action ActionMessage) ([]SpellTarget, error) {
-	if skill == nil || skill.Card == nil || skill.Card.Number != "3421107" {
-		return nil, nil
-	}
-	raw, ok := action.Data["extra_targets"].([]any)
-	if !ok || len(raw) == 0 {
-		return nil, nil
-	}
-	maxTargets := skill.Statuses[StatusMastery]
-	if maxTargets > 2 {
-		maxTargets = 2
-	}
-	if maxTargets <= 0 {
-		return nil, fmt.Errorf("burrow extra targets require mastery")
-	}
-	if len(raw) > maxTargets {
-		return nil, fmt.Errorf("too many extra targets for burrow")
-	}
-	result := make([]SpellTarget, 0, len(raw))
-	seen := map[Position]bool{mainTarget.Position: true}
-	for _, entry := range raw {
-		data, ok := entry.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("invalid burrow extra target")
-		}
-		pos, err := requiredBoardPosition(data, "col", "row")
-		if err != nil {
-			return nil, fmt.Errorf("invalid burrow extra target")
-		}
-		extra := SpellTarget{Type: "unit", Position: pos}
-		if err := e.validateSpellExtraTarget(playerID, extra); err != nil {
-			return nil, err
-		}
-		if seen[extra.Position] {
-			return nil, fmt.Errorf("duplicate burrow extra target")
-		}
-		seen[extra.Position] = true
-		result = append(result, extra)
-	}
-	return result, nil
-}
-
 func (e *Engine) allowsSameSpellExtraTarget(ps *PlayerState, skill *CardInstance) bool {
 	if ps == nil || skill == nil || skill.Card == nil {
 		return false
 	}
-	if skill.Card.Number == "3621107" {
+	if e.spellTargetGrants(ps.PlayerID, skill, SpellTarget{}).AllowSameExtraTarget {
 		return true
 	}
 	for _, modifier := range ps.TempModifiers {
@@ -1129,55 +932,5 @@ func (e *Engine) spellHasPierceWithBoosts(playerID int, skill *CardInstance, boo
 }
 
 func (e *Engine) skillHasPierce(playerID int, skill *CardInstance) bool {
-	if skill != nil && skill.Statuses[permanentPierceStatus] > 0 {
-		return true
-	}
-	if cardHasPierce(skill) || e.windBladeGrantsPierce(playerID, skill) || e.westernChartGrantsPierce(playerID, skill) {
-		return true
-	}
-	return skill != nil && skill.Card != nil && skill.Card.Number == "3621107" && e.redMoonActive(playerID)
-}
-
-func (e *Engine) westernChartGrantsPierce(playerID int, skill *CardInstance) bool {
-	if skill == nil || skill.Card == nil || skill.InstanceID == "" || playerID < 0 || playerID >= len(e.State.Players) {
-		return false
-	}
-	key := westernChartPierceTargetPrefix + skill.InstanceID
-	for _, equipment := range e.State.Players[playerID].Equipment {
-		if equipment == nil || equipment.Card == nil || equipment.Card.Number != "2221108" || e.hasEffectiveStatus(equipment, StatusPetrify) {
-			continue
-		}
-		if equipment.Statuses[key] > 0 {
-			return true
-		}
-	}
-	return false
-}
-
-func (e *Engine) redMoonActive(playerID int) bool {
-	if playerID < 0 || playerID >= len(e.State.Players) {
-		return false
-	}
-	for _, card := range e.getAllFieldCards(e.State.Players[playerID]) {
-		if card != nil && card.Card != nil && card.Card.Number == "3611101" && abilityDurationActive(card) && !e.hasEffectiveStatus(card, StatusPetrify) {
-			return true
-		}
-	}
-	return false
-}
-
-func (e *Engine) windBladeGrantsPierce(playerID int, skill *CardInstance) bool {
-	if skill == nil || skill.Card == nil || skill.Card.Category != model.ElementAir || !skillNeedsTargetInstance(skill) {
-		return false
-	}
-	ps := e.State.Players[playerID]
-	if ps == nil {
-		return false
-	}
-	for _, fieldCard := range e.getAllFieldCards(ps) {
-		if fieldCard != nil && fieldCard.Card != nil && fieldCard.Card.Number == "1311003" && !e.hasEffectiveStatus(fieldCard, StatusPetrify) {
-			return true
-		}
-	}
-	return false
+	return (skill != nil && skill.Statuses[permanentPierceStatus] > 0) || cardHasPierce(skill) || e.spellTargetGrants(playerID, skill, SpellTarget{}).Pierce
 }

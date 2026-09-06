@@ -2,7 +2,8 @@ package game
 
 type Card2021006BagOfTricks struct{ AlwaysActive }
 
-func (Card2021006BagOfTricks) ID() string   { return "2021006" }
+func (Card2021006BagOfTricks) ID() string { return "2021006" }
+
 func (Card2021006BagOfTricks) Name() string { return "百宝锦囊" }
 
 func (Card2021006BagOfTricks) OnUltimate(ctx *EffectContext) error {
