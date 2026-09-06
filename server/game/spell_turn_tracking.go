@@ -19,7 +19,7 @@ func (e *Engine) recordSpellCast(playerID int, skill *CardInstance) {
 	ps.SpellsCastThisTurn[skill.Card.Category]++
 	ps.SpellsCastByNumberThisTurn[skill.Card.Number]++
 	if skill.Card.Category == model.ElementWater && isSpellLikeCard(skill.Card) && totalElementCost(skillUseCost(skill.Card)) < 3 {
-		ps.LastLowCostWaterSpell = cloneVirtualSpell(skill, playerID, e.State.TurnNumber)
+		ps.LastLowCostWaterSpell = e.cloneVirtualSpell(skill, playerID, e.State.TurnNumber)
 	}
 }
 

@@ -1,11 +1,15 @@
 package game
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Card1121003StoneforgeArtisan struct{ AlwaysActive }
 
-func (Card1121003StoneforgeArtisan) ID() string   { return "1121003" }
+func (Card1121003StoneforgeArtisan) ID() string { return "1121003" }
+
 func (Card1121003StoneforgeArtisan) Name() string { return "锻石工匠" }
+
 func (Card1121003StoneforgeArtisan) PerTurnLabel(*CardInstance) string {
 	return "消耗"
 }

@@ -3,7 +3,7 @@ package game
 import (
 	"eraofarcane/model"
 	"fmt"
-	"math/rand"
+	"sync/atomic"
 )
 
 // Position on the 3x3 unit grid
@@ -57,8 +57,12 @@ const StatusEntryCostNeutralAmount = "entry_cost_neutral_amount"
 
 // NewCardInstance creates a new card instance
 func NewCardInstance(card *model.Card, ownerID int, turn int) *CardInstance {
+	return newCardInstanceWithID(card, ownerID, turn, generateID())
+}
+
+func newCardInstanceWithID(card *model.Card, ownerID int, turn int, id string) *CardInstance {
 	ci := &CardInstance{
-		InstanceID:        generateID(),
+		InstanceID:        id,
 		Card:              card,
 		OwnerID:           ownerID,
 		CurrentLife:       card.Life,
@@ -195,7 +199,7 @@ func NewPlayerState(id int, name string, deck *model.Deck) *PlayerState {
 }
 
 // InitCards creates all card instances from the deck definition
-func (ps *PlayerState) InitCards(turn int) {
+func (e *Engine) initPlayerCards(ps *PlayerState, turn int) {
 	cardDB := make(map[string]*model.Card)
 	for k, v := range getCardDB() {
 		cardDB[k] = v
@@ -203,7 +207,7 @@ func (ps *PlayerState) InitCards(turn int) {
 
 	// Create hero
 	heroCard := cardDB[ps.DeckDef.HeroID]
-	ps.Hero = NewCardInstance(heroCard, ps.PlayerID, turn)
+	ps.Hero = e.newCardInstance(heroCard, ps.PlayerID, turn)
 	ps.Hero.IsHorizontal = false // hero starts vertical
 	ps.Hero.Position = &Position{Col: 1, Row: 1}
 	ps.Units[1][1] = ps.Hero
@@ -212,18 +216,16 @@ func (ps *PlayerState) InitCards(turn int) {
 	ps.Deck = make([]*CardInstance, 0, len(ps.DeckDef.MainDeck))
 	for _, id := range ps.DeckDef.MainDeck {
 		card := cardDB[id]
-		ci := NewCardInstance(card, ps.PlayerID, 0)
+		ci := e.newCardInstance(card, ps.PlayerID, 0)
 		ps.Deck = append(ps.Deck, ci)
 	}
-	rand.Shuffle(len(ps.Deck), func(i, j int) {
-		ps.Deck[i], ps.Deck[j] = ps.Deck[j], ps.Deck[i]
-	})
+	e.shuffleCards(ps.Deck)
 
 	// Create skill pool cards
 	ps.SkillPool = make([]*CardInstance, 0, len(ps.DeckDef.SkillPool))
 	for _, id := range ps.DeckDef.SkillPool {
 		card := cardDB[id]
-		ci := NewCardInstance(card, ps.PlayerID, 0)
+		ci := e.newCardInstance(card, ps.PlayerID, 0)
 		ps.SkillPool = append(ps.SkillPool, ci)
 	}
 
@@ -231,7 +233,7 @@ func (ps *PlayerState) InitCards(turn int) {
 	ps.ExtraDeck = make([]*CardInstance, 0, len(ps.DeckDef.ExtraDeck))
 	for _, id := range ps.DeckDef.ExtraDeck {
 		card := cardDB[id]
-		ci := NewCardInstance(card, ps.PlayerID, 0)
+		ci := e.newCardInstance(card, ps.PlayerID, 0)
 		ps.ExtraDeck = append(ps.ExtraDeck, ci)
 	}
 
@@ -402,7 +404,7 @@ type PendingAction struct {
 	CallbackData func(selected []string, data map[string]any)       `json:"-"`
 	CallbackErr  func(selected []string, data map[string]any) error `json:"-"`
 	Available    func() bool                                        `json:"-"` // checked before a queued action is shown
-	OnSkip       func()                                             `json:"-"`
+	resolutions  []*resolutionFrame
 }
 
 // GameState holds the entire game state
@@ -442,7 +444,7 @@ type SpellCast struct {
 	PowerSources []SpellPowerSource `json:"power_sources,omitempty"`
 	BoostSkills  []*CardInstance    `json:"boost_skills"` // skills used to boost
 	ExtraTargets []SpellTarget      `json:"extra_targets,omitempty"`
-	AfterResolve func()             `json:"-"`
+	resolutions  []*resolutionFrame
 }
 
 type SpellPowerSource struct {
@@ -470,11 +472,10 @@ func NewGameState(gameID string) *GameState {
 	}
 }
 
-var idCounter int
+var idCounter atomic.Uint64
 
 func generateID() string {
-	idCounter++
-	return fmt.Sprintf("ci_%d", idCounter)
+	return fmt.Sprintf("ci_fixture_%d", idCounter.Add(1))
 }
 
 func getCardDB() map[string]*model.Card {

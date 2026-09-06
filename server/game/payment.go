@@ -221,37 +221,16 @@ func validateCardActionPaymentWithOptions(available map[string]int, card *CardIn
 }
 
 func strictPaymentRequirement(card *CardInstance, purpose paymentPurpose, cost map[string]int) map[string]int {
-	if card == nil || card.Card == nil {
-		return nil
-	}
-	switch card.Card.Number {
-	case "1021112":
-		if purpose == paymentPurposePlay {
-			return map[string]int{model.ElementArcane: totalElementCost(cost)}
-		}
-	case "3011101":
-		if purpose == paymentPurposeLearn || purpose == paymentPurposeUse {
-			return map[string]int{model.ElementArcane: totalElementCost(cost)}
-		}
-	case "3411101":
-		if purpose == paymentPurposeLearn || purpose == paymentPurposeUse {
-			earth := cost[model.ElementEarth]
-			arcane := totalElementCost(cost) - earth
-			requirement := map[string]int{}
-			if earth > 0 {
-				requirement[model.ElementEarth] = earth
-			}
-			if arcane > 0 {
-				requirement[model.ElementArcane] = arcane
-			}
-			return requirement
-		}
+	if b, ok := cardBehavior(card).(PaymentConstraintBehavior); ok {
+		return b.PaymentConstraint(card, purpose, cost).StrictElements
 	}
 	return nil
 }
-
 func requiresDistinctOwnUseCost(card *CardInstance, purpose paymentPurpose) bool {
-	return card != nil && card.Card != nil && card.Card.Number == "3021103" && purpose == paymentPurposeUse
+	if b, ok := cardBehavior(card).(PaymentConstraintBehavior); ok {
+		return b.PaymentConstraint(card, purpose, nil).DistinctOwnUse
+	}
+	return false
 }
 
 func distinctOwnCostPaymentSatisfied(card *CardInstance, purpose paymentPurpose, ownCost map[string]int, totalCost map[string]int, payment map[string]int, lightWildcard bool, lightCostWildcardOptions ...bool) bool {
@@ -443,53 +422,6 @@ func (e *Engine) payDefenseCostWithOptions(ps *PlayerState, cost map[string]int,
 	for _, unit := range units {
 		unit.IsHorizontal = true
 	}
-	e.rewardAutumnMapleLordOverexertRemainder(ps, units, payment, poolSpent)
+	e.notifyOverexertPayment(ps, units, payment, poolSpent)
 	return true
-}
-
-func (e *Engine) rewardAutumnMapleLordOverexertRemainder(ps *PlayerState, units []*CardInstance, payment map[string]int, poolSpent map[string]int) {
-	if ps == nil || len(units) == 0 || ps.Hero == nil || ps.Hero.Card == nil || ps.Hero.Card.Number != "4411102" || e.hasEffectiveStatus(ps.Hero, StatusPetrify) {
-		return
-	}
-	overexertSpent := make(map[string]int)
-	for elem, amount := range payment {
-		if amount <= 0 {
-			continue
-		}
-		overexertSpent[elem] = amount - poolSpent[elem]
-	}
-	reward := make(map[string]int)
-	for _, unit := range units {
-		if unit == nil || unit.Card == nil || unit.Card.Category != model.ElementEarth {
-			continue
-		}
-		for elem, amount := range e.effectiveElementsGain(unit) {
-			remaining := amount
-			if remaining <= 0 {
-				continue
-			}
-			used := min(overexertSpent[elem], remaining)
-			overexertSpent[elem] -= used
-			remaining -= used
-			if remaining > 0 {
-				reward[elem] += remaining * 2
-			}
-		}
-	}
-	for elem, amount := range reward {
-		if amount > 0 {
-			ps.Elements[elem] += amount
-		}
-	}
-	if len(reward) > 0 {
-		e.emit(GameEvent{
-			Type:   "autumn_maple_lord_overexert_reward",
-			Player: ps.PlayerID,
-			Data: map[string]any{
-				"player": ps.PlayerID,
-				"source": cardToInfo(ps.Hero),
-				"reward": reward,
-			},
-		})
-	}
 }

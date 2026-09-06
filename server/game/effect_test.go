@@ -10429,7 +10429,7 @@ func TestRoyalConflictTimeCycleLocksPlayerActionsWhileActive(t *testing.T) {
 	castSkill := readySkill(baseCard(t, "3121105"), 0)
 	p0.Skills[1] = castSkill
 
-	if !engine.timeCycleLockActive() {
+	if !engine.actionRestricted(RuleSummon, nil) {
 		t.Fatal("time cycle should be active while 3411101 is a non-petrified learned skill")
 	}
 	if err := engine.handleSummon(0, ActionMessage{Data: map[string]any{
@@ -10465,7 +10465,7 @@ func TestRoyalConflictTimeCycleLocksPlayerActionsWhileActive(t *testing.T) {
 	}
 
 	timeCycle.Statuses[StatusPetrify] = 1
-	if engine.timeCycleLockActive() {
+	if engine.actionRestricted(RuleSummon, nil) {
 		t.Fatal("petrified time cycle should stop locking actions")
 	}
 }

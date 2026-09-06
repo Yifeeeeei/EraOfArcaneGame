@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card1421110RockWallColossus struct{ AlwaysActive }
 
-func (Card1421110RockWallColossus) ID() string   { return "1421110" }
+func (Card1421110RockWallColossus) ID() string { return "1421110" }
+
 func (Card1421110RockWallColossus) Name() string { return "岩壁巨像" }
 
 func (Card1421110RockWallColossus) OnUnitEnter(ctx *EffectContext) error {

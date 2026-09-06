@@ -8,62 +8,65 @@ import (
 	"eraofarcane/model"
 )
 
+// ModifierKind identifies an explicit Go rule; it is never parsed from card text.
+type ModifierKind string
+
 const (
-	TempModNextSkillCostZero            = "next_skill_cost_zero"
-	TempModNextSkillUseCostMinus        = "next_skill_use_cost_minus"
-	TempModNextItemOrSkillCostMinus     = "next_item_or_skill_cost_minus"
-	TempModNextFireCardPlayCostMinus    = "next_fire_card_play_cost_minus"
-	TempModCurrentTurnSkillUseCostMinus = "current_turn_skill_use_cost_minus"
-	TempModCurrentTurnSkillCostZero     = "current_turn_skill_cost_zero"
-	TempModNextLearnedSkillHaste        = "next_learned_skill_haste"
-	TempModSkillPowerBonus              = "skill_power_bonus"
-	TempModNextAttackSpellPowerBonus    = "next_attack_spell_power_bonus"
-	TempModSkillAttackBonus             = "skill_attack_bonus"
-	TempModNextSkillUseAttackBonus      = "next_skill_use_attack_bonus"
-	TempModNextNoCooldown               = "next_skill_no_cooldown"
-	TempModNextSpellHitStatus           = "next_spell_hit_status"
-	TempModNextElementSpellPowerBonus   = "next_element_spell_power_bonus"
-	TempModNextTaggedSpellPowerBonus    = "next_tagged_spell_power_bonus"
-	TempModNextElementSpellDamageBonus  = "next_element_spell_damage_bonus"
-	TempModCurrentTurnElementDamage     = "current_turn_element_damage"
-	TempModCurrentTurnElementHitStatus  = "current_turn_element_hit_status"
-	TempModDelayedElementGain           = "delayed_element_gain"
-	TempModDelayedShieldGain            = "delayed_shield_gain"
-	TempModResetSkillsOnOpponentTurnEnd = "reset_skills_on_opponent_turn_end"
-	TempModLampusSwordDelayedDamage     = "lampus_sword_delayed_damage"
-	TempModNextEarthSkillLearnCostMinus = "next_earth_skill_learn_cost_minus"
-	TempModAllSpellDamageZero           = "all_spell_attack_zero"
-	TempModFriendlySpellDamageMinus     = "friendly_spell_damage_minus"
-	TempModSkillUseCooldownAdd          = "skill_use_cooldown_add"
-	TempModFriendlyNegativeStatusIgnore = "friendly_negative_status_ignore"
-	TempModPainScreamWeakenOnDamage     = "pain_scream_weaken_on_damage"
-	TempModNextDriveSpellExtraTarget    = "next_drive_spell_extra_target"
-	TempModNextSpellExtraTarget         = "next_spell_extra_target"
-	TempModCannotLearnElementSkill      = "cannot_learn_element_skill"
-	TempModLavaArmorYeYanShieldBreak    = "lava_armor_yeyan_shield_break"
+	TempModNextSkillCostZero            ModifierKind = "next_skill_cost_zero"
+	TempModNextSkillUseCostMinus        ModifierKind = "next_skill_use_cost_minus"
+	TempModNextItemOrSkillCostMinus     ModifierKind = "next_item_or_skill_cost_minus"
+	TempModNextFireCardPlayCostMinus    ModifierKind = "next_fire_card_play_cost_minus"
+	TempModCurrentTurnSkillUseCostMinus ModifierKind = "current_turn_skill_use_cost_minus"
+	TempModCurrentTurnSkillCostZero     ModifierKind = "current_turn_skill_cost_zero"
+	TempModNextLearnedSkillHaste        ModifierKind = "next_learned_skill_haste"
+	TempModSkillPowerBonus              ModifierKind = "skill_power_bonus"
+	TempModNextAttackSpellPowerBonus    ModifierKind = "next_attack_spell_power_bonus"
+	TempModSkillAttackBonus             ModifierKind = "skill_attack_bonus"
+	TempModNextSkillUseAttackBonus      ModifierKind = "next_skill_use_attack_bonus"
+	TempModNextNoCooldown               ModifierKind = "next_skill_no_cooldown"
+	TempModNextSpellHitStatus           ModifierKind = "next_spell_hit_status"
+	TempModNextElementSpellPowerBonus   ModifierKind = "next_element_spell_power_bonus"
+	TempModNextTaggedSpellPowerBonus    ModifierKind = "next_tagged_spell_power_bonus"
+	TempModNextElementSpellDamageBonus  ModifierKind = "next_element_spell_damage_bonus"
+	TempModCurrentTurnElementDamage     ModifierKind = "current_turn_element_damage"
+	TempModCurrentTurnElementHitStatus  ModifierKind = "current_turn_element_hit_status"
+	TempModDelayedElementGain           ModifierKind = "delayed_element_gain"
+	TempModDelayedShieldGain            ModifierKind = "delayed_shield_gain"
+	TempModResetSkillsOnOpponentTurnEnd ModifierKind = "reset_skills_on_opponent_turn_end"
+	TempModLampusSwordDelayedDamage     ModifierKind = "lampus_sword_delayed_damage"
+	TempModNextEarthSkillLearnCostMinus ModifierKind = "next_earth_skill_learn_cost_minus"
+	TempModAllSpellDamageZero           ModifierKind = "all_spell_attack_zero"
+	TempModFriendlySpellDamageMinus     ModifierKind = "friendly_spell_damage_minus"
+	TempModSkillUseCooldownAdd          ModifierKind = "skill_use_cooldown_add"
+	TempModFriendlyNegativeStatusIgnore ModifierKind = "friendly_negative_status_ignore"
+	TempModPainScreamWeakenOnDamage     ModifierKind = "pain_scream_weaken_on_damage"
+	TempModNextDriveSpellExtraTarget    ModifierKind = "next_drive_spell_extra_target"
+	TempModNextSpellExtraTarget         ModifierKind = "next_spell_extra_target"
+	TempModCannotLearnElementSkill      ModifierKind = "cannot_learn_element_skill"
+	TempModLavaArmorYeYanShieldBreak    ModifierKind = "lava_armor_yeyan_shield_break"
 )
 
 const skillUseExtraCostStatusPrefix = "使用费用额外"
 
 type TemporaryModifier struct {
-	ID                string `json:"id"`
-	Type              string `json:"type"`
-	SourceCardNumber  string `json:"source_card_number,omitempty"`
-	SourceName        string `json:"source_name,omitempty"`
-	TargetInstanceID  string `json:"target_instance_id,omitempty"`
-	Element           string `json:"element,omitempty"`
-	Status            string `json:"status,omitempty"`
-	Amount            int    `json:"amount,omitempty"`
-	RemainingUses     int    `json:"remaining_uses,omitempty"`
-	ExpiresTurn       int    `json:"expires_turn,omitempty"`
-	ExpiresAtTurnEnd  bool   `json:"expires_at_turn_end,omitempty"`
-	ExpiresOnPlayerID int    `json:"expires_on_player_id,omitempty"`
-	AllowSameTarget   bool   `json:"allow_same_target,omitempty"`
+	ID                string       `json:"id"`
+	Type              ModifierKind `json:"type"`
+	SourceCardNumber  string       `json:"source_card_number,omitempty"`
+	SourceName        string       `json:"source_name,omitempty"`
+	TargetInstanceID  string       `json:"target_instance_id,omitempty"`
+	Element           string       `json:"element,omitempty"`
+	Status            string       `json:"status,omitempty"`
+	Amount            int          `json:"amount,omitempty"`
+	RemainingUses     int          `json:"remaining_uses,omitempty"`
+	ExpiresTurn       int          `json:"expires_turn,omitempty"`
+	ExpiresAtTurnEnd  bool         `json:"expires_at_turn_end,omitempty"`
+	ExpiresOnPlayerID int          `json:"expires_on_player_id,omitempty"`
+	AllowSameTarget   bool         `json:"allow_same_target,omitempty"`
 }
 
 func (e *Engine) addTemporaryModifier(playerID int, modifier TemporaryModifier) {
 	if modifier.ID == "" {
-		modifier.ID = generateID()
+		modifier.ID = e.nextObjectID()
 	}
 	e.State.Players[playerID].TempModifiers = append(e.State.Players[playerID].TempModifiers, modifier)
 	e.emit(GameEvent{
@@ -91,7 +94,7 @@ func (e *Engine) clearExpiredTemporaryModifiers(playerID int) {
 	ps := e.State.Players[playerID]
 	kept := ps.TempModifiers[:0]
 	for _, modifier := range ps.TempModifiers {
-		if modifier.ExpiresTurn > 0 && modifier.ExpiresTurn <= e.State.TurnNumber {
+		if modifier.expiresAfterTurn(e.State.TurnNumber) {
 			continue
 		}
 		kept = append(kept, modifier)
@@ -106,7 +109,7 @@ func (e *Engine) clearTemporaryModifiersAtTurnEnd(endedPlayerID int) {
 		}
 		kept := ps.TempModifiers[:0]
 		for _, modifier := range ps.TempModifiers {
-			if modifier.ExpiresAtTurnEnd && modifier.ExpiresOnPlayerID == endedPlayerID {
+			if modifier.expiresAfterPlayerTurn(endedPlayerID) {
 				continue
 			}
 			kept = append(kept, modifier)
@@ -216,7 +219,7 @@ func consumeSkillUseCostModifiers(modifiers []TemporaryModifier, skill *CardInst
 			}
 		}
 		if consume {
-			modifier.RemainingUses--
+			modifier.spendUse()
 			if modifier.RemainingUses <= 0 {
 				continue
 			}
@@ -275,7 +278,7 @@ func consumeCardPlayCostModifiers(modifiers []TemporaryModifier, card *CardInsta
 			}
 		}
 		if consume {
-			modifier.RemainingUses--
+			modifier.spendUse()
 			if modifier.RemainingUses <= 0 {
 				continue
 			}
@@ -376,7 +379,7 @@ func (e *Engine) consumeNextDriveSpellExtraTarget(ps *PlayerState, skill *CardIn
 		default:
 			continue
 		}
-		modifier.RemainingUses--
+		modifier.spendUse()
 		return
 	}
 }
@@ -393,7 +396,7 @@ func (e *Engine) consumeNextSpellExtraTarget(ps *PlayerState, skill *CardInstanc
 		if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != skill.InstanceID {
 			continue
 		}
-		modifier.RemainingUses--
+		modifier.spendUse()
 		return
 	}
 }
@@ -461,7 +464,7 @@ func (e *Engine) consumeNextSpellPowerBonuses(ps *PlayerState, skill *CardInstan
 		default:
 			continue
 		}
-		modifier.RemainingUses--
+		modifier.spendUse()
 		if modifier.RemainingUses <= 0 {
 			e.removeTemporaryModifier(ps.PlayerID, modifier.ID)
 		}
@@ -513,7 +516,7 @@ func (e *Engine) consumeNextSpellAttackBonuses(ps *PlayerState, skill *CardInsta
 		if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != skill.InstanceID {
 			continue
 		}
-		modifier.RemainingUses--
+		modifier.spendUse()
 		if modifier.RemainingUses <= 0 {
 			e.removeTemporaryModifier(ps.PlayerID, modifier.ID)
 		}
@@ -528,7 +531,7 @@ func (e *Engine) consumeNextElementSpellDamageBonus(ps *PlayerState, skill *Card
 		if modifier.RemainingUses == 0 || modifier.Status != skill.Card.Category {
 			continue
 		}
-		modifier.RemainingUses--
+		modifier.spendUse()
 		if modifier.RemainingUses <= 0 {
 			e.removeTemporaryModifier(ps.PlayerID, modifier.ID)
 		}
@@ -546,7 +549,7 @@ func (e *Engine) consumeFriendlySpellDamageMinus(ps *PlayerState, skill *CardIns
 		if modifier.TargetInstanceID != "" && (skill == nil || modifier.TargetInstanceID != skill.InstanceID) {
 			continue
 		}
-		modifier.RemainingUses--
+		modifier.spendUse()
 		if modifier.RemainingUses <= 0 {
 			e.removeTemporaryModifier(ps.PlayerID, modifier.ID)
 		}
@@ -564,7 +567,7 @@ func (e *Engine) consumeAllSpellDamageZero(ps *PlayerState, skill *CardInstance)
 		if modifier.TargetInstanceID != "" && (skill == nil || modifier.TargetInstanceID != skill.InstanceID) {
 			continue
 		}
-		modifier.RemainingUses--
+		modifier.spendUse()
 		if modifier.RemainingUses <= 0 {
 			e.removeTemporaryModifier(ps.PlayerID, modifier.ID)
 		}
@@ -610,31 +613,6 @@ func (e *Engine) addNextElementSpellDamageBonus(playerID int, elem string, amoun
 	})
 }
 
-func (e *Engine) pureArcaneChoices(playerID int) []map[string]any {
-	ps := e.State.Players[playerID]
-	choices := make([]map[string]any, 0)
-	for _, elem := range []string{model.ElementFire, model.ElementWater, model.ElementAir, model.ElementEarth, model.ElementLight, model.ElementShadow, model.ElementArcane} {
-		available := ps.Elements[elem]
-		if available <= 0 {
-			continue
-		}
-		for amount := 1; amount <= min(available, 10); amount++ {
-			id := elem + ":" + fmt.Sprintf("%d", amount)
-			choices = append(choices, map[string]any{
-				"instance_id": id,
-				"number":      "3001002",
-				"name":        elem + " " + fmt.Sprintf("%d", amount),
-				"type":        "元素选择",
-				"zone":        "choice",
-				"side":        "own",
-				"element":     elem,
-				"amount":      amount,
-			})
-		}
-	}
-	return choices
-}
-
 func parsePureArcaneChoice(choice string) (string, int, bool) {
 	parts := strings.Split(choice, ":")
 	if len(parts) != 2 {
@@ -666,7 +644,7 @@ func (e *Engine) consumeEarthSkillLearnCostModifier(ps *PlayerState, skill *Card
 	if modifier == nil {
 		return
 	}
-	modifier.RemainingUses--
+	modifier.spendUse()
 	if modifier.RemainingUses <= 0 {
 		e.removeTemporaryModifier(ps.PlayerID, modifier.ID)
 	}
@@ -714,7 +692,7 @@ func (e *Engine) applyTemporarySpellHitStatus(playerID int, skill *CardInstance,
 			})
 		}
 		if modifier.Type == TempModNextSpellHitStatus {
-			modifier.RemainingUses--
+			modifier.spendUse()
 			if modifier.RemainingUses <= 0 {
 				e.removeTemporaryModifier(playerID, modifier.ID)
 			}

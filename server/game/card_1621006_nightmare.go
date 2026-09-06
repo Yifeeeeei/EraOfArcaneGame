@@ -2,7 +2,8 @@ package game
 
 type Card1621006Nightmare struct{ AlwaysActive }
 
-func (Card1621006Nightmare) ID() string   { return "1621006" }
+func (Card1621006Nightmare) ID() string { return "1621006" }
+
 func (Card1621006Nightmare) Name() string { return "梦魇" }
 
 func (Card1621006Nightmare) OnFriendlyDeath(ctx *EffectContext) error {

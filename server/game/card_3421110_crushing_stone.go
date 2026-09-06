@@ -2,7 +2,8 @@ package game
 
 type Card3421110CrushingStone struct{ AlwaysActive }
 
-func (Card3421110CrushingStone) ID() string   { return "3421110" }
+func (Card3421110CrushingStone) ID() string { return "3421110" }
+
 func (Card3421110CrushingStone) Name() string { return "粉碎石破" }
 
 func (Card3421110CrushingStone) ModifySkillContribution(ctx *EffectContext, stats *SpellStats) {

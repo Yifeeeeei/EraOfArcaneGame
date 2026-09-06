@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card1321005Windrider struct{ AlwaysActive }
 
-func (Card1321005Windrider) ID() string   { return "1321005" }
+func (Card1321005Windrider) ID() string { return "1321005" }
+
 func (Card1321005Windrider) Name() string { return "驭风师" }
 
 func (Card1321005Windrider) OnUltimate(ctx *EffectContext) error {

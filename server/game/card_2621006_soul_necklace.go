@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card2621006SoulNecklace struct{ AlwaysActive }
 
-func (Card2621006SoulNecklace) ID() string   { return "2621006" }
+func (Card2621006SoulNecklace) ID() string { return "2621006" }
+
 func (Card2621006SoulNecklace) Name() string { return "亡魂项链" }
 
 func (Card2621006SoulNecklace) OnFriendlyDeath(ctx *EffectContext) error {

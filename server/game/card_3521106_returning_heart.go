@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card3521106ReturningHeart struct{ AlwaysActive }
 
-func (Card3521106ReturningHeart) ID() string   { return "3521106" }
+func (Card3521106ReturningHeart) ID() string { return "3521106" }
+
 func (Card3521106ReturningHeart) Name() string { return "归心" }
 
 func (Card3521106ReturningHeart) ModifySkillContribution(ctx *EffectContext, stats *SpellStats) {

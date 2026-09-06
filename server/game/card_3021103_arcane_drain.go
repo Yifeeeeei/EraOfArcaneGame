@@ -2,7 +2,8 @@ package game
 
 type Card3021103ArcaneDrain struct{ AlwaysActive }
 
-func (Card3021103ArcaneDrain) ID() string   { return "3021103" }
+func (Card3021103ArcaneDrain) ID() string { return "3021103" }
+
 func (Card3021103ArcaneDrain) Name() string { return "奥能汲取" }
 
 func (Card3021103ArcaneDrain) OnSpellCast(ctx *EffectContext) error {
@@ -14,3 +15,7 @@ func (Card3021103ArcaneDrain) OnSpellCast(ctx *EffectContext) error {
 }
 
 var _ OnSpellCastBehavior = Card3021103ArcaneDrain{}
+
+func (Card3021103ArcaneDrain) PaymentConstraint(_ *CardInstance, purpose paymentPurpose, _ map[string]int) PaymentConstraint {
+	return PaymentConstraint{DistinctOwnUse: purpose == paymentPurposeUse}
+}
