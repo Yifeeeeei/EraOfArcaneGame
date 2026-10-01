@@ -41,7 +41,7 @@ func (e *Engine) expandSpellTargets(playerID int, target SpellTarget, extra []Sp
 
 // Target grants combine monotonically. Card code determines whether its own
 // or another friendly spell receives the grant; the engine combines grants.
-type SpellTargetGrant struct{ Pierce, IgnoreRange, AllowSameExtraTarget bool }
+type SpellTargetGrant struct{ Pierce, IgnoreRange, AllowSameExtraTarget, ExtraTargetIgnoreRange bool }
 type SpellTargetGrantBehavior interface {
 	HasActiveSpellTargetGrant(*CardInstance) bool
 	SpellTargetGrant(*EffectContext, *CardInstance, SpellTarget) SpellTargetGrant
@@ -67,7 +67,23 @@ func (e *Engine) spellTargetGrants(playerID int, skill *CardInstance, target Spe
 		grant := b.SpellTargetGrant(e.skillContext(playerID, source), skill, target)
 		result.Pierce = result.Pierce || grant.Pierce
 		result.IgnoreRange = result.IgnoreRange || grant.IgnoreRange
+		result.ExtraTargetIgnoreRange = result.ExtraTargetIgnoreRange || grant.ExtraTargetIgnoreRange
 		result.AllowSameExtraTarget = result.AllowSameExtraTarget || grant.AllowSameExtraTarget
 	}
 	return result
+}
+
+func (e *Engine) extraTargetIgnoresRange(playerID int, skill *CardInstance) bool {
+	if e.spellTargetGrants(playerID, skill, SpellTarget{}).ExtraTargetIgnoreRange {
+		return true
+	}
+	for _, m := range e.State.Players[playerID].TempModifiers {
+		if !m.ExtraTargetIgnoreRange || m.RemainingUses == 0 || (m.TargetInstanceID != "" && m.TargetInstanceID != skill.InstanceID) {
+			continue
+		}
+		if m.Type == TempModNextSpellExtraTarget || (m.Type == TempModNextDriveSpellExtraTarget && hasCardTag(skill.Card, "驱动")) {
+			return true
+		}
+	}
+	return false
 }

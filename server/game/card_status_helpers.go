@@ -104,7 +104,7 @@ func (e *Engine) promptLampusSwordDelayedDamage(playerID int, modifier Temporary
 }
 
 func (e *Engine) promptPainScreamWeakenAfterFriendlyDamage(playerID int, target *CardInstance, damage int) {
-	if e == nil || target == nil || damage <= 0 || playerID < 0 || playerID >= len(e.State.Players) || e.State.PendingAction != nil {
+	if e == nil || target == nil || damage <= 0 || playerID < 0 || playerID >= len(e.State.Players) {
 		return
 	}
 	ps := e.State.Players[playerID]
@@ -115,8 +115,8 @@ func (e *Engine) promptPainScreamWeakenAfterFriendlyDamage(playerID int, target 
 	if len(candidates) == 0 {
 		return
 	}
-	e.SetPendingAction(playerID, "pain_scream_weaken_enemy_spells",
-		"苦痛尖啸卷轴:选择没有虚弱的敌方法术获得虚弱2", candidates, 1, min(damage, len(candidates)),
+	action := e.setPendingActionWithOptions(playerID, "pain_scream_weaken_enemy_spells",
+		"苦痛尖啸卷轴:选择没有虚弱的敌方法术获得虚弱2", candidates, min(damage, len(candidates)), min(damage, len(candidates)), nil, false,
 		func(selected []string) {
 			weakened := 0
 			for _, id := range selected {
@@ -130,7 +130,14 @@ func (e *Engine) promptPainScreamWeakenAfterFriendlyDamage(playerID int, target 
 				e.addStatus(skill, StatusWeaken, 2)
 				weakened++
 			}
-		})
+		}, nil, nil, nil, nil)
+	if action != nil {
+		action.Refresh = func(action *PendingAction) {
+			action.Candidates = enemySpellCandidatesWithoutWeaken(e, playerID)
+			action.MinSelect = max(1, min(damage, len(action.Candidates)))
+			action.MaxSelect = action.MinSelect
+		}
+	}
 }
 
 func enemySpellCandidatesWithoutWeaken(e *Engine, playerID int) []map[string]any {

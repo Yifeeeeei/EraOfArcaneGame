@@ -891,14 +891,20 @@ func (e *Engine) validateSpellExtraTarget(playerID int, target SpellTarget) erro
 	return nil
 }
 
-func (e *Engine) validateSpellExtraTargetForSkill(playerID int, skill *CardInstance, mainTarget SpellTarget, extra SpellTarget) error {
+func (e *Engine) validateSpellExtraTargetForSkill(playerID int, skill *CardInstance, mainTarget SpellTarget, extra SpellTarget, hasPierce bool) error {
 	if extra.Type == mainTarget.Type && extra.Position == mainTarget.Position {
 		if e.allowsSameSpellExtraTarget(e.State.Players[playerID], skill) {
-			return e.validateSpellTarget(playerID, skill, extra)
+			return e.validateSpellTargetWithPierce(playerID, skill, extra, hasPierce)
 		}
 		return fmt.Errorf("extra target cannot be the same as the main target")
 	}
-	return e.validateSpellExtraTarget(playerID, extra)
+	if err := e.validateSpellExtraTarget(playerID, extra); err != nil {
+		return err
+	}
+	if e.extraTargetIgnoresRange(playerID, skill) {
+		return nil
+	}
+	return e.validateSpellTargetWithPierce(playerID, skill, extra, hasPierce)
 }
 
 func (e *Engine) allowsSameSpellExtraTarget(ps *PlayerState, skill *CardInstance) bool {

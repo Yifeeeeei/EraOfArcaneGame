@@ -18,19 +18,22 @@ func (Card2311002ThunderDrum) OnDraw(ctx *EffectContext) error {
 	if drawnPlayer != ctx.PlayerID {
 		return nil
 	}
-	candidates := []map[string]any{candidateInfo(ctx.Source, "equipment", "own")}
-	if drawn, ok := ctx.ExtraData["drawn_card"].(*CardInstance); ok && drawn != nil {
-		info := cardToInfo(drawn)
-		info["zone"] = "hand"
-		info["side"] = "own"
-		candidates = append(candidates, info)
+	drawn, _ := ctx.ExtraData["drawn_card"].(*CardInstance)
+	if drawn == nil {
+		return nil
 	}
+	candidates := []map[string]any{candidateInfo(drawn, "hand", "own")}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "thunder_drum_mark",
 		"唤雷震鼓:是否展示抽到的牌并放置1个标记?", candidates, 0, 1,
 		func(selected []string) {
-			if len(selected) == 0 {
+			if len(selected) == 0 || selected[0] != drawn.InstanceID || ctx.Engine.findFriendlyHandCard(ctx.PlayerID, drawn.InstanceID) != drawn {
 				return
 			}
+			ps := ctx.Engine.State.Players[ctx.PlayerID]
+			if ps.RevealedHand == nil {
+				ps.RevealedHand = make(map[string]bool)
+			}
+			ps.RevealedHand[drawn.InstanceID] = true
 			ctx.Source.Statuses["雷鼓标记"]++
 			ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 				"source": cardToInfo(ctx.Source),

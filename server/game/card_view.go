@@ -325,6 +325,7 @@ func (e *Engine) cardToInfoForPlayer(ps *PlayerState, card *CardInstance) map[st
 		return info
 	}
 	if isSpellLikeCard(card.Card) {
+		info["extra_target_ignore_range"] = e.extraTargetIgnoresRange(ps.PlayerID, card)
 		info["has_pierce"] = e.skillHasPierce(ps.PlayerID, card)
 		info["spell_area"] = e.effectiveSpellArea(card)
 		info["effective_defense_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeDefend)

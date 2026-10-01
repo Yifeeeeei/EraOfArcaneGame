@@ -13,3 +13,7 @@ func (Card3321001LightningChain) SpellDamage(ctx *EffectContext) int {
 func (Card3321001LightningChain) PrepareSpellCast(*EffectContext, SpellTarget, ActionMessage) (SpellCastOptions, error) {
 	return SpellCastOptions{AllowExtraTarget: true}, nil
 }
+
+func (Card3321001LightningChain) SpellTargetGrant(ctx *EffectContext, skill *CardInstance, _ SpellTarget) SpellTargetGrant {
+	return SpellTargetGrant{ExtraTargetIgnoreRange: ctx.Source == skill}
+}

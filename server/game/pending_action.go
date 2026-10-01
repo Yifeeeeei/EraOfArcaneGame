@@ -146,6 +146,13 @@ func (e *Engine) activatePendingAction(action *PendingAction, resumePhase GamePh
 	e.State.ResumePhase = resumePhase
 	e.State.Phase = PhaseWaitingAction
 	e.State.PendingAction = action
+	if action.Refresh != nil && e.resolutionDepth > 0 {
+		return // Publish dynamic choices after this action settles deaths.
+	}
+	e.emitPendingAction(action)
+}
+
+func (e *Engine) emitPendingAction(action *PendingAction) {
 	data := map[string]any{
 		"type":       action.Type,
 		"player_id":  action.PlayerID,
@@ -181,6 +188,13 @@ func (e *Engine) advancePendingActionQueue() bool {
 	for len(e.State.PendingActionQueue) > 0 {
 		next := e.State.PendingActionQueue[0]
 		e.State.PendingActionQueue = e.State.PendingActionQueue[1:]
+		if next.Refresh != nil {
+			next.Refresh(next)
+			if len(next.Candidates) < next.MinSelect {
+				skipped = append(skipped, next)
+				continue
+			}
+		}
 		if next.Available != nil && !next.Available() {
 			skipped = append(skipped, next)
 			continue
@@ -199,4 +213,22 @@ func (e *Engine) emitPendingActionCleared(action *PendingAction) {
 		"type":      action.Type,
 		"player_id": action.PlayerID,
 	}})
+}
+
+// Refresh only after the enclosing action and its continuations have settled
+// deaths. Earlier siblings may change both candidates and the spell front row.
+func (e *Engine) refreshCurrentPendingAction() {
+	for e.State.PendingAction != nil && e.State.PendingAction.Refresh != nil {
+		action := e.State.PendingAction
+		action.Refresh(action)
+		if len(action.Candidates) >= action.MinSelect {
+			e.emitPendingAction(action)
+			return
+		}
+		e.State.PendingAction = nil
+		e.State.Phase = e.State.ResumePhase
+		e.emitPendingActionCleared(action)
+		e.advancePendingActionQueue()
+		e.completeActionResolutions(action)
+	}
 }

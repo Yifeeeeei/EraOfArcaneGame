@@ -23,10 +23,11 @@ func (Card2321101ThunderChain) OnPerTurn(ctx *EffectContext) error {
 	}
 	ctx.Source.IsHorizontal = true
 	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
-		Type:             TempModNextDriveSpellExtraTarget,
-		SourceCardNumber: ctx.Source.Card.Number,
-		SourceName:       ctx.Source.Card.Name,
-		RemainingUses:    1,
+		Type:                   TempModNextDriveSpellExtraTarget,
+		SourceCardNumber:       ctx.Source.Card.Number,
+		SourceName:             ctx.Source.Card.Name,
+		RemainingUses:          1,
+		ExtraTargetIgnoreRange: true,
 	})
 	return nil
 }

@@ -76,7 +76,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	extraTargets := make([]SpellTarget, 0, 1)
 	if (options.AllowExtraTarget || e.hasNextDriveSpellExtraTarget(ps, skill)) && hasExtraTarget {
 		extra := SpellTarget{Type: "unit", Position: extraTargetPos}
-		if err := e.validateSpellExtraTargetForSkill(playerID, skill, target, extra); err != nil {
+		if err := e.validateSpellExtraTargetForSkill(playerID, skill, target, extra, hasPierce); err != nil {
 			return err
 		}
 		if extra.Position != target.Position || e.allowsSameSpellExtraTarget(ps, skill) {

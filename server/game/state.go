@@ -403,6 +403,7 @@ type PendingAction struct {
 	Callback     func(selected []string)                            `json:"-"` // called when resolved
 	CallbackData func(selected []string, data map[string]any)       `json:"-"`
 	CallbackErr  func(selected []string, data map[string]any) error `json:"-"`
+	Refresh      func(*PendingAction)                               `json:"-"` // refresh queued choices after earlier effects change the board
 	Available    func() bool                                        `json:"-"` // checked before a queued action is shown
 	resolutions  []*resolutionFrame
 }

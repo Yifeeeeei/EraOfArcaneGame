@@ -60,6 +60,7 @@ func (e *Engine) HandleAction(playerID int, action ActionMessage) (actionErr err
 	log.Printf("[Game %s] Player %d action: %s", e.State.GameID, playerID, action.Action)
 
 	e.beginResolution()
+	defer e.refreshCurrentPendingAction()
 	defer e.enforceAllSlotCapacities()
 	defer e.endResolution()
 

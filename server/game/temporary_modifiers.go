@@ -49,19 +49,20 @@ const (
 const skillUseExtraCostStatusPrefix = "使用费用额外"
 
 type TemporaryModifier struct {
-	ID                string       `json:"id"`
-	Type              ModifierKind `json:"type"`
-	SourceCardNumber  string       `json:"source_card_number,omitempty"`
-	SourceName        string       `json:"source_name,omitempty"`
-	TargetInstanceID  string       `json:"target_instance_id,omitempty"`
-	Element           string       `json:"element,omitempty"`
-	Status            string       `json:"status,omitempty"`
-	Amount            int          `json:"amount,omitempty"`
-	RemainingUses     int          `json:"remaining_uses,omitempty"`
-	ExpiresTurn       int          `json:"expires_turn,omitempty"`
-	ExpiresAtTurnEnd  bool         `json:"expires_at_turn_end,omitempty"`
-	ExpiresOnPlayerID int          `json:"expires_on_player_id,omitempty"`
-	AllowSameTarget   bool         `json:"allow_same_target,omitempty"`
+	ID                     string       `json:"id"`
+	Type                   ModifierKind `json:"type"`
+	SourceCardNumber       string       `json:"source_card_number,omitempty"`
+	SourceName             string       `json:"source_name,omitempty"`
+	TargetInstanceID       string       `json:"target_instance_id,omitempty"`
+	Element                string       `json:"element,omitempty"`
+	Status                 string       `json:"status,omitempty"`
+	Amount                 int          `json:"amount,omitempty"`
+	RemainingUses          int          `json:"remaining_uses,omitempty"`
+	ExpiresTurn            int          `json:"expires_turn,omitempty"`
+	ExpiresAtTurnEnd       bool         `json:"expires_at_turn_end,omitempty"`
+	ExpiresOnPlayerID      int          `json:"expires_on_player_id,omitempty"`
+	ExtraTargetIgnoreRange bool         `json:"extra_target_ignore_range,omitempty"`
+	AllowSameTarget        bool         `json:"allow_same_target,omitempty"`
 }
 
 func (e *Engine) addTemporaryModifier(playerID int, modifier TemporaryModifier) {
