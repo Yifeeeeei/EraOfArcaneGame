@@ -2,7 +2,8 @@ package game
 
 type Card1521107RadiantGuard struct{ AlwaysActive }
 
-func (Card1521107RadiantGuard) ID() string   { return "1521107" }
+func (Card1521107RadiantGuard) ID() string { return "1521107" }
+
 func (Card1521107RadiantGuard) Name() string { return "辉之圣防军" }
 
 func (Card1521107RadiantGuard) ModifySelfCardPlayCost(ctx *EffectContext, cost map[string]int) {

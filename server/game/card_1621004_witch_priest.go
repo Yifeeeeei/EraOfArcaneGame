@@ -2,7 +2,8 @@ package game
 
 type Card1621004WitchPriest struct{ AlwaysActive }
 
-func (Card1621004WitchPriest) ID() string   { return "1621004" }
+func (Card1621004WitchPriest) ID() string { return "1621004" }
+
 func (Card1621004WitchPriest) Name() string { return "巫术祭司" }
 
 func (Card1621004WitchPriest) OnUltimate(ctx *EffectContext) error {

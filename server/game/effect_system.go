@@ -3,6 +3,7 @@ package game
 import (
 	"fmt"
 	"log"
+	"sync"
 )
 
 // EffectTrigger represents when an effect fires
@@ -41,6 +42,8 @@ const (
 	TriggerOnEquip                                     // 装备时: item is equipped
 	TriggerOnUseItem                                   // 使用消耗品道具时
 	TriggerPassive                                     // 被动: always active while on field
+	TriggerBeforeDamage                                // Replacement window before damage is committed
+	TriggerBeforeDraw                                  // Owner turn before the normal draw
 )
 
 // EffectContext provides context for effect execution
@@ -63,7 +66,6 @@ type CardEffect struct {
 	CardNumber string
 	Trigger    EffectTrigger
 	Handler    EffectHandler
-	Priority   int  // higher = runs first
 	IsActive   bool // true if this is an activated ability (回合技/绝技), not auto-trigger
 }
 
@@ -76,11 +78,17 @@ type CardAbilityWithPrecondition struct {
 }
 
 // EffectRegistry holds all registered card effects
+type lazyCardBehavior struct {
+	factory func() CardBehavior
+	once    sync.Once
+	value   CardBehavior
+}
+
 type EffectRegistry struct {
+	mu                   sync.RWMutex
 	effects              map[string][]*CardEffect                  // cardNumber -> effects list
 	conditionalAbilities map[string][]*CardAbilityWithPrecondition // cardNumber -> conditional abilities
-	behaviorFactories    map[string]func() CardBehavior            // cardNumber -> lazy behavior constructor
-	loadedBehaviors      map[string]CardBehavior                   // cardNumber -> behavior registered into effects
+	behaviorFactories    map[string]*lazyCardBehavior              // immutable factory entries, constructed once
 	spellDamage          map[string]func(*EffectContext) int       // cardNumber -> spell damage override
 }
 
@@ -101,8 +109,7 @@ func NewEffectRegistry() *EffectRegistry {
 	return &EffectRegistry{
 		effects:              make(map[string][]*CardEffect),
 		conditionalAbilities: make(map[string][]*CardAbilityWithPrecondition),
-		behaviorFactories:    make(map[string]func() CardBehavior),
-		loadedBehaviors:      make(map[string]CardBehavior),
+		behaviorFactories:    make(map[string]*lazyCardBehavior),
 		spellDamage:          make(map[string]func(*EffectContext) int),
 	}
 }
@@ -111,29 +118,48 @@ func NewEffectRegistry() *EffectRegistry {
 // allocating it at server startup. The behavior is materialized only when that
 // card number is queried by the engine.
 func (r *EffectRegistry) RegisterBehaviorFactory(cardNumber string, factory func() CardBehavior) {
-	r.behaviorFactories[cardNumber] = factory
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.behaviorFactories[cardNumber] = &lazyCardBehavior{factory: factory}
 }
 
-func (r *EffectRegistry) ensureBehaviorLoaded(cardNumber string) {
-	if r.loadedBehaviors[cardNumber] != nil {
-		return
+func (r *EffectRegistry) ensureBehaviorLoaded(cardNumber string) CardBehavior {
+	r.mu.RLock()
+	entry := r.behaviorFactories[cardNumber]
+	r.mu.RUnlock()
+	if entry == nil {
+		return nil
 	}
-	factory, ok := r.behaviorFactories[cardNumber]
-	if !ok {
-		return
-	}
-	behavior := factory()
-	r.loadedBehaviors[cardNumber] = behavior
-	registerBehavior(r, behavior)
+	entry.once.Do(func() {
+		// Build the complete adapter privately. Readers never observe half of a
+		// card's registered triggers, and unrelated factories can load concurrently.
+		behavior := entry.factory()
+		local := NewEffectRegistry()
+		registerBehavior(local, behavior)
+		r.mu.Lock()
+		defer r.mu.Unlock()
+		for id, effects := range local.effects {
+			r.effects[id] = append(r.effects[id], effects...)
+		}
+		for id, abilities := range local.conditionalAbilities {
+			r.conditionalAbilities[id] = append(r.conditionalAbilities[id], abilities...)
+		}
+		for id, damage := range local.spellDamage {
+			r.spellDamage[id] = damage
+		}
+		entry.value = behavior
+	})
+	return entry.value
 }
 
 func (r *EffectRegistry) GetBehavior(cardNumber string) CardBehavior {
-	r.ensureBehaviorLoaded(cardNumber)
-	return r.loadedBehaviors[cardNumber]
+	return r.ensureBehaviorLoaded(cardNumber)
 }
 
 // Register adds an effect for a card
 func (r *EffectRegistry) Register(cardNumber string, trigger EffectTrigger, handler EffectHandler) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.effects[cardNumber] = append(r.effects[cardNumber], &CardEffect{
 		CardNumber: cardNumber,
 		Trigger:    trigger,
@@ -143,6 +169,8 @@ func (r *EffectRegistry) Register(cardNumber string, trigger EffectTrigger, hand
 
 // RegisterActive adds an activated ability for a card
 func (r *EffectRegistry) RegisterActive(cardNumber string, trigger EffectTrigger, handler EffectHandler) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.effects[cardNumber] = append(r.effects[cardNumber], &CardEffect{
 		CardNumber: cardNumber,
 		Trigger:    trigger,
@@ -152,12 +180,16 @@ func (r *EffectRegistry) RegisterActive(cardNumber string, trigger EffectTrigger
 }
 
 func (r *EffectRegistry) RegisterSpellDamage(cardNumber string, handler func(*EffectContext) int) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.spellDamage[cardNumber] = handler
 }
 
 func (r *EffectRegistry) SpellDamage(cardNumber string, ctx *EffectContext) (int, bool) {
 	r.ensureBehaviorLoaded(cardNumber)
+	r.mu.RLock()
 	handler, ok := r.spellDamage[cardNumber]
+	r.mu.RUnlock()
 	if !ok {
 		return 0, false
 	}
@@ -172,6 +204,8 @@ func (r *EffectRegistry) RegisterWithPrecondition(
 	handler EffectHandler,
 	isActive bool,
 ) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
 	r.conditionalAbilities[cardNumber] = append(r.conditionalAbilities[cardNumber], &CardAbilityWithPrecondition{
 		Preconditions: preconditions,
 		Effect:        handler,
@@ -186,8 +220,8 @@ func (r *EffectRegistry) CheckPreconditions(
 	trigger EffectTrigger,
 	ctx *ConditionContext,
 ) (bool, string) {
-	abilities, exists := r.conditionalAbilities[cardNumber]
-	if !exists {
+	abilities := r.GetConditionalAbilities(cardNumber)
+	if len(abilities) == 0 {
 		return true, "" // 没有条件要求，默认通过
 	}
 
@@ -210,12 +244,17 @@ func (r *EffectRegistry) CheckPreconditions(
 
 // GetConditionalAbilities 获取卡牌的所有条件能力
 func (r *EffectRegistry) GetConditionalAbilities(cardNumber string) []*CardAbilityWithPrecondition {
-	return r.conditionalAbilities[cardNumber]
+	r.ensureBehaviorLoaded(cardNumber)
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return append([]*CardAbilityWithPrecondition(nil), r.conditionalAbilities[cardNumber]...)
 }
 
 // GetEffects returns all effects for a card number and trigger type
 func (r *EffectRegistry) GetEffects(cardNumber string, trigger EffectTrigger) []*CardEffect {
 	r.ensureBehaviorLoaded(cardNumber)
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	var result []*CardEffect
 	for _, eff := range r.effects[cardNumber] {
 		if eff.Trigger == trigger {
@@ -228,6 +267,8 @@ func (r *EffectRegistry) GetEffects(cardNumber string, trigger EffectTrigger) []
 // HasEffect checks if a card has any registered effect for a trigger
 func (r *EffectRegistry) HasEffect(cardNumber string, trigger EffectTrigger) bool {
 	r.ensureBehaviorLoaded(cardNumber)
+	r.mu.RLock()
+	defer r.mu.RUnlock()
 	for _, eff := range r.effects[cardNumber] {
 		if eff.Trigger == trigger {
 			return true
@@ -239,7 +280,9 @@ func (r *EffectRegistry) HasEffect(cardNumber string, trigger EffectTrigger) boo
 // GetAllEffects returns all effects for a card number
 func (r *EffectRegistry) GetAllEffects(cardNumber string) []*CardEffect {
 	r.ensureBehaviorLoaded(cardNumber)
-	return r.effects[cardNumber]
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return append([]*CardEffect(nil), r.effects[cardNumber]...)
 }
 
 // ---------- Engine integration methods ----------
@@ -345,6 +388,10 @@ func triggerName(t EffectTrigger) string {
 		return "on_attacked"
 	case TriggerOnHit:
 		return "on_hit"
+	case TriggerBeforeDraw:
+		return "before_draw"
+	case TriggerBeforeDamage:
+		return "before_damage"
 	case TriggerOnDamaged:
 		return "on_damaged"
 	case TriggerOnSpellCast:

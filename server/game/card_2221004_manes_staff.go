@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card2221004ManesStaff struct{ AlwaysActive }
 
-func (Card2221004ManesStaff) ID() string   { return "2221004" }
+func (Card2221004ManesStaff) ID() string { return "2221004" }
+
 func (Card2221004ManesStaff) Name() string { return "玛涅斯之杖" }
 
 func (Card2221004ManesStaff) ModifySpellStats(ctx *EffectContext, stats *SpellStats) {

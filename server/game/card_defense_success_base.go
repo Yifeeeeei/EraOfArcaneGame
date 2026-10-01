@@ -60,7 +60,7 @@ func (Card3221102SummonFloodDragon) OnDefend(ctx *EffectContext) error {
 		if target == nil {
 			continue
 		}
-		ctx.Engine.dealDamageWithExtra(target, 1, target.OwnerID, map[string]any{"damage_source": "effect", "attacker": ctx.PlayerID})
+		ctx.Engine.ApplyDamage(DamageRequest{Target: target, Amount: 1, Kind: "effect", SourcePlayer: ctx.PlayerID, SourceKnown: true, Source: ctx.Source})
 	}
 	return nil
 }
@@ -78,7 +78,7 @@ func promptDefenseSuccessDamage(ctx *EffectContext, actionType, prompt string, a
 		if target == nil {
 			return
 		}
-		ctx.Engine.dealDamageWithExtra(target, amount, target.OwnerID, map[string]any{"damage_source": "effect", "attacker": ctx.PlayerID})
+		ctx.Engine.ApplyDamage(DamageRequest{Target: target, Amount: amount, Kind: "effect", SourcePlayer: ctx.PlayerID, SourceKnown: true, Source: ctx.Source})
 	})
 	return nil
 }

@@ -1,10 +1,13 @@
 package game
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Card2121004FireArrowItem struct{ AlwaysActive }
 
-func (Card2121004FireArrowItem) ID() string   { return "2121004" }
+func (Card2121004FireArrowItem) ID() string { return "2121004" }
+
 func (Card2121004FireArrowItem) Name() string { return "火焰箭" }
 
 func (Card2121004FireArrowItem) OnUltimate(ctx *EffectContext) error {
@@ -38,7 +41,7 @@ func fireArrowSelectAndDamage(ctx *EffectContext, sacrificeSelf bool) error {
 			if target == nil {
 				return
 			}
-			ctx.Engine.dealDamage(target, 1, ctx.OpponentID)
+			ctx.DealDamage(target, 1)
 		})
 	return nil
 }

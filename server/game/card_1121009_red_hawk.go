@@ -2,7 +2,8 @@ package game
 
 type Card1121009RedHawk struct{ AlwaysActive }
 
-func (Card1121009RedHawk) ID() string   { return "1121009" }
+func (Card1121009RedHawk) ID() string { return "1121009" }
+
 func (Card1121009RedHawk) Name() string { return "赤鹰" }
 
 func (Card1121009RedHawk) OnEnter(ctx *EffectContext) error {

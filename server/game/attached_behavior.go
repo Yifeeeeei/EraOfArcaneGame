@@ -1,5 +1,7 @@
 package game
 
+import ()
+
 // AttachedBehavior is a runtime-granted behavior on one card instance.
 //
 // Use this for effects such as "give a unit deathrattle" where the target card
@@ -91,6 +93,6 @@ func (a AttachedDeathrattleDamageEnemyHero) OnDeath(ctx *EffectContext) error {
 	if opponent == nil || opponent.Hero == nil {
 		return nil
 	}
-	ctx.Engine.dealDamage(opponent.Hero, a.Amount, ctx.OpponentID)
+	ctx.DealDamage(opponent.Hero, a.Amount)
 	return nil
 }

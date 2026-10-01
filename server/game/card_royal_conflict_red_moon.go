@@ -43,11 +43,12 @@ func (Card1601101BloodShadowBody) OnPerTurn(ctx *EffectContext) error {
 	redMoon.Statuses[redMoonMarkerStatus]--
 	ctx.Source.Statuses[bloodShadowBodyRedMoonMarkersStatus] = redMoon.Statuses[redMoonMarkerStatus]
 	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
-		Type:             TempModNextSpellExtraTarget,
-		SourceCardNumber: ctx.Source.Card.Number,
-		SourceName:       ctx.Source.Card.Name,
-		RemainingUses:    1,
-		AllowSameTarget:  true,
+		Type:                   TempModNextSpellExtraTarget,
+		SourceCardNumber:       ctx.Source.Card.Number,
+		SourceName:             ctx.Source.Card.Name,
+		RemainingUses:          1,
+		AllowSameTarget:        true,
+		ExtraTargetIgnoreRange: true,
 	})
 	ctx.Engine.emit(GameEvent{
 		Type:   "blood_shadow_body_extra_target",
@@ -119,40 +120,32 @@ func (e *Engine) triggerScarletWingsAfterRedMoon(playerID int) {
 		if source == nil || source.Card == nil || source.Card.Number != "1621109" || source.Position == nil || e.hasEffectiveStatus(source, StatusPetrify) {
 			continue
 		}
-		candidates := e.enemyUnits(playerID, true, func(card *CardInstance) bool {
-			return card != nil && card.Position != nil && e.IsInSpellRange(playerID, card.Position.Col, card.Position.Row, false)
-		})
-		if len(candidates) == 0 {
-			continue
-		}
 		wing := source
-		e.SetPendingActionWithError(playerID, "scarlet_wings_red_moon_damage",
+		candidateProvider := func() []map[string]any {
+			return append(e.friendlyUnits(playerID, true, nil), e.enemyUnits(playerID, true, func(card *CardInstance) bool {
+				return card != nil && card.Position != nil && e.IsInSpellRange(playerID, card.Position.Col, card.Position.Row, false)
+			})...)
+		}
+		candidates := candidateProvider()
+		action := e.setPendingActionWithOptions(playerID, "scarlet_wings_red_moon_damage",
 			"猩红之翼:选择法力范围内1个单位造成1点伤害", candidates, 1, 1,
-			nil, false, func(selected []string, _ map[string]any) error {
-				target := selectedUnitFromCandidates(e, selected, candidates)
-				if target == nil || target.Position == nil || !e.IsInSpellRange(playerID, target.Position.Col, target.Position.Row, false) {
+			nil, false, nil, nil, func(selected []string, _ map[string]any) error {
+				target := selectedUnitFromCandidates(e, selected, candidateProvider())
+				if target == nil {
 					return fmt.Errorf("invalid scarlet wings target")
 				}
-				e.dealDamageWithExtra(target, 1, target.OwnerID, map[string]any{
-					"damage_source":  "scarlet_wings",
-					"damage_element": model.ElementShadow,
-					"source_card":    wing,
-					"attacker":       playerID,
-				})
+				// Both effects are unconditional; gaining life does not wait for or
+				// depend on the damage/prevention result.
+				e.ApplyDamage(DamageRequest{Target: target, Amount: 1, Kind: "scarlet_wings", Element: model.ElementShadow, Source: wing, SourcePlayer: playerID, SourceKnown: true})
 				e.gainLife(wing, 1, wing)
-				e.emit(GameEvent{
-					Type:   "scarlet_wings_red_moon_damage",
-					Player: -1,
-					Data: map[string]any{
-						"player": playerID,
-						"source": cardToInfo(wing),
-						"target": cardToInfo(target),
-						"damage": 1,
-					},
-				})
+				e.emit(GameEvent{Type: "scarlet_wings_red_moon_damage", Player: -1, Data: map[string]any{
+					"player": playerID, "source": cardToInfo(wing), "target": cardToInfo(target), "damage": 1,
+				}})
 				return nil
-			})
-		return
+			}, map[string]any{"source": cardToInfo(wing)}, nil)
+		if action != nil {
+			action.Refresh = func(action *PendingAction) { action.Candidates = candidateProvider() }
+		}
 	}
 }
 
@@ -300,4 +293,33 @@ func (e *Engine) replaceUnitCard(unit *CardInstance, number string, reset bool) 
 	}
 	unit.CurrentLife = min(max(unit.CurrentLife, 1), card.Life)
 	unit.CurrentAttack = card.Attack
+}
+
+func (Card3611101RedMoon) OnSkillUseCommitted(ctx *EffectContext) {
+	ctx.Engine.applyNextRedMoonModifiers(ctx.PlayerID, ctx.Source)
+	ctx.Engine.refreshRedMoonState(ctx.PlayerID)
+}
+func (Card3611101RedMoon) OnSorceryResolved(ctx *EffectContext) {
+	ctx.Engine.triggerScarletWingsAfterRedMoon(ctx.PlayerID)
+}
+
+func (Card3611101RedMoon) OnCardStateChange(ctx *EffectContext, change CardStateChange) {
+	if change.LeftField || change.Status == StatusPetrify {
+		ctx.Engine.refreshRedMoonState(ctx.PlayerID)
+	}
+	if change.Status == StatusAbilityDuration {
+		ctx.Engine.updateRedMoonTransformations(ctx.PlayerID)
+	}
+}
+
+func (e *Engine) redMoonActive(playerID int) bool {
+	if playerID < 0 || playerID >= len(e.State.Players) {
+		return false
+	}
+	for _, card := range e.getAllFieldCards(e.State.Players[playerID]) {
+		if card != nil && card.Card != nil && card.Card.Number == "3611101" && abilityDurationActive(card) && !e.hasEffectiveStatus(card, StatusPetrify) {
+			return true
+		}
+	}
+	return false
 }

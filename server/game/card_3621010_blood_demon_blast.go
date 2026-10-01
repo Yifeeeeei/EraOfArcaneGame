@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card3621010BloodDemonBlast struct{ AlwaysActive }
 
-func (Card3621010BloodDemonBlast) ID() string   { return "3621010" }
+func (Card3621010BloodDemonBlast) ID() string { return "3621010" }
+
 func (Card3621010BloodDemonBlast) Name() string { return "血魔爆" }
 
 func (Card3621010BloodDemonBlast) OnSpellCast(ctx *EffectContext) error {
@@ -43,7 +46,7 @@ func (Card3621010BloodDemonBlast) OnSpellCast(ctx *EffectContext) error {
 			ctx.Engine.SetPendingAction(ctx.PlayerID, "blood_demon_blast_target", "血魔爆:选择法力范围内1个敌人造成伤害", targets, 1, 1, func(targetSelected []string) {
 				target := selectedUnitFromCandidates(ctx.Engine, targetSelected, targets)
 				if target != nil {
-					ctx.Engine.dealDamageWithExtra(target, damage, ctx.OpponentID, map[string]any{"attacker": ctx.PlayerID})
+					ctx.Engine.ApplyDamage(DamageRequest{Target: target, Amount: damage, SourcePlayer: ctx.PlayerID, SourceKnown: true, Source: ctx.Source})
 				}
 			})
 		})

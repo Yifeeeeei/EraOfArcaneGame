@@ -2,7 +2,8 @@ package game
 
 type Card1621009DemonSummoner struct{ AlwaysActive }
 
-func (Card1621009DemonSummoner) ID() string   { return "1621009" }
+func (Card1621009DemonSummoner) ID() string { return "1621009" }
+
 func (Card1621009DemonSummoner) Name() string { return "唤魔邪术士" }
 
 func (Card1621009DemonSummoner) OnFriendlyDeath(ctx *EffectContext) error {

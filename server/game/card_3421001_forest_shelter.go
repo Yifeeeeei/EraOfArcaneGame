@@ -2,9 +2,12 @@ package game
 
 type Card3421001ForestShelter struct{ AlwaysActive }
 
-func (Card3421001ForestShelter) ID() string      { return "3421001" }
-func (Card3421001ForestShelter) Name() string    { return "森林的庇护" }
+func (Card3421001ForestShelter) ID() string { return "3421001" }
+
+func (Card3421001ForestShelter) Name() string { return "森林的庇护" }
+
 func (Card3421001ForestShelter) MasteryMax() int { return 3 }
+
 func (Card3421001ForestShelter) OnMastery(ctx *EffectContext, level int) error {
 	return nil
 }

@@ -493,7 +493,7 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 					}
 					if card.Number == "2221104" {
 						previous := readySkill(cards.PlayableCardDB["3221001"], 0)
-						ps.LastLowCostWaterSpell = cloneVirtualSpell(previous, 0, engine.State.TurnNumber)
+						ps.LastLowCostWaterSpell = engine.cloneVirtualSpell(previous, 0, engine.State.TurnNumber)
 						enemy := NewCardInstance(cards.PlayableCardDB["1021001"], 1, engine.State.TurnNumber)
 						enemy.Position = &Position{Col: 1, Row: 0}
 						engine.State.Players[1].Units[1][0] = enemy

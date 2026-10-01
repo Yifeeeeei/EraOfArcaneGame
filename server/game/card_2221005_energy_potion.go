@@ -1,8 +1,17 @@
 package game
 
+func (Card2221005EnergyPotion) CounterTriggers() []EffectTrigger {
+	return []EffectTrigger{TriggerOnTurnEnd}
+}
+
+func (Card2221005EnergyPotion) CanTriggerCounter(ctx *CounterContext) bool {
+	return ctx.Event.Trigger == TriggerOnTurnEnd && ctx.Event.PlayerID != ctx.Source.OwnerID
+}
+
 type Card2221005EnergyPotion struct{ AlwaysActive }
 
-func (Card2221005EnergyPotion) ID() string   { return "2221005" }
+func (Card2221005EnergyPotion) ID() string { return "2221005" }
+
 func (Card2221005EnergyPotion) Name() string { return "精力药剂" }
 
 func (Card2221005EnergyPotion) OnUseItem(ctx *EffectContext) error {

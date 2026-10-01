@@ -2,7 +2,8 @@ package game
 
 type Card1221111RaiderGunner struct{ AlwaysActive }
 
-func (Card1221111RaiderGunner) ID() string   { return "1221111" }
+func (Card1221111RaiderGunner) ID() string { return "1221111" }
+
 func (Card1221111RaiderGunner) Name() string { return "掠夺者炮手" }
 
 func (Card1221111RaiderGunner) OnSpellHit(ctx *EffectContext) error {

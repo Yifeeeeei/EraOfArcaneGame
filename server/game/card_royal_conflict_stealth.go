@@ -1,5 +1,7 @@
 package game
 
+import "eraofarcane/model"
+
 import "fmt"
 
 type Card1211101MistKingNalanti struct{ AlwaysActive }
@@ -96,8 +98,10 @@ type Card1421114GiantSandworm struct{ AlwaysActive }
 func (Card1421114GiantSandworm) ID() string   { return "1421114" }
 func (Card1421114GiantSandworm) Name() string { return "巨型沙虫" }
 
-func (Card1421114GiantSandworm) OnDamaged(ctx *EffectContext) error {
-	if ctx == nil || ctx.Source == nil || ctx.Target != nil {
+func (Card1421114GiantSandworm) DamageScope() DamageScope { return DamageSelf }
+
+func (Card1421114GiantSandworm) OnDamaged(ctx *EffectContext, event DamageEvent) error {
+	if ctx == nil || ctx.Source == nil {
 		return nil
 	}
 	ctx.Engine.grantStealth(ctx.Source, 1)
@@ -185,3 +189,9 @@ var _ SpellTargetValidationBehavior = Card3221104WaterEscape{}
 var _ SpellHitStatusBehavior = Card3221104WaterEscape{}
 var _ StealthSpellTargetBehavior = Card3221106Undercurrent{}
 var _ SkillContributionModifier = Card3221106Undercurrent{}
+
+func (Card1221109MistPhantom) ModifyIntrinsicLoad(_ *CardInstance, stealth bool, gains map[string]int) {
+	if stealth {
+		gains[model.ElementWater] += 2
+	}
+}

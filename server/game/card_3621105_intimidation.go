@@ -2,7 +2,8 @@ package game
 
 type Card3621105Intimidation struct{ AlwaysActive }
 
-func (Card3621105Intimidation) ID() string   { return "3621105" }
+func (Card3621105Intimidation) ID() string { return "3621105" }
+
 func (Card3621105Intimidation) Name() string { return "恐吓" }
 
 func (Card3621105Intimidation) ModifySkillContribution(ctx *EffectContext, stats *SpellStats) {

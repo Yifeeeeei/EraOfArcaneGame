@@ -1,12 +1,16 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+	"fmt"
+)
 
 const arcaneSealExtraUseCostStatus = "奥术封印额外使用费用"
 
 type Card3021108ArcaneSeal struct{ AlwaysActive }
 
-func (Card3021108ArcaneSeal) ID() string   { return "3021108" }
+func (Card3021108ArcaneSeal) ID() string { return "3021108" }
+
 func (Card3021108ArcaneSeal) Name() string { return "奥术封印" }
 
 func (Card3021108ArcaneSeal) OnSpellCast(ctx *EffectContext) error {
@@ -44,4 +48,12 @@ func (Card3021108ArcaneSeal) ModifySkillUseCost(ctx *EffectContext, cost map[str
 }
 
 var _ OnSpellCastBehavior = Card3021108ArcaneSeal{}
+
 var _ SkillUseCostModifier = Card3021108ArcaneSeal{}
+
+func (Card3021108ArcaneSeal) PrepareSpellCast(ctx *EffectContext, _ SpellTarget, _ ActionMessage) (SpellCastOptions, error) {
+	if len(ctx.Engine.enemySkills(ctx.PlayerID, nil)) == 0 {
+		return SpellCastOptions{}, fmt.Errorf("arcane seal requires an enemy skill")
+	}
+	return SpellCastOptions{}, nil
+}

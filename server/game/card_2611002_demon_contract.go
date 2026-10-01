@@ -1,14 +1,14 @@
 package game
 
 import (
-	"fmt"
-
 	"eraofarcane/model"
+	"fmt"
 )
 
 type Card2611002DemonContract struct{ AlwaysActive }
 
-func (Card2611002DemonContract) ID() string   { return "2611002" }
+func (Card2611002DemonContract) ID() string { return "2611002" }
+
 func (Card2611002DemonContract) Name() string { return "与恶魔的契约书" }
 
 func (Card2611002DemonContract) OnUseItem(ctx *EffectContext) error {
@@ -145,4 +145,13 @@ func shuffleDemonContractIntoDeck(ctx *EffectContext) {
 			return
 		}
 	}
+}
+
+func (Card2611002DemonContract) ValidateItemUse(ctx *EffectContext) error {
+	e, playerID := ctx.Engine, ctx.PlayerID
+	card := ctx.Source
+	if !e.demonContractHasPayablePathAfterEntryCost(playerID, card) {
+		return fmt.Errorf("Demon Contract requires a payable sacrifice and target")
+	}
+	return nil
 }

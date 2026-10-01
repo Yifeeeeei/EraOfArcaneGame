@@ -9,7 +9,7 @@ func addSkillToPool(ctx *EffectContext, cardNumber string) {
 	if card == nil {
 		return
 	}
-	skill := NewCardInstance(card, ctx.PlayerID, ctx.Engine.State.TurnNumber)
+	skill := ctx.Engine.newCardInstance(card, ctx.PlayerID, ctx.Engine.State.TurnNumber)
 	ctx.Engine.State.Players[ctx.PlayerID].SkillPool = append(ctx.Engine.State.Players[ctx.PlayerID].SkillPool, skill)
 	ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 		"source": cardToInfo(ctx.Source),
@@ -31,7 +31,7 @@ func replaceSkillInPool(ctx *EffectContext, oldCardNumber, newCardNumber string)
 		if oldSkill == nil || oldSkill.Card == nil || oldSkill.Card.Number != oldCardNumber {
 			continue
 		}
-		newSkill := NewCardInstance(card, ctx.PlayerID, ctx.Engine.State.TurnNumber)
+		newSkill := ctx.Engine.newCardInstance(card, ctx.PlayerID, ctx.Engine.State.TurnNumber)
 		ps.SkillPool[i] = newSkill
 		ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
 			"source":   cardToInfo(ctx.Source),
@@ -52,7 +52,7 @@ func bindSkillToHost(ctx *EffectContext, cardNumber string) {
 	if card == nil {
 		return
 	}
-	skill := NewCardInstance(card, ctx.PlayerID, ctx.Engine.State.TurnNumber)
+	skill := ctx.Engine.newCardInstance(card, ctx.PlayerID, ctx.Engine.State.TurnNumber)
 	skill.SlotIndex = -1
 	skill.IsHorizontal = true
 	ctx.Source.BoundSkills = append(ctx.Source.BoundSkills, skill)

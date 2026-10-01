@@ -1,13 +1,17 @@
 package game
 
-import "fmt"
+import (
+	"fmt"
+)
 
 const fuyeDeathAfterExertStatus = "fuye_death_after_exert"
 
 type Card4611002Fuye struct{ AlwaysActive }
 
-func (Card4611002Fuye) ID() string   { return "4611002" }
+func (Card4611002Fuye) ID() string { return "4611002" }
+
 func (Card4611002Fuye) Name() string { return "芙雅夫人" }
+
 func (Card4611002Fuye) OnUltimate(ctx *EffectContext) error {
 	if ctx.Target != nil {
 		if !isValidFuyeUltimateTarget(ctx, ctx.Target) {

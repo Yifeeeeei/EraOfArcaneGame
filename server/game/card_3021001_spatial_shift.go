@@ -2,7 +2,8 @@ package game
 
 type Card3021001SpatialShift struct{ AlwaysActive }
 
-func (Card3021001SpatialShift) ID() string   { return "3021001" }
+func (Card3021001SpatialShift) ID() string { return "3021001" }
+
 func (Card3021001SpatialShift) Name() string { return "移形换影" }
 
 func (Card3021001SpatialShift) OnSpellCast(ctx *EffectContext) error {

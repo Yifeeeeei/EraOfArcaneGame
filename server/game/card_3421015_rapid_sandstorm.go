@@ -2,7 +2,8 @@ package game
 
 type Card3421015RapidSandstorm struct{ AlwaysActive }
 
-func (Card3421015RapidSandstorm) ID() string   { return "3421015" }
+func (Card3421015RapidSandstorm) ID() string { return "3421015" }
+
 func (Card3421015RapidSandstorm) Name() string { return "急袭沙暴" }
 
 func (Card3421015RapidSandstorm) HasActiveSpellStatModifier(card *CardInstance) bool {

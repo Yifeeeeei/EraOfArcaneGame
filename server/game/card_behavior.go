@@ -168,7 +168,8 @@ type OnEnemyDeathBehavior interface {
 
 type OnDamagedBehavior interface {
 	HasActiveDamaged(*CardInstance) bool
-	OnDamaged(*EffectContext) error
+	DamageScope() DamageScope
+	OnDamaged(*EffectContext, DamageEvent) error
 }
 
 type OnAttackBehavior interface {
@@ -183,8 +184,12 @@ type AttackCostBehavior interface {
 
 type OnFriendlyDamagedFromHiddenBehavior interface {
 	HasActiveFriendlyDamagedFromHidden(*CardInstance) bool
-	OnFriendlyDamagedFromHidden(*EffectContext) error
+	OnFriendlyDamagedFromHidden(*EffectContext, DamageEvent) error
 }
+
+// HiddenDamageGroupBehavior coalesces identical optional choices from multiple
+// hidden copies for one damage event, without suppressing unrelated windows.
+type HiddenDamageGroupBehavior interface{ HiddenDamageGroup(*CardInstance) string }
 
 type OnSpellCastBehavior interface {
 	HasActiveSpellCast(*CardInstance) bool
@@ -560,6 +565,14 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 			return h.OnDeath(ctx)
 		})
 	}
+	if h, ok := behavior.(BeforeDrawBehavior); ok {
+		r.Register(id, TriggerBeforeDraw, func(ctx *EffectContext) error {
+			if !h.HasActiveBeforeDraw(ctx.Source) {
+				return nil
+			}
+			return h.OnBeforeDraw(ctx)
+		})
+	}
 	if h, ok := behavior.(OnTurnStartBehavior); ok {
 		r.Register(id, TriggerOnTurnStart, func(ctx *EffectContext) error {
 			if !h.HasActiveTurnStart(ctx.Source) {
@@ -610,10 +623,11 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 	}
 	if h, ok := behavior.(OnDamagedBehavior); ok {
 		r.Register(id, TriggerOnDamaged, func(ctx *EffectContext) error {
-			if !h.HasActiveDamaged(ctx.Source) {
+			event := damageEventFromContext(ctx)
+			if !h.HasActiveDamaged(ctx.Source) || !event.Matches(ctx.Source, h.DamageScope()) {
 				return nil
 			}
-			return h.OnDamaged(ctx)
+			return h.OnDamaged(ctx, event)
 		})
 	}
 	if h, ok := behavior.(OnAttackBehavior); ok {

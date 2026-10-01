@@ -1,8 +1,17 @@
 package game
 
+func (Card2521011FlashRune) CounterTriggers() []EffectTrigger {
+	return []EffectTrigger{TriggerOnSpellCast}
+}
+
+func (Card2521011FlashRune) CanTriggerCounter(ctx *CounterContext) bool {
+	return ctx.Event.Trigger == TriggerOnSpellCast && ctx.Event.PlayerID != ctx.Source.OwnerID
+}
+
 type Card2521011FlashRune struct{ AlwaysActive }
 
-func (Card2521011FlashRune) ID() string   { return "2521011" }
+func (Card2521011FlashRune) ID() string { return "2521011" }
+
 func (Card2521011FlashRune) Name() string { return "闪光符文" }
 
 func (Card2521011FlashRune) OnSpellCast(ctx *EffectContext) error {

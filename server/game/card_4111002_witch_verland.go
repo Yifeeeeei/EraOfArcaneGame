@@ -1,11 +1,15 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card4111002WitchVerland struct{ AlwaysActive }
 
-func (Card4111002WitchVerland) ID() string   { return "4111002" }
+func (Card4111002WitchVerland) ID() string { return "4111002" }
+
 func (Card4111002WitchVerland) Name() string { return "女巫 维兰德" }
+
 func (Card4111002WitchVerland) OnPerTurn(ctx *EffectContext) error {
 	ctx.Engine.addStatus(ctx.Source, StatusBurn, 1)
 	if effectiveElementsGain(ctx.Source)[model.ElementFire] > 0 {

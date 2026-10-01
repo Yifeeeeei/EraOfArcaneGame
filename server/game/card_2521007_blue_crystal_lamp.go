@@ -1,14 +1,14 @@
 package game
 
 import (
-	"fmt"
-
 	"eraofarcane/model"
+	"fmt"
 )
 
 type Card2521007BlueCrystalLamp struct{ AlwaysActive }
 
-func (Card2521007BlueCrystalLamp) ID() string   { return "2521007" }
+func (Card2521007BlueCrystalLamp) ID() string { return "2521007" }
+
 func (Card2521007BlueCrystalLamp) Name() string { return "蓝晶灯盏" }
 
 func (Card2521007BlueCrystalLamp) OnUltimate(ctx *EffectContext) error {

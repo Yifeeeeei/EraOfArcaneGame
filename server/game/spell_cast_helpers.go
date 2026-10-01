@@ -1,75 +1,23 @@
 package game
 
 func isFriendlySpellCast(ctx *EffectContext) bool {
-	if ctx == nil || ctx.ExtraData == nil {
-		return true
-	}
-	castPlayer, ok := ctx.ExtraData["cast_player"].(int)
-	return !ok || castPlayer == ctx.PlayerID
+	event := ctx.SpellEvent()
+	return !event.CasterKnown || ctx != nil && event.Caster == ctx.PlayerID
 }
-
 func isEnemySpellCast(ctx *EffectContext) bool {
-	if ctx == nil || ctx.ExtraData == nil {
-		return false
-	}
-	castPlayer, ok := ctx.ExtraData["cast_player"].(int)
-	return ok && castPlayer != ctx.PlayerID
+	event := ctx.SpellEvent()
+	return event.CasterKnown && ctx != nil && event.Caster != ctx.PlayerID
 }
-
-func isSpellBeingCast(ctx *EffectContext) bool {
-	return ctx != nil && ctx.Target == nil
-}
-
-func spellUsePurpose(ctx *EffectContext) skillPurpose {
-	if ctx != nil && ctx.ExtraData != nil {
-		if purpose, ok := ctx.ExtraData["purpose"].(string); ok && purpose != "" {
-			return skillPurpose(purpose)
-		}
-	}
-	return skillPurposeAttack
-}
-
-func spellCastSourceElement(ctx *EffectContext) string {
-	if ctx == nil {
-		return ""
-	}
-	if ctx.Target != nil && ctx.Target.Card != nil {
-		return ctx.Target.Card.Category
-	}
-	if ctx.ExtraData == nil {
-		return ""
-	}
-	if skill, ok := ctx.ExtraData["skill"].(map[string]any); ok {
-		if category, ok := skill["category"].(string); ok {
-			return category
-		}
-	}
-	return ""
-}
-
-func isFriendlySpellHit(ctx *EffectContext) bool {
-	if ctx == nil || ctx.ExtraData == nil {
-		return true
-	}
-	attacker, ok := ctx.ExtraData["attacker"].(int)
-	return !ok || attacker == ctx.PlayerID
-}
-
+func isSpellBeingCast(ctx *EffectContext) bool         { return ctx != nil && ctx.Target == nil }
+func spellUsePurpose(ctx *EffectContext) skillPurpose  { return ctx.SpellEvent().Purpose }
+func spellCastSourceElement(ctx *EffectContext) string { return ctx.SpellEvent().Element }
+func isFriendlySpellHit(ctx *EffectContext) bool       { return isFriendlySpellCast(ctx) }
 func spellCasterFromData(ctx *EffectContext) (int, bool) {
-	if ctx == nil || ctx.ExtraData == nil {
-		return 0, false
-	}
-	if attacker, ok := ctx.ExtraData["attacker"].(int); ok {
-		return attacker, true
-	}
-	if castPlayer, ok := ctx.ExtraData["cast_player"].(int); ok {
-		return castPlayer, true
-	}
-	return 0, false
+	event := ctx.SpellEvent()
+	return event.Caster, event.CasterKnown
 }
-
 func isOwnSpellHit(ctx *EffectContext) bool {
-	return ctx != nil && ctx.ExtraData != nil && ctx.ExtraData["spell_source"] == ctx.Source
+	return ctx != nil && ctx.SpellEvent().Spell != nil && ctx.SpellEvent().Spell == ctx.Source
 }
 
 func (e *Engine) triggerSpellUseFieldEffectsWithContinuation(casterID int, source *CardInstance, extraData map[string]any, afterDone func()) bool {
@@ -83,12 +31,12 @@ func (e *Engine) triggerSpellUseFieldEffectsWithContinuation(casterID int, sourc
 		if e.State.PendingAction == nil {
 			return false
 		}
-		e.wrapPendingActionContinuation(afterDone)
+		e.continueAfterPendingAction(afterDone)
 		return true
 	}
 
 	if e.State.PendingAction != nil {
-		e.wrapPendingActionContinuation(func() {
+		e.continueAfterPendingAction(func() {
 			if !runFieldEffects() && afterDone != nil {
 				afterDone()
 			}
@@ -123,7 +71,7 @@ func (e *Engine) triggerSpellCastFieldEffectsWithContinuation(casterID int, sour
 		}
 
 		if e.State.PendingAction != nil {
-			e.wrapPendingActionContinuation(continueAfterFieldEffects)
+			e.continueAfterPendingAction(continueAfterFieldEffects)
 			return true
 		}
 
@@ -140,7 +88,7 @@ func (e *Engine) triggerSpellCastFieldEffectsWithContinuation(casterID int, sour
 	}
 
 	if e.State.PendingAction != nil {
-		e.wrapPendingActionContinuation(func() {
+		e.continueAfterPendingAction(func() {
 			if !runFieldEffectsAndCounters() && afterDone != nil {
 				afterDone()
 			}
