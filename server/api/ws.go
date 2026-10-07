@@ -164,29 +164,29 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 		})
 
 		if isSpectator {
-			if room.Engine != nil {
+			if engine := room.EngineSnapshot(); engine != nil {
 				stateEvent := game.GameEvent{
 					Type:   "state_sync",
 					Player: -1,
-					Data:   room.Engine.GetStateForSpectator(),
+					Data:   engine.GetStateForSpectator(),
 				}
 				room.LogStateSync(-1)
 				sendFn(stateEvent)
 			}
 		} else if isReconnect {
 			// Send current game state immediately on reconnection
-			if room.Engine != nil {
+			if engine := room.EngineSnapshot(); engine != nil {
 				stateEvent := game.GameEvent{
 					Type:   "state_sync",
 					Player: slot,
-					Data:   room.Engine.GetStateForPlayer(slot),
+					Data:   engine.GetStateForPlayer(slot),
 				}
 				room.LogStateSync(slot)
 				sendFn(stateEvent)
 			}
 		} else {
 			// If room is full, start the game (first time only)
-			if room.IsFull() && !room.IsStarted {
+			if room.ShouldStart() {
 				if err := room.StartGame(); err != nil {
 					log.Printf("Failed to start game: %v", err)
 					wsc.SendJSON(map[string]any{"type": "error", "message": err.Error()})
@@ -225,14 +225,15 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 			}
 			room.LogClientAction(slot, playerID, action)
 
-			if room.Engine == nil {
+			engine := room.EngineSnapshot()
+			if engine == nil {
 				actionErr := fmt.Errorf("game not started")
 				room.LogActionError(slot, playerID, action, actionErr)
 				sendActionResult(wsc, action.RequestID, actionErr)
 				continue
 			}
 
-			if err := room.Engine.HandleAction(slot, action); err != nil {
+			if err := engine.HandleAction(slot, action); err != nil {
 				room.LogActionError(slot, playerID, action, err)
 				sendActionResult(wsc, action.RequestID, err)
 				continue
