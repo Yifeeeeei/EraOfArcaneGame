@@ -88,3 +88,49 @@ func TestAllocationPrimitiveValidatesBeforeCallback(t *testing.T) {
 		t.Fatalf("wrong allocation: %v", received)
 	}
 }
+
+func TestDebugMutationsAreAtomicAndVersioned(t *testing.T) {
+	e := setupTestEngine(t)
+	rev := e.revision
+	if rev == 0 {
+		t.Fatal("setup must version its initial state")
+	}
+	p := e.State.Players[0]
+	before := p.Elements["火"]
+	if err := e.DebugUpdateElements(0, map[string]int{"火": 4, "invalid": 1}, "set"); err == nil {
+		t.Fatal("invalid element accepted")
+	}
+	if p.Elements["火"] != before || e.revision != rev {
+		t.Fatal("failed element update mutated state")
+	}
+	life := p.Hero.CurrentLife + 1
+	if err := e.DebugMutateCard(0, DebugCardMutation{InstanceID: p.Hero.InstanceID, Life: &life, Statuses: map[string]int{"invalid": -1}}); err == nil {
+		t.Fatal("invalid status accepted")
+	}
+	if p.Hero.CurrentLife == life || e.revision != rev {
+		t.Fatal("failed card update mutated state")
+	}
+	for i := range p.Equipment {
+		p.Equipment[i] = nil
+	}
+	if err := e.DebugAddCard(0, "2011001", "equipment", len(p.Equipment)+1); err == nil {
+		t.Fatal("overflow accepted")
+	}
+	for _, card := range p.Equipment {
+		if card != nil {
+			t.Fatal("failed batch partially added equipment")
+		}
+	}
+	if e.revision != rev {
+		t.Fatal("failed batch changed revision")
+	}
+	if err := e.DebugUpdateElements(0, map[string]int{"火": 4}, "set"); err != nil {
+		t.Fatal(err)
+	}
+	if e.revision != rev+1 {
+		t.Fatal("successful fixture not versioned")
+	}
+	if err := e.HandleAction(0, ActionMessage{Action: "mulligan", ExpectedRevision: &rev, Data: map[string]any{"keep": true}}); err == nil {
+		t.Fatal("draft from before fixture accepted")
+	}
+}

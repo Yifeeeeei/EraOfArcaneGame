@@ -166,6 +166,7 @@
                 if (!s) return '等待连接';
                 if (s.phase === 'game_over') return '对局结束';
                 if (s.phase === 'mulligan') return '双方起手';
+                if (isSpectator) return `等待玩家${Number(s.decision_player)+1}`;
                 return s.decision_player === mySlot.value ? '由你决定' : `等待玩家${Number(s.decision_player) + 1}`;
             });
             const workspaceMode = computed(() => {
@@ -189,7 +190,15 @@
                     cards.push(player.hero, ...(player.skills || []), ...(player.equipment || []), ...(player.graveyard || []), ...(player.exile || []));
                     for (const col of player.units || []) cards.push(...(col || []));
                 }
-                return cards.find(c => c?.instance_id === id);
+                const seen = new Set();
+                while (cards.length) {
+                    const c = cards.shift();
+                    if (!c || seen.has(c)) continue;
+                    if (c.instance_id === id) return c;
+                    seen.add(c);
+                    cards.push(...(c.bound_skills || []), ...(c.under_cards || []));
+                }
+                return null;
             }
             const draftSummary = computed(() => {
                 const d = actionDraft.value?.data || {};
@@ -224,7 +233,7 @@
             function guardInteraction(event) {
                 const inWorkspace = !!event.target.closest('#decision');
                 if (!actionBusy.value && (!actionDraft.value && !paymentRequest.value || inWorkspace)) return;
-                if (event.target.closest('.card-inspect, .interaction-detail-link, .detail-close, [data-reconnect], a')) return;
+                if (event.target.closest('.card-inspect, .interaction-detail-link, .detail-close, .close-btn, [data-inspect], [data-reconnect], a')) return;
                 event.stopImmediatePropagation(); event.preventDefault();
             }
             function commitDraft() {

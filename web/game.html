@@ -84,18 +84,18 @@
                         <span v-for="s in statusEntries(detailCard, 0)" :key="s.label" class="status-badge">{{ s.label }}</span>
                     </div>
                     <div v-if="hasCost(detailCard)" class="card-cost">
-                        {{ entryCostLabel(detailCard) }}：<span class="element-list" v-html="costHTML(playCost(detailCard))"></span>
+                        {{ entryCostLabel(detailCard) }}：<span class="element-list">{{ costLabel(playCost(detailCard)) }}</span>
                     </div>
                     <div v-if="hasUseCost(detailCard)" class="card-cost">
-                        使用费用：<span class="element-list" v-html="costHTML(detailCard.elements_expense)"></span>
+                        使用费用：<span class="element-list">{{ costLabel(detailCard.elements_expense) }}</span>
                     </div>
                     <div v-if="hasGain(detailCard)" class="card-gain">
-                        负载：<span class="element-list" v-html="costHTML(detailCard.elements_gain)"></span>
+                        负载：<span class="element-list">{{ costLabel(detailCard.elements_gain) }}</span>
                     </div>
                     <div v-if="detailCard.bound_skills && detailCard.bound_skills.length" class="bound-skill-list">
                         <div class="bound-skill-title">绑定技能</div>
                         <button v-for="skill in detailCard.bound_skills" :key="skill.instance_id"
-                                class="bound-skill-chip"
+                                class="bound-skill-chip" data-inspect
                                 @mouseenter="previewCard(skill)"
                                 @click.stop="showCardDetail(skill)">
                             {{ skill.name }}
@@ -106,6 +106,14 @@
                                 @click.stop="canCastSkill(skill) && (selectSkillToCast(skill), detailCard = null)">
                             使用 {{ skill.name }}
                         </button>
+                    </div>
+                    <div v-if="detailCard.under_cards?.length" class="under-card-list">
+                        <h4>卡下方（{{ detailCard.under_cards.length }}）</h4>
+                        <button v-for="card in detailCard.under_cards" :key="card.instance_id" data-inspect @click.stop="showCardDetail(card)">{{ card.name }} · 查看</button>
+                    </div>
+                    <div v-if="detailCard.attached_behaviors?.length" class="attached-effect-list">
+                        <h4>附属效果</h4>
+                        <div v-for="effect in detailCard.attached_behaviors" :key="effect.id">{{ effect.name }}<span v-if="effect.data"> · {{ effect.data }}</span></div>
                     </div>
                     <div class="card-desc" v-html="descriptionHTML(detailCard.description)"></div>
                 </div>
@@ -155,7 +163,7 @@
                 <div class="player-panel is-opponent">
                     <div class="panel-header">
                         <span class="name opp">{{ opponent.player_name || (isSpectator ? '玩家2' : '对手') }}</span>
-                        <span v-if="!isMyTurn" class="turn-badge waiting">当前回合</span>
+                        <span v-if="gameState.current_turn === (isSpectator ? 1 : 1-mySlot)" class="turn-badge waiting">当前回合</span>
                     </div>
                     <div class="hero-row" v-if="opponent.hero">
                         <div class="hero-portrait" @mouseenter="previewCard(opponent.hero)" @click="showCardDetail(opponent.hero)">
@@ -197,7 +205,7 @@
                 <div class="player-panel is-active">
                     <div class="panel-header">
                         <span class="name">{{ myState.player_name || (isSpectator ? '玩家1' : '你') }}</span>
-                        <span v-if="isMyTurn" class="turn-badge active">你的回合</span>
+                        <span v-if="gameState.current_turn === (isSpectator ? 0 : mySlot)" class="turn-badge active">{{ isSpectator ? '当前回合' : '你的回合' }}</span>
                     </div>
                     <div class="hero-row" v-if="myState.hero">
                         <div class="hero-portrait"
@@ -460,7 +468,7 @@
                                              @mouseenter="myEquipment[i-1] && previewCard(myEquipment[i-1])"
                                              @click="myEquipment[i-1] && showCardDetail(myEquipment[i-1])">
                                             <template v-if="myEquipment[i-1]">
-                                                <img @error="imageFallback" :src="getCardImage(myEquipment[i-1])" class="slot-img"
+                                                <img @error="imageFallback" :src="getCardImage(myEquipment[i-1])" :alt="myEquipment[i-1].name" class="slot-img"
                                                      :class="{horizontal: myEquipment[i-1].is_horizontal}">
                                                 <div class="equipment-actions" v-if="isMyTurn && gameState.phase === 'main'">
                                                     <button v-if="canConsumeUnit(myEquipment[i-1])"

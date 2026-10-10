@@ -76,6 +76,21 @@ func (e *Engine) DebugAddCardAt(playerID int, cardNumber string, zone string, co
 	}
 
 	ps := e.State.Players[playerID]
+	if zone == "skill_slot" || zone == "equipment" {
+		slots := ps.Skills
+		if zone == "equipment" {
+			slots = ps.Equipment
+		}
+		free := 0
+		for _, slot := range slots {
+			if slot == nil {
+				free++
+			}
+		}
+		if free < count {
+			return fmt.Errorf("not enough empty %s slots", zone)
+		}
+	}
 	var addedToHand []*CardInstance
 	for i := 0; i < count; i++ {
 		instance := e.newCardInstance(card, playerID, e.State.TurnNumber)
@@ -181,26 +196,24 @@ func (e *Engine) DebugUpdateElements(playerID int, elements map[string]int, mode
 	}
 
 	ps := e.State.Players[playerID]
-	if ps.Elements == nil {
-		ps.Elements = make(map[string]int)
+	nextElements := make(map[string]int, len(ps.Elements))
+	for elem, amount := range ps.Elements {
+		nextElements[elem] = amount
 	}
 	for elem, amount := range elements {
 		if !allowed[elem] {
 			return fmt.Errorf("unknown element %q", elem)
 		}
-		if mode == "set" {
-			if amount < 0 {
-				return fmt.Errorf("element amount cannot be negative")
-			}
-			ps.Elements[elem] = amount
-			continue
-		}
 		next := ps.Elements[elem] + amount
+		if mode == "set" {
+			next = amount
+		}
 		if next < 0 {
 			return fmt.Errorf("%s would become negative", elem)
 		}
-		ps.Elements[elem] = next
+		nextElements[elem] = next
 	}
+	ps.Elements = nextElements
 	return nil
 }
 
@@ -235,6 +248,11 @@ func (e *Engine) DebugMutateCard(playerID int, mutation DebugCardMutation) (acti
 	card := e.findCardInstance(e.State.Players[playerID], mutation.InstanceID)
 	if card == nil {
 		return fmt.Errorf("card instance not found")
+	}
+	for status, amount := range mutation.Statuses {
+		if amount < 0 {
+			return fmt.Errorf("status %s cannot be negative", status)
+		}
 	}
 	if mutation.Life != nil {
 		if *mutation.Life < 0 {

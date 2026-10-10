@@ -53,6 +53,7 @@ python tests/frontend_match.py
 python tests/frontend_reactions.py
 python tests/frontend_primitives.py
 python tests/frontend_dense.py
+python tests/frontend_quality.py
 ```
 
 Python 检查需要 Playwright、Pillow 和 `/usr/bin/chromium`，只运行 headless。`ARCANE_URL` 可指定测试服务器。脚本只创建和修改 test-room，真实动作通过两份实际 Vue 页面/WebSocket；部分复杂 fixture 入口借助页面已存在的 debug.sendAction 进入同一个确认/提交路径。断线、错误与重复点击有专门断言。

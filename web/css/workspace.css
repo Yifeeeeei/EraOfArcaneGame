@@ -162,3 +162,6 @@ button:disabled { opacity:.45; cursor:not-allowed; }
  .mobile-jump a { flex:1; text-align:center; padding:14px; color:#f0d9a7; text-decoration:none; font-size:13px; }
  #decision,#arena,#hand { scroll-margin-top:12px; }
 }
+
+.under-card-list,.attached-effect-list { margin:12px 0; padding:10px; border:1px solid #655438; }
+.under-card-list button { display:block; min-height:40px; width:100%; background:#211d15; color:#dfc898; border:1px solid #655438; text-align:left; padding:8px; }
