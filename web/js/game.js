@@ -255,7 +255,7 @@
                 const changed = session.snapshot(state.revision);
                 if (changed) {
                     actionDraft.value = null;
-                    decisionError.value = '';
+                    decisionError.value = session.failureMessage();
                     contextMenu.value.show = false;
                     paymentRequest.value = null;
                     consumeGainRequest.value = null;
@@ -2963,9 +2963,10 @@
                 }
                 else if (msg.type === 'game_event') handleGameEvent(msg.event);
                 else if (msg.type === 'action_result') {
+                    if (!msg.ok && msg.message) addLog(`操作失败: ${msg.message}`);
                     const outcome = session.result(msg);
                     actionBusy.value = session.busy;
-                    if (outcome === 'error') decisionError.value = msg.message || '操作失败，请编辑后重试';
+                    if (outcome.startsWith('error')) decisionError.value = msg.message || '操作失败，请编辑后重试';
                     if (outcome === 'success') decisionError.value = '';
                 }
                 else if (msg.type === 'error') { decisionError.value = msg.message; addLog(`错误: ${msg.message}`); }

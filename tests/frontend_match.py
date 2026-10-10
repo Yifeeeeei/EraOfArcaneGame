@@ -123,8 +123,10 @@ async def main():
     await a.evaluate('window.__arcaneDebug.sendAction("resolve_action", {selected:["invalid"]})')
     await a.get_by_role('button',name='确认提交',exact=True).click()
     await a.locator('.decision-error').wait_for()
-    assert await a.locator('.action-review').count()==1
-    await a.get_by_role('button',name='返回编辑',exact=True).click()
+    await a.locator('.action-review').wait_for(state='hidden')
+    assert await a.locator('.action-review').count()==0
+    assert await a.locator('.decision-error').inner_text()
+    pa=(await state(a))['pending_action']
     candidate=next(c for c in pa['candidates'] if c.get('side')=='enemy')
     await a.locator(f'.pending-card[data-instance-id="{candidate["instance_id"]}"]').click()
     await a.get_by_role('button',name='确认选择',exact=True).click()

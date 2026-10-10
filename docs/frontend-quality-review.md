@@ -22,13 +22,13 @@
 
 外部可调用的状态变更路径是 WebSocket → HandleAction、房间初始化 → SetupGame/SetupGameWithFirstPlayer，以及测试房间的 DebugAddCardAt/DebugUpdateElements/DebugMutateCard。规则辅助方法在这些动作内部运行，不逐帧向 UI 暴露版本或内部树。
 
-- 所有成功 HandleAction 在引擎锁内递增 revision；expected_revision 在任何规则执行前检查。
+- 所有进入规则执行的 HandleAction（包含 error）在引擎锁内递增 revision；expected_revision 在任何规则执行前检查。
 - 初始化原先未递增，本次在共同 setup 实现补齐。
 - DebugAddCard 多张入槽原先可能部分成功后返回错误；元素 map 和状态 map 也可能边校验边写入。本次先检查容量、构建元素结果、预校验状态，再写入，避免这些错误路径无版本地部分改动。新增 Go 测试覆盖失败原子性、成功递增和旧草稿拒绝。
 - 所有 PendingAction 激活统一经过 activatePendingAction；排队的同类型窗口激活时取得新 ID，失败后恢复同一窗口保留原 ID。
 - decision_id 不是动作提交的独立前置条件；当前提交使用 expected_revision。防御、起手、主行动等非 PendingAction 窗口没有 decision_id，依赖 revision 和 phase。
 
-**不能声称覆盖每个可能的失败后状态变化。** 既有 CallbackErr 或其他规则处理器如果先改变游戏状态再返回错误，HandleAction 仍不递增 revision，API 错误分支也不广播新状态。回调的部分修改不能由前端回滚。本次没有扩大为全引擎事务重构；这是明确的遗留协议边界，需要后续单独实现“失败原子性或失败变更也版本化并同步”。成功入口覆盖不等于这个问题已经解决。
+**后续已修复执行报错的版本/广播缺口。** 所有进入规则执行的请求现在无论成功或 error 都推进 revision，并在解锁后广播权限过滤快照；执行前拒绝保留原版本。失败的部分修改仍不回滚。详细边界和实际血沙部分付款测试见 [执行报错同步](frontend-failed-action-sync.md)。
 
 另外，旧客户端允许省略 expected_revision；没有跨重启 epoch、持久 request_id 去重缓存或自动重放保证。revision/decision_id 是进程内对局信息。
 

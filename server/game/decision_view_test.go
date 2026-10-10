@@ -134,3 +134,55 @@ func TestDebugMutationsAreAtomicAndVersioned(t *testing.T) {
 		t.Fatal("draft from before fixture accepted")
 	}
 }
+
+func TestExecutedErrorVersionsRealPartialPaymentWithoutRollback(t *testing.T) {
+	e := setupReportedBugEngine(t)
+	e.State.Phase = PhaseMain
+	e.State.CurrentTurn = 0
+	source := readySkill(baseCard(t, "3411102"), 0)
+	e.State.Players[0].Skills[0] = source
+	unit := placeUnit(baseCard(t, "1021002"), 0, 0, 0, e)
+	unit.CurrentLife = 2
+	if err := e.HandleAction(0, ActionMessage{Action: "use_ability", Data: map[string]any{"instance_id": source.InstanceID, "ability": "per_turn"}}); err != nil {
+		t.Fatal(err)
+	}
+	decision := e.State.PendingAction.DecisionID
+	before := e.revision
+	action := ActionMessage{Action: "resolve_action", ExpectedRevision: &before, Data: map[string]any{"selected": []any{unit.InstanceID}, "payments": []any{map[string]any{"instance_id": unit.InstanceID, "amount": float64(2), "mode": "life"}}}}
+	revision, executed, err := e.HandleActionWithRevision(0, action)
+	if err == nil || err.Error() != "cannot pay life from selected unit" {
+		t.Fatalf("original error changed: %v", err)
+	}
+	if !executed || revision != before+1 || unit.CurrentLife != 1 {
+		t.Fatalf("partial mutation not versioned: revision=%d executed=%v life=%d", revision, executed, unit.CurrentLife)
+	}
+	if e.State.PendingAction == nil || e.State.PendingAction.DecisionID != decision {
+		t.Fatal("failed decision identity changed")
+	}
+	staleRev, staleExecuted, staleErr := e.HandleActionWithRevision(0, action)
+	if staleErr == nil || staleExecuted || staleRev != revision || unit.CurrentLife != 1 {
+		t.Fatal("old action repeated partial mutation")
+	}
+	// Invalid selection enters the rule handler but does not modify the unit.
+	action.ExpectedRevision = &revision
+	action.Data = map[string]any{"selected": []any{"not-a-candidate"}}
+	next, executed, err := e.HandleActionWithRevision(0, action)
+	if err == nil || err.Error() != "invalid selection" || !executed || next != revision+1 || unit.CurrentLife != 1 {
+		t.Fatal("unmodified rule rejection must still conservatively advance")
+	}
+	for _, view := range []map[string]any{e.GetStateForPlayer(1), e.GetStateForSpectator()} {
+		raw, _ := json.Marshal(view)
+		if strings.Contains(string(raw), "blood_sand_array_pay") || strings.Contains(string(raw), "payments") {
+			t.Fatal("private choice leaked after error")
+		}
+		if view["revision"] != next {
+			t.Fatal("filtered view missed rejected attempt revision")
+		}
+	}
+	for _, bad := range []ActionMessage{{Action: "unknown"}, {Action: "resolve_action", ExpectedRevision: &before}} {
+		got, ran, err := e.HandleActionWithRevision(0, bad)
+		if err == nil || ran || got != next {
+			t.Fatal("preflight failure entered rules or advanced revision")
+		}
+	}
+}

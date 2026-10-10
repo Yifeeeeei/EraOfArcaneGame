@@ -14,13 +14,13 @@
 
 `gameState` 是过滤后的服务器事实。pending 事件只进入叙事，真正可操作的窗口来自 state_sync。本地目标/候选/排序/数量/付款形成草稿；`sendAction` 只暂存，只有 `commitDraft` 发 WebSocket。
 
-`web/js/decision-session.js` 单独管理在途状态，可用 Node 直接测试。错误保留草稿并就地呈现；成功回执后仍等待较新状态；较新状态可先于回执到达，旧回执不会清除新窗口。重复点击不能开启第二个在途动作。断线不自动重连重发，用户可手动重连核对。
+`web/js/decision-session.js` 单独管理在途状态，可用 Node 直接测试。执行前拒绝保留草稿；执行报错保持锁定至新快照清除旧草稿，原错误仍就地呈现；成功回执后仍等待较新状态；较新状态可先于回执到达，旧回执不会清除新窗口。重复点击不能开启第二个在途动作。断线不自动重连重发，用户可手动重连核对。
 
 付款统一支持增、减、重置和明确确认。反制/响应/防御的透支计入同一付款池；返回编辑保留原选择。规则上的“不防御/放弃发动”和“返回编辑/取消本地选择”分别呈现。无目标法术也先选强化，再准备施放。
 
 ## 最小协议增强
 
-- `revision`：引擎锁下每次成功动作及成功测试工具写入递增；新版动作带可选 `expected_revision`，过时草稿先于规则处理被拒绝。旧客户端不带字段仍兼容。
+- `revision`：引擎锁下每次进入规则执行的请求（成功或 error）及成功测试工具写入递增；新版动作带可选 `expected_revision`，过时草稿先于规则处理被拒绝。旧客户端不带字段仍兼容。
 - `decision_id`：当前 PendingAction 激活时分配，不由类型、候选、文字指纹猜测。相同类型连续窗口也不同。
 - `decision_player`：公开的当前交接对象，和 current_turn 分离。观众的等待信息只显示通用文案，不再显示可能揭露盖牌身份的私有 prompt/type。
 - `ui`：候选选择、牌顶/牌底排序、整数分配、负载重分配、负载/生命付款。现有具名窗口的协议投影集中在 `decision_view.go`；新机制需声明原语，不能在前端增加卡号/卡文判断。
@@ -54,8 +54,11 @@ python tests/frontend_reactions.py
 python tests/frontend_primitives.py
 python tests/frontend_dense.py
 python tests/frontend_quality.py
+python tests/frontend_failed_action.py
 ```
 
 Python 检查需要 Playwright、Pillow 和 `/usr/bin/chromium`，只运行 headless。`ARCANE_URL` 可指定测试服务器。脚本只创建和修改 test-room，真实动作通过两份实际 Vue 页面/WebSocket；部分复杂 fixture 入口借助页面已存在的 debug.sendAction 进入同一个确认/提交路径。断线、错误与重复点击有专门断言。
 
 截图、房间日志及临时结果在忽略的 `agent-data/frontend-review/` / `server/logs/rooms/`，不提交玩家记录。机制覆盖与未穷举项见 [覆盖台账](frontend-coverage.md)，289 种静态命名 pending 创建点见 [决策清单](frontend-decision-inventory.md)。
+
+执行报错后的同步、锁顺序和具体保证见 [执行报错同步](frontend-failed-action-sync.md)。

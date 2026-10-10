@@ -44,19 +44,34 @@ func (e *Engine) emit(event GameEvent) {
 	}
 }
 
-// HandleAction processes a player action
-func (e *Engine) HandleAction(playerID int, action ActionMessage) (actionErr error) {
+// HandleAction preserves the existing rules API. Network callers also need the
+// exact attempt revision, captured while holding the engine lock.
+func (e *Engine) HandleAction(playerID int, action ActionMessage) error {
+	_, _, err := e.HandleActionWithRevision(playerID, action)
+	return err
+}
+
+// HandleActionWithRevision conservatively versions every attempt entering rule
+// execution, including errors: handlers and deferred resolution may have mutated
+// state. Preflight failures never enter resolution and do not advance revision.
+// It returns only after all resolution defers and the engine unlock have run.
+func (e *Engine) HandleActionWithRevision(playerID int, action ActionMessage) (revision uint64, executed bool, actionErr error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
-
+	defer func() { revision = e.revision }()
 	if action.ExpectedRevision != nil && *action.ExpectedRevision != e.revision {
-		return fmt.Errorf("战场已更新，请重新选择 (stale revision)")
+		return 0, false, fmt.Errorf("战场已更新，请重新选择 (stale revision)")
 	}
-	defer func() {
-		if actionErr == nil {
-			e.revision++
-		}
-	}()
+	if playerID < 0 || playerID > 1 || e.State == nil || e.State.Players[playerID] == nil {
+		return 0, false, fmt.Errorf("invalid player or game not started")
+	}
+	switch action.Action {
+	case "mulligan", "summon", "consume", "cast_spell", "react_spell", "defend", "no_defend", "attack", "equip", "learn_skill", "use_item", "place_terrain", "use_ability", "resolve_action", "end_turn", "surrender", "offer_draw", "respond_draw_offer":
+	default:
+		return 0, false, fmt.Errorf("unknown action: %s", action.Action)
+	}
+	executed = true
+	defer func() { e.revision++ }()
 	e.actionSequence++
 	e.traceResolution("action_start", action.Action, nil)
 	defer func() {
@@ -74,44 +89,48 @@ func (e *Engine) HandleAction(playerID int, action ActionMessage) (actionErr err
 	defer e.enforceAllSlotCapacities()
 	defer e.endResolution()
 
-	switch action.Action {
-	case "mulligan":
-		return e.handleMulligan(playerID, action)
-	case "summon":
-		return e.handleSummon(playerID, action)
-	case "consume":
-		return e.handleConsume(playerID, action)
-	case "cast_spell":
-		return e.handleCastSpell(playerID, action)
-	case "react_spell":
-		return e.handleReactSpell(playerID, action)
-	case "defend":
-		return e.handleDefend(playerID, action)
-	case "no_defend":
-		return e.handleNoDefend(playerID, action)
-	case "attack":
-		return e.handleAttack(playerID, action)
-	case "equip":
-		return e.handleEquip(playerID, action)
-	case "learn_skill":
-		return e.handleLearnSkill(playerID, action)
-	case "use_item":
-		return e.handleUseItem(playerID, action)
-	case "place_terrain":
-		return e.handlePlaceTerrain(playerID, action)
-	case "use_ability":
-		return e.handleUseAbility(playerID, action)
-	case "resolve_action":
-		return e.handleResolveAction(playerID, action)
-	case "end_turn":
-		return e.handleEndTurn(playerID, action)
-	case "surrender":
-		return e.handleSurrender(playerID)
-	case "offer_draw":
-		return e.handleOfferDraw(playerID)
-	case "respond_draw_offer":
-		return e.handleRespondDrawOffer(playerID, action)
-	default:
-		return fmt.Errorf("unknown action: %s", action.Action)
-	}
+	actionErr = func() error {
+		switch action.Action {
+		case "mulligan":
+			return e.handleMulligan(playerID, action)
+		case "summon":
+			return e.handleSummon(playerID, action)
+		case "consume":
+			return e.handleConsume(playerID, action)
+		case "cast_spell":
+			return e.handleCastSpell(playerID, action)
+		case "react_spell":
+			return e.handleReactSpell(playerID, action)
+		case "defend":
+			return e.handleDefend(playerID, action)
+		case "no_defend":
+			return e.handleNoDefend(playerID, action)
+		case "attack":
+			return e.handleAttack(playerID, action)
+		case "equip":
+			return e.handleEquip(playerID, action)
+		case "learn_skill":
+			return e.handleLearnSkill(playerID, action)
+		case "use_item":
+			return e.handleUseItem(playerID, action)
+		case "place_terrain":
+			return e.handlePlaceTerrain(playerID, action)
+		case "use_ability":
+			return e.handleUseAbility(playerID, action)
+		case "resolve_action":
+			return e.handleResolveAction(playerID, action)
+		case "end_turn":
+			return e.handleEndTurn(playerID, action)
+		case "surrender":
+			return e.handleSurrender(playerID)
+		case "offer_draw":
+			return e.handleOfferDraw(playerID)
+		case "respond_draw_offer":
+			return e.handleRespondDrawOffer(playerID, action)
+		default:
+			return fmt.Errorf("unknown action: %s", action.Action)
+		}
+	}()
+	return
+
 }

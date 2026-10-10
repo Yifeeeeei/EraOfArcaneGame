@@ -587,9 +587,9 @@
             <aside id="decision" class="decision-workspace" aria-label="决策工作区">
                 <header class="workspace-heading"><span>决策工作区</span><small>{{ decisionOwnerLabel }}</small></header>
                 <div v-if="decisionError" role="alert" class="decision-error">{{ decisionError }}</div>
-                <div v-if="actionBusy" class="submission-status" role="status">正在提交，等待服务器确认…<button data-reconnect class="mini-btn" @click="reloadMatch">长时间无响应？重连核对</button></div>
+                <div v-if="actionBusy" class="submission-status" role="status">{{ decisionError ? '服务器已返回错误，正在同步战场…' : '操作已发送，等待服务器回执与状态…' }}<button data-reconnect class="mini-btn" @click="reloadMatch">长时间无响应？重连核对</button></div>
                 <div v-if="workspaceMode === 'review'" class="action-review">
-                    <div class="eyebrow">本地草稿 · 尚未提交</div>
+                    <div class="eyebrow">{{ actionBusy ? '已提交 · 等待状态同步' : '本地草稿 · 尚未提交' }}</div>
                     <h2>{{ draftTitle }}</h2>
                     <ul><li v-for="line in draftSummary" :key="line">{{ line }}</li></ul>
                     <p>确认后交由服务器校验并结算。</p>
