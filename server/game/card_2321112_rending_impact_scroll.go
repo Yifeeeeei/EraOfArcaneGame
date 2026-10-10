@@ -19,8 +19,8 @@ func (Card2321112RendingImpactScroll) OnSpellHit(ctx *EffectContext) error {
 	if len(candidates) == 0 {
 		return nil
 	}
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "rending_impact_distribute_damage",
-		"撕裂冲击卷轴:选择目标范围内单位分配共计3点伤害", candidates, 1, min(3, len(candidates)),
+	ctx.Engine.SetAllocatedPendingAction(ctx.PlayerID, "rending_impact_distribute_damage",
+		"撕裂冲击卷轴:选择目标范围内单位分配共计3点伤害", candidates, 1, min(3, len(candidates)), 3,
 		func(selected []string) {
 			if len(selected) == 0 {
 				return

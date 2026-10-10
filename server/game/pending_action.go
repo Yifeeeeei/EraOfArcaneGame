@@ -53,6 +53,33 @@ func (e *Engine) handleResolveAction(playerID int, action ActionMessage) error {
 		seen[id] = true
 	}
 
+	if raw, ok := action.Data["allocations"]; ok {
+		if pa.AllocationTotal <= 0 {
+			return fmt.Errorf("this decision does not accept allocations")
+		}
+		amounts, ok := raw.(map[string]any)
+		if !ok || len(amounts) != len(selected) {
+			return fmt.Errorf("allocation must match selected candidates")
+		}
+		expanded := []string{}
+		for _, id := range selected {
+			count, ok := intFromAny(amounts[id])
+			if raw, numeric := amounts[id].(float64); numeric && raw != float64(count) {
+				return fmt.Errorf("allocation amount must be an integer")
+			}
+			if !ok || count <= 0 || count > pa.AllocationTotal {
+				return fmt.Errorf("invalid allocation amount")
+			}
+			for i := 0; i < count; i++ {
+				expanded = append(expanded, id)
+			}
+		}
+		if len(expanded) != pa.AllocationTotal {
+			return fmt.Errorf("allocation total must equal %d", pa.AllocationTotal)
+		}
+		selected = expanded
+	}
+
 	// Execute callback
 	callback := pa.Callback
 	callbackData := pa.CallbackData
@@ -143,6 +170,10 @@ func (e *Engine) activatePendingAction(action *PendingAction, resumePhase GamePh
 	if action == nil {
 		return
 	}
+	if action.DecisionID == 0 {
+		e.decisionSequence++
+		action.DecisionID = e.decisionSequence
+	}
 	e.State.ResumePhase = resumePhase
 	e.State.Phase = PhaseWaitingAction
 	e.State.PendingAction = action
@@ -154,12 +185,14 @@ func (e *Engine) activatePendingAction(action *PendingAction, resumePhase GamePh
 
 func (e *Engine) emitPendingAction(action *PendingAction) {
 	data := map[string]any{
-		"type":       action.Type,
-		"player_id":  action.PlayerID,
-		"prompt":     action.Prompt,
-		"candidates": action.Candidates,
-		"min_select": action.MinSelect,
-		"max_select": action.MaxSelect,
+		"type":        action.Type,
+		"decision_id": action.DecisionID,
+		"ui":          pendingActionUI(action),
+		"player_id":   action.PlayerID,
+		"prompt":      action.Prompt,
+		"candidates":  action.Candidates,
+		"min_select":  action.MinSelect,
+		"max_select":  action.MaxSelect,
 	}
 	if action.Context != nil {
 		data["context"] = action.Context

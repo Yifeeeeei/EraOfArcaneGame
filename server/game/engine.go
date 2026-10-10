@@ -9,10 +9,12 @@ import (
 
 // Engine manages a single game instance
 type Engine struct {
-	State    *GameState
-	mu       sync.Mutex
-	callback EventCallback
-	log      []GameEvent
+	revision         uint64
+	decisionSequence uint64
+	State            *GameState
+	mu               sync.Mutex
+	callback         EventCallback
+	log              []GameEvent
 
 	resolutionDepth int
 	resolvingDeaths bool
@@ -47,6 +49,14 @@ func (e *Engine) HandleAction(playerID int, action ActionMessage) (actionErr err
 	e.mu.Lock()
 	defer e.mu.Unlock()
 
+	if action.ExpectedRevision != nil && *action.ExpectedRevision != e.revision {
+		return fmt.Errorf("战场已更新，请重新选择 (stale revision)")
+	}
+	defer func() {
+		if actionErr == nil {
+			e.revision++
+		}
+	}()
 	e.actionSequence++
 	e.traceResolution("action_start", action.Action, nil)
 	defer func() {

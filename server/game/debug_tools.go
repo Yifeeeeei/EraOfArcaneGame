@@ -24,7 +24,7 @@ func (e *Engine) DebugAddCard(playerID int, cardNumber string, zone string, coun
 	return e.DebugAddCardAt(playerID, cardNumber, zone, count, -1, -1)
 }
 
-func (e *Engine) DebugAddCardAt(playerID int, cardNumber string, zone string, count int, col int, row int) error {
+func (e *Engine) DebugAddCardAt(playerID int, cardNumber string, zone string, count int, col int, row int) (actionErr error) {
 	if count <= 0 {
 		count = 1
 	}
@@ -40,6 +40,11 @@ func (e *Engine) DebugAddCardAt(playerID int, cardNumber string, zone string, co
 
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	defer func() {
+		if actionErr == nil {
+			e.revision++
+		}
+	}()
 
 	if e.State == nil {
 		return fmt.Errorf("game is not started")
@@ -151,9 +156,14 @@ func firstEmptyEquipmentSlot(ps *PlayerState) int {
 
 // DebugUpdateElements changes a player's element pool in a test room.
 // mode="set" replaces values; all other modes add deltas.
-func (e *Engine) DebugUpdateElements(playerID int, elements map[string]int, mode string) error {
+func (e *Engine) DebugUpdateElements(playerID int, elements map[string]int, mode string) (actionErr error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	defer func() {
+		if actionErr == nil {
+			e.revision++
+		}
+	}()
 
 	if e.State == nil {
 		return fmt.Errorf("game is not started")
@@ -203,9 +213,14 @@ type DebugCardMutation struct {
 	Mode       string         `json:"mode,omitempty"`
 }
 
-func (e *Engine) DebugMutateCard(playerID int, mutation DebugCardMutation) error {
+func (e *Engine) DebugMutateCard(playerID int, mutation DebugCardMutation) (actionErr error) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	defer func() {
+		if actionErr == nil {
+			e.revision++
+		}
+	}()
 
 	if e.State == nil {
 		return fmt.Errorf("game is not started")

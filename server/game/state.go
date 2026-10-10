@@ -391,21 +391,23 @@ func (p GamePhase) String() string {
 
 // PendingAction represents a player choice that must be resolved
 type PendingAction struct {
-	Type         string                                             `json:"type"`       // "select_target", "select_card", "discard", "select_position"
-	PlayerID     int                                                `json:"player_id"`  // which player must choose
-	Prompt       string                                             `json:"prompt"`     // display text
-	Candidates   []map[string]any                                   `json:"candidates"` // selectable options (cards or positions)
-	MinSelect    int                                                `json:"min_select"` // minimum selections required
-	MaxSelect    int                                                `json:"max_select"` // maximum selections allowed
-	Context      map[string]any                                     `json:"context,omitempty"`
-	Cost         map[string]int                                     `json:"cost,omitempty"`
-	CanOverexert bool                                               `json:"can_overexert,omitempty"`
-	Callback     func(selected []string)                            `json:"-"` // called when resolved
-	CallbackData func(selected []string, data map[string]any)       `json:"-"`
-	CallbackErr  func(selected []string, data map[string]any) error `json:"-"`
-	Refresh      func(*PendingAction)                               `json:"-"` // refresh queued choices after earlier effects change the board
-	Available    func() bool                                        `json:"-"` // checked before a queued action is shown
-	resolutions  []*resolutionFrame
+	AllocationTotal int                                                `json:"allocation_total,omitempty"`
+	DecisionID      uint64                                             `json:"decision_id"`
+	Type            string                                             `json:"type"`       // "select_target", "select_card", "discard", "select_position"
+	PlayerID        int                                                `json:"player_id"`  // which player must choose
+	Prompt          string                                             `json:"prompt"`     // display text
+	Candidates      []map[string]any                                   `json:"candidates"` // selectable options (cards or positions)
+	MinSelect       int                                                `json:"min_select"` // minimum selections required
+	MaxSelect       int                                                `json:"max_select"` // maximum selections allowed
+	Context         map[string]any                                     `json:"context,omitempty"`
+	Cost            map[string]int                                     `json:"cost,omitempty"`
+	CanOverexert    bool                                               `json:"can_overexert,omitempty"`
+	Callback        func(selected []string)                            `json:"-"` // called when resolved
+	CallbackData    func(selected []string, data map[string]any)       `json:"-"`
+	CallbackErr     func(selected []string, data map[string]any) error `json:"-"`
+	Refresh         func(*PendingAction)                               `json:"-"` // refresh queued choices after earlier effects change the board
+	Available       func() bool                                        `json:"-"` // checked before a queued action is shown
+	resolutions     []*resolutionFrame
 }
 
 // GameState holds the entire game state

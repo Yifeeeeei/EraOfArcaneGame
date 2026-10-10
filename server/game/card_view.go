@@ -33,6 +33,11 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		"is_companion":              ci.Card.IsCompanion(),
 		"is_consumable":             cards.IsConsumable(ci.Card.Number),
 		"is_equipment":              cards.IsEquipment(ci.Card.Number),
+		"is_spell_scroll":           isSpellScrollCard(ci.Card),
+		"equipment_subtype":         restrictedEquipmentSubtype(ci.Card),
+		"is_drive":                  hasCardTag(ci.Card, "驱动"),
+		"boost_grants_pierce":       ci.Card.Number == "3121015",
+		"preparation":               cardPreparationUI(ci),
 		"is_weapon":                 cards.IsWeapon(ci.Card.Number),
 		"can_attack_from_non_front": cardCanAttackFromNonFront(ci),
 		"has_taunt":                 cardHasTaunt(ci),
@@ -223,6 +228,7 @@ func turnOrderLabel(playerID int, firstPlayer int) string {
 func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any {
 	info := map[string]any{
 		"player_id":                      ps.PlayerID,
+		"light_wildcard":                 e.playerHasLightWildcard(ps),
 		"player_name":                    ps.PlayerName,
 		"hero":                           e.cardToInfoForPlayer(ps, ps.Hero),
 		"elements":                       ps.Elements,
@@ -324,7 +330,20 @@ func (e *Engine) cardToInfoForPlayer(ps *PlayerState, card *CardInstance) map[st
 	if ps == nil || card == nil || card.Card == nil {
 		return info
 	}
+	if validator, ok := behaviorForNumber(card.Card.Number).(ItemUseValidationBehavior); ok {
+		if err := validator.ValidateItemUse(&EffectContext{Engine: e, Source: card, PlayerID: ps.PlayerID, OpponentID: 1 - ps.PlayerID}); err != nil {
+			info["unavailable_reason"] = err.Error()
+		}
+	}
 	if isSpellLikeCard(card.Card) {
+		info["requires_extra_target"] = card.Card.Number == "3321001" || card.Card.Number == "3621107"
+		info["extra_target_can_repeat"] = e.allowsSameSpellExtraTarget(ps, card)
+		if e.validateSkillUsePermissionModifiers(card, skillPurposeDefend) != nil {
+			info["can_defend"] = false
+		}
+		if e.validateSkillUsePermissionModifiers(card, skillPurposeDefenseBoost) != nil {
+			info["can_defense_boost"] = false
+		}
 		info["extra_target_ignore_range"] = e.extraTargetIgnoresRange(ps.PlayerID, card)
 		info["has_pierce"] = e.skillHasPierce(ps.PlayerID, card)
 		info["spell_area"] = e.effectiveSpellArea(card)

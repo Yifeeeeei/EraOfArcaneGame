@@ -11,8 +11,8 @@ func (Card2201103DreamRipple) OnUseItem(ctx *EffectContext) error {
 	if len(candidates) == 0 {
 		return nil
 	}
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "dream_ripple_damage",
-		"幻创之梦-波纹:选择前排敌人分配共计3点伤害", candidates, 1, min(3, len(candidates)),
+	ctx.Engine.SetAllocatedPendingAction(ctx.PlayerID, "dream_ripple_damage",
+		"幻创之梦-波纹:选择前排敌人分配共计3点伤害", candidates, 1, min(3, len(candidates)), 3,
 		func(selected []string) {
 			if len(selected) == 0 {
 				return

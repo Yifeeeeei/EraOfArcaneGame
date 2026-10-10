@@ -1,0 +1,90 @@
+package game
+
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+func TestDecisionRevisionRejectsOldDraftAndDuplicate(t *testing.T) {
+	e := setupTestEngine(t)
+	e.State.Phase = PhaseMain
+	e.State.CurrentTurn = 0
+	revision := e.revision
+	action := ActionMessage{Action: "offer_draw", ExpectedRevision: &revision}
+	if err := e.HandleAction(0, action); err != nil {
+		t.Fatal(err)
+	}
+	if e.revision != revision+1 {
+		t.Fatal("accepted action must advance revision")
+	}
+	if err := e.HandleAction(0, action); err == nil || !strings.Contains(err.Error(), "stale revision") {
+		t.Fatalf("duplicate accepted: %v", err)
+	}
+	if e.revision != revision+1 {
+		t.Fatal("rejected action advanced revision")
+	}
+}
+
+func TestConsecutiveIdenticalChoicesHaveDistinctIDsAndPrivacy(t *testing.T) {
+	e := setupTestEngine(t)
+	e.State.Phase = PhaseMain
+	candidates := []map[string]any{{"instance_id": "private-candidate", "name": "private-counter"}}
+	e.SetPendingAction(0, "counter_trigger", "private-prompt", candidates, 0, 1, func([]string) {})
+	first := e.State.PendingAction.DecisionID
+	e.SetPendingAction(0, "counter_trigger", "private-prompt", candidates, 0, 1, func([]string) {})
+	if err := e.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{"selected": []any{}}}); err != nil {
+		t.Fatal(err)
+	}
+	if e.State.PendingAction == nil || e.State.PendingAction.DecisionID <= first {
+		t.Fatal("consecutive decision identity reused")
+	}
+	for _, view := range []map[string]any{e.GetStateForPlayer(1), e.GetStateForSpectator()} {
+		b, _ := json.Marshal(view)
+		for _, secret := range []string{"private-candidate", "private-counter", "private-prompt", "counter_trigger"} {
+			if strings.Contains(string(b), secret) {
+				t.Fatalf("private decision leaked: %s", secret)
+			}
+		}
+		if view["decision_player"] != 0 {
+			t.Fatal("decision owner missing")
+		}
+	}
+	own := e.GetStateForPlayer(0)["pending_action"].(map[string]any)
+	if own["decision_id"] != e.State.PendingAction.DecisionID {
+		t.Fatal("owner identity missing")
+	}
+}
+
+func TestDecisionPrimitiveContracts(t *testing.T) {
+	for typ, kind := range map[string]string{"water_divination_search": "reorder", "natural_communion_distribute": "load_distribution", "new_mechanic": "selection"} {
+		if pendingActionUI(&PendingAction{Type: typ})["kind"] != kind {
+			t.Fatal(typ)
+		}
+	}
+}
+
+func TestAllocationPrimitiveValidatesBeforeCallback(t *testing.T) {
+	e := setupTestEngine(t)
+	e.State.Phase = PhaseMain
+	var received []string
+	e.SetAllocatedPendingAction(0, "allocation", "allocate", []map[string]any{{"instance_id": "a"}, {"instance_id": "b"}}, 1, 2, 4, func(ids []string) { received = ids })
+	invalid := ActionMessage{Action: "resolve_action", Data: map[string]any{"selected": []any{"a", "b"}, "allocations": map[string]any{"a": float64(2), "b": float64(1)}}}
+	if err := e.HandleAction(0, invalid); err == nil {
+		t.Fatal("invalid total accepted")
+	}
+	if len(received) != 0 || e.State.PendingAction == nil {
+		t.Fatal("invalid allocation consumed decision")
+	}
+	invalid.Data["allocations"] = map[string]any{"a": float64(3.5), "b": float64(1)}
+	if err := e.HandleAction(0, invalid); err == nil {
+		t.Fatal("fractional allocation accepted")
+	}
+	invalid.Data["allocations"] = map[string]any{"a": float64(2), "b": float64(2)}
+	if err := e.HandleAction(0, invalid); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Join(received, ",") != "a,a,b,b" {
+		t.Fatalf("wrong allocation: %v", received)
+	}
+}
