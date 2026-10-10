@@ -301,7 +301,7 @@
                 <div class="pending-actions">
                     <button @click="submitPendingAction()" class="btn btn-success"
                             :disabled="pendingSelected.length < pendingAction.min_select || pendingSelected.length > pendingAction.max_select">
-                        确认
+                        {{ pendingConfirmLabel() }}
                     </button>
                 </div>
             </div>
@@ -682,7 +682,7 @@
                     <div class="pending-inline-actions">
                         <button @click="submitPendingAction()" class="btn btn-success"
                                 :disabled="pendingSelected.length < pendingAction.min_select || pendingSelected.length > pendingAction.max_select">
-                            确认选择
+                            {{ pendingConfirmLabel() }}
                         </button>
                     </div>
                 </div>
@@ -2517,7 +2517,7 @@
                 if (selectedAttacker.value) return !!unit && row === opponentFrontRow.value;
                 const spell = activeTargetSpell();
                 if (!spell) return false;
-                if (pendingExtraTargetCast.value && selectedSkillNeedsExtraTarget(selectedSkill.value)) return !!unit;
+                if (pendingExtraTargetCast.value && spell.extra_target_ignore_range) return !!unit;
                 const area = spell.spell_area || 'single';
                 if (area === 'front_row') {
                     return !!unit && row === opponentFrontRow.value;
@@ -3437,8 +3437,9 @@
             function pendingCandidateDetail(candidate) {
                 if (!candidate) return '';
                 const parts = [];
-                if (typeof candidate.power === 'number') {
-                    parts.push(`${candidate.is_main ? '主法术' : '强化法术'} · 威力 ${candidate.power}`);
+                if (typeof candidate.power === 'number' && candidate.power >= 0) {
+                    const role = typeof candidate.is_main === 'boolean' ? (candidate.is_main ? '主法术 · ' : '强化法术 · ') : '';
+                    parts.push(`${role}威力 ${candidate.power}`);
                 }
                 if (candidate.elements_gain && totalCost(candidate.elements_gain) > 0) {
                     parts.push(`负载 ${costLabel(candidate.elements_gain)}`);
@@ -3446,7 +3447,24 @@
                 if (candidate.position && typeof candidate.position.col === 'number' && typeof candidate.position.row === 'number') {
                     parts.push(`位置 ${candidate.position.col + 1}-${candidate.position.row + 1}`);
                 }
+                if (candidate.side) parts.unshift(candidate.side === 'own' ? '己方' : candidate.side === 'enemy' ? '敌方' : candidate.side);
+                else if (candidate.owner !== undefined) parts.unshift(pendingContextPlayerLabel(candidate.owner));
+                if (candidate.zone) parts.push(zoneLabel(candidate.zone));
+                if (candidate.current_life >= 0) parts.push(`血 ${candidate.current_life}`);
+                if (typeof candidate.is_horizontal === 'boolean') parts.push(candidate.is_horizontal ? '横置' : '竖置');
+                for (const [name, amount] of Object.entries(candidate.statuses || {})) {
+                    if (amount > 0) parts.push(`${name} ${amount}`);
+                }
+                if (candidate.number && !candidate.position) {
+                    const index = (pendingAction.value?.candidates || []).findIndex(c => c.instance_id === candidate.instance_id);
+                    if (index >= 0) parts.push(`候选 ${index + 1}`);
+                }
                 return parts.join(' · ');
+            }
+
+            function pendingConfirmLabel() {
+                if (!pendingSelected.value.length && pendingAction.value?.min_select === 0 && !isDeckReorderPending()) return '不选择 / 放弃发动';
+                return '确认选择';
             }
 
             function pendingContextPlayerLabel(playerID) {
@@ -3593,7 +3611,9 @@
                         if (existingSameSide) return;
                     }
                     const max = pendingAction.value?.max_select || 1;
-                    if (pendingSelected.value.length < max) {
+                    if (max === 1) {
+                        pendingSelected.value = [id];
+                    } else if (pendingSelected.value.length < max) {
                         pendingSelected.value.push(id);
                     }
                 }
@@ -3607,6 +3627,7 @@
                     });
                     return;
                 }
+                sendClientLog('info', 'pending_selection_submitted', { type: pendingAction.value.type, count: pendingSelected.value.length });
                 const payload = { selected: [...pendingSelected.value] };
                 if (isDeckReorderPending()) {
                     payload.top_order = pendingTopOrder();
@@ -4240,6 +4261,11 @@
                         const name = document.createElement('span');
                         name.textContent = candidate.name || candidate.instance_id || '选项';
                         button.appendChild(name);
+                        const detail = document.createElement('span');
+                        detail.className = 'pending-emergency-detail';
+                        detail.textContent = pendingCandidateDetail(candidate);
+                        button.appendChild(detail);
+                        button.title = [name.textContent, detail.textContent].filter(Boolean).join(' · ');
                         button.addEventListener('click', () => {
                             togglePendingSelect(candidate);
                             repaint();
@@ -4297,6 +4323,7 @@
                     }
                     const min = Number(pendingAction.value?.min_select || 0);
                     const max = Number(pendingAction.value?.max_select || 0);
+                    confirm.textContent = pendingConfirmLabel();
                     confirm.disabled = pendingSelected.value.length < min || pendingSelected.value.length > max;
                 };
                 confirm.addEventListener('click', () => {
@@ -4466,7 +4493,7 @@
                 totalDefensePower, totalDefenseCost, defenseAvailableElements, pendingAttackPower, defenseSummaryText, defenseSummaryClass, defensePower, defenseBoostPower, defensePaymentCost, isDefenseBoostDisabled, handleDefensePanelClick, showInteractionCardContextMenu, toggleDefenseSkill, toggleDefenseScroll, toggleDefenseBoost, toggleDefenseOverexert, toggleDefensePowerSacrifice, reactSpell, submitDefend,
                 hoverOpponentCell, clearHoverOpponentCell, isSpellAreaPreview,
                 // Pending action
-                pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction, pendingCandidateDetail, pendingContextText,
+                pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction, pendingConfirmLabel, pendingCandidateDetail, pendingContextText,
                 isPendingPositionCandidate, pendingPositionLabel, pendingPositionCells,
                 isCounterPending, pendingOverexertUnits, pendingOverexertSelected, togglePendingOverexert,
                 isDeckReorderPending, pendingOrderedCandidates, movePendingCandidate, togglePendingBottom, isPendingBottom,

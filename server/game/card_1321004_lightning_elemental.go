@@ -2,8 +2,10 @@ package game
 
 type Card1321004LightningElemental struct{ AlwaysActive }
 
-func (Card1321004LightningElemental) ID() string   { return "1321004" }
+func (Card1321004LightningElemental) ID() string { return "1321004" }
+
 func (Card1321004LightningElemental) Name() string { return "雷电元素" }
+
 func (Card1321004LightningElemental) OnEnter(ctx *EffectContext) error {
 	candidates := append(ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
 		return card != ctx.Source && card.Card.IsCompanion()

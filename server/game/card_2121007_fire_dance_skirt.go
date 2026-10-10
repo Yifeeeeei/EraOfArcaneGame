@@ -2,7 +2,8 @@ package game
 
 type Card2121007FireDanceSkirt struct{ AlwaysActive }
 
-func (Card2121007FireDanceSkirt) ID() string   { return "2121007" }
+func (Card2121007FireDanceSkirt) ID() string { return "2121007" }
+
 func (Card2121007FireDanceSkirt) Name() string { return "舞火战裙" }
 
 func (Card2121007FireDanceSkirt) OnUltimate(ctx *EffectContext) error {

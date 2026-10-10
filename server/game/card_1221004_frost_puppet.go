@@ -2,8 +2,10 @@ package game
 
 type Card1221004FrostPuppet struct{ AlwaysActive }
 
-func (Card1221004FrostPuppet) ID() string   { return "1221004" }
+func (Card1221004FrostPuppet) ID() string { return "1221004" }
+
 func (Card1221004FrostPuppet) Name() string { return "寒霜傀儡" }
+
 func (Card1221004FrostPuppet) OnEnter(ctx *EffectContext) error {
 	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
 		return card.Card.IsCompanion() && card.Position != nil && ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)

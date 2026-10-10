@@ -3058,7 +3058,7 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		engine.triggerEffects(TriggerOnUseItem, shelter, nil, nil)
 		engine.triggerEffects(TriggerOnUseItem, sanction, nil, nil)
 
-		types := map[string]bool{}
+		types := map[ModifierKind]bool{}
 		for _, modifier := range p0.TempModifiers {
 			types[modifier.Type] = true
 		}
@@ -3889,6 +3889,7 @@ func TestRoom5543CardAndTargetingRegressions(t *testing.T) {
 		skill := readySkill(baseCard(t, "3621002"), 0)
 		p0.Skills[0] = skill
 		ally := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
+		buffTarget := placeUnit(baseCard(t, "1021004"), 0, 2, 0, engine)
 		ownerID := 0
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
@@ -3900,11 +3901,19 @@ func TestRoom5543CardAndTargetingRegressions(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("cast Bloodsuck at friendly unit: %v", err)
 		}
-		if engine.State.PendingSpell != nil {
-			t.Fatalf("friendly target should resolve without opening opponent defense, pending=%+v", engine.State.PendingSpell)
+		if engine.State.Phase == PhaseDefenseWindow {
+			t.Fatal("friendly target must not open opponent defense")
 		}
-		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "bloodsuck_buff" {
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "bloodsuck_buff" || engine.State.PendingAction.PlayerID != 0 {
 			t.Fatalf("friendly target should still reach Bloodsuck hit effect, pending action=%+v", engine.State.PendingAction)
+		}
+		// PendingSpell now owns the complete hit interaction, including this
+		// friendly post-hit choice. Its presence does not mean defense is open.
+		if err := resolvePendingSelectionWithData(engine, 0, []string{buffTarget.InstanceID}, nil); err != nil {
+			t.Fatal(err)
+		}
+		if engine.State.PendingSpell != nil || engine.State.Phase != PhaseMain {
+			t.Fatal("Bloodsuck did not finish after its post-hit choice")
 		}
 	})
 
@@ -11027,7 +11036,7 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 		p0.Deck = []*CardInstance{other, earth}
 		engine.State.TurnNumber = 1
 
-		engine.triggerEffects(TriggerOnTurnStart, whitebeard, nil, nil)
+		engine.triggerEffects(TriggerBeforeDraw, whitebeard, nil, nil)
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "whitebeard_first_turn_search" {
 			t.Fatalf("Whitebeard should offer an optional first-turn search, pending=%+v", engine.State.PendingAction)
 		}
@@ -11040,7 +11049,7 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 			t.Fatalf("Whitebeard should search the earth creature, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
 		}
 		engine.State.TurnNumber = 2
-		engine.triggerEffects(TriggerOnTurnStart, whitebeard, nil, nil)
+		engine.triggerEffects(TriggerBeforeDraw, whitebeard, nil, nil)
 		if len(p0.Hand) != 1 {
 			t.Fatalf("Whitebeard should not search after turn one, hand=%v", cardsToInfo(p0.Hand))
 		}
@@ -11774,7 +11783,7 @@ func TestDamagedAndDeathTriggeredCardEffects(t *testing.T) {
 
 		engine.dealDamage(ally, 5, 0)
 
-		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "dolphin_prevent_lethal" {
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "prevent_lethal_sacrifice" {
 			t.Fatalf("dolphin should ask whether to prevent lethal damage, pending=%+v", engine.State.PendingAction)
 		}
 		if ally.CurrentLife != 2 || engine.State.Players[0].Units[1][0] != ally {
@@ -11801,7 +11810,7 @@ func TestDamagedAndDeathTriggeredCardEffects(t *testing.T) {
 
 		engine.dealDamage(ally, 5, 0)
 
-		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "dolphin_prevent_lethal" {
+		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "prevent_lethal_sacrifice" {
 			t.Fatalf("dolphin should ask whether to prevent lethal damage, pending=%+v", engine.State.PendingAction)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{

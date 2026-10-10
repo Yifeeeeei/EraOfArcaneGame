@@ -1,22 +1,9 @@
 package game
 
-// effect_builders.go — 可复用的效果构建器
-// 每个函数返回一个 EffectHandler，可直接用于 Register/RegisterActive
-//
-// 使用方式:
-//   r.Register("1234567", TriggerOnEnter, DrawCards(2))
-//   r.Register("1234567", TriggerOnDeath, DealDamageAuto(3))
-
 import (
-	"fmt"
-	"math/rand"
-
 	"eraofarcane/model"
+	"fmt"
 )
-
-// ══════════════════════════════════════
-// 抽牌 / 充能
-// ══════════════════════════════════════
 
 // DrawCards 抽N张牌
 func DrawCards(n int) EffectHandler {
@@ -40,17 +27,13 @@ func GainCharge(n int) EffectHandler {
 	}
 }
 
-// ══════════════════════════════════════
-// 伤害
-// ══════════════════════════════════════
-
 // DealDamageToTarget 对指定目标造成N点伤害（需要ctx.Target）
 func DealDamageToTarget(n int) EffectHandler {
 	return func(ctx *EffectContext) error {
 		if ctx.Target == nil {
 			return nil
 		}
-		ctx.Engine.dealDamage(ctx.Target, n, ctx.OpponentID)
+		ctx.DealDamage(ctx.Target, n)
 		ctx.Engine.emit(GameEvent{
 			Type: "effect_trigger", Player: -1,
 			Data: map[string]any{
@@ -73,8 +56,7 @@ func DealDamageAuto(n int) EffectHandler {
 		if target == nil {
 			return nil
 		}
-		ownerOfTarget := target.OwnerID
-		ctx.Engine.dealDamage(target, n, ownerOfTarget)
+		ctx.DealDamage(target, n)
 		ctx.Engine.emit(GameEvent{
 			Type: "effect_trigger", Player: -1,
 			Data: map[string]any{
@@ -90,11 +72,11 @@ func DealDamageAuto(n int) EffectHandler {
 func DealDamageToRandomEnemy(n int) EffectHandler {
 	return func(ctx *EffectContext) error {
 		opponent := ctx.Engine.State.Players[ctx.OpponentID]
-		target := findRandomUnit(opponent)
+		target := ctx.Engine.findRandomUnit(opponent)
 		if target == nil {
 			return nil
 		}
-		ctx.Engine.dealDamage(target, n, ctx.OpponentID)
+		ctx.DealDamage(target, n)
 		ctx.Engine.emit(GameEvent{
 			Type: "effect_trigger", Player: -1,
 			Data: map[string]any{
@@ -111,7 +93,7 @@ func DealDamageToSelfHero(n int) EffectHandler {
 	return func(ctx *EffectContext) error {
 		ps := ctx.Engine.State.Players[ctx.PlayerID]
 		if ps.Hero != nil {
-			ctx.Engine.dealDamage(ps.Hero, n, ctx.PlayerID)
+			ctx.DealDamage(ps.Hero, n)
 		}
 		return nil
 	}
@@ -122,15 +104,11 @@ func DealDamageToEnemyHero(n int) EffectHandler {
 	return func(ctx *EffectContext) error {
 		opponent := ctx.Engine.State.Players[ctx.OpponentID]
 		if opponent.Hero != nil {
-			ctx.Engine.dealDamage(opponent.Hero, n, ctx.OpponentID)
+			ctx.DealDamage(opponent.Hero, n)
 		}
 		return nil
 	}
 }
-
-// ══════════════════════════════════════
-// 状态效果
-// ══════════════════════════════════════
 
 // ApplyStatusToTarget 对指定目标施加状态（需要ctx.Target）
 func ApplyStatusToTarget(status string, amount int) EffectHandler {
@@ -180,10 +158,6 @@ func RemoveStatusFromTarget(status string) EffectHandler {
 	}
 }
 
-// ══════════════════════════════════════
-// 护盾 / 隐蔽
-// ══════════════════════════════════════
-
 // GainShield 自身获得护盾
 func GainShield(amount int) EffectHandler {
 	return func(ctx *EffectContext) error {
@@ -206,10 +180,6 @@ func GiveShieldToTarget(amount int) EffectHandler {
 		return nil
 	}
 }
-
-// ══════════════════════════════════════
-// 数值修改
-// ══════════════════════════════════════
 
 // ModifySelfAttack 修改自身攻击力（可正可负）
 func ModifySelfAttack(delta int) EffectHandler {
@@ -293,10 +263,6 @@ func HealHero(n int) EffectHandler {
 	}
 }
 
-// ══════════════════════════════════════
-// 元素
-// ══════════════════════════════════════
-
 // GainElements 获得指定元素
 func GainElements(elements map[string]int) EffectHandler {
 	return func(ctx *EffectContext) error {
@@ -312,10 +278,6 @@ func GainElements(elements map[string]int) EffectHandler {
 		return nil
 	}
 }
-
-// ══════════════════════════════════════
-// 组合效果
-// ══════════════════════════════════════
 
 // Combine 组合多个效果，依次执行
 func Combine(handlers ...EffectHandler) EffectHandler {
@@ -336,12 +298,8 @@ func NoEffect() EffectHandler {
 	}
 }
 
-// ══════════════════════════════════════
-// 辅助函数
-// ══════════════════════════════════════
-
 // findRandomUnit 随机找一个单位
-func findRandomUnit(ps *PlayerState) *CardInstance {
+func (e *Engine) findRandomUnit(ps *PlayerState) *CardInstance {
 	var units []*CardInstance
 	for col := 0; col < 3; col++ {
 		for row := 0; row < 3; row++ {
@@ -353,12 +311,8 @@ func findRandomUnit(ps *PlayerState) *CardInstance {
 	if len(units) == 0 {
 		return nil
 	}
-	return units[rand.Intn(len(units))]
+	return units[e.randomIntn(len(units))]
 }
-
-// ══════════════════════════════════════
-// 检索卡组
-// ══════════════════════════════════════
 
 // SearchDeckAndDraw 检索卡组拿取符合条件的卡（简化版：自动拿取）
 // 完整版应该让玩家选择，这里先实现自动拿第一张匹配
@@ -383,16 +337,12 @@ func SearchDeckAndDraw(predicate func(*model.Card) bool) EffectHandler {
 	}
 }
 
-// ══════════════════════════════════════
-// 弃牌
-// ══════════════════════════════════════
-
 // DiscardRandom 随机弃N张手牌
 func DiscardRandom(n int) EffectHandler {
 	return func(ctx *EffectContext) error {
 		ps := ctx.Engine.State.Players[ctx.PlayerID]
 		for i := 0; i < n && len(ps.Hand) > 0; i++ {
-			idx := rand.Intn(len(ps.Hand))
+			idx := ctx.Engine.randomIntn(len(ps.Hand))
 			ctx.Engine.discardHandCardAt(ctx.PlayerID, idx)
 		}
 		return nil
@@ -417,10 +367,6 @@ func DiscardSelf() EffectHandler {
 	}
 }
 
-// ══════════════════════════════════════
-// 召唤
-// ══════════════════════════════════════
-
 // SummonToken 召唤衍生物到前排空位
 func SummonToken(cardID string) EffectHandler {
 	return func(ctx *EffectContext) error {
@@ -439,7 +385,7 @@ func SummonToken(cardID string) EffectHandler {
 				if ctx.Engine.State != nil {
 					turn = ctx.Engine.State.TurnNumber
 				}
-				instance := NewCardInstance(card, ctx.PlayerID, turn)
+				instance := ctx.Engine.newCardInstance(card, ctx.PlayerID, turn)
 				instance.Position = &Position{Col: col, Row: 0}
 				ps.Units[col][0] = instance
 				ctx.Engine.ApplyKeywordOnEnter(instance)
@@ -455,10 +401,6 @@ func SummonToken(cardID string) EffectHandler {
 	}
 }
 
-// ══════════════════════════════════════
-// 献祭相关
-// ══════════════════════════════════════
-
 // SacrificeSelfAndDo 献祭自身并执行效果
 func SacrificeSelfAndDo(effect EffectHandler) EffectHandler {
 	return Combine(DiscardSelf(), effect)
@@ -472,14 +414,10 @@ func SacrificeTarget() EffectHandler {
 		}
 		// 对目标造成等同于其当前生命的伤害（即死效果）
 		damage := ctx.Target.CurrentLife
-		ctx.Engine.dealDamage(ctx.Target, damage, ctx.OpponentID)
+		ctx.DealDamage(ctx.Target, damage)
 		return nil
 	}
 }
-
-// ══════════════════════════════════════
-// 辅助函数
-// ══════════════════════════════════════
 
 func removeCardFromDeck(deck []*CardInstance, instanceID string) []*CardInstance {
 	for i, c := range deck {

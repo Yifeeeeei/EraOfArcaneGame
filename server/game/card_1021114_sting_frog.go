@@ -2,7 +2,8 @@ package game
 
 type Card1021114StingFrog struct{ AlwaysActive }
 
-func (Card1021114StingFrog) ID() string   { return "1021114" }
+func (Card1021114StingFrog) ID() string { return "1021114" }
+
 func (Card1021114StingFrog) Name() string { return "蛰蛙" }
 
 func (Card1021114StingFrog) OnSpellCast(ctx *EffectContext) error {

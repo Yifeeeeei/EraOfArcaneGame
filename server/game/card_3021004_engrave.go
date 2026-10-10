@@ -2,7 +2,8 @@ package game
 
 type Card3021004Engrave struct{ AlwaysActive }
 
-func (Card3021004Engrave) ID() string   { return "3021004" }
+func (Card3021004Engrave) ID() string { return "3021004" }
+
 func (Card3021004Engrave) Name() string { return "刻印" }
 
 func (Card3021004Engrave) OnSpellCast(ctx *EffectContext) error {

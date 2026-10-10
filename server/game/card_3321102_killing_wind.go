@@ -2,8 +2,10 @@ package game
 
 type Card3321102KillingWind struct{ AlwaysActive }
 
-func (Card3321102KillingWind) ID() string   { return "3321102" }
+func (Card3321102KillingWind) ID() string { return "3321102" }
+
 func (Card3321102KillingWind) Name() string { return "肃杀之风" }
+
 func (Card3321102KillingWind) ModifySkillContribution(ctx *EffectContext, stats *SpellStats) {
 	if ctx == nil || ctx.Engine == nil {
 		return

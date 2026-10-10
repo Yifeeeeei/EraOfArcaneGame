@@ -2,7 +2,8 @@ package game
 
 type Card3421013EarthResonance struct{ AlwaysActive }
 
-func (Card3421013EarthResonance) ID() string   { return "3421013" }
+func (Card3421013EarthResonance) ID() string { return "3421013" }
+
 func (Card3421013EarthResonance) Name() string { return "大地共鸣" }
 
 func (Card3421013EarthResonance) ModifySkillContribution(ctx *EffectContext, stats *SpellStats) {

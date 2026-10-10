@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card2611001NecromancyStoneVoid struct{ AlwaysActive }
 
-func (Card2611001NecromancyStoneVoid) ID() string   { return "2611001" }
+func (Card2611001NecromancyStoneVoid) ID() string { return "2611001" }
+
 func (Card2611001NecromancyStoneVoid) Name() string { return "死灵魔石 虚无" }
 
 func (Card2611001NecromancyStoneVoid) OnFriendlyDeath(ctx *EffectContext) error {

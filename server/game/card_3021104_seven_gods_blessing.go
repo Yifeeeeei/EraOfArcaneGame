@@ -2,7 +2,8 @@ package game
 
 type Card3021104SevenGodsBlessing struct{ AlwaysActive }
 
-func (Card3021104SevenGodsBlessing) ID() string   { return "3021104" }
+func (Card3021104SevenGodsBlessing) ID() string { return "3021104" }
+
 func (Card3021104SevenGodsBlessing) Name() string { return "七神加护" }
 
 func (Card3021104SevenGodsBlessing) ModifySkillUseCost(ctx *EffectContext, cost map[string]int) {
@@ -40,4 +41,5 @@ func allLearnedSkillCategoriesDifferent(ctx *EffectContext) bool {
 }
 
 var _ SkillUseCostModifier = Card3021104SevenGodsBlessing{}
+
 var _ SpellStatModifier = Card3021104SevenGodsBlessing{}

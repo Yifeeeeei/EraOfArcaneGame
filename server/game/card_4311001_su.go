@@ -1,11 +1,16 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+	"fmt"
+)
 
 type Card4311001Su struct{ AlwaysActive }
 
-func (Card4311001Su) ID() string   { return "4311001" }
+func (Card4311001Su) ID() string { return "4311001" }
+
 func (Card4311001Su) Name() string { return "雷术士 肃" }
+
 func (Card4311001Su) OnUltimate(ctx *EffectContext) error {
 	airCards := ctx.Engine.friendlyHandCards(ctx.PlayerID, func(card *CardInstance) bool {
 		return card.Card.Category == model.ElementAir
@@ -35,9 +40,24 @@ func (Card4311001Su) OnUltimate(ctx *EffectContext) error {
 				func(selected []string) {
 					target := selectedUnitFromCandidates(ctx.Engine, selected, targets)
 					if target != nil {
-						ctx.Engine.dealDamage(target, 1, ctx.OpponentID)
+						ctx.DealDamage(target, 1)
 					}
 				})
 		})
+	return nil
+}
+
+func (Card4311001Su) ValidateAbility(ctx *EffectContext, trigger EffectTrigger) error {
+	if trigger != TriggerUltimate {
+		return nil
+	}
+	if len(ctx.Engine.friendlyHandCards(ctx.PlayerID, func(candidate *CardInstance) bool {
+		return candidate.Card.Category == model.ElementAir
+	})) < 2 {
+		return fmt.Errorf("Su ultimate requires two air cards in hand")
+	}
+	if len(ctx.Engine.enemyUnits(ctx.PlayerID, true, nil)) == 0 {
+		return fmt.Errorf("Su ultimate requires an enemy target")
+	}
 	return nil
 }

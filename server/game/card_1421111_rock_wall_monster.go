@@ -2,7 +2,8 @@ package game
 
 type Card1421111RockWallMonster struct{ AlwaysActive }
 
-func (Card1421111RockWallMonster) ID() string   { return "1421111" }
+func (Card1421111RockWallMonster) ID() string { return "1421111" }
+
 func (Card1421111RockWallMonster) Name() string { return "岩壁魔怪" }
 
 func (Card1421111RockWallMonster) ModifyDamageAmount(ctx *EffectContext, amount int) int {

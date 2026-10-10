@@ -2,8 +2,10 @@ package game
 
 type Card1421014WindbreathMerchant struct{ AlwaysActive }
 
-func (Card1421014WindbreathMerchant) ID() string   { return "1421014" }
+func (Card1421014WindbreathMerchant) ID() string { return "1421014" }
+
 func (Card1421014WindbreathMerchant) Name() string { return "风息谷旅商" }
+
 func (Card1421014WindbreathMerchant) OnEnter(ctx *EffectContext) error {
 	count := 0
 	for _, unit := range ctx.Engine.getAllFieldCards(ctx.Engine.State.Players[ctx.PlayerID]) {

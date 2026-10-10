@@ -2,43 +2,10 @@ package game
 
 import (
 	"fmt"
-
-	"eraofarcane/model"
 )
 
-var counterTrapTriggers = map[string][]EffectTrigger{
-	"2021018": {TriggerOnSpellCast},
-	"2021022": {TriggerOnUseItem},
-	"2021113": {TriggerOnSpellHitBeforeDamage},
-	"2021114": {TriggerOnDamaged},
-	"2021115": {TriggerOnDefend},
-	"2121104": {TriggerOnTurnEnd},
-	"2221103": {TriggerOnCardEnter},
-	"2221111": {TriggerOnSpellCast},
-	"2221112": {TriggerOnSpellCast},
-	"2121002": {TriggerOnConsume},
-	"2121012": {TriggerOnUnitEnter},
-	"2221002": {TriggerOnConsume},
-	"2221005": {TriggerOnTurnEnd},
-	"2221010": {TriggerOnDraw},
-	"2221011": {TriggerOnDamaged},
-	"2321002": {TriggerOnConsume},
-	"2321010": {TriggerOnSpellCast},
-	"2321011": {TriggerOnUnitEnter, TriggerOnConsume},
-	"2321111": {TriggerOnSpellMissOrCancelled},
-	"2321108": {TriggerOnDamaged},
-	"2521002": {TriggerOnSpellHitBeforeDamage},
-	"2521004": {TriggerOnSpellCast},
-	"2521011": {TriggerOnSpellCast},
-	"2521109": {TriggerOnSpellCast},
-	"2621003": {TriggerOnUnitEnter},
-	"2621005": {TriggerOnFriendlyDeath, TriggerOnEnemyDeath},
-	"2621010": {TriggerOnFriendlyDeath},
-	"2621011": {TriggerOnConsume},
-}
-
 func isCounterTrapCard(number string) bool {
-	_, ok := counterTrapTriggers[number]
+	_, ok := globalRegistry.GetBehavior(number).(CounterBehavior)
 	return ok
 }
 
@@ -114,9 +81,6 @@ func (e *Engine) promptCounterTrapIfEligible(counter *CardInstance, trigger Effe
 		[]map[string]any{candidate}, 0, 1, cost, true, nil, nil,
 		func(selected []string, data map[string]any) error {
 			if len(selected) == 0 {
-				if afterResolve != nil {
-					afterResolve()
-				}
 				return nil
 			}
 			if selected[0] != counter.InstanceID {
@@ -126,19 +90,13 @@ func (e *Engine) promptCounterTrapIfEligible(counter *CardInstance, trigger Effe
 				return err
 			}
 			e.executeCounterTrap(counter, trigger, eventSource, extraData)
-			if e.State.PendingAction != nil && e.State.PendingAction.Type != "counter_trigger" {
-				e.wrapPendingActionContinuation(afterResolve)
-				return nil
-			}
-			if afterResolve != nil {
-				afterResolve()
-			}
+
 			return nil
 		}, context, available)
 	if action == nil {
 		return false
 	}
-	action.OnSkip = afterResolve
+	e.addActionContinuation(action, "next counter", afterResolve)
 	return true
 }
 
@@ -247,6 +205,8 @@ func triggerLabel(trigger EffectTrigger) string {
 		return "回合结束"
 	case TriggerOnDraw:
 		return "抽牌"
+	case TriggerBeforeDamage:
+		return "将受到伤害"
 	case TriggerOnDamaged:
 		return "受到伤害"
 	case TriggerOnFriendlyDeath:
@@ -276,6 +236,8 @@ func triggerKey(trigger EffectTrigger) string {
 		return "turn_end"
 	case TriggerOnDraw:
 		return "draw"
+	case TriggerBeforeDamage:
+		return "before_damage"
 	case TriggerOnDamaged:
 		return "damaged"
 	case TriggerOnFriendlyDeath:
@@ -292,7 +254,11 @@ func triggerKey(trigger EffectTrigger) string {
 }
 
 func counterTrapHasTrigger(number string, trigger EffectTrigger) bool {
-	for _, candidate := range counterTrapTriggers[number] {
+	behavior, ok := globalRegistry.GetBehavior(number).(CounterBehavior)
+	if !ok {
+		return false
+	}
+	for _, candidate := range behavior.CounterTriggers() {
 		if candidate == trigger {
 			return true
 		}
@@ -301,114 +267,11 @@ func counterTrapHasTrigger(number string, trigger EffectTrigger) bool {
 }
 
 func (e *Engine) counterTrapConditionMet(counter *CardInstance, trigger EffectTrigger, eventSource *CardInstance, extraData map[string]any) bool {
-	ownerID := counter.OwnerID
-	sourceOwner := -1
-	if eventSource != nil {
-		sourceOwner = eventSource.OwnerID
-	}
-	if trigger != TriggerOnFriendlyDeath && trigger != TriggerOnEnemyDeath {
-		if castPlayer, ok := extraData["cast_player"].(int); ok {
-			sourceOwner = castPlayer
-		}
-		if attacker, ok := extraData["attacker"].(int); ok {
-			sourceOwner = attacker
-		}
-		if drawnPlayer, ok := extraData["drawn_player"].(int); ok {
-			sourceOwner = drawnPlayer
-		}
-		if damagedPlayer, ok := extraData["damaged_player"].(int); ok {
-			sourceOwner = damagedPlayer
-		}
-		if enteredPlayer, ok := extraData["entered_player"].(int); ok {
-			sourceOwner = enteredPlayer
-		}
-		if consumedPlayer, ok := extraData["consumed_player"].(int); ok {
-			sourceOwner = consumedPlayer
-		}
-		if usedPlayer, ok := extraData["used_player"].(int); ok {
-			sourceOwner = usedPlayer
-		}
-		if endedPlayer, ok := extraData["ended_player"].(int); ok {
-			sourceOwner = endedPlayer
-		}
-	}
-
-	switch counter.Card.Number {
-	case "2021018":
-		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && len(e.friendlySkillsIncludingBound(ownerID, nil)) > 0
-	case "2021022":
-		return trigger == TriggerOnUseItem && sourceOwner != ownerID && eventSource != nil && counterRuneCanCancel(eventSource.Card.Number)
-	case "2021113":
-		return trigger == TriggerOnSpellHitBeforeDamage && sourceOwner != ownerID && eventSource != nil && isSpellLikeCard(eventSource.Card)
-	case "2021114":
-		return trigger == TriggerOnDamaged && sourceOwner == ownerID && eventSource != nil &&
-			lethalDamageFromData(extraData, eventSource)
-	case "2021115":
-		return trigger == TriggerOnDefend && ownerID == intFromData(extraData, "defender", -1) &&
-			len(spellInstancesFromData(extraData, "defense_skills"))+len(spellInstancesFromData(extraData, "defense_boosts")) > 0
-	case "2221103":
-		learned, _ := extraData["learned_skill"].(bool)
-		return trigger == TriggerOnCardEnter && sourceOwner != ownerID && learned && eventSource != nil && eventSource.Card.IsSkill()
-	case "2221111":
-		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && eventSource != nil && spellPowerFromData(extraData) > 10
-	case "2221112":
-		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && eventSource != nil &&
-			boolFromData(extraData, "boost_use") && spellPowerFromData(extraData) < 5
-	case "2121002":
-		return trigger == TriggerOnConsume && eventSource != nil && (eventSource.Card.IsHero() || eventSource.Card.IsCompanion())
-	case "2121104":
-		return trigger == TriggerOnTurnEnd && sourceOwner != ownerID &&
-			len(e.rebirthScrollReviveCandidates(ownerID)) > 0 &&
-			len(e.friendlyEmptyUnitPositions(ownerID)) > 0
-	case "2121012", "2621003":
-		return trigger == TriggerOnUnitEnter && sourceOwner != ownerID && eventSource != nil && eventSource.Card.IsCompanion()
-	case "2221002":
-		return trigger == TriggerOnConsume && sourceOwner != ownerID && eventSource != nil && eventSource.Card.IsCompanion()
-	case "2221005":
-		return trigger == TriggerOnTurnEnd && sourceOwner != ownerID
-	case "2221010":
-		return trigger == TriggerOnDraw && sourceOwner != ownerID && drawCountFromData(extraData) >= 3 &&
-			len(e.friendlyUnits(ownerID, false, isWaterCompanion)) > 0
-	case "2221011":
-		return trigger == TriggerOnDamaged && sourceOwner == ownerID
-	case "2321002":
-		return trigger == TriggerOnConsume && sourceOwner != ownerID && eventSource != nil && (eventSource.Card.IsHero() || eventSource.Card.IsCompanion())
-	case "2321010":
-		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && eventSource != nil && !isSorcerySkill(eventSource.Card) && e.State.PendingSpell != nil
-	case "2321011":
-		return eventSource != nil && eventSource.Card.IsCompanion() && eventSource.Position != nil &&
-			len(e.emptyUnitPositionsForPlayer(eventSource.OwnerID, ownerID)) > 0
-	case "2321108":
-		return trigger == TriggerOnDamaged && sourceOwner == ownerID && eventSource != nil &&
-			eventSource.Card != nil && eventSource.Card.IsCompanion() &&
-			eventSource.Card.Category == model.ElementAir &&
-			damageFromData(extraData) > 0
-	case "2321111":
-		return trigger == TriggerOnSpellMissOrCancelled && sourceOwner != ownerID && eventSource != nil &&
-			isSpellLikeCard(eventSource.Card) && e.effectiveSpellArea(eventSource) == SpellAreaSingle &&
-			len(e.enemyUnits(ownerID, false, func(unit *CardInstance) bool { return unit != nil && unit.Card != nil && unit.Card.IsCompanion() })) > 0
-	case "2521002":
-		return trigger == TriggerOnSpellHitBeforeDamage && sourceOwner != ownerID && eventSource != nil && !isSorcerySkill(eventSource.Card) && spellPowerFromData(extraData) < 10
-	case "2521004":
-		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && eventSource != nil && isSorcerySkill(eventSource.Card)
-	case "2521011":
-		return trigger == TriggerOnSpellCast && sourceOwner != ownerID
-	case "2521109":
-		return trigger == TriggerOnSpellCast && sourceOwner != ownerID && eventSource != nil &&
-			eventSource.Card.IsSkill() && canUseSkillForPurpose(eventSource.Card, skillPurposeAttack) &&
-			totalSpellsCastThisTurn(e.State.Players[sourceOwner]) > 2 &&
-			len(e.friendlyUnits(sourceOwner, false, func(unit *CardInstance) bool {
-				return unit != nil && unit.Card != nil && unit.Card.IsCompanion()
-			})) > 0
-	case "2621005":
-		return eventSource != nil && eventSource.Card.IsCompanion()
-	case "2621010":
-		return trigger == TriggerOnFriendlyDeath && sourceOwner == ownerID && eventSource != nil && eventSource.DamageTakenThisTurn > 0
-	case "2621011":
-		return trigger == TriggerOnConsume && sourceOwner != ownerID && eventSource != nil && eventSource.Card.IsCompanion() && eventSource.CurrentAttack > 0 && len(e.adjacentUnitCandidatesForCounter(ownerID, eventSource)) > 0
-	default:
+	if counter == nil || counter.Card == nil {
 		return false
 	}
+	behavior, ok := globalRegistry.GetBehavior(counter.Card.Number).(CounterBehavior)
+	return ok && behavior.HasActiveCounter(counter) && behavior.CanTriggerCounter(e.counterContext(counter, trigger, eventSource, extraData))
 }
 
 func (e *Engine) adjacentUnitCandidatesForCounter(counterOwnerID int, source *CardInstance) []map[string]any {
@@ -458,46 +321,9 @@ func (e *Engine) payAndRevealCounterTrap(playerID int, counter *CardInstance, co
 }
 
 func (e *Engine) executeCounterTrap(counter *CardInstance, trigger EffectTrigger, eventSource *CardInstance, extraData map[string]any) {
-	if counter.Card.Number == "2021022" && trigger == TriggerOnUseItem {
-		if cancelled, ok := extraData["cancel_item"].(*bool); ok && cancelled != nil {
-			*cancelled = true
-			e.emit(GameEvent{Type: "item_cancelled", Player: -1, Data: map[string]any{
-				"player": counter.OwnerID,
-				"card":   cardToInfo(eventSource),
-				"source": cardToInfo(counter),
-			}})
-		}
-		e.discardCounterTrap(counter.OwnerID, counter)
-		return
-	}
-	if counter.Card.Number == "2521002" && trigger == TriggerOnSpellHitBeforeDamage {
-		if cancelled, ok := extraData["cancel_spell_hit"].(*bool); ok && cancelled != nil {
-			*cancelled = true
-			e.emit(GameEvent{Type: "spell_hit_cancelled", Player: -1, Data: map[string]any{
-				"player": counter.OwnerID,
-				"skill":  cardToInfo(eventSource),
-				"source": cardToInfo(counter),
-			}})
-		}
-		e.discardCounterTrap(counter.OwnerID, counter)
-		return
-	}
-	if counter.Card.Number == "2221112" && trigger == TriggerOnSpellCast {
-		e.cancelBoostSpellWithIceSoulSeal(eventSource, extraData)
-		e.emit(GameEvent{Type: "boost_spell_cancelled", Player: -1, Data: map[string]any{
-			"player": counter.OwnerID,
-			"skill":  cardToInfo(eventSource),
-			"source": cardToInfo(counter),
-		}})
-		e.discardCounterTrap(counter.OwnerID, counter)
-		return
-	}
-	if counter.Card.Number == "2321111" && trigger == TriggerOnSpellMissOrCancelled {
-		e.promptCounterWindHoleScroll(counter, eventSource, extraData)
-		e.discardCounterTrap(counter.OwnerID, counter)
-		return
-	}
-	if len(globalRegistry.GetEffects(counter.Card.Number, trigger)) > 0 {
+	if behavior, ok := globalRegistry.GetBehavior(counter.Card.Number).(CounterResolutionBehavior); ok {
+		behavior.ResolveCounter(e.counterContext(counter, trigger, eventSource, extraData))
+	} else if len(globalRegistry.GetEffects(counter.Card.Number, trigger)) > 0 {
 		e.triggerEffects(trigger, counter, eventSource, extraData)
 	} else {
 		e.triggerEffects(TriggerOnUseItem, counter, eventSource, extraData)
@@ -635,21 +461,6 @@ func spellPowerFromData(data map[string]any) int {
 		return int(f)
 	}
 	return 0
-}
-
-func counterRuneCanCancel(number string) bool {
-	switch number {
-	case "2021010", "2021012", "2021018", "2021019", "2021021", "2021022",
-		"2121002", "2121003", "2121008", "2121009", "2121011", "2121012",
-		"2221002", "2221003", "2221008", "2221009", "2221010", "2221011", "2221013",
-		"2321002", "2321003", "2321005", "2321008", "2321009", "2321010", "2321011",
-		"2421002", "2421003", "2421004", "2421005", "2421008", "2421009", "2421010",
-		"2521002", "2521003", "2521004", "2521005", "2521008", "2521009", "2521011", "2521012", "2521013",
-		"2621001", "2621003", "2621005", "2621008", "2621009", "2621010", "2621011":
-		return true
-	default:
-		return false
-	}
 }
 
 func counterWindowCancelled(data map[string]any) bool {

@@ -117,3 +117,8 @@ func learnedSkillCount(ps *PlayerState) int {
 	}
 	return count
 }
+
+func (Card2011101ArcaneArmorSky) PreventsShieldDecay(*CardInstance, int) bool { return true }
+func (Card2411101EmeraldImmortality) SuppressesFieldStatus(ctx *EffectContext, target *CardInstance, status string) bool {
+	return target != nil && target.Position != nil && isNegativeStatus(status) && ctx.Engine.State.Players[ctx.PlayerID].Shield > 0
+}

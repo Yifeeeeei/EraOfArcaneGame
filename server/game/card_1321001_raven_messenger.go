@@ -1,11 +1,15 @@
 package game
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Card1321001RavenMessenger struct{ AlwaysActive }
 
-func (Card1321001RavenMessenger) ID() string   { return "1321001" }
+func (Card1321001RavenMessenger) ID() string { return "1321001" }
+
 func (Card1321001RavenMessenger) Name() string { return "渡鸦信使" }
+
 func (Card1321001RavenMessenger) PerTurnLabel(*CardInstance) string {
 	return "消耗"
 }

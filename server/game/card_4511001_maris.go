@@ -1,21 +1,26 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card4511001Maris struct{ AlwaysActive }
 
-func (Card4511001Maris) ID() string   { return "4511001" }
+func (Card4511001Maris) ID() string { return "4511001" }
+
 func (Card4511001Maris) Name() string { return "圣使 玛丽斯 南森埃尔" }
 
-func (Card4511001Maris) OnDamaged(ctx *EffectContext) error {
-	if ctx == nil || ctx.Source == nil || ctx.ExtraData == nil {
+func (Card4511001Maris) DamageScope() DamageScope { return DamageFriendly }
+
+func (Card4511001Maris) OnDamaged(ctx *EffectContext, event DamageEvent) error {
+	if ctx == nil || ctx.Source == nil {
 		return nil
 	}
-	damagedPlayer, _ := ctx.ExtraData["damaged_player"].(int)
+	damagedPlayer := event.Target.OwnerID
 	if damagedPlayer != ctx.PlayerID {
 		return nil
 	}
-	if attacker, ok := ctx.ExtraData["attacker"].(int); ok && attacker == ctx.PlayerID {
+	if attacker, ok := event.SourcePlayer, event.SourcePlayer >= 0; ok && attacker == ctx.PlayerID {
 		return nil
 	}
 	if ctx.Source.UltimateUsed {

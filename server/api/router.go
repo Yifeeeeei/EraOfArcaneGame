@@ -169,7 +169,8 @@ func testRoomFromRequest(rm *match.RoomManager, req testRoomRequest) (*match.Roo
 	if !room.TestMode {
 		return nil, false, "room is not a test room", http.StatusForbidden
 	}
-	if !room.IsStarted || room.Engine == nil {
+	_, started := room.StartedEngine()
+	if !started {
 		return nil, false, "game is not started", http.StatusConflict
 	}
 	if req.Player < 0 || req.Player > 1 {
@@ -202,7 +203,12 @@ func handleTestRoomAddCard(rm *match.RoomManager) http.HandlerFunc {
 			jsonError(w, message, code)
 			return
 		}
-		if err := room.Engine.DebugAddCardAt(req.Player, req.CardNumber, req.Zone, req.Count, req.Col, req.Row); err != nil {
+		engine := room.EngineSnapshot()
+		if engine == nil {
+			jsonError(w, "game is not started", http.StatusConflict)
+			return
+		}
+		if err := engine.DebugAddCardAt(req.Player, req.CardNumber, req.Zone, req.Count, req.Col, req.Row); err != nil {
 			jsonError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -232,7 +238,12 @@ func handleTestRoomCardState(rm *match.RoomManager) http.HandlerFunc {
 			jsonError(w, message, code)
 			return
 		}
-		if err := room.Engine.DebugMutateCard(req.Player, req.DebugCardMutation); err != nil {
+		engine := room.EngineSnapshot()
+		if engine == nil {
+			jsonError(w, "game is not started", http.StatusConflict)
+			return
+		}
+		if err := engine.DebugMutateCard(req.Player, req.DebugCardMutation); err != nil {
 			jsonError(w, err.Error(), http.StatusBadRequest)
 			return
 		}
@@ -262,7 +273,12 @@ func handleTestRoomState(rm *match.RoomManager) http.HandlerFunc {
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(room.Engine.GetStateForPlayer(player))
+		engine := room.EngineSnapshot()
+		if engine == nil {
+			jsonError(w, "game is not started", http.StatusConflict)
+			return
+		}
+		json.NewEncoder(w).Encode(engine.GetStateForPlayer(player))
 	}
 }
 
@@ -287,7 +303,12 @@ func handleTestRoomElements(rm *match.RoomManager) http.HandlerFunc {
 			jsonError(w, message, code)
 			return
 		}
-		if err := room.Engine.DebugUpdateElements(req.Player, req.Elements, req.Mode); err != nil {
+		engine := room.EngineSnapshot()
+		if engine == nil {
+			jsonError(w, "game is not started", http.StatusConflict)
+			return
+		}
+		if err := engine.DebugUpdateElements(req.Player, req.Elements, req.Mode); err != nil {
 			jsonError(w, err.Error(), http.StatusBadRequest)
 			return
 		}

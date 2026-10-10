@@ -14,9 +14,13 @@ func promptPermanentSkillBuff(ctx *EffectContext, prompt string) {
 				return
 			}
 			targetID := selected[0]
+			sourceNumber := ""
+			if ctx.Source != nil && ctx.Source.Card != nil {
+				sourceNumber = ctx.Source.Card.Number
+			}
 			choices := []map[string]any{
-				{"instance_id": "power", "number": "3021012", "name": "+3威", "type": "选择", "zone": "choice", "side": "own"},
-				{"instance_id": "attack", "number": "3021012", "name": "+1攻", "type": "选择", "zone": "choice", "side": "own"},
+				{"instance_id": "power", "number": sourceNumber, "name": "+3威", "type": "选择", "zone": "choice", "side": "own"},
+				{"instance_id": "attack", "number": sourceNumber, "name": "+1攻", "type": "选择", "zone": "choice", "side": "own"},
 			}
 			ctx.Engine.SetPendingAction(ctx.PlayerID, "permanent_skill_buff_mode",
 				"选择永久强化", choices, 1, 1,

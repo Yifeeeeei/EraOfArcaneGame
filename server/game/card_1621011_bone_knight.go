@@ -4,7 +4,8 @@ const boneKnightRebornStatus = "失去遗言"
 
 type Card1621011BoneKnight struct{ AlwaysActive }
 
-func (Card1621011BoneKnight) ID() string   { return "1621011" }
+func (Card1621011BoneKnight) ID() string { return "1621011" }
+
 func (Card1621011BoneKnight) Name() string { return "白骨骑士" }
 
 func (Card1621011BoneKnight) HasActiveDeathrattle(card *CardInstance) bool {

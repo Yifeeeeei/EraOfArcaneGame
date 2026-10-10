@@ -24,7 +24,8 @@ var cardEffectMarkerStatuses = []string{
 
 type Card2521003PurificationScroll struct{ AlwaysActive }
 
-func (Card2521003PurificationScroll) ID() string   { return "2521003" }
+func (Card2521003PurificationScroll) ID() string { return "2521003" }
+
 func (Card2521003PurificationScroll) Name() string { return "净化卷轴" }
 
 func (Card2521003PurificationScroll) OnUseItem(ctx *EffectContext) error {

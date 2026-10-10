@@ -157,19 +157,6 @@ func (e *Engine) HandleShieldDecay(ps *PlayerState) {
 	}
 }
 
-func (e *Engine) playerShieldDecayPrevented(ps *PlayerState) bool {
-	if ps == nil {
-		return false
-	}
-	if e.playerHasActiveCard(ps, "2011101") {
-		return true
-	}
-	if ps.Shield >= 3 {
-		return false
-	}
-	return e.playerHasActiveCard(ps, "4411101")
-}
-
 func (e *Engine) playerHasActiveCard(ps *PlayerState, number string) bool {
 	if ps == nil || number == "" {
 		return false

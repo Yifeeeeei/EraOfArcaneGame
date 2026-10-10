@@ -24,7 +24,7 @@ func TestDrawPendingActionsQueueByEquipmentOrder(t *testing.T) {
 		}
 
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
-			"selected": []any{drum.InstanceID},
+			"selected": []any{engine.State.PendingAction.Candidates[0]["instance_id"]},
 		}}); err != nil {
 			t.Fatalf("resolve thunder drum trigger: %v", err)
 		}
@@ -51,7 +51,7 @@ func TestDrawPendingActionsQueueByEquipmentOrder(t *testing.T) {
 			t.Fatalf("thunder drum should ask before compass, pending=%+v", engine.State.PendingAction)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
-			"selected": []any{drum.InstanceID},
+			"selected": []any{engine.State.PendingAction.Candidates[0]["instance_id"]},
 		}}); err != nil {
 			t.Fatalf("resolve thunder drum trigger: %v", err)
 		}
@@ -94,7 +94,7 @@ func TestDrawPendingActionsQueueByEquipmentOrder(t *testing.T) {
 			t.Fatalf("thunder drum should remain queued after compass, pending=%+v", engine.State.PendingAction)
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "resolve_action", Data: map[string]any{
-			"selected": []any{drum.InstanceID},
+			"selected": []any{engine.State.PendingAction.Candidates[0]["instance_id"]},
 		}}); err != nil {
 			t.Fatalf("resolve thunder drum trigger: %v", err)
 		}

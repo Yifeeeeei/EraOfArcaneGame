@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card1321012WindMedium struct{ AlwaysActive }
 
-func (Card1321012WindMedium) ID() string   { return "1321012" }
+func (Card1321012WindMedium) ID() string { return "1321012" }
+
 func (Card1321012WindMedium) Name() string { return "风灵媒师" }
 
 func (Card1321012WindMedium) OnSpellCast(ctx *EffectContext) error {

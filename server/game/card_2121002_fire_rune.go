@@ -1,8 +1,17 @@
 package game
 
+func (Card2121002FireRune) CounterTriggers() []EffectTrigger {
+	return []EffectTrigger{TriggerOnConsume}
+}
+
+func (Card2121002FireRune) CanTriggerCounter(ctx *CounterContext) bool {
+	return ctx.Event.Trigger == TriggerOnConsume && ctx.Event.Card != nil && (ctx.Event.Card.Card.IsHero() || ctx.Event.Card.Card.IsCompanion())
+}
+
 type Card2121002FireRune struct{ AlwaysActive }
 
-func (Card2121002FireRune) ID() string   { return "2121002" }
+func (Card2121002FireRune) ID() string { return "2121002" }
+
 func (Card2121002FireRune) Name() string { return "火焰符文" }
 
 func (Card2121002FireRune) OnConsume(ctx *EffectContext) error {

@@ -1,7 +1,5 @@
 package game
 
-import "eraofarcane/model"
-
 func effectiveElementsGain(card *CardInstance) map[string]int {
 	return effectiveElementsGainWithStealth(card, card != nil && card.Statuses[StatusStealth] > 0 && card.Statuses[StatusPetrify] <= 0)
 }
@@ -55,8 +53,8 @@ func effectiveElementsGainWithStealth(card *CardInstance, hasEffectiveStealth bo
 			gains[elem] += amount
 		}
 	}
-	if card.Card.Number == "1221109" && hasEffectiveStealth {
-		gains[model.ElementWater] += 2
+	if b, ok := cardBehavior(card).(IntrinsicLoadBehavior); ok && b.HasActiveIntrinsicLoad(card) {
+		b.ModifyIntrinsicLoad(card, hasEffectiveStealth, gains)
 	}
 	return gains
 }

@@ -4,7 +4,8 @@ const moonlitSpiritAuraSpentStatus = "月霞光环已失效"
 
 type Card1521101MoonlitSpirit struct{ AlwaysActive }
 
-func (Card1521101MoonlitSpirit) ID() string   { return "1521101" }
+func (Card1521101MoonlitSpirit) ID() string { return "1521101" }
+
 func (Card1521101MoonlitSpirit) Name() string { return "月霞之灵" }
 
 func (Card1521101MoonlitSpirit) HasActiveSpellStatModifier(card *CardInstance) bool {
@@ -31,4 +32,5 @@ func (Card1521101MoonlitSpirit) OnSpellCast(ctx *EffectContext) error {
 }
 
 var _ SpellStatModifier = Card1521101MoonlitSpirit{}
+
 var _ OnSpellCastBehavior = Card1521101MoonlitSpirit{}

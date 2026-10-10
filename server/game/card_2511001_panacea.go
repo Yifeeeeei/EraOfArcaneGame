@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card2511001Panacea struct{ AlwaysActive }
 
-func (Card2511001Panacea) ID() string   { return "2511001" }
+func (Card2511001Panacea) ID() string { return "2511001" }
+
 func (Card2511001Panacea) Name() string { return "万灵药" }
 
 func (Card2511001Panacea) OnUseItem(ctx *EffectContext) error {

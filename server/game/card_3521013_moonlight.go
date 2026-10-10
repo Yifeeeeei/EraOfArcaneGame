@@ -2,7 +2,8 @@ package game
 
 type Card3521013Moonlight struct{ AlwaysActive }
 
-func (Card3521013Moonlight) ID() string   { return "3521013" }
+func (Card3521013Moonlight) ID() string { return "3521013" }
+
 func (Card3521013Moonlight) Name() string { return "月之辉" }
 
 func (Card3521013Moonlight) ModifySkillContribution(ctx *EffectContext, stats *SpellStats) {

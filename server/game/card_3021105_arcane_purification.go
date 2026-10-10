@@ -2,7 +2,8 @@ package game
 
 type Card3021105ArcanePurification struct{ AlwaysActive }
 
-func (Card3021105ArcanePurification) ID() string   { return "3021105" }
+func (Card3021105ArcanePurification) ID() string { return "3021105" }
+
 func (Card3021105ArcanePurification) Name() string { return "奥能净化" }
 
 func (Card3021105ArcanePurification) OnSpellCast(ctx *EffectContext) error {

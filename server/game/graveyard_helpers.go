@@ -151,9 +151,7 @@ func (e *Engine) removeFieldCardFromGameByID(instanceID string) bool {
 				ps.Skills[i] = nil
 				e.releaseUnderCardsToGraveyard(playerID, skill)
 				e.emit(GameEvent{Type: "card_removed_from_game", Player: playerID, Data: map[string]any{"card": cardToInfo(skill)}})
-				if skill.Card.Number == "3611101" {
-					e.refreshRedMoonState(playerID)
-				}
+				e.notifyCardStateChanges(CardStateChange{Card: skill, LeftField: true})
 				return true
 			}
 		}
