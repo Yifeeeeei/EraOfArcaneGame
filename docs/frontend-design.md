@@ -1,6 +1,6 @@
 # 对局工作区设计与审查说明
 
-整合基线：PR #163，`dc2fa01196fea6be06313d048d7098b7871eebeb`（2026-10-10 API 复核为 open、未合并）。main 当时为 `862e8de520f5960c5753b349c642518b38ae955c`。实现位于独立 `codex/frontend-unified-workspace`，不改原 PR 分支、不发布。
+整合基线：PR #163，`dc2fa01196fea6be06313d048d7098b7871eebeb`（2026-10-10 API 复核为 open、未合并）。main 当时为 `862e8de520f5960c5753b349c642518b38ae955c`。实现位于独立 `codex/frontend-unified-workspace`，不改原 PR 分支。实现完成时未发布；后续经用户授权创建依赖 #163 的前端草稿 PR，见 [交付材料](review/frontend-f2b78f5/README.md)。
 
 ## 信息架构
 
