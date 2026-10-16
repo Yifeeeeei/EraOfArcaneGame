@@ -17,6 +17,12 @@ async def run():
   for _ in range(2): await add(room,1-actor,'2021018','hand')
   await add(room,1-actor,'1021001','unit',col=0,row=0)
   await add(room,1-actor,'1021002','unit',col=2,row=2)
+  # Full battlefields exercise nested decisions without moving the hand dock.
+  for owner in range(2):
+   for col in range(3):
+    for row in range(3):
+     if (col,row)==(1,1) or (owner==1-actor and (col,row) in [(0,0),(2,2)]): continue
+     await add(room,owner,'1021014','unit',col=col,row=row)
   # Turn transfer and actual setting of both face-down counters through the review path.
   await a.get_by_role('button',name='结束回合',exact=True).click(); await commit(a)
   for _ in range(2):

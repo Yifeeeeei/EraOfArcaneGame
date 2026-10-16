@@ -29,21 +29,52 @@ async def assert_faces(page):
         }
       }
       if(document.documentElement.scrollWidth>innerWidth) failures.push('page horizontal overflow');
+      const layout=document.querySelector('.game-layout');
+      if(layout.scrollWidth>layout.clientWidth+1) failures.push('layout horizontal overflow');
       return failures;
     }''', FACES)
     assert not problems, problems
 
+async def visible_in_viewport(page, selector):
+    await page.wait_for_function('''selector=>[...document.querySelectorAll(selector)].filter(e=>e.getClientRects().length).every(e=>{const r=e.getBoundingClientRect();return r.top>=0 && r.bottom<=innerHeight+1 && r.left>=0 && r.right<=innerWidth+1})''',arg=selector,timeout=3000)
+    failures=await page.locator(selector).evaluate_all("""els=>els.filter(e=>e.getClientRects().length).flatMap(e=>{
+      const r=e.getBoundingClientRect();
+      if(r.top<0 || r.bottom>innerHeight+1 || r.left<0 || r.right>innerWidth+1) return ['outside viewport '+e.className];
+      const hit=document.elementFromPoint((r.left+r.right)/2,(r.top+r.bottom)/2);
+      return hit && (e.contains(hit)||hit===e) ? [] : ['covered '+e.className];
+    })""")
+    assert not failures,failures
+
+async def dock_check(page):
+    width=page.viewport_size['width']
+    if width>820:
+        for end in [False,True]:
+            await page.locator('#arena').evaluate('(e,end)=>{e.scrollTop=end?e.scrollHeight:0}',end)
+            await visible_in_viewport(page, '#hand')
+            await page.locator('.decision-scroll').evaluate_all('(els,end)=>els.forEach(e=>e.scrollTop=end?e.scrollHeight:0)',end)
+            await visible_in_viewport(page, '#decision .pending-actions,#decision .defense-actions,#decision .workspace-footer')
+        assert await page.evaluate('document.documentElement.scrollHeight<=innerHeight+1')
+    else:
+        await page.locator('.mobile-jump a[href="#hand"]').click()
+        await visible_in_viewport(page, '.mobile-jump,#hand')
+        await page.locator('.mobile-jump a[href="#decision"]').click()
+        await visible_in_viewport(page, '.mobile-jump,#decision .pending-actions,#decision .defense-actions,#decision .workspace-footer')
+        await page.locator('.decision-scroll').evaluate_all('(els)=>els.forEach(e=>e.scrollTop=e.scrollHeight)')
+        await visible_in_viewport(page, '#decision .pending-actions,#decision .defense-actions,#decision .workspace-footer')
+
+async def reset_zones(page):
+    await page.evaluate("""()=>document.querySelectorAll('.game-layout,#arena,.hand-cards,.skill-pool-grid,.slots,.decision-scroll').forEach(e=>{e.scrollTop=0;e.scrollLeft=0})""")
+
 async def decision_views(page, name):
-    for width,height in [(1440,1000),(390,844)]:
+    for width,height in [(1440,1000),(1024,768),(390,844)]:
         await page.set_viewport_size(dict(width=width,height=height))
         await assert_faces(page)
-        panel=page.locator('#decision')
-        await panel.evaluate('(e)=>{e.scrollTop=0}')
-        await panel.screenshot(path=str(VISUAL/f'{name}-{width}.png'), animations='disabled')
-        if width==1440:
-            await panel.evaluate('(e)=>{e.scrollTop=e.scrollHeight}')
-            await panel.screenshot(path=str(VISUAL/f'{name}-{width}-bottom.png'), animations='disabled')
-            await panel.evaluate('(e)=>{e.scrollTop=0}')
+        await dock_check(page)
+        await reset_zones(page)
+        if width<=820: await page.locator('.mobile-jump a[href="#decision"]').click()
+        await page.screenshot(path=str(VISUAL/f'{name}-{width}.png'), animations='disabled')
+        await page.locator('.decision-scroll').evaluate_all('(els)=>els.forEach(e=>e.scrollTop=e.scrollHeight)')
+        await page.screenshot(path=str(VISUAL/f'{name}-{width}-bottom.png'), animations='disabled')
     await page.set_viewport_size(dict(width=1440,height=1000))
 
 async def run():
@@ -65,14 +96,24 @@ async def run():
   for width,height in [(1440,1000),(1024,768),(390,844)]:
    await a.set_viewport_size(dict(width=width,height=height))
    await assert_faces(a)
-   # Every row and skill-pool action must be reachable by normal document scrolling.
+   await dock_check(a)
+   # Skill-pool actions remain reachable inside their own dock; no document scrolling.
    await a.locator('.sp-card').last.get_by_role('button',name='查看',exact=True).scroll_into_view_if_needed()
    assert await a.locator('.sp-card').last.get_by_role('button',name='查看',exact=True).is_visible()
-   await a.evaluate('scrollTo(0,0)')
+   await reset_zones(a)
+   dimensions=await a.evaluate('''()=>Object.fromEntries(['#hand','#arena','#decision','.unit-img','.hand-card-img'].map(s=>{const r=document.querySelector(s).getBoundingClientRect();return[s,{x:r.x,y:r.y,width:r.width,height:r.height}]}))''')
+   (VISUAL/f'layout-{width}.json').write_text(json.dumps(dimensions,indent=2))
    await a.screenshot(path=str(VISUAL/f'dense-{width}.png'),full_page=True,animations='disabled')
+   if width==390:
+    await a.locator('.mobile-jump a[href="#hand"]').click()
+    await visible_in_viewport(a,'#hand,.mobile-jump')
+    await a.screenshot(path=str(VISUAL/'dense-hand-390.png'),animations='disabled')
+   await a.locator('#arena').evaluate('(e)=>{e.scrollTop=e.scrollHeight}')
+   await a.screenshot(path=str(VISUAL/f'dense-{width}-arena-bottom.png'),animations='disabled')
    if width in (1440,390):
     await a.locator('.my-board').screenshot(path=str(VISUAL/f'board-{width}.png'),animations='disabled')
     await a.locator('.hand-card').last.scroll_into_view_if_needed()
+    await visible_in_viewport(a, '.hand-card:last-child')
     await a.locator('#hand').screenshot(path=str(VISUAL/f'hand-last-{width}.png'),animations='disabled')
     await a.locator('.hand-card').last.get_by_role('button',name='查看',exact=True).click()
     await assert_faces(a)
@@ -83,5 +124,5 @@ async def run():
     await a.locator('.card-detail-modal .close-btn').click()
   assert not errors,errors
   await browser.close()
-  print('PASS full card faces: dense two boards, 17+ hands, skills/equipment, last hand, inspector; 1440/1024/390; no sibling overlays or ratio distortion')
+  print('PASS pinned hand/confirmation, mobile section jumps, full card faces: dense two boards, 17+ hands, skills/equipment, last hand, inspector; 1440/1024/390; no sibling overlays or ratio distortion')
 if __name__=='__main__': asyncio.run(run())

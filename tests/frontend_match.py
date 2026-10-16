@@ -13,6 +13,11 @@ def api(path,data=None):
     return json.load(urllib.request.urlopen(req))
 async def state(page): return await page.evaluate('window.__arcaneDebug.gameState.value')
 async def commit(page):
+    from frontend_card_visibility import visible_in_viewport
+    if page.viewport_size['width']<=820:
+        await page.locator('.mobile-jump a[href="#decision"]').click()
+    await page.locator('.workspace-footer').wait_for(state='visible')
+    await visible_in_viewport(page, '.workspace-footer')
     revision=(await state(page))['revision']
     await page.get_by_role('button',name='确认提交',exact=True).click()
     await page.wait_for_function('(r) => window.__arcaneDebug.gameState.value.revision > r',arg=revision)

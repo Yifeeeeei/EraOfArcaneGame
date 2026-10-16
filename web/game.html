@@ -293,7 +293,7 @@
                                     <img @error="imageFallback" :src="getCardImage(getOpponentTerrain(col, row))" class="terrain-img">
                                 </div>
                                 <template v-if="getOpponentUnit(col, row)"><span class="board-card-label">{{ getOpponentUnit(col, row).name }}</span>
-                                    <img @error="imageFallback" :src="getCardImage(getOpponentUnit(col, row))" class="unit-img"
+                                    <img @error="imageFallback" :src="getCardImage(getOpponentUnit(col, row))" :alt="getOpponentUnit(col, row).name" class="unit-img"
                                          :class="{horizontal: getOpponentUnit(col, row).is_horizontal, 'inside-terrain': getOpponentTerrain(col, row)}"
                                          @mouseenter.stop="previewCard(getOpponentUnit(col, row))"
                                          @click.stop="handleUnitImageClick(1 - mySlot, col, row, getOpponentUnit(col, row))">
@@ -394,7 +394,7 @@
                                     <img @error="imageFallback" :src="getCardImage(getMyTerrain(col, row))" class="terrain-img">
                                 </div>
                                 <template v-if="getMyUnit(col, row)"><span class="board-card-label">{{ getMyUnit(col, row).name }}</span>
-                                    <img @error="imageFallback" :src="getCardImage(getMyUnit(col, row))" class="unit-img"
+                                    <img @error="imageFallback" :src="getCardImage(getMyUnit(col, row))" :alt="getMyUnit(col, row).name" class="unit-img"
                                          :class="{horizontal: getMyUnit(col, row).is_horizontal, 'inside-terrain': getMyTerrain(col, row)}"
                                          @mouseenter.stop="previewCard(getMyUnit(col, row))"
                                          @click.stop="handleUnitImageClick(mySlot, col, row, getMyUnit(col, row))">
@@ -590,19 +590,21 @@
                 <header class="workspace-heading"><span>决策工作区</span><small>{{ decisionOwnerLabel }}</small></header>
                 <div v-if="decisionError" role="alert" class="decision-error">{{ decisionError }}</div>
                 <div v-if="actionBusy" class="submission-status" role="status">{{ decisionError ? '服务器已返回错误，正在同步战场…' : '操作已发送，等待服务器回执与状态…' }}<button data-reconnect class="mini-btn" @click="reloadMatch">长时间无响应？重连核对</button></div>
-                <div v-if="workspaceMode === 'review'" class="action-review">
+                <div v-if="workspaceMode === 'review'" class="action-review"><div class="decision-scroll">
                     <div class="eyebrow">{{ actionBusy ? '已提交 · 等待状态同步' : '本地草稿 · 尚未提交' }}</div>
                     <h2>{{ draftTitle }}</h2>
                     <ul><li v-for="line in draftSummary" :key="line">{{ line }}</li></ul>
                     <p>确认后交由服务器校验并结算。</p>
-                    <button class="btn btn-success" :disabled="actionBusy" @click="commitDraft">确认提交</button>
+                    </div><div class="workspace-footer"><button class="btn btn-success" :disabled="actionBusy" @click="commitDraft">确认提交</button>
                     <button class="btn" :disabled="actionBusy" @click="cancelDraft">返回编辑</button>
-                </div>
+                </div></div>
         <!-- ═══ DRAW OFFER OVERLAY ═══ -->
         <div v-if="workspaceMode === 'draw'" class="workspace-mechanism">
             <div class="overlay-content interaction-panel draw-offer-panel">
+                <div class="decision-scroll">
                 <h2>对手请求和局</h2>
                 <p>接受后本局立即以平局结束。</p>
+                </div>
                 <div class="draw-offer-actions">
                     <button @click="respondDrawOffer(true)" class="btn btn-success">接受和局</button>
                     <button @click="respondDrawOffer(false)" class="btn btn-danger">拒绝</button>
@@ -613,6 +615,7 @@
         <!-- ═══ MULLIGAN OVERLAY ═══ -->
         <div v-if="workspaceMode === 'mulligan'" class="workspace-mechanism">
             <div class="overlay-content interaction-panel mulligan-panel">
+                <div class="decision-scroll">
                 <h2>选择初始手牌</h2>
                 <div class="mulligan-order" :class="mySlot === gameState.first_player ? 'is-first' : 'is-second'">
                     你是{{ gameState.turn_order?.you || (mySlot === 0 ? '先手' : '后手') }}
@@ -622,6 +625,7 @@
                         <img @error="imageFallback" :src="getCardImage(card)" :alt="card.name" class="card-img-small">
                         <div class="card-mini-name">{{ card.name }}</div>
                     </div>
+                </div>
                 </div>
                 <div class="mulligan-actions">
                     <button @click="mulligan(true)" class="btn btn-success">保留手牌</button>
@@ -635,6 +639,7 @@
             <div class="overlay-content interaction-panel defense-panel"
                  @click.capture="handleDefensePanelClick"
                  @contextmenu.prevent="showInteractionCardContextMenu($event)">
+                <div class="decision-scroll">
                 <h2>对手施放法术！</h2>
                 <div v-if="pendingSpellView" class="spell-info">
                     <div class="spell-info-main">
@@ -779,6 +784,8 @@
                     </div>
                 </div>
 
+                </div>
+                <div class="defense-actions">
                 <!-- Power comparison -->
                 <div class="power-comparison defense-live-summary">
                     <span data-defense-summary="power">防御威力：<strong>{{ totalDefensePower }}</strong> / 进攻威力：<strong>{{ pendingAttackPower() }}</strong></span>
@@ -786,7 +793,7 @@
                     <span data-defense-summary="result" :class="defenseSummaryClass()">{{ defenseSummaryText() }}</span>
                 </div>
 
-                <div class="defense-actions">
+
                     <button type="button" class="btn btn-success" :class="{ disabled: !canSubmitDefense }" data-defense-action="submit">确认防御</button>
                     <button type="button" class="btn btn-danger" data-defense-action="no_defend">不防御</button>
                 </div>
@@ -796,6 +803,7 @@
         <!-- ═══ PENDING ACTION MODAL ═══ -->
         <div v-if="workspaceMode === 'pending'" class="workspace-mechanism">
             <div class="overlay-content interaction-panel pending-action-panel">
+                <div class="decision-scroll">
                 <h2>{{ pendingAction.prompt }}</h2>
                 <div v-if="pendingContextText()" class="pending-context">{{ pendingContextText() }}</div>
                 <div class="pending-candidates">
@@ -859,6 +867,7 @@
                         </button>
                     </div>
                 </div>
+                </div>
                 <div class="pending-actions">
                     <button @click="submitPendingAction()" class="btn btn-success"
                             :disabled="pendingSelected.length < pendingAction.min_select || pendingSelected.length > pendingAction.max_select">
@@ -871,6 +880,7 @@
         <!-- ═══ SUMMON DEVOUR MODAL ═══ -->
         <div v-if="workspaceMode === 'devour'" class="workspace-mechanism">
             <div class="overlay-content interaction-panel pending-action-panel">
+                <div class="decision-scroll">
                 <h2>选择吞噬对象</h2>
                 <div class="payment-title">{{ devourRequest.card.name }}</div>
                 <div class="payment-cost">需求：{{ costLabel(devourRequest.requirement) }} 负载</div>
@@ -890,6 +900,7 @@
                 <div class="pending-info">
                     已选负载：{{ costLabel(devourSelectedLoad) }} / 需求 {{ costLabel(devourRequest.requirement) }}
                 </div>
+                </div>
                 <div class="pending-actions">
                     <button @click="confirmDevourSelection()" class="btn btn-success" :disabled="!devourSelectionMeetsRequirement">确认</button>
                     <button @click="cancelDevourSelection()" class="btn btn-danger">取消</button>
@@ -900,6 +911,7 @@
         <!-- ═══ PAYMENT CHOICE MODAL ═══ -->
         <div v-if="workspaceMode === 'payment'" class="workspace-mechanism">
             <div class="overlay-content interaction-panel payment-panel">
+                <div class="decision-scroll">
                 <h2>选择支付元素</h2>
                 <div class="payment-title">{{ paymentRequest.title }}</div>
                 <div class="payment-cost">费用：{{ costLabel(paymentRequest.cost) }}</div><p v-if="paymentRequest.data.overexert_ids?.length">已选透支 {{ paymentRequest.data.overexert_ids.length }} 个单位，其负载已计入可选元素。优先扣除元素池，所有所选透支单位横置，多余负载不保留。</p>
@@ -921,6 +933,7 @@
                 <div class="payment-remaining" :class="{ ready: isPaymentSelectionValid() }">
                     {{ paymentRemainingText() }}
                 </div>
+                </div>
                 <div class="pending-actions">
                     <button @click="confirmPayment()" class="btn btn-success" :disabled="!isPaymentSelectionValid()">确认支付</button>
                     <button @click="cancelPayment()" class="btn btn-danger">取消</button>
@@ -931,6 +944,7 @@
         <!-- ═══ CONSUME GAIN CHOICE MODAL ═══ -->
         <div v-if="workspaceMode === 'consume'" class="workspace-mechanism">
             <div class="overlay-content interaction-panel payment-panel">
+                <div class="decision-scroll">
                 <h2>选择获得元素</h2>
                 <div class="payment-title">{{ consumeGainRequest.card.name }}</div>
                 <div class="payment-cost">本次可获得：{{ consumeGainRequest.limit }} / {{ costLabel(consumeGainRequest.available) }}</div>
@@ -951,6 +965,7 @@
                 <div class="payment-remaining" :class="{ ready: isConsumeGainValid() }">
                     {{ consumeGainRemainingText() }}
                 </div>
+                </div>
                 <div class="pending-actions">
                     <button @click="confirmConsumeGain()" class="btn btn-success" :disabled="!isConsumeGainValid()">确认消耗</button>
                     <button @click="cancelConsumeGain()" class="btn btn-danger">取消</button>
@@ -961,6 +976,7 @@
         <!-- ═══ SKILL REPLACEMENT MODAL ═══ -->
         <div v-if="workspaceMode === 'skill'" class="workspace-mechanism">
             <div class="overlay-content interaction-panel pending-action-panel">
+                <div class="decision-scroll">
                 <h2>选择要替代的技能</h2>
                 <div class="payment-title">{{ skillReplaceRequest.card.name }}</div>
                 <div class="pending-candidates">
@@ -976,6 +992,7 @@
                         <div class="pending-card-side">竖置技能</div>
                     </div>
                 </div>
+                </div>
                 <div class="pending-actions">
                     <button @click="confirmSkillReplacement()" class="btn btn-success" :disabled="!skillReplaceRequest.replaceId">确认替代</button>
                     <button @click="skillReplaceRequest = null" class="btn btn-danger">取消</button>
@@ -986,6 +1003,7 @@
         <!-- ═══ EQUIPMENT REPLACEMENT MODAL ═══ -->
         <div v-if="workspaceMode === 'equipment'" class="workspace-mechanism">
             <div class="overlay-content interaction-panel pending-action-panel">
+                <div class="decision-scroll">
                 <h2>选择要替换的装备</h2>
                 <div class="payment-title">{{ equipmentReplaceRequest.card.name }}</div>
                 <div class="pending-candidates">
@@ -1000,6 +1018,7 @@
                         <div class="pending-card-name">{{ equipment.name }}</div>
                         <div class="pending-card-side">竖置装备</div>
                     </div>
+                </div>
                 </div>
                 <div class="pending-actions">
                     <button @click="confirmEquipmentReplacement()" class="btn btn-success" :disabled="!equipmentReplaceRequest.replaceId">确认替换</button>
