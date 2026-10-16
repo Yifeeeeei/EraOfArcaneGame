@@ -234,7 +234,8 @@ func TestGameHTMLIssue156SpellRangeAndScrollBoostControls(t *testing.T) {
 		"function isPendingSpellCenter(ownerID, col, row)",
 		"function isPendingSpellAffected(ownerID, col, row)",
 		"myBoardOwnerID, opponentBoardOwnerID, isPendingSpellCenter, isPendingSpellAffected,",
-		"selectedSkill && canBoostWith(card)",
+		"selectedSkill && fanPreviewCard && canBoostWith(fanPreviewCard)",
+		"toggleBoostSkill(fanPreviewCard)",
 		"isSpellScrollItem(skill) || skill.statuses?.['石化'] > 0 || !skill.can_attack_boost",
 	} {
 		if !strings.Contains(html, want) {

@@ -14,14 +14,15 @@ async def run():
   await add(room,actor,'2011001','hand')
   await a.wait_for_function('window.__arcaneDebug.gameState.value.you.hand.some(c=>c.number==="2011001")')
   staff=next(c for c in (await state(a))['you']['hand'] if c['number']=='2011001')
-  hand=a.locator('.hand-card').filter(has_text=staff['name'])
+  hand=a.locator('.hand-card[data-instance-id="'+staff['instance_id']+'"]')
   await hand.click(); await hand.click()
   await a.get_by_role('heading',name='选择要替换的装备').wait_for()
   await a.locator('#decision .pending-card-name').first.click()
   await a.get_by_role('button',name='确认替换',exact=True).click()
   await payment(a)
   # A card inspection opened during a draft must remain closable.
-  await hand.get_by_role('button',name='查看',exact=True).click()
+  await hand.click(button='right')
+  await a.locator('.context-menu-item').filter(has_text='查看详情').click()
   await a.locator('.card-detail-modal .close-btn').click()
   assert await a.locator('.card-detail-modal').count()==0
   await commit(a)

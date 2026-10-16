@@ -8,6 +8,7 @@
     <script src="vendor/vue.global.prod.js"></script>
     <link rel="stylesheet" href="css/game.css">
     <link rel="stylesheet" href="css/workspace.css">
+    <link rel="stylesheet" href="css/formation.css">
 </head>
 <body>
     <div id="app" v-cloak @click.capture="guardInteraction">
@@ -44,7 +45,7 @@
 
         <!-- ═══ CONTEXT MENU ═══ -->
         <div v-if="contextMenu.show" class="context-menu" :style="{ left: contextMenu.x + 'px', top: contextMenu.y + 'px' }" @click.stop>
-            <div class="context-menu-item" @click="contextMenuAction('detail')">
+            <div class="context-menu-item" data-inspect @click="contextMenuAction('detail')">
                 <span class="icon">👁</span> 查看详情
             </div>
             <div class="context-menu-item" v-if="contextMenu.source === 'skill_pool'" @click="contextMenuAction('learn')">
@@ -266,13 +267,13 @@
                     <div class="player-board opponent-board">
                         <div class="board-title">
                             <span>{{ opponent.player_name || (isSpectator ? '玩家2' : '对手') }}</span>
-                            <small>战场</small>
+                            <small>战场 · 前排 {{ opponentFrontRow >= 0 ? opponentFrontRow + 1 : "无" }} 行 ↓</small>
                         </div>
                         <!-- Opponent Grid (row 2 at top = back, row 0 at bottom = front) -->
                         <div class="unit-grid board-grid">
                         <template v-for="row in [2,1,0]">
                             <div v-for="col in [0,1,2]" :key="'ou'+col+'_'+row"
-                                 class="unit-cell"
+                                 class="unit-cell" :data-col="col" :data-row="row"
                                  :class="{
                                      occupied: getOpponentUnit(col, row),
                                      'has-terrain': getOpponentTerrain(col, row),
@@ -297,7 +298,7 @@
                                          :class="{horizontal: getOpponentUnit(col, row).is_horizontal, 'inside-terrain': getOpponentTerrain(col, row)}"
                                          @mouseenter.stop="previewCard(getOpponentUnit(col, row))"
                                          @click.stop="handleUnitImageClick(1 - mySlot, col, row, getOpponentUnit(col, row))">
-                                    <div class="unit-overlay">
+                                    <div class="unit-overlay"><span v-if="row === opponentFrontRow" class="front-marker">前排</span>
                                         <span class="unit-hp">{{ getOpponentUnit(col, row).current_life }}</span>
                                         <span v-if="getOpponentUnit(col, row).current_attack > 0" class="unit-atk">{{ getOpponentUnit(col, row).current_attack }}</span>
                                     </div>
@@ -366,7 +367,7 @@
                     <div class="player-board my-board">
                         <div class="board-title">
                             <span>{{ myState.player_name || (isSpectator ? '玩家1' : '你') }}</span>
-                            <small>战场</small>
+                            <small>↑ 战场 · 前排 {{ myFrontRow >= 0 ? myFrontRow + 1 : "无" }} 行</small>
                         </div>
                         <!-- My Grid (row 0 = front) -->
                         <div class="unit-grid board-grid">
@@ -397,8 +398,8 @@
                                     <img @error="imageFallback" :src="getCardImage(getMyUnit(col, row))" :alt="getMyUnit(col, row).name" class="unit-img"
                                          :class="{horizontal: getMyUnit(col, row).is_horizontal, 'inside-terrain': getMyTerrain(col, row)}"
                                          @mouseenter.stop="previewCard(getMyUnit(col, row))"
-                                         @click.stop="handleUnitImageClick(mySlot, col, row, getMyUnit(col, row))">
-                                    <div class="unit-overlay">
+                                         @click.stop="handleUnitImageClick(mySlot, col, row, getMyUnit(col, row))" tabindex="0" role="button" @keydown.enter.prevent="$event.currentTarget.click()" @keydown.space.prevent="$event.currentTarget.click()">
+                                    <div class="unit-overlay"><span v-if="row === myFrontRow" class="front-marker">前排</span>
                                         <span class="unit-hp">{{ getMyUnit(col, row).current_life }}</span>
                                         <span v-if="getMyUnit(col, row).current_attack > 0" class="unit-atk">{{ getMyUnit(col, row).current_attack }}</span>
                                     </div>
@@ -407,16 +408,6 @@
                                     </div>
                                     <div class="action-peek" v-if="unitActionChips(getMyUnit(col, row)).length">
                                         <span v-for="chip in unitActionChips(getMyUnit(col, row))" :key="chip">{{ chip }}</span>
-                                    </div>
-                                    <div class="unit-actions" v-if="isMyTurn && gameState.phase === 'main'">
-                                        <button v-if="canConsumeUnit(getMyUnit(col, row))"
-                                                class="action-btn consume" @click.stop="consumeCard(getMyUnit(col, row))">消耗</button>
-                                        <button v-if="canAttackWith(getMyUnit(col, row))"
-                                                class="action-btn attack" @click.stop="selectAttacker(getMyUnit(col, row))">攻击</button>
-                                        <button v-if="canUsePerTurn(getMyUnit(col, row))"
-                                                class="action-btn ability" @click.stop="useAbility(getMyUnit(col, row), 'per_turn')">{{ abilityLabel(getMyUnit(col, row), 'per_turn') }}</button>
-                                        <button v-if="canUseUltimate(getMyUnit(col, row))"
-                                                class="action-btn ability ultimate" @click.stop="useAbility(getMyUnit(col, row), 'ultimate')">绝技</button>
                                     </div>
                                 </template>
                             </div>
@@ -515,7 +506,7 @@
             </div>
 
             <!-- ── RIGHT SIDEBAR ── -->
-            <div class="sidebar-right"><nav class="rail-tabs" aria-label="侧栏内容"><button :aria-pressed="railTab === 'skills'" @click="railTab = 'skills'">技能池</button><button :aria-pressed="railTab === 'events'" @click="railTab = 'events'">对局记录</button></nav>
+            <div class="sidebar-right" v-show="railTab !== 'hand'"><nav class="rail-tabs" aria-label="侧栏内容"><button :aria-pressed="railTab === 'skills'" @click="railTab = 'skills'">技能池</button><button :aria-pressed="railTab === 'events'" @click="railTab = 'events'">对局记录</button></nav>
 
                 <!-- Card Inspector -->
                 <div class="inspection-panel" :class="{ empty: !activePreviewCard }">
@@ -586,6 +577,11 @@
             </div>
 
 
+            <nav class="dock-tabs" aria-label="右下区域">
+                <button data-inspect @click="railTab = 'hand'" :aria-pressed="railTab === 'hand'">手牌 {{ myHand.length }}</button>
+                <button data-inspect @click="railTab = 'skills'" :aria-pressed="railTab === 'skills'">技能池</button>
+                <button data-inspect @click="railTab = 'events'" :aria-pressed="railTab === 'events'">记录</button>
+            </nav>
             <aside id="decision" class="decision-workspace" aria-label="决策工作区">
                 <header class="workspace-heading"><span>决策工作区</span><small>{{ decisionOwnerLabel }}</small></header>
                 <div v-if="decisionError" role="alert" class="decision-error">{{ decisionError }}</div>
@@ -1028,7 +1024,27 @@
         </div>
 
 
-                <div v-if="workspaceMode === 'idle'" class="workspace-idle">
+                <div v-if="showFanPreview" class="fan-preview" aria-label="手牌预览">
+                    <img :key="fanPreviewCard.instance_id" @error="imageFallback" :src="getCardImage(fanPreviewCard)" :alt="fanPreviewCard.name">
+                    <h3>{{ fanPreviewCard.name }}</h3>
+                    <p>{{ cardAvailabilityText(fanPreviewCard) }} · 入场费用 {{ costLabel(playCost(fanPreviewCard)) }}</p>
+                    <button class="btn" data-inspect @click="showCardDetail(fanPreviewCard)">查看完整详情</button>
+                    <button class="btn" @click="activateFanCard(fanPreviewCard)">选择此牌</button>
+                    <button class="btn" data-inspect @click="fanPreviewID = ''">关闭预览</button>
+                    <small>悬停 / 聚焦只预览；点击选牌后才准备行动。</small>
+                </div>
+                <div v-if="workspaceMode === 'idle' && !showFanPreview" class="workspace-idle">
+                    <div v-if="selectedBattleCard && !hasActiveTargeting" class="unit-command-panel">
+                        <h3>{{ selectedBattleCard.name }}</h3>
+                        <p>生命 {{ selectedBattleCard.current_life }} · {{ selectedBattleCard.is_horizontal ? '横置' : '竖置' }}</p>
+                        <button class="btn" data-inspect @click="showCardDetail(selectedBattleCard)">查看完整详情</button>
+                        <template v-if="isMyTurn && gameState.phase === 'main'">
+                            <button v-if="canConsumeUnit(selectedBattleCard)" class="btn" @click="consumeCard(selectedBattleCard)">消耗</button>
+                            <button v-if="canAttackWith(selectedBattleCard)" class="btn" @click="selectAttacker(selectedBattleCard)">攻击</button>
+                            <button v-if="canUsePerTurn(selectedBattleCard)" class="btn" @click="useAbility(selectedBattleCard, 'per_turn')">{{ abilityLabel(selectedBattleCard, 'per_turn') }}</button>
+                            <button v-if="canUseUltimate(selectedBattleCard)" class="btn" @click="useAbility(selectedBattleCard, 'ultimate')">绝技</button>
+                        </template>
+                    </div>
                     <div class="eyebrow">{{ isMyTurn ? '行动准备' : '等待交接' }}</div>
                     <h2>{{ guideKicker }}</h2><p>{{ currentHint }}</p>
                     <p v-if="waitingNotice">{{ waitingNotice }}</p>
@@ -1039,40 +1055,32 @@
                 </div>
             </aside>
             <!-- ── HAND BAR ── -->
-            <div id="hand" class="hand-bar">
-                <div class="hand-label">{{ isSpectator ? '观 战' : '手 牌' }}</div>
-                <div class="hand-cards">
-                    <div v-if="isSpectator" class="waiting">
-                        观战模式：隐藏双方手牌和技能池，只显示公开战场信息。
-                    </div>
-                    <div v-for="card in myHand" :key="card.instance_id"
-                         class="hand-card"
-                         :data-instance-id="card.instance_id"
-                         :data-card-number="card.number"
-                         :class="{ selected: selectedHandCard === card, 'boost-selected': selectedBoostSkills.includes(card.instance_id), playable: canPlayHandCard(card), unaffordable: isMyTurn && gameState.phase === 'main' && !canPlayHandCard(card) && !canBoostWith(card) }"
-                         @mouseenter="previewCard(card)"
-                         @click="selectHandCard(card)"
-                         @contextmenu.prevent="showCardContextMenu($event, card, 'hand')"
-                         title="右键点击查看选项">
-                        <img @error="imageFallback" :src="getCardImage(card)" class="hand-card-img">
-                        <div v-if="selectedSkill && canBoostWith(card)" class="boost-btn"
-                             @click.stop="toggleBoostSkill(card)">
-                            {{ selectedBoostSkills.includes(card.instance_id) ? '取消强化' : '强化' }}
-                        </div>
-                        <button class="card-inspect" @click.stop="showCardDetail(card)">查看</button><div class="hand-card-info">
-                            <div class="hand-card-name">{{ card.name }}</div>
-                            <div class="hand-card-cost" v-if="hasCost(card)">
-                                <span v-for="(v,k) in playCost(card)" :key="k" class="cost-pip" :class="'elem-' + k">
-                                    <img @error="imageFallback" :src="getElementIcon(k)" :alt="elemFull(k)">
-                                    <span>{{ v }}</span>
-                                </span>
-                            </div>
-                            <div class="hand-card-hint" v-if="isMyTurn && gameState.phase === 'main' && hasCost(card)">
-                                {{ cardAvailabilityText(card) }}
-                            </div>
+            <div id="hand" class="hand-bar" v-show="railTab === 'hand'" :class="{ 'flat-hand': fanLayout === 'flat' }" :style="{'--fan-step':fanSpread+'px','--fan-count':Math.max(1,fanCards.length)}">
+                <div class="fan-toolbar">
+                    <button data-inspect @click="changeFanPage(-1)" :disabled="currentFanPage === 0" aria-label="上一页手牌">‹</button>
+                    <span>{{ currentFanPage+1 }} / {{ fanPageCount }} · 共 {{ myHand.length }} 张</span>
+                    <button data-inspect @click="changeFanPage(1)" :disabled="currentFanPage+1 >= fanPageCount" aria-label="下一页手牌">›</button>
+                    <button data-inspect @click="fanLayout = fanLayout === 'fan' ? 'flat' : 'fan'">{{ fanLayout === 'fan' ? '平铺' : '扇形' }}</button>
+                    <label>间距<input data-inspect type="range" aria-label="手牌间距" min="22" max="30" v-model.number="fanSpread"></label>
+                </div>
+                <div v-if="isSpectator" class="waiting">观战：手牌不可见</div>
+                <div v-else-if="!myHand.length" class="empty-hand">暂无手牌</div>
+                <div v-else class="hand-cards">
+                    <div v-for="(card,index) in fanCards" :key="card.instance_id" class="hand-card" role="button" tabindex="0"
+                        :data-instance-id="card.instance_id" :data-card-number="card.number" :aria-label="(currentFanPage*7+index+1)+'：'+card.name+'，'+cardAvailabilityText(card)"
+                        :aria-pressed="selectedHandCard?.instance_id === card.instance_id"
+                        :style="{'--fan-index':index,'--fan-angle':((index-(fanCards.length-1)/2)*4)+'deg','--fan-rise':(Math.abs(index-(fanCards.length-1)/2)*5)+'px'}"
+                        :class="{selected:selectedHandCard?.instance_id === card.instance_id,unaffordable:isMyTurn && gameState.phase==='main' && !canPlayHandCard(card), 'boost-selected': selectedBoostSkills.includes(card.instance_id)}"
+                        @mouseenter="previewHand(card)" @focus="previewHand(card)" @keydown="navigateFan($event,card)"
+                        @keydown.enter.prevent="$event.currentTarget.click()" @keydown.space.prevent="$event.currentTarget.click()"
+                        @click="activateFanCard(card)" @contextmenu.prevent="showCardContextMenu($event,card,'hand')">
+                        <div class="fan-face">
+                            <img @error="imageFallback" :src="getCardImage(card)" :alt="card.name" class="hand-card-img">
+                            <span class="fan-card-status">{{ selectedHandCard?.instance_id === card.instance_id ? '已选' : selectedBoostSkills.includes(card.instance_id) ? '强化' : (currentFanPage*7+index+1)+' · '+card.name }}</span>
                         </div>
                     </div>
                 </div>
+                <button v-if="selectedSkill && fanPreviewCard && canBoostWith(fanPreviewCard)" class="fan-boost" @click="toggleBoostSkill(fanPreviewCard)">{{ selectedBoostSkills.includes(fanPreviewCard.instance_id) ? '取消强化' : '强化' }} {{ fanPreviewCard.name }}</button>
             </div>
 
         </div><!-- /game-layout -->

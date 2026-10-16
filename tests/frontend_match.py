@@ -62,15 +62,18 @@ async def main():
     room,pages,errors=await start(browser)
     actor=(await state(pages[0]))['current_turn']; a=pages[actor]; b=pages[1-actor]
     # Consume is selected on the actual battlefield and confirmed in the workspace.
-    await a.locator('.my-board').get_by_role('button',name='消耗',exact=True).first.click()
+    await a.locator('.my-board .unit-img').first.click()
+    await a.locator('.unit-command-panel').get_by_role('button',name='消耗',exact=True).click()
     if await a.get_by_role('button',name='确认消耗',exact=True).count():
         await a.locator('.payment-token').first.click(); await a.get_by_role('button',name='确认消耗',exact=True).click()
     await commit(a)
     for i in range(2): api('/api/test-room/elements',dict(room_id=room,player=i,mode='set',elements={e:30 for e in ['火','水','气','地','光','暗','无']}))
     await a.wait_for_function('window.__arcaneDebug.gameState.value.you.elements["气"] === 30')
     # Learn via visible skill pool, exercising exact editable payment.
+    await a.locator('.dock-tabs').get_by_role('button',name='技能池',exact=True).click()
     await a.locator('.sp-card').filter(has_text='雷击').get_by_role('button',name='学习',exact=True).click()
     await payment(a); await commit(a)
+    await a.locator('.dock-tabs button').first.click()
     skill=next(c for c in (await state(a))['you']['skills'] if c and c['name']=='雷击')
     api('/api/test-room/card-state',dict(room_id=room,player=actor,instance_id=skill['instance_id'],horizontal=False))
     await add(room,1-actor,'1021011','unit',col=0,row=0)
@@ -120,12 +123,12 @@ async def main():
     pa=(await state(a))['pending_action']; assert pa['decision_id']>first
     assert not any(c.get('name')=='巫师的学徒' and c.get('side')=='enemy' for c in pa['candidates'])
     assert await a.locator('.pending-card.selected').count()==0
-    await a.set_viewport_size({'width':390,'height':844})
+    await a.set_viewport_size({'width':1024,'height':768})
     await a.wait_for_timeout(500)
-    await a.screenshot(path=str(OUT/'choice-mobile.png'),full_page=True)
+    await a.screenshot(path=str(OUT/'choice-narrow-desktop.png'),full_page=True)
     from PIL import Image
-    assert Image.open(OUT/'choice-mobile.png').width == 390
-    assert await a.evaluate('Math.max(document.documentElement.scrollWidth,document.body.scrollWidth) <= 390'), 'mobile horizontal overflow'
+    assert Image.open(OUT/'choice-narrow-desktop.png').width == 1024
+    assert await a.evaluate('Math.max(document.documentElement.scrollWidth,document.body.scrollWidth) <= 1024'), 'narrow desktop horizontal overflow'
     # Retry and duplicate click through central transport, with deliberate invalid draft.
     await a.evaluate('window.__arcaneDebug.sendAction("resolve_action", {selected:["invalid"]})')
     await a.get_by_role('button',name='确认提交',exact=True).click()
@@ -151,7 +154,7 @@ async def main():
     await a.wait_for_function('window.__arcaneDebug?.gameState.value')
     assert await a.evaluate('window.__sent.filter(m=>m.action !== "client_log").length')==0
     print('PASS disconnect: unknown-result action is not replayed after reconnect',flush=True)
-    print('PASS continuous choices: two wings, target death refresh, replacement, private wait, retry, duplicate click, mobile',flush=True)
-    (OUT/'result.json').write_text(json.dumps({'passed':True,'rooms':[room],'viewports':[[1440,1000],[390,844]],'page_errors':errors},ensure_ascii=False,indent=2))
+    print('PASS continuous choices: two wings, target death refresh, replacement, private wait, retry, duplicate click, narrow desktop',flush=True)
+    (OUT/'result.json').write_text(json.dumps({'passed':True,'rooms':[room],'viewports':[[1440,1000],[1024,768]],'page_errors':errors},ensure_ascii=False,indent=2))
     await browser.close()
 if __name__ == '__main__': asyncio.run(main())

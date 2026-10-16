@@ -153,7 +153,12 @@
             const actionDraft = ref(null);
             const actionBusy = ref(false);
             const decisionError = ref('');
-            const railTab = ref('skills');
+            const railTab = ref('hand');
+            const fanPage = ref(0);
+            const fanSpread = ref(28);
+            const fanLayout = ref('fan');
+            const fanPreviewID = ref('');
+            const selectedBattleID = ref('');
             function reloadMatch() { window.location.reload(); }
             const loadDistribution = ref({});
             const allocationAmounts = ref({});
@@ -376,6 +381,27 @@
             const myState = computed(() => gameState.value ? (gameState.value.you || {}) : {});
             const opponent = computed(() => gameState.value ? (gameState.value.opponent || {}) : {});
             const myHand = computed(() => myState.value.hand || []);
+            const fanPageCount = computed(() => Math.max(1, Math.ceil(myHand.value.length / 7)));
+            const currentFanPage = computed(() => Math.min(fanPage.value, fanPageCount.value - 1));
+            const fanCards = computed(() => myHand.value.slice(currentFanPage.value * 7, currentFanPage.value * 7 + 7));
+            const fanPreviewCard = computed(() => myHand.value.find(c => c.instance_id === fanPreviewID.value) || null);
+            const selectedBattleCard = computed(() => allMyFieldCards().find(c => c.instance_id === selectedBattleID.value) || null);
+            const showFanPreview = computed(() => workspaceMode.value === 'idle' && !!fanPreviewCard.value && !hasActiveTargeting.value && !selectedHandCard.value && !selectedSkill.value && !selectedAttacker.value);
+            function previewHand(card) { fanPreviewID.value = card.instance_id; previewCard(card); }
+            function changeFanPage(delta) { fanPage.value = Math.max(0, Math.min(fanPageCount.value - 1, currentFanPage.value + delta)); }
+            function activateFanCard(card) { fanPreviewID.value = ''; selectedBattleID.value = ''; selectHandCard(card); }
+            async function navigateFan(event, card) {
+                if (event.key === 'Escape') { fanPreviewID.value = ''; return; }
+                if (!['ArrowLeft','ArrowRight','Home','End'].includes(event.key)) return;
+                event.preventDefault();
+                const index = myHand.value.findIndex(c => c.instance_id === card.instance_id);
+                const target = event.key === 'Home' ? 0 : event.key === 'End' ? myHand.value.length - 1 : Math.max(0, Math.min(myHand.value.length - 1, index + (event.key === 'ArrowRight' ? 1 : -1)));
+                fanPage.value = Math.floor(target / 7);
+                const id = myHand.value[target]?.instance_id;
+                await nextTick();
+                if (id) document.querySelector('.hand-card[data-instance-id="' + CSS.escape(id) + '"]')?.focus();
+            }
+
             const opponentHandCards = computed(() => {
                 const revealed = opponent.value.revealed_hand || [];
                 const hiddenCount = Math.max(0, Number(opponent.value.hand_count || 0) - revealed.length);
@@ -780,6 +806,8 @@
             }
 
             function clearSelection() {
+                selectedBattleID.value = '';
+                fanPreviewID.value = '';
                 selectedHandCard.value = null;
                 selectedAttacker.value = null;
                 selectedSkill.value = null;
@@ -1360,7 +1388,9 @@
                     summonCard(selectedHandCard.value, col, row);
                     return;
                 }
-                showCardDetail(unit);
+                if (ownerSlot === mySlot.value && !isSpectator) {
+                    selectedBattleID.value = unit.instance_id; fanPreviewID.value = '';
+                } else showCardDetail(unit);
             }
 
             function placeTerrainCard(card, col, row) {
@@ -3150,6 +3180,7 @@
             });
 
             return {
+                fanPage, fanSpread, fanLayout, fanPreviewID, fanPageCount, currentFanPage, fanCards, fanPreviewCard, showFanPreview, previewHand, changeFanPage, activateFanCard, navigateFan, selectedBattleCard,
                 publicEventLog, resourceModes, skillNeedsTarget, castSpellWithoutTarget, railTab, reloadMatch, allocationAmounts, imageFallback, actionDraft, actionBusy, decisionError, workspaceMode, decisionOwnerLabel, draftTitle, draftSummary, commitDraft, cancelDraft, guardInteraction, legacyURL, loadDistribution, setLoadDistribution, paymentAvailable, removePayment,
                 connected, connectionStatus, error,
                 gameState, mySlot, roomID, isSpectator, mulliganSubmitted, detailCard, hoverCard, recentDiscardCard, graveyardFlash, activePreviewCard,
