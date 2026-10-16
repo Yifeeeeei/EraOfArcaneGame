@@ -5,9 +5,9 @@
 ## 信息架构
 
 - 状态条分开显示回合玩家、当前决策玩家、连接、房间与回合数。
-- 桌面固定双战场、人物/资源栏、手牌与唯一决策工作区；技能池/公开事件使用切换页签。卡牌检视使用单独详情层。
+- 桌面双战场、人物/资源栏、手牌与唯一决策工作区；技能池/公开事件使用切换页签。页面按内容高度滚动，决策栏保持可达，不以裁掉卡面换取一屏容纳。卡牌检视使用单独详情层。
 - 深褐桌面、方形控件、细金边。单位始终显示名称、生命、状态，选择有勾选文字；有点击检视与明确学习/施放入口，不依赖悬停。
-- 手机按资源、战场、手牌、决策、技能/事件纵向排列，装备/技能行自身横向滚动，底部锚点导航直达当前决策。手机不承诺整场同时塞入一屏。
+- 手机按资源、双方战场、手牌、决策、技能/事件纵向排列，装备/技能行与密集手牌自身横向滚动，页首锚点导航直达当前决策（导航不浮盖卡图）。手机不承诺整场同时塞入一屏。
 - `web/game-legacy.html` 是基线完整原页。新页无 emergency DOM、无第二套 pending 面板；旧页只是独立回退入口。
 
 ## 数据和提交边界
@@ -53,6 +53,7 @@ python tests/frontend_match.py
 python tests/frontend_reactions.py
 python tests/frontend_primitives.py
 python tests/frontend_dense.py
+python tests/frontend_card_visibility.py
 python tests/frontend_quality.py
 python tests/frontend_failed_action.py
 ```
@@ -62,3 +63,11 @@ Python 检查需要 Playwright、Pillow 和 `/usr/bin/chromium`，只运行 head
 截图、房间日志及临时结果在忽略的 `agent-data/frontend-review/` / `server/logs/rooms/`，不提交玩家记录。机制覆盖与未穷举项见 [覆盖台账](frontend-coverage.md)，289 种静态命名 pending 创建点见 [决策清单](frontend-decision-inventory.md)。
 
 执行报错后的同步、锁顺序和具体保证见 [执行报错同步](frontend-failed-action-sync.md)。
+
+## 卡面完整性回归
+
+PR #165 的初始版将单位图固定为 86px 高并使用 `object-fit:cover`，同时以绝对定位叠放名称、状态和操作；手牌、技能池与手机布局还有独立的高度约束。2026-10-16 的修复统一使用原图比例及正常文档流，将所有文字/按钮放到卡图外。技能池提供触控可用的查看入口；详情弹窗的关闭按钮独占一行。
+
+桌面决策栏从最多 390px 收窄到 300px（超宽屏 340px）；技能池独占手牌下方区域。821–1100px 与手机纵向排列双方战场，避免六列卡牌挤在窄屏；卡图完整显示仍不等于缩略图上每个印刷字都清晰，完整效果可点击详情阅读。满场页面会比初版更长，这是保留完整卡面的取舍。
+
+`frontend_card_visibility.py` 在真实双客户端房间检查满场、密集手牌、横置/状态、技能/装备、最后一张手牌及详情弹窗，视口为 1440×1000、1024×768、390×844。图片必须成功加载、保持自然比例、不与兄弟控件相交、不被卡容器上下裁切；页面不能横向溢出。`frontend_match.py` 和 `frontend_reactions.py` 复用检查验证服务器实际发出的防御与反制窗口。视觉产物在忽略目录 `agent-data/card-visibility/`；自动化几何断言不能替代查看这些实际截图。

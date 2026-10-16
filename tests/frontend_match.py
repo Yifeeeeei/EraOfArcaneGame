@@ -51,6 +51,7 @@ async def start(browser):
 async def add(room,player,num,zone,**kwargs):
     api('/api/test-room/add-card',dict(room_id=room,player=player,card_number=num,zone=zone,count=1,**kwargs))
 async def main():
+ from frontend_card_visibility import decision_views
  async with async_playwright() as pw:
     browser=await pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
     room,pages,errors=await start(browser)
@@ -74,6 +75,7 @@ async def main():
     await payment(a); await commit(a)
     await b.wait_for_function('window.__arcaneDebug.showDefenseWindow.value')
     assert await a.locator('.defense-panel').count()==0
+    await decision_views(b, 'defense')
     await b.screenshot(path=str(OUT/'defense-desktop.png'),full_page=True)
     await b.get_by_role('button',name='不防御',exact=True).click()
     await commit(b)

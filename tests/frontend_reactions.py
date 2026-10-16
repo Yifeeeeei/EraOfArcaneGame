@@ -7,6 +7,7 @@ async def choose(page,index=0):
  await page.get_by_role('button',name='确认选择',exact=True).click()
  await payment(page); await commit(page)
 async def run():
+ from frontend_card_visibility import decision_views
  async with async_playwright() as pw:
   browser=await pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
   room,pages,errors=await start(browser); actor=(await state(pages[0]))['current_turn']; a=pages[actor]; b=pages[1-actor]
@@ -34,6 +35,7 @@ async def run():
   assert (await state(a)).get('pending_action') is None
   # Unknown counter names are absent from the caster's DOM until revealed.
   assert '奥术符文' not in await a.locator('.decision-workspace').inner_text()
+  await decision_views(b, 'counter')
   await b.screenshot(path=str(OUT/'counter-desktop.png'),full_page=True)
   await choose(b)
   assert (await state(b))['pending_action']['type']=='arcane_rune_skill'
@@ -47,6 +49,7 @@ async def run():
   await payment(b); await commit(b)
   if (await state(b)).get('pending_action'): await choose(b)
   assert (await state(b))['phase']=='defense_window'
+  await decision_views(b, 'defense-skills')
   if (await state(b))['phase']=='defense_window':
    await b.locator('[data-defense-action="overexert"]').filter(has_text='掌门').click()
    await b.locator('[data-defense-action="skill"]').first.click()

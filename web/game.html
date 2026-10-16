@@ -154,6 +154,7 @@
         <!-- ═══════════════════════════════════════ -->
         <!-- ═══       MAIN GAME LAYOUT         ═══ -->
         <!-- ═══════════════════════════════════════ -->
+        <nav v-if="gameState" class="mobile-jump"><a href="#arena">战场</a><a href="#hand">手牌</a><a href="#decision">当前决策</a></nav>
         <div v-if="connected && gameState" class="game-layout">
 
             <!-- ── LEFT SIDEBAR ── -->
@@ -548,6 +549,7 @@
                              @contextmenu.prevent="showCardContextMenu($event, card, 'skill_pool')"
                              title="右键点击查看选项">
                             <img @error="imageFallback" :src="getCardImage(card)" :alt="card.name">
+                            <button class="mini-btn" @click.stop="showCardDetail(card)">查看</button>
                             <div class="sp-name">{{ card.name }}</div>
                             <div class="sp-cost" v-html="costHTML(learnCost(card))"></div>
                             <button class="mini-btn" @click.stop="learnSkill(card)" :disabled="!canLearnSkill(card)">学习</button><div class="sp-learn-hint">{{ canLearnSkill(card) ? '可以学习' : missingCostText(learnCost(card)) }}</div>
@@ -1054,7 +1056,7 @@
                 </div>
             </div>
 
-        </div><!-- /game-layout --><nav v-if="gameState" class="mobile-jump"><a href="#arena">战场</a><a href="#hand">手牌</a><a href="#decision">当前决策</a></nav>
+        </div><!-- /game-layout -->
     </div>
 
     <script src="js/decision-session.js"></script>
