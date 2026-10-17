@@ -1,0 +1,97 @@
+/* Desktop workspace: board, decision, persistent reader. */
+@media(min-width:821px) {
+ .game-layout { grid-template-columns:110px minmax(330px,1fr) 410px 260px; }
+ .boards-wrapper { grid-template-columns:250px minmax(0,1fr); gap:6px 10px; }
+ .decision-workspace { grid-column:3; border:1px solid #665337; padding:0 10px 8px; }
+ .fixed-inspector { grid-column:4; grid-row:1; min-width:0; min-height:0; display:flex; flex-direction:column; padding:10px; background:linear-gradient(140deg,#30291d,#141b22); border-left:1px solid #806740; overflow:hidden; }
+ .fixed-inspector header { flex:none; display:flex; justify-content:space-between; padding:6px 0 10px; color:#f1dba9; }
+ .fixed-inspector header small { font-size:10px; color:#b8ac91; }
+ .inspector-scroll { min-height:0; overflow:auto; }
+ .inspector-image { display:block; width:min(200px,100%); height:auto; margin:0 auto; cursor:zoom-in; }
+ .fixed-inspector h3 { margin:8px 0; color:#f3dcad; }
+ .fixed-inspector p,.inspector-description { color:#dbceb2; font-size:12px; line-height:1.65; margin:6px 0; }
+ .inspector-metadata span { display:inline-block; border:1px solid #816b43; padding:1px 4px; margin:2px; }
+ .inspector-description img { height:15px; width:auto; vertical-align:middle; }
+ .fixed-inspector .btn { background:#463721; border:1px solid #a68a56; color:#f7e3b8; padding:6px 10px; }
+ .hand-bar,.dock-tabs,.sidebar-right { grid-column:3/5; }
+ .board-title small { font-size:10px; }
+ .board-side .slot { width:60px; min-width:60px; }
+ .unit-cell .front-marker,.board-side .skill-badges,.unit-cell .status-badges,.board-side .status-badges,.slot-cost-hint { display:none; }
+ .unit-cell .unit-overlay:not(:has(.unit-atk)) { display:none; }
+ .unit-img.horizontal,.slot-img.horizontal { outline:2px dashed #a49ac9; outline-offset:-3px; }
+ .unit-cell { background:linear-gradient(145deg,#34362a88,#0c171bbb),repeating-linear-gradient(45deg,transparent 0 17px,#d2b47c06 17px 18px); border-color:#635d43; box-shadow:inset 0 0 16px #0008; }
+ .unit-cell.front-row { border-bottom-color:#d9b975; }
+ .battlefield-center { background:radial-gradient(ellipse at 30% 20%,#34412e45,transparent 55%),linear-gradient(130deg,#20281f,#151a20 75%); }
+ .board-side .slot-lane { background:linear-gradient(120deg,#39494b55,#182326aa); border:1px solid #687270; box-shadow:inset 0 0 18px #081415; }
+ .board-side .slot-lane:nth-child(2) { background:linear-gradient(120deg,#56412b66,#261c17); border-color:#826746; box-shadow:inset 0 0 18px #150c08; }
+ .board-side .slot { background:linear-gradient(145deg,#0006,#ffffff06); border:1px solid #ab956c33; }
+ .slot .set-card-back { width:100%; height:auto; display:block; }
+ .workspace-heading { padding:10px 0; margin-bottom:6px; }
+ .context-menu { width:220px; max-height:calc(100dvh - 16px); overflow:auto; padding:8px; background:linear-gradient(135deg,#353027,#161c22); border:1px solid #c5a369; box-shadow:0 12px 35px #000b; }
+ .context-menu > strong { display:block; padding:5px; color:#dfc58f; font-size:13px; }
+ .context-menu .context-menu-item { display:block; width:100%; min-height:34px; text-align:left; background:transparent; color:#f6e7cb; border:0; border-bottom:1px solid #695b4133; padding:7px 10px; }
+ .context-menu .context-menu-item:hover,.context-menu .context-menu-item:focus-visible { background:#665133; outline:2px solid #d6b77b; }
+ .defense-panel .decision-scroll { display:flex; flex-direction:column; overflow:hidden; }
+ .decision-workspace .defense-panel h2 { font-size:16px; margin:2px 0 5px; flex:none; }
+ .defense-panel .spell-info { flex:none; padding:5px; margin:0 0 6px; }
+ .defense-panel .spell-info-img,.defense-panel .spell-source-list { display:none; }
+ .defense-panel .spell-info-main { display:block; font-size:11px; line-height:1.5; }
+ .defense-groups { flex:1; min-height:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
+ .defense-group { display:flex; flex-direction:column; min-width:0; min-height:0; background:#10191d; border:1px solid #5f6a64; }
+ .defense-group > h3 { flex:none; background:#343e35; margin:0; padding:6px; color:#e4d8ba; font-size:12px; }
+ .defense-group-scroll { flex:1; min-height:0; overflow:auto; padding:4px; }
+ .defense-group .defense-skills-section { margin:0 0 5px; }
+ .defense-group .defense-skills-section h3 { font-size:10px; margin:3px 0; line-height:1.3; }
+ .defense-group .defense-skill-list { display:flex; flex-direction:column; gap:4px; }
+ .defense-group .defense-skill-img { display:none; }
+ .decision-workspace .defense-group .defense-skill-card { min-height:0; width:100%; padding:5px; background:#202a29; border:1px solid #647069; border-radius:3px; }
+ .defense-group .defense-skill-card.selected { border:2px solid #e9c679; background:#51462b; }
+ .defense-group .defense-skill-card.selected::before { content:'✓ 已选'; display:block; color:#ffe4a0; font-size:10px; }
+ .defense-group .defense-skill-name { font-size:11px; line-height:1.35; }
+ .defense-group .defense-skill-power,.defense-group .interaction-detail-link { font-size:10px; line-height:1.3; }
+ .defense-group .defense-note { font-size:10px; line-height:1.4; margin:4px 0; }
+ .defense-actions { flex:none; padding:6px 0 0; }
+ .defense-actions .power-comparison { margin:4px 0; padding:4px; font-size:11px; }
+ .defense-actions .btn { padding:6px; min-height:32px; }
+ .defense-payment { display:flex; flex-wrap:wrap; gap:3px; font-size:11px; }
+ .defense-payment > span { display:flex; align-items:center; background:#29322a; border:1px solid #5d654f; }
+ .defense-payment button { background:#3e4938; color:#f9dfaa; border:0; min-width:22px; height:25px; }
+ .defense-payment b { font-weight:400; padding:0 2px; }
+ .defense-actions small { font-size:10px; color:#efb38d; }
+}
+@media(min-width:821px) and (max-width:1200px) {
+ .game-layout { grid-template-columns:100px minmax(300px,1fr) 330px 260px; }
+ .boards-wrapper { grid-template-columns:210px minmax(0,1fr); gap:4px 6px; }
+ .fixed-inspector { padding:8px; }
+ .unit-card-face,.unit-cell .unit-img,.unit-cell .unit-img.inside-terrain { width:60px; }
+ .unit-life-badge strong { font-size:21px; }
+ .unit-cell { min-height:90px; }
+}
+
+@media(min-width:821px) {
+ .defense-layout .decision-workspace { grid-row:1/3; }
+ .defense-layout .hand-bar,.defense-layout .dock-tabs,.defense-layout .sidebar-right { grid-column:4; }
+ .defense-layout .fan-toolbar { font-size:9px; gap:2px; }
+ .defense-layout .fan-toolbar button { padding:3px 5px; }
+ .defense-layout .fan-toolbar label { font-size:0; }
+ .defense-layout .fan-toolbar input { width:30px; }
+ .defense-actions > .btn { background:#3c4430; border:1px solid #a28a5b; color:#f1dfb6; }
+ .sidebar-left { justify-content:safe flex-end; }
+ .sidebar-left .hero-name { font-size:13px; }
+ .sidebar-left .hero-row { flex-wrap:wrap; }
+}
+
+/* Preserve the existing touch/stacked fallback below the desktop breakpoint. */
+@media(max-width:820px) {
+ .fixed-inspector { min-width:0; padding:12px; border:1px solid #806740; background:#20251f; }
+ .fixed-inspector header { display:flex; justify-content:space-between; }
+ .inspector-scroll { max-height:430px; overflow:auto; }
+ .inspector-image { display:block; width:min(200px,100%); height:auto; margin:10px auto; }
+ .inspector-description img { height:16px; width:auto; }
+ .slot .set-card-back { width:100%; height:auto; }
+ .context-menu { max-width:calc(100vw - 16px); max-height:calc(100dvh - 16px); overflow:auto; }
+ .context-menu > strong { display:block; padding:8px; }
+ .context-menu button { display:block; width:100%; min-height:44px; text-align:left; }
+ .defense-payment { display:flex; flex-wrap:wrap; gap:6px; }
+ .defense-payment button { min-width:36px; min-height:36px; }
+}

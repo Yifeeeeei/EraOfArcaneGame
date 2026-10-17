@@ -3,7 +3,7 @@ Run against the local server: python tests/frontend_card_visibility.py.
 Also imported by match/reactions so server-issued decisions are checked.
 """
 from frontend_match import *
-VISUAL = Path('agent-data/formation-review'); VISUAL.mkdir(parents=True, exist_ok=True)
+VISUAL = Path('agent-data/usability-review'); VISUAL.mkdir(parents=True, exist_ok=True)
 FACES = '.unit-img,.terrain-img,.slot-img,.hand-card-img,.sp-card > img,.pending-card-img,.defense-skill-img,.card-img-large,.spell-info-img'
 
 async def assert_faces(page):
@@ -126,7 +126,7 @@ async def run():
    await a.locator('.hand-card').first.focus()
    await a.keyboard.press('End')
    await a.screenshot(path=str(VISUAL/f'hand-preview-{width}.png'),animations='disabled')
-   await a.locator('.fan-preview').get_by_role('button',name='查看完整详情').click()
+   await a.locator('.fixed-inspector').get_by_role('button',name='放大查看').click()
    await assert_faces(a)
    await a.locator('.card-detail-modal').screenshot(path=str(VISUAL/f'inspector-{width}.png'),animations='disabled')
    await a.locator('.card-detail-modal .close-btn').click()

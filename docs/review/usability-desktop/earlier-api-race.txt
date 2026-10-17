@@ -1,0 +1,335 @@
+?   	eraofarcane	[no test files]
+Loaded 728 cards (728 playable supported cards)
+2026/10/17 03:26:51 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 03:26:51 Player P0 (pr163-p0) joined room 2190 as slot 0
+2026/10/17 03:26:51 Player P1 (pr163-p1) joined room 2190 as slot 1
+2026/10/17 03:26:51 [Game 2190] Player 0 action: mulligan
+2026/10/17 03:26:51 [Game 2190] Player 1 action: mulligan
+2026/10/17 03:26:51 [Game 2190] Player 0 action: end_turn
+2026/10/17 03:26:51 [Game 2190] Player 1 action: end_turn
+2026/10/17 03:26:51 Player pr163-p1 disconnected from room 2190
+2026/10/17 03:26:51 Player pr163-p0 disconnected from room 2190
+2026/10/17 03:26:51 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 03:26:51 Player P0 (pr163-p0) joined room 1702 as slot 0
+2026/10/17 03:26:51 Player P1 (pr163-p1) joined room 1702 as slot 1
+2026/10/17 03:26:51 [Game 1702] Player 0 action: mulligan
+2026/10/17 03:26:51 [Game 1702] Player 1 action: mulligan
+2026/10/17 03:26:52 [Game 1702] Player 0 action: use_item
+2026/10/17 03:26:52 [Game 1702] Player 0 action: resolve_action
+2026/10/17 03:26:52 [Game 1702] Player 0 action: resolve_action
+2026/10/17 03:26:52 [Game 1702] Player 0 action: resolve_action
+2026/10/17 03:26:52 [Game 1702] Player 0 action: resolve_action
+2026/10/17 03:26:52 [Game 1702] Player 0 action: resolve_action
+2026/10/17 03:26:52 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 03:26:52 Player pr163-p1 disconnected from room 1702
+2026/10/17 03:26:52 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 03:26:52 Player pr163-p0 disconnected from room 1702
+2026/10/17 03:26:52 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 03:26:52 Player P0 (pr163-p0) joined room 6216 as slot 0
+2026/10/17 03:26:52 Player P1 (pr163-p1) joined room 6216 as slot 1
+2026/10/17 03:26:52 [Game 6216] Player 0 action: mulligan
+2026/10/17 03:26:52 [Game 6216] Player 1 action: mulligan
+2026/10/17 03:26:52 [Game 6216] Player 1 action: cast_spell
+2026/10/17 03:26:52 Player pr163-p0 disconnected from room 6216
+==================
+WARNING: DATA RACE
+Write at 0x000002adacd8 by goroutine 86:
+  eraofarcane/game.RegisterAllCardEffects()
+      /workspace/EraOfArcaneGame/server/game/card_effects_catalog.go:652 +0x1c4
+  eraofarcane/api.pr163StartMatch()
+      /workspace/EraOfArcaneGame/server/api/pr163_api_matrix_test.go:128 +0x59
+  eraofarcane/api.TestPR163APIRedMoonExtraTargetAndDefenseHandshake.func1()
+      /workspace/EraOfArcaneGame/server/api/pr163_api_matrix_test.go:345 +0x46
+  testing.tRunner()
+      /tmp/era-toolchain/go/src/testing/testing.go:2036 +0x21c
+  testing.(*T).Run.gowrap1()
+      /tmp/era-toolchain/go/src/testing/testing.go:2101 +0x38
+
+Previous read at 0x000002adacd8 by goroutine 59:
+  eraofarcane/game.behaviorForNumber()
+      /workspace/EraOfArcaneGame/server/game/card_traits.go:287 +0x9b
+  eraofarcane/game.cardBehavior()
+      /workspace/EraOfArcaneGame/server/game/card_traits.go:294 +0x58
+  eraofarcane/game.(*Engine).scaleSpellPower()
+      /workspace/EraOfArcaneGame/server/game/continuous_rules.go:62 +0x25b
+  eraofarcane/game.(*Engine).effectiveSkillPowerForPurposeWithData()
+      /workspace/EraOfArcaneGame/server/game/rules.go:658 +0x264
+  eraofarcane/game.(*Engine).effectiveSkillPowerForPurpose()
+      /workspace/EraOfArcaneGame/server/game/card_view.go:381 +0x1429
+  eraofarcane/game.(*Engine).cardToInfoForPlayer()
+      /workspace/EraOfArcaneGame/server/game/card_view.go:352 +0x12a8
+  eraofarcane/game.(*Engine).cardsToInfoWithEffectiveCosts()
+      /workspace/EraOfArcaneGame/server/game/card_view.go:314 +0xa6
+  eraofarcane/game.(*Engine).playerStateToInfo()
+      /workspace/EraOfArcaneGame/server/game/card_view.go:294 +0x1cf4
+  eraofarcane/game.(*Engine).GetStateForPlayer()
+      /workspace/EraOfArcaneGame/server/game/state_view.go:102 +0x9f7
+  eraofarcane/match.(*Room).BroadcastState()
+      /workspace/EraOfArcaneGame/server/match/room.go:401 +0x5b3
+  eraofarcane/api.SetupRoutes.HandleWebSocket.func9()
+      /workspace/EraOfArcaneGame/server/api/ws.go:250 +0x1f91
+  net/http.HandlerFunc.ServeHTTP()
+      /tmp/era-toolchain/go/src/net/http/server.go:2286 +0x47
+  net/http.(*ServeMux).ServeHTTP()
+      /tmp/era-toolchain/go/src/net/http/server.go:2828 +0x242
+  net/http.serverHandler.ServeHTTP()
+      /tmp/era-toolchain/go/src/net/http/server.go:3311 +0x2a1
+  net/http.(*conn).serve()
+      /tmp/era-toolchain/go/src/net/http/server.go:2073 +0xda4
+  net/http.(*Server).Serve.gowrap3()
+      /tmp/era-toolchain/go/src/net/http/server.go:3464 +0x46
+
+Goroutine 86 (running) created at:
+  testing.(*T).Run()
+      /tmp/era-toolchain/go/src/testing/testing.go:2101 +0xb12
+  eraofarcane/api.TestPR163APIRedMoonExtraTargetAndDefenseHandshake()
+      /workspace/EraOfArcaneGame/server/api/pr163_api_matrix_test.go:344 +0xf9
+  testing.tRunner()
+      /tmp/era-toolchain/go/src/testing/testing.go:2036 +0x21c
+  testing.(*T).Run.gowrap1()
+      /tmp/era-toolchain/go/src/testing/testing.go:2101 +0x38
+
+Goroutine 59 (running) created at:
+  net/http.(*Server).Serve()
+      /tmp/era-toolchain/go/src/net/http/server.go:3464 +0x889
+  net/http/httptest.(*Server).goServe.func1()
+      /tmp/era-toolchain/go/src/net/http/httptest/server.go:341 +0xb2
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c0003a8340 by goroutine 59:
+  runtime.raceread()
+      <autogenerated>:1 +0x1e
+  eraofarcane/game.(*EffectRegistry).ensureBehaviorLoaded()
+      /workspace/EraOfArcaneGame/server/game/effect_system.go:127 +0x39
+  eraofarcane/game.(*EffectRegistry).GetBehavior()
+      /workspace/EraOfArcaneGame/server/game/effect_system.go:156 +0x6c7
+  eraofarcane/game.(*Engine).spellStatBonusesWithData()
+      /workspace/EraOfArcaneGame/server/game/rules.go:708 +0x659
+  eraofarcane/game.(*Engine).effectiveSkillPowerForPurposeWithData()
+      /workspace/EraOfArcaneGame/server/game/rules.go:652 +0xfe
+  eraofarcane/game.(*Engine).effectiveSkillPowerForPurpose()
+      /workspace/EraOfArcaneGame/server/game/card_view.go:381 +0x1629
+  eraofarcane/game.(*Engine).cardToInfoForPlayer()
+      /workspace/EraOfArcaneGame/server/game/card_view.go:353 +0x14a8
+  eraofarcane/game.(*Engine).cardsToInfoWithEffectiveCosts()
+      /workspace/EraOfArcaneGame/server/game/card_view.go:314 +0xa6
+  eraofarcane/game.(*Engine).playerStateToInfo()
+      /workspace/EraOfArcaneGame/server/game/card_view.go:294 +0x1cf4
+  eraofarcane/game.(*Engine).GetStateForPlayer()
+      /workspace/EraOfArcaneGame/server/game/state_view.go:102 +0x9f7
+  eraofarcane/match.(*Room).BroadcastState()
+      /workspace/EraOfArcaneGame/server/match/room.go:401 +0x5b3
+  eraofarcane/api.SetupRoutes.HandleWebSocket.func9()
+      /workspace/EraOfArcaneGame/server/api/ws.go:250 +0x1f91
+  net/http.HandlerFunc.ServeHTTP()
+      /tmp/era-toolchain/go/src/net/http/server.go:2286 +0x47
+  net/http.(*ServeMux).ServeHTTP()
+      /tmp/era-toolchain/go/src/net/http/server.go:2828 +0x242
+  net/http.serverHandler.ServeHTTP()
+      /tmp/era-toolchain/go/src/net/http/server.go:3311 +0x2a1
+  net/http.(*conn).serve()
+      /tmp/era-toolchain/go/src/net/http/server.go:2073 +0xda4
+  net/http.(*Server).Serve.gowrap3()
+      /tmp/era-toolchain/go/src/net/http/server.go:3464 +0x46
+
+Previous write at 0x00c0003a8340 by goroutine 86:
+  eraofarcane/game.NewEffectRegistry()
+      /workspace/EraOfArcaneGame/server/game/effect_system.go:109 +0x78
+  eraofarcane/game.RegisterAllCardEffects()
+      /workspace/EraOfArcaneGame/server/game/card_effects_catalog.go:652 +0x1b8
+  eraofarcane/api.pr163StartMatch()
+      /workspace/EraOfArcaneGame/server/api/pr163_api_matrix_test.go:128 +0x59
+  eraofarcane/api.TestPR163APIRedMoonExtraTargetAndDefenseHandshake.func1()
+      /workspace/EraOfArcaneGame/server/api/pr163_api_matrix_test.go:345 +0x46
+  testing.tRunner()
+      /tmp/era-toolchain/go/src/testing/testing.go:2036 +0x21c
+  testing.(*T).Run.gowrap1()
+      /tmp/era-toolchain/go/src/testing/testing.go:2101 +0x38
+
+Goroutine 59 (running) created at:
+  net/http.(*Server).Serve()
+      /tmp/era-toolchain/go/src/net/http/server.go:3464 +0x889
+  net/http/httptest.(*Server).goServe.func1()
+      /tmp/era-toolchain/go/src/net/http/httptest/server.go:341 +0xb2
+
+Goroutine 86 (running) created at:
+  testing.(*T).Run()
+      /tmp/era-toolchain/go/src/testing/testing.go:2101 +0xb12
+  eraofarcane/api.TestPR163APIRedMoonExtraTargetAndDefenseHandshake()
+      /workspace/EraOfArcaneGame/server/api/pr163_api_matrix_test.go:344 +0xf9
+  testing.tRunner()
+      /tmp/era-toolchain/go/src/testing/testing.go:2036 +0x21c
+  testing.(*T).Run.gowrap1()
+      /tmp/era-toolchain/go/src/testing/testing.go:2101 +0x38
+==================
+==================
+WARNING: DATA RACE
+Read at 0x00c0003a8368 by goroutine 59:
+  eraofarcane/game.(*EffectRegistry).ensureBehaviorLoaded()
+      /workspace/EraOfArcaneGame/server/game/effect_system.go:128 +0x47
+  eraofarcane/game.(*EffectRegistry).GetBehavior()
+      /workspace/EraOfArcaneGame/server/game/effect_system.go:156 +0x6c7
+  eraofarcane/game.(*Engine).spellStatBonusesWithData()
+      /workspace/EraOfArcaneGame/server/game/rules.go:708 +0x659
+  eraofarcane/game.(*Engine).effectiveSkillPowerForPurposeWithData()
+      /workspace/EraOfArcaneGame/server/game/rules.go:652 +0xfe
+  eraofarcane/game.(*Engine).effectiveSkillPowerForPurpose()
+      /workspace/EraOfArcaneGame/server/game/card_view.go:381 +0x1629
+  eraofarcane/game.(*Engine).cardToInfoForPlayer()
+      /workspace/EraOfArcaneGame/server/game/card_view.go:353 +0x14a8
+  eraofarcane/game.(*Engine).cardsToInfoWithEffectiveCosts()
+      /workspace/EraOfArcaneGame/server/game/card_view.go:314 +0xa6
+  eraofarcane/game.(*Engine).playerStateToInfo()
+      /workspace/EraOfArcaneGame/server/game/card_view.go:294 +0x1cf4
+  eraofarcane/game.(*Engine).GetStateForPlayer()
+      /workspace/EraOfArcaneGame/server/game/state_view.go:102 +0x9f7
+  eraofarcane/match.(*Room).BroadcastState()
+      /workspace/EraOfArcaneGame/server/match/room.go:401 +0x5b3
+  eraofarcane/api.SetupRoutes.HandleWebSocket.func9()
+      /workspace/EraOfArcaneGame/server/api/ws.go:250 +0x1f91
+  net/http.HandlerFunc.ServeHTTP()
+      /tmp/era-toolchain/go/src/net/http/server.go:2286 +0x47
+  net/http.(*ServeMux).ServeHTTP()
+      /tmp/era-toolchain/go/src/net/http/server.go:2828 +0x242
+  net/http.serverHandler.ServeHTTP()
+      /tmp/era-toolchain/go/src/net/http/server.go:3311 +0x2a1
+  net/http.(*conn).serve()
+      /tmp/era-toolchain/go/src/net/http/server.go:2073 +0xda4
+  net/http.(*Server).Serve.gowrap3()
+      /tmp/era-toolchain/go/src/net/http/server.go:3464 +0x46
+
+Previous write at 0x00c0003a8368 by goroutine 86:
+  eraofarcane/game.NewEffectRegistry()
+      /workspace/EraOfArcaneGame/server/game/effect_system.go:109 +0x78
+  eraofarcane/game.RegisterAllCardEffects()
+      /workspace/EraOfArcaneGame/server/game/card_effects_catalog.go:652 +0x1b8
+  eraofarcane/api.pr163StartMatch()
+      /workspace/EraOfArcaneGame/server/api/pr163_api_matrix_test.go:128 +0x59
+  eraofarcane/api.TestPR163APIRedMoonExtraTargetAndDefenseHandshake.func1()
+      /workspace/EraOfArcaneGame/server/api/pr163_api_matrix_test.go:345 +0x46
+  testing.tRunner()
+      /tmp/era-toolchain/go/src/testing/testing.go:2036 +0x21c
+  testing.(*T).Run.gowrap1()
+      /tmp/era-toolchain/go/src/testing/testing.go:2101 +0x38
+
+Goroutine 59 (running) created at:
+  net/http.(*Server).Serve()
+      /tmp/era-toolchain/go/src/net/http/server.go:3464 +0x889
+  net/http/httptest.(*Server).goServe.func1()
+      /tmp/era-toolchain/go/src/net/http/httptest/server.go:341 +0xb2
+
+Goroutine 86 (running) created at:
+  testing.(*T).Run()
+      /tmp/era-toolchain/go/src/testing/testing.go:2101 +0xb12
+  eraofarcane/api.TestPR163APIRedMoonExtraTargetAndDefenseHandshake()
+      /workspace/EraOfArcaneGame/server/api/pr163_api_matrix_test.go:344 +0xf9
+  testing.tRunner()
+      /tmp/era-toolchain/go/src/testing/testing.go:2036 +0x21c
+  testing.(*T).Run.gowrap1()
+      /tmp/era-toolchain/go/src/testing/testing.go:2101 +0x38
+==================
+2026/10/17 03:26:52 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 03:26:52 Player P0 (pr163-p0) joined room 9085 as slot 0
+2026/10/17 03:26:52 Player P1 (pr163-p1) joined room 9085 as slot 1
+2026/10/17 03:26:52 Failed to send event to player pr163-p1: write tcp 127.0.0.1:44751->127.0.0.1:47686: write: broken pipe
+2026/10/17 03:26:52 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 03:26:52 Player pr163-p1 disconnected from room 6216
+2026/10/17 03:26:52 [Game 9085] Player 0 action: mulligan
+2026/10/17 03:26:52 [Game 9085] Player 1 action: mulligan
+2026/10/17 03:26:52 [Game 9085] Player 1 action: cast_spell
+2026/10/17 03:26:52 [Game 9085] Player 0 action: no_defend
+2026/10/17 03:26:52 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 03:26:52 Player pr163-p1 disconnected from room 9085
+2026/10/17 03:26:52 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 03:26:52 Player pr163-p0 disconnected from room 9085
+--- FAIL: TestPR163APIRedMoonExtraTargetAndDefenseHandshake (0.65s)
+    --- FAIL: TestPR163APIRedMoonExtraTargetAndDefenseHandshake/active_accepts (0.37s)
+        testing.go:1712: race detected during execution of test
+2026/10/17 03:26:52 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 03:26:52 Player P0 (pr163-p0) joined room 2604 as slot 0
+2026/10/17 03:26:52 Player P1 (pr163-p1) joined room 2604 as slot 1
+2026/10/17 03:26:52 [Game 2604] Player 0 action: mulligan
+2026/10/17 03:26:52 [Game 2604] Player 1 action: mulligan
+2026/10/17 03:26:53 [Game 2604] Player 1 action: cast_spell
+2026/10/17 03:26:53 [Game 2604] Player 1 action: resolve_action
+2026/10/17 03:26:53 [Game 2604] Player 1 action: resolve_action
+2026/10/17 03:26:53 [Game 2604] Player 1 action: resolve_action
+2026/10/17 03:26:53 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 03:26:53 Player pr163-p0 disconnected from room 2604
+2026/10/17 03:26:53 Player pr163-p1 disconnected from room 2604
+2026/10/17 03:26:53 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 03:26:53 Player P0 (pr163-p0) joined room 5557 as slot 0
+2026/10/17 03:26:53 Player P1 (pr163-p1) joined room 5557 as slot 1
+2026/10/17 03:26:53 [Game 5557] Player 1 action: mulligan
+2026/10/17 03:26:53 [Game 5557] Player 0 action: mulligan
+2026/10/17 03:26:53 [Game 5557] Player 1 action: cast_spell
+2026/10/17 03:26:53 [Game 5557] Player 1 action: cast_spell
+2026/10/17 03:26:53 [Game 5557] Player 0 action: no_defend
+2026/10/17 03:26:53 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 03:26:53 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 03:26:53 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 03:26:53 Player pr163-p0 disconnected from room 5557
+2026/10/17 03:26:53 Player pr163-p1 disconnected from room 5557
+2026/10/17 03:26:53 Player P0 (pr163-p0) joined room 0022 as slot 0
+2026/10/17 03:26:53 Player P1 (pr163-p1) joined room 0022 as slot 1
+2026/10/17 03:26:53 [Game 0022] Player 0 action: mulligan
+2026/10/17 03:26:53 [Game 0022] Player 1 action: mulligan
+2026/10/17 03:26:53 [Game 0022] Player 0 action: end_turn
+2026/10/17 03:26:53 [Game 0022] Player 1 action: use_item
+2026/10/17 03:26:54 [Game 0022] Player 1 action: use_item
+2026/10/17 03:26:54 [Game 0022] Player 1 action: end_turn
+2026/10/17 03:26:54 [Game 0022] Player 0 action: cast_spell
+2026/10/17 03:26:54 [Game 0022] Player 1 action: resolve_action
+2026/10/17 03:26:54 [Game 0022] Player 1 action: resolve_action
+2026/10/17 03:26:54 [Game 0022] Player 1 action: resolve_action
+2026/10/17 03:26:54 [Game 0022] Player 1 action: no_defend
+2026/10/17 03:26:54 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 03:26:54 Player pr163-p0 disconnected from room 0022
+2026/10/17 03:26:54 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 03:26:54 Player pr163-p1 disconnected from room 0022
+2026/10/17 03:26:54 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 03:26:54 Player P0 (pr163-p0) joined room 9493 as slot 0
+2026/10/17 03:26:54 Player P1 (pr163-p1) joined room 9493 as slot 1
+2026/10/17 03:26:54 [Game 9493] Player 0 action: mulligan
+2026/10/17 03:26:54 [Game 9493] Player 1 action: mulligan
+2026/10/17 03:26:54 [Game 9493] Player 0 action: use_item
+2026/10/17 03:26:54 [Game 9493] Player 0 action: use_ability
+2026/10/17 03:26:54 [Game 9493] Player 0 action: resolve_action
+2026/10/17 03:26:54 [Game 9493] Player 0 action: resolve_action
+2026/10/17 03:26:54 [Game 9493] Player 0 action: resolve_action
+2026/10/17 03:26:54 [Game 9493] Player 0 action: resolve_action
+2026/10/17 03:26:54 [Game 9493] Player 0 action: resolve_action
+2026/10/17 03:26:54 Player pr163-p1 disconnected from room 9493
+2026/10/17 03:26:54 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 03:26:54 Player pr163-p0 disconnected from room 9493
+2026/10/17 03:26:54 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 03:26:54 Player P0 (pr163-p0) joined room 3193 as slot 0
+2026/10/17 03:26:54 Player P1 (pr163-p1) joined room 3193 as slot 1
+2026/10/17 03:26:54 [Game 3193] Player 0 action: mulligan
+2026/10/17 03:26:54 [Game 3193] Player 1 action: mulligan
+2026/10/17 03:26:55 [Game 3193] Player 0 action: use_item
+2026/10/17 03:26:55 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 03:26:55 Player pr163-p1 disconnected from room 3193
+2026/10/17 03:26:55 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 03:26:55 Player pr163-p0 disconnected from room 3193
+2026/10/17 03:26:55 Player Player1 (p1) joined room 8592 as slot 0
+2026/10/17 03:26:55 Player Player2 (p2) joined room 8592 as slot 1
+2026/10/17 03:26:59 [Game 8592] Player 0 action: mulligan
+2026/10/17 03:26:59 [Game 8592] Player 1 action: mulligan
+2026/10/17 03:26:59 [Game 8592] Player 0 action: end_turn
+2026/10/17 03:26:59 [Game 8592] Player 1 action: end_turn
+2026/10/17 03:26:59 Player p2 disconnected from room 8592
+2026/10/17 03:26:59 Player p1 disconnected from room 8592
+2026/10/17 03:26:59 Player Player1 (p1) joined room 4326 as slot 0
+2026/10/17 03:26:59 Player Player2 (p2) joined room 4326 as slot 1
+2026/10/17 03:26:59 Spectator Watcher (s1) joined room 4326
+2026/10/17 03:26:59 Player p2 disconnected from room 4326
+2026/10/17 03:26:59 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 03:26:59 Spectator s1 disconnected from room 4326
+2026/10/17 03:26:59 Player p1 disconnected from room 4326
+2026/10/17 03:26:59 Player Player1 (p1) joined room 1301 as slot 0
+2026/10/17 03:26:59 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 03:26:59 Player p1 disconnected from room 1301
+FAIL
+FAIL	eraofarcane/api	8.024s

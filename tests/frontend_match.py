@@ -16,6 +16,8 @@ async def commit(page):
     from frontend_card_visibility import visible_in_viewport
     if page.viewport_size['width']<=820:
         await page.locator('.mobile-jump a[href="#decision"]').click()
+    await page.wait_for_function('!window.__arcaneDebug.actionBusy.value')
+    if not await page.evaluate('window.__arcaneDebug.actionDraft.value'): return
     await page.locator('.workspace-footer').wait_for(state='visible')
     await visible_in_viewport(page, '.workspace-footer')
     revision=(await state(page))['revision']
@@ -37,7 +39,7 @@ async def payment(page):
     for elem,amount in req['cost'].items():
         for _ in range(amount):
             await page.locator('.payment-token').filter(has=page.locator('span',has_text=names[elem])).click()
-    await page.get_by_role('button',name='确认支付',exact=True).click()
+    await page.get_by_role('button',name='支付并提交',exact=True).click()
 async def start(browser):
     room=api('/api/test-room/create',{})['room_id']; pages=[]; errors=[]
     for i in range(2):
@@ -63,7 +65,7 @@ async def main():
     actor=(await state(pages[0]))['current_turn']; a=pages[actor]; b=pages[1-actor]
     # Consume is selected on the actual battlefield and confirmed in the workspace.
     await a.locator('.my-board .unit-img').first.click()
-    await a.locator('.unit-command-panel').get_by_role('button',name='消耗',exact=True).click()
+    await a.locator('.context-menu').get_by_role('menuitem',name='消耗',exact=True).click()
     if await a.get_by_role('button',name='确认消耗',exact=True).count():
         await a.locator('.payment-token').first.click(); await a.get_by_role('button',name='确认消耗',exact=True).click()
     await commit(a)
@@ -139,9 +141,8 @@ async def main():
     pa=(await state(a))['pending_action']
     candidate=next(c for c in pa['candidates'] if c.get('side')=='enemy')
     await a.locator(f'.pending-card[data-instance-id="{candidate["instance_id"]}"]').click()
-    await a.get_by_role('button',name='确认选择',exact=True).click()
     rev=(await state(a))['revision']
-    await a.get_by_role('button',name='确认提交',exact=True).evaluate('(b)=>{b.click();b.click()}')
+    await a.get_by_role('button',name='确认选择',exact=True).evaluate('(b)=>{b.click();b.click()}')
     await a.wait_for_function('(r)=>window.__arcaneDebug.gameState.value.revision>r',arg=rev)
     assert (await state(a))['revision']==rev+1
     assert not errors,errors

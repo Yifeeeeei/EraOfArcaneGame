@@ -25,7 +25,7 @@ func TestGameHTMLFriendlyUnitImageCanSelectFriendlySpellTarget(t *testing.T) {
 		t.Fatalf("read game.html: %v", err)
 	}
 	html := string(content)
-	want := `@click.stop="handleUnitImageClick(mySlot, col, row, getMyUnit(col, row))"`
+	want := `@click.stop="handleUnitImageClick(mySlot, col, row, getMyUnit(col, row), $event)"`
 	if !strings.Contains(html, want) {
 		t.Fatalf("friendly unit image should route through handleUnitImageClick so friendly spell targets work")
 	}
@@ -116,12 +116,12 @@ func TestGameHTMLDefenseWindowClickHandlersAreReturned(t *testing.T) {
 		`data-defense-action="submit"`,
 		`data-defense-action="no_defend"`,
 		`data-defense-action="detail"`,
-		`:class="{ disabled: !canSubmitDefense }"`,
+		`:disabled="!canSubmitDefense || !defensePaymentValid || actionBusy"`,
 		"function defenseCardById(id)",
 		"function handleDefensePanelClick(event)",
 		"function syncDefensePanelVisualState()",
 		"el.classList.toggle('selected', selected)",
-		"submit.classList.toggle('disabled', !canSubmitDefense.value)",
+		"submit.classList.toggle('disabled', !canSubmitDefense.value || !defensePaymentValid.value || actionBusy.value)",
 		"const CLIENT_BUILD =",
 		"const pendingSpellView = computed(() => normalizePendingSpell(gameState.value?.pending_spell))",
 		"function normalizePendingSpell(spell)",
@@ -273,7 +273,7 @@ func TestGameHTMLCompositeCostsUseSequentialPlannerAndActionAcknowledgement(t *t
 		"const session = new ArcaneDecisions.DecisionSession();",
 		"expected_revision:draft.revision",
 		"else if (msg.type === 'action_result')",
-		"sendPaidAction('defend', data, totalDefenseCost.value",
+		"sendAction('defend', {...data,payment:{...defensePaymentPlan.value}},null,true)",
 		"onSuccess: () => {",
 	} {
 		if !strings.Contains(html, want) {

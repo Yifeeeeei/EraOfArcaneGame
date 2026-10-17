@@ -15,23 +15,23 @@ async def run():
   await a.wait_for_function('window.__arcaneDebug.gameState.value.you.hand.some(c=>c.number==="2011001")')
   staff=next(c for c in (await state(a))['you']['hand'] if c['number']=='2011001')
   hand=a.locator('.hand-card[data-instance-id="'+staff['instance_id']+'"]')
-  await hand.click(); await hand.click()
+  await hand.click(); await a.get_by_role('menuitem',name='使用 / 装备',exact=True).click()
   await a.get_by_role('heading',name='选择要替换的装备').wait_for()
   await a.locator('#decision .pending-card-name').first.click()
   await a.get_by_role('button',name='确认替换',exact=True).click()
-  await payment(a)
   # A card inspection opened during a draft must remain closable.
   await hand.click(button='right')
-  await a.locator('.context-menu-item').filter(has_text='查看详情').click()
+  await a.locator('.context-menu-item').filter(has_text='放大查看').click()
   await a.locator('.card-detail-modal .close-btn').click()
   assert await a.locator('.card-detail-modal').count()==0
-  await commit(a)
+  await payment(a); await commit(a)
   await a.locator('.pending-card-name').filter(has_text='雷击').first.click()
   await a.get_by_role('button',name='确认选择',exact=True).click(); await commit(a)
   host=next(c for c in (await state(a))['you']['equipment'] if c and c['instance_id']==staff['instance_id'])
   bound=host['bound_skills'][0]
   await a.wait_for_timeout(200)
   await a.locator('.my-board .slot').filter(has=a.locator('img[alt="'+staff['name']+'"]')).locator('img').click()
+  await a.get_by_role('menuitem',name='放大查看',exact=True).click()
   await a.locator('.bound-skill-chip').filter(has_text=bound['name']).first.click()
   assert await a.locator('.card-detail-info h3').inner_text()==bound['name']
   await a.locator('.card-detail-modal .close-btn').click()
@@ -63,6 +63,7 @@ async def run():
   star=next(c for c in (await state(a))['you']['skills'] if c and c['number']=='3311102')
   assert len(star['under_cards'])==stored
   await a.locator('.my-board .slot').filter(has=a.locator('img[alt="'+star['name']+'"]')).click()
+  await a.get_by_role('menuitem',name='放大查看',exact=True).click()
   await a.locator('.under-card-list').wait_for(state='visible')
   await a.screenshot(path=str(OUT/'quality-under-cards.png'),full_page=True,animations='disabled')
   await a.locator('.under-card-list button').first.click()

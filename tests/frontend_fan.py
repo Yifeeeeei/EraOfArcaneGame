@@ -25,16 +25,17 @@ async def run():
     for r in rects:
      await a.mouse.move(r['x'],r['y'])
      await a.wait_for_timeout(35)
-     assert await a.locator('.fan-preview img').get_attribute('alt')
+     assert await a.locator('.fixed-inspector .inspector-image').get_attribute('alt')
      hit=await a.evaluate('p=>document.elementFromPoint(p.x,p.y)?.closest(".hand-card")?.dataset.instanceId',r)
      assert hit==r['id'],(hit,r)
    after=await a.locator('.hand-card').evaluate_all('(es)=>es.map(e=>{const r=e.getBoundingClientRect();return [r.x,r.y,r.width,r.height]})')
    assert after==[r['rect'] for r in rects], (after,[r['rect'] for r in rects])
    assert await a.evaluate('''()=>{const b=document.querySelector('#hand').getBoundingClientRect();return [...document.querySelectorAll('.fan-face')].every(e=>{const r=e.getBoundingClientRect();return r.left>=b.left && r.right<=b.right})}'''), 'outer fan face clipped'
-   before=await a.locator('.fan-preview img').get_attribute('src')
-   await a.locator('.fan-preview img').hover()
-   assert await a.locator('.fan-preview img').get_attribute('src')==before
-   assert await a.evaluate('''()=>{const a=document.querySelector('#arena').getBoundingClientRect(),b=document.querySelector('.fan-preview').getBoundingClientRect();return b.left>=a.right}''')
+   await a.wait_for_function('(()=>{const e=document.querySelector(".fixed-inspector .inspector-image");return e?.complete && e.naturalWidth>0})()')
+   before=await a.locator('.fixed-inspector .inspector-image').get_attribute('src')
+   await a.locator('.fixed-inspector .inspector-image').hover()
+   assert await a.locator('.fixed-inspector .inspector-image').get_attribute('src')==before
+   assert await a.evaluate('''()=>{const a=document.querySelector('#arena').getBoundingClientRect(),b=document.querySelector('.fixed-inspector').getBoundingClientRect();return b.left>=a.right}''')
    assert await a.locator('.hand-card[aria-pressed=true]').count()==0
    # Arrow traversal reaches every instance, including identical printed cards, across pages.
    await first.focus(); await a.keyboard.press('Home')
@@ -45,6 +46,7 @@ async def run():
    assert reached==ids
    await a.keyboard.press('Enter')
    assert await a.locator('.hand-card[aria-pressed=true]').count()==0 # unplayable skill
+   await a.keyboard.press('Escape')
    await a.keyboard.press('Home'); await a.keyboard.press('End')
    assert await a.evaluate('document.activeElement.dataset.instanceId')==ids[-1]
    await a.keyboard.press('Home')
@@ -61,6 +63,7 @@ async def run():
   api('/api/test-room/elements',dict(room_id=room,player=actor,mode='set',elements={e:30 for e in ['火','水','气','地','光','暗','无']}))
   await a.wait_for_function('window.__arcaneDebug.gameState.value.you.elements["无"]===30')
   await a.locator('.hand-card').first.focus(); await a.keyboard.press('Home'); await a.keyboard.press('Enter')
+  await a.get_by_role('menuitem',name='选择召唤位置',exact=True).click()
   assert await a.locator('.hand-card[aria-pressed=true]').count()==1
   assert await a.locator('.fan-preview').count()==0 # does not displace active targeting
   await a.get_by_role('button',name='取消本地选择',exact=True).click()

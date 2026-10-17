@@ -1,0 +1,33 @@
+=== RUN   TestWaterSnapshotSurvivesNestedCounterChoice
+Loaded 728 cards (728 playable supported cards)
+2026/10/17 03:34:06 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 03:34:06 [Game reported-bugs] Player 0 action: cast_spell
+2026/10/17 03:34:06 [Game reported-bugs] Player 1 action: resolve_action
+2026/10/17 03:34:06 [Game reported-bugs] Player 1 action: resolve_action
+2026/10/17 03:34:06 [Game reported-bugs] Player 1 action: no_defend
+--- PASS: TestWaterSnapshotSurvivesNestedCounterChoice (0.00s)
+=== RUN   TestWaterSnapshotVirtualAndSketchEntryPoints
+=== RUN   TestWaterSnapshotVirtualAndSketchEntryPoints/virtual
+2026/10/17 03:34:06 [Effects] Registered 617 lazy card behavior factories
+    water_snapshot_integration_test.go:89: virtual cast=1 prior=0 power=4 affected_positions=1
+2026/10/17 03:34:06 [Game reported-bugs] Player 1 action: no_defend
+    water_snapshot_integration_test.go:89: virtual cast=2 prior=1 power=4 affected_positions=1
+2026/10/17 03:34:06 [Game reported-bugs] Player 1 action: no_defend
+=== RUN   TestWaterSnapshotVirtualAndSketchEntryPoints/virtual_boosted
+2026/10/17 03:34:06 [Effects] Registered 617 lazy card behavior factories
+    water_snapshot_integration_test.go:89: virtual_boosted cast=1 prior=0 power=4 affected_positions=1
+2026/10/17 03:34:06 [Game reported-bugs] Player 1 action: no_defend
+    water_snapshot_integration_test.go:89: virtual_boosted cast=2 prior=1 power=4 affected_positions=1
+2026/10/17 03:34:06 [Game reported-bugs] Player 1 action: no_defend
+=== RUN   TestWaterSnapshotVirtualAndSketchEntryPoints/sketch
+2026/10/17 03:34:06 [Effects] Registered 617 lazy card behavior factories
+    water_snapshot_integration_test.go:89: sketch cast=1 prior=0 power=4 affected_positions=1
+2026/10/17 03:34:06 [Game reported-bugs] Player 1 action: no_defend
+    water_snapshot_integration_test.go:89: sketch cast=2 prior=1 power=4 affected_positions=1
+2026/10/17 03:34:06 [Game reported-bugs] Player 1 action: no_defend
+--- PASS: TestWaterSnapshotVirtualAndSketchEntryPoints (0.00s)
+    --- PASS: TestWaterSnapshotVirtualAndSketchEntryPoints/virtual (0.00s)
+    --- PASS: TestWaterSnapshotVirtualAndSketchEntryPoints/virtual_boosted (0.00s)
+    --- PASS: TestWaterSnapshotVirtualAndSketchEntryPoints/sketch (0.00s)
+PASS
+ok  	eraofarcane/game	0.005s

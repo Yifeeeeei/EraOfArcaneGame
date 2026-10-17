@@ -297,6 +297,7 @@
                 else img.style.visibility = 'hidden';
             }
             function getCardImage(card) {
+                if (card?.is_hidden || card?.hidden) return 'images/card-back.svg';
                 if (!card || !card.output_path) return '';
                 return IMAGE_BASE + card.output_path.replace(/\\/g, '/');
             }
@@ -629,9 +630,9 @@
             function hasLightWildcardPayment() {
                 return !!myState.value.light_wildcard;
             }
-            function showCardDetail(card) { detailCard.value = card; }
+            function showCardDetail(card) { if (!card?.is_hidden && !card?.hidden) { previewCard(card); detailCard.value = card; } }
             function previewCard(card) {
-                if (card) {
+                if (card && !card.is_hidden && !card.hidden) {
                     recentDiscardCard.value = null;
                     hoverCard.value = card;
                 }
@@ -965,7 +966,7 @@
                         paymentRequest.value = null;
                         paymentSelection.value = {};
                     },
-                });
+                }, true);
             }
 
             function cancelPayment() {
@@ -1066,14 +1067,54 @@
             // Context menu for cards
             const contextMenu = ref({ show: false, x: 0, y: 0, card: null, source: '' });
 
-            function showCardContextMenu(event, card, source) {
-                contextMenu.value = {
-                    show: true,
-                    x: event.clientX,
-                    y: event.clientY,
-                    card: card,
-                    source: source
-                };
+            const menuItems = computed(() => {
+                const c = contextMenu.value.card, source = contextMenu.value.source;
+                if (!c || c.is_hidden || c.hidden) return [];
+                const items = [{id:'detail', label:'放大查看'}];
+                if (isSpectator || actionBusy.value || actionDraft.value || paymentRequest.value || !isMyTurn.value || gameState.value?.phase !== 'main') return items;
+                if (source === 'hand') { if (canPlayHandCard(c)) items.push({id:'use',label:c.type === '伙伴' ? '选择召唤位置' : '使用 / 装备'}); }
+                if (source === 'skill_pool' && canLearnSkill(c)) items.push({id:'learn',label:'学习技能'});
+                if (source === 'field' || source === 'skill') {
+                    if (source === 'field' && canConsumeUnit(c)) items.push({id:'consume',label:'消耗'});
+                    if (source === 'field' && canAttackWith(c)) items.push({id:'attack',label:'攻击'});
+                    if (canCastSkill(c)) items.push({id:'cast',label:'施放'});
+                    if (canUsePerTurn(c)) items.push({id:'per_turn',label:abilityLabel(c,'per_turn')});
+                    if (canUseUltimate(c)) items.push({id:'ultimate',label:'绝技'});
+                }
+                return items;
+            });
+            let menuAnchor = null;
+            async function showCardContextMenu(event, card, source) {
+                if (!card || card.is_hidden || card.hidden || hasActiveTargeting.value && source !== 'interaction') return;
+                previewCard(card);
+                menuAnchor = event?.currentTarget || document.activeElement;
+                const rect = menuAnchor?.getBoundingClientRect?.();
+                const x = event?.clientX || rect?.right || 20, y = event?.clientY || rect?.top || 20;
+                contextMenu.value = {show:true, x:Math.min(x+8,innerWidth-230), y:Math.max(8,y-180), card, source};
+                await nextTick();
+                const menu = document.querySelector('.context-menu');
+                if (!menu) return;
+                const bounds=menu.getBoundingClientRect();
+                contextMenu.value.x=Math.max(8,Math.min(x+8,innerWidth-bounds.width-8));
+                contextMenu.value.y=Math.max(8,Math.min(y-bounds.height-8,innerHeight-bounds.height-8));
+                menu.querySelector('button')?.focus({preventScroll:true});
+            }
+            function menuKeydown(event) {
+                if (event.key === 'Escape') { event.preventDefault(); hideContextMenu(); menuAnchor?.focus?.({preventScroll:true}); return; }
+                if (!['ArrowDown','ArrowUp','Home','End','Tab'].includes(event.key)) return;
+                event.preventDefault();
+                const buttons=[...event.currentTarget.querySelectorAll('button')], index=buttons.indexOf(document.activeElement);
+                const n=event.key==='Home'?0:event.key==='End'?buttons.length-1:(index+(event.key==='ArrowUp'||event.shiftKey?-1:1)+buttons.length)%buttons.length;
+                buttons[n]?.focus();
+            }
+            function previewMetadata(card) {
+                if (!card || card.is_hidden || card.hidden) return [];
+                const labels=statusEntries(card,0).map(s=>s.label);
+                if (card.position && card.position.row === (card.owner === mySlot.value ? myFrontRow.value : opponentFrontRow.value)) labels.push('前排');
+                if (card.is_defense_only) labels.push('防御技能');
+                if (card.is_sorcery) labels.push('咒术');
+                if (card.is_set_counter) labels.push('己方盖放牌');
+                return labels;
             }
 
             function showInteractionCardContextMenu(event) {
@@ -1094,6 +1135,11 @@
                 if (!card) return;
 
                 switch (action) {
+                    case 'consume': consumeCard(card); break;
+                    case 'attack': selectAttacker(card); break;
+                    case 'cast': selectSkillToCast(card); break;
+                    case 'per_turn': useAbility(card, 'per_turn'); break;
+                    case 'ultimate': useAbility(card, 'ultimate'); break;
                     case 'detail':
                         showCardDetail(card);
                         break;
@@ -1136,11 +1182,13 @@
 
             let nextRequestID = 1;
 
-            // All gameplay entries stage a local draft. Only commitDraft writes an action.
-            function sendAction(action, data = {}, callbacks = null) {
+            // Explicit simple controls finalize immediately; target-based and destructive actions retain one review.
+            // All writes still pass through the same revision/in-flight gate in commitDraft.
+            function sendAction(action, data = {}, callbacks = null, finalize = ['consume','mulligan','resolve_action','no_defend','end_turn','use_ability','learn_skill'].includes(action) && !(action === 'use_ability' && data.ability_type === 'ultimate')) {
                 if (isSpectator || actionBusy.value || actionDraft.value) return false;
                 actionDraft.value = { action, data: JSON.parse(JSON.stringify(data)), callbacks, revision: gameState.value?.revision };
                 decisionError.value = '';
+                if (finalize) commitDraft();
                 return true;
             }
 
@@ -1221,7 +1269,7 @@
                     return;
                 }
                 selectedHandCard.value = null;
-                sendAction('use_item', { instance_id: card.instance_id });
+                sendAction('use_item', { instance_id: card.instance_id }, null, true);
                 addLog(`盖放 ${card.name}`);
             }
             function canEquipCard(card) {
@@ -1371,7 +1419,7 @@
                 if (ownerSlot !== mySlot.value && selectedSkill.value && isValidOpponentTarget(col, row)) { castSpellAt(col, row, ownerSlot); return; }
             }
 
-            function handleUnitImageClick(ownerSlot, col, row, unit) {
+            function handleUnitImageClick(ownerSlot, col, row, unit, event) {
                 if ((selectedSkill.value || selectedItemSpellScroll.value) && ((ownerSlot === mySlot.value && isFriendlySpellTarget(col, row)) || ownerSlot !== mySlot.value)) {
                     handleCellClick(ownerSlot, col, row);
                     return;
@@ -1390,6 +1438,7 @@
                 }
                 if (ownerSlot === mySlot.value && !isSpectator) {
                     selectedBattleID.value = unit.instance_id; fanPreviewID.value = '';
+                    previewCard(unit); showCardContextMenu(event, unit, 'field');
                 } else showCardDetail(unit);
             }
 
@@ -1953,7 +2002,7 @@
 
             const availableDefenseScrolls = computed(() => {
                 if (!showDefenseWindow.value) return [];
-                return myHand.value.filter(card => isSpellScrollItem(card) && card.can_defend && !hasSeveringBlade());
+                return myHand.value.filter(card => isSpellScrollItem(card) && card.can_defend);
             });
 
             const availableReactionSkills = computed(() => {
@@ -1985,8 +2034,7 @@
                     canUseSkillAsDefenseBoost(s)
                 );
                 const scrollBoosts = myHand.value.filter(s =>
-                    canUseScrollAsDefenseBoost(s) &&
-                    !hasSeveringBlade()
+                    canUseScrollAsDefenseBoost(s)
                 );
                 return [...learnedBoosts, ...scrollBoosts];
             });
@@ -2276,7 +2324,7 @@
                     });
                     syncDefenseSummary(panel);
                     const submit = panel.querySelector('[data-defense-action="submit"]');
-                    if (submit) submit.classList.toggle('disabled', !canSubmitDefense.value);
+                    if (submit) submit.classList.toggle('disabled', !canSubmitDefense.value || !defensePaymentValid.value || actionBusy.value);
                 };
                 apply();
                 nextTick(apply);
@@ -2378,8 +2426,20 @@
                 addLog(`响应 ${skill.name}`);
             }
 
+            const defensePaymentOverride = ref(null);
+            const defensePaymentKey = computed(() => JSON.stringify([gameState.value?.revision, totalDefenseCost.value, defenseAvailableElements.value, defenseSelected.value, defenseScrollSelected.value, defenseBoostSelected.value, defenseOverexertSelected.value]));
+            const defensePaymentPlan = computed(() => defensePaymentOverride.value?.key === defensePaymentKey.value ? defensePaymentOverride.value.payment : calculatePaymentWithAvailable(defenseAvailableElements.value,totalDefenseCost.value) || {});
+            const defensePaymentValid = computed(() => isExactPaymentForCost(defensePaymentPlan.value,totalDefenseCost.value) && ELEMENT_ORDER.every(e=>(defensePaymentPlan.value[e]||0)<=(defenseAvailableElements.value[e]||0)));
+            function adjustDefensePayment(elem,delta) {
+                const p={...defensePaymentPlan.value};
+                p[elem]=Math.max(0,Math.min(defenseAvailableElements.value[elem]||0,(p[elem]||0)+delta));
+                defensePaymentOverride.value={key:defensePaymentKey.value,payment:p};
+            }
+            function resetDefenseDraft() {
+                defenseSelected.value=[]; defenseScrollSelected.value=[]; defenseBoostSelected.value=[]; defenseOverexertSelected.value=[]; defensePowerSacrificeId.value=''; defensePaymentOverride.value=null;
+            }
             function submitDefend() {
-                if (!canSubmitDefense.value) {
+                if (!canSubmitDefense.value || !defensePaymentValid.value) {
                     const hasDefenseSource = defenseSelected.value.length + defenseScrollSelected.value.length > 0;
                     addLog(hasDefenseSource ? '防御元素不足' : '请选择防御法术或防御卷轴');
                     logDefenseSelection('defense_submit_blocked');
@@ -2397,7 +2457,7 @@
                 const skillCount = defenseSelected.value.length + defenseScrollSelected.value.length;
                 const boostCount = defenseBoostSelected.value.length;
                 const overexertCount = defenseOverexertSelected.value.length;
-                sendPaidAction('defend', data, totalDefenseCost.value, '防御法术', null, defenseAvailableElements.value);
+                sendAction('defend', {...data,payment:{...defensePaymentPlan.value}},null,true);
             }
 
             function noDefend() { sendAction('no_defend', {}); }
@@ -3131,6 +3191,7 @@
                     window.addEventListener('error', onWindowError);
                     window.addEventListener('unhandledrejection', onUnhandledRejection);
                     window.__arcaneDebug = {
+                        actionBusy, actionDraft,
                         gameState,
                         mySlot,
                         pendingAction,
@@ -3157,7 +3218,7 @@
                         pendingExtraTargetCast,
                         beginSummonDevour,
                         showCardDetail,
-                        sendAction,
+                        sendAction: (action,data,callbacks) => sendAction(action,data,callbacks,false),
                         defenseSelected,
                         defenseScrollSelected,
                         defenseBoostSelected,
@@ -3227,6 +3288,7 @@
                 canUsePerTurn, canUseUltimate, useAbility, unitActionChips, skillActionChips, cardAvailabilityText,
                 learnSkill, endTurn, surrender, offerDraw, respondDrawOffer,
                 // Context menu
+                menuItems, menuKeydown, previewMetadata, defensePaymentPlan, defensePaymentValid, adjustDefensePayment, resetDefenseDraft, ELEMENT_ORDER,
                 contextMenu, showCardContextMenu, hideContextMenu, contextMenuAction
             };
         }
