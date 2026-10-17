@@ -339,6 +339,13 @@ type SpellAreaBehavior interface {
 	SpellArea() SpellArea
 }
 
+// SpellSourceModifier opts a card into its own stat/area calculation even when
+// the source is a virtual or otherwise off-field instance. It grants no aura
+// membership and is consulted only for the spell currently being evaluated.
+type SpellSourceModifier interface {
+	HasSpellSourceModifier()
+}
+
 type SpellAreaModifier interface {
 	HasActiveSpellAreaModifier(*CardInstance) bool
 	ModifySpellArea(*EffectContext, *SpellArea)

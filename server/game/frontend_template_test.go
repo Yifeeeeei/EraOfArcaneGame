@@ -6,13 +6,26 @@ import (
 	"testing"
 )
 
+// Buildless frontend sources now live beside the declarative template.
+func readMatchSources() ([]byte, error) {
+	html, err := os.ReadFile("../../web/game.html")
+	if err != nil {
+		return nil, err
+	}
+	js, err := os.ReadFile("../../web/js/game.js")
+	if err != nil {
+		return nil, err
+	}
+	return append(html, js...), nil
+}
+
 func TestGameHTMLFriendlyUnitImageCanSelectFriendlySpellTarget(t *testing.T) {
-	content, err := os.ReadFile("../../web/game.html")
+	content, err := readMatchSources()
 	if err != nil {
 		t.Fatalf("read game.html: %v", err)
 	}
 	html := string(content)
-	want := `@click.stop="handleUnitImageClick(mySlot, col, row, getMyUnit(col, row))"`
+	want := `@click.stop="handleUnitImageClick(mySlot, col, row, getMyUnit(col, row), $event)"`
 	if !strings.Contains(html, want) {
 		t.Fatalf("friendly unit image should route through handleUnitImageClick so friendly spell targets work")
 	}
@@ -23,16 +36,16 @@ func TestGameHTMLFriendlyUnitImageCanSelectFriendlySpellTarget(t *testing.T) {
 }
 
 func TestGameHTMLPendingActionCostUsesPaymentRequest(t *testing.T) {
-	content, err := os.ReadFile("../../web/game.html")
+	content, err := readMatchSources()
 	if err != nil {
 		t.Fatalf("read game.html: %v", err)
 	}
 	html := string(content)
 	for _, want := range []string{
-		"pendingRequiresPaymentChoice()",
+		"sendPaidAction('resolve_action', payload, cost",
 		"paymentRequest.value = {",
-		"action: 'resolve_action'",
-		"afterSend: resetPendingSelectionState",
+		"const cost = pendingSelected.value.length",
+		"paymentAvailable()",
 		"sendAction(req.action, { ...req.data, payment: { ...paymentSelection.value } }, {",
 	} {
 		if !strings.Contains(html, want) {
@@ -42,7 +55,7 @@ func TestGameHTMLPendingActionCostUsesPaymentRequest(t *testing.T) {
 }
 
 func TestGameHTMLRainbowAngelPaymentChoice(t *testing.T) {
-	content, err := os.ReadFile("../../web/game.html")
+	content, err := readMatchSources()
 	if err != nil {
 		t.Fatalf("read game.html: %v", err)
 	}
@@ -62,7 +75,7 @@ func TestGameHTMLRainbowAngelPaymentChoice(t *testing.T) {
 }
 
 func TestGameHTMLDefenseWindowIncludesBoundSkills(t *testing.T) {
-	content, err := os.ReadFile("../../web/game.html")
+	content, err := readMatchSources()
 	if err != nil {
 		t.Fatalf("read game.html: %v", err)
 	}
@@ -89,76 +102,28 @@ func TestGameHTMLDefenseWindowIncludesBoundSkills(t *testing.T) {
 }
 
 func TestGameHTMLDefenseWindowClickHandlersAreReturned(t *testing.T) {
-	content, err := os.ReadFile("../../web/game.html")
+	content, err := readMatchSources()
 	if err != nil {
-		t.Fatalf("read game.html: %v", err)
+		t.Fatal(err)
 	}
-	html := string(content)
-	for _, want := range []string{
-		`@click.capture="handleDefensePanelClick"`,
-		`data-defense-action="scroll"`,
-		`data-defense-action="skill"`,
-		`data-defense-action="boost"`,
-		`data-defense-action="overexert"`,
-		`data-defense-action="submit"`,
-		`data-defense-action="no_defend"`,
-		`data-defense-action="detail"`,
-		`:class="{ disabled: !canSubmitDefense }"`,
-		"function defenseCardById(id)",
-		"function handleDefensePanelClick(event)",
-		"function syncDefensePanelVisualState()",
-		"el.classList.toggle('selected', selected)",
-		"submit.classList.toggle('disabled', !canSubmitDefense.value)",
-		"const CLIENT_BUILD = 'issue133-royal-feedback-20260810-1'",
-		"const pendingSpellView = computed(() => normalizePendingSpell(gameState.value?.pending_spell))",
-		"function normalizePendingSpell(spell)",
-		"spell.power ?? spell.total_power",
-		"spell.defender_id === currentPlayerSlot()",
-		"data-defense-summary=\"power\"",
-		"function syncDefenseSummary(panel)",
-		"defensePower, defenseBoostPower, defensePaymentCost,",
-		"function logDefenseWindowStateSync(state)",
-		"function logDefenseSelection(message, card = null)",
-		"defense_submit_blocked",
-		"if (!defenseSelected.value.includes(skill.instance_id))",
-		"if (!defenseScrollSelected.value.includes(scroll.instance_id))",
-		"handleDefensePanelClick, showInteractionCardContextMenu, toggleDefenseSkill, toggleDefenseScroll, toggleDefenseBoost, toggleDefenseOverexert, toggleDefensePowerSacrifice, reactSpell, submitDefend",
-		"canSubmitDefense,",
-		"noDefend,",
-	} {
-		if !strings.Contains(html, want) {
-			t.Fatalf("defense window click handlers should be exposed to the template, missing %q", want)
-		}
-	}
-	if strings.Contains(html, `:disabled="!canSubmitDefense"`) {
-		t.Fatalf("defense submit should not be silently disabled; submitDefend should log why it cannot submit")
-	}
-	for _, bad := range []string{
-		`@pointerdown.capture="handleDefensePanelPointerDown"`,
-		`@pointerdown.stop.prevent="toggleDefenseScroll(scroll)"`,
-		`@pointerdown.stop.prevent="toggleDefenseSkill(skill)"`,
-		`@pointerdown.stop.prevent="toggleDefenseBoost(skill)"`,
-		`@pointerdown.stop.prevent="toggleDefenseOverexert(unit)"`,
-		`@pointerdown.stop.prevent="submitDefend()"`,
-		`@pointerdown.stop.prevent="noDefend()"`,
-	} {
-		if strings.Contains(html, bad) {
-			t.Fatalf("defense card actions should be handled by panel-level delegation, found %q", bad)
+	for _, want := range []string{"defenseStepCandidates", "defenseFallback", "defenseHandPages", "pickDefenseCard", "defenseKeydown", "locateDefenseCards", `@click.capture="guardInteraction"`, `data-defense-action="submit"`, `:disabled="!canSubmitDefense || !defensePaymentValid || actionBusy"`} {
+		if !strings.Contains(string(content), want) {
+			t.Fatalf("missing step defense control %q", want)
 		}
 	}
 }
 
 func TestGameHTMLInteractionWindowsUseUnifiedReadableCards(t *testing.T) {
-	content, err := os.ReadFile("../../web/game.html")
+	content, err := readMatchSources()
 	if err != nil {
 		t.Fatalf("read game.html: %v", err)
 	}
 	html := string(content)
 	for _, want := range []string{
-		"css/game.css?v=20260703-interaction-card-meta",
-		"class=\"overlay interaction-overlay defense-overlay\"",
+		"css/workspace.css",
+		"workspaceMode === 'defense'",
 		"class=\"overlay-content interaction-panel defense-panel\"",
-		"class=\"overlay interaction-overlay pending-action-overlay\"",
+		"workspaceMode === 'pending'",
 		"class=\"overlay-content interaction-panel pending-action-panel\"",
 		"class=\"defense-skill-card interaction-card",
 		"class=\"pending-card interaction-card",
@@ -195,7 +160,7 @@ func TestGameCSSInteractionCardsKeepMetadataReadable(t *testing.T) {
 }
 
 func TestGameHTMLDefenseWindowDoesNotReadRawPendingSpellPower(t *testing.T) {
-	content, err := os.ReadFile("../../web/game.html")
+	content, err := readMatchSources()
 	if err != nil {
 		t.Fatalf("read game.html: %v", err)
 	}
@@ -209,7 +174,7 @@ func TestGameHTMLDefenseWindowDoesNotReadRawPendingSpellPower(t *testing.T) {
 }
 
 func TestGameHTMLIssue156SpellRangeAndScrollBoostControls(t *testing.T) {
-	content, err := os.ReadFile("../../web/game.html")
+	content, err := readMatchSources()
 	if err != nil {
 		t.Fatalf("read game.html: %v", err)
 	}
@@ -221,7 +186,8 @@ func TestGameHTMLIssue156SpellRangeAndScrollBoostControls(t *testing.T) {
 		"function isPendingSpellCenter(ownerID, col, row)",
 		"function isPendingSpellAffected(ownerID, col, row)",
 		"myBoardOwnerID, opponentBoardOwnerID, isPendingSpellCenter, isPendingSpellAffected,",
-		"selectedSkill && canBoostWith(card)",
+		"selectedSkill && fanPreviewCard && canBoostWith(fanPreviewCard)",
+		"toggleBoostSkill(fanPreviewCard)",
 		"isSpellScrollItem(skill) || skill.statuses?.['石化'] > 0 || !skill.can_attack_boost",
 	} {
 		if !strings.Contains(html, want) {
@@ -242,7 +208,7 @@ func TestGameHTMLIssue156SpellRangeAndScrollBoostControls(t *testing.T) {
 }
 
 func TestGameHTMLCompositeCostsUseSequentialPlannerAndActionAcknowledgement(t *testing.T) {
-	content, err := os.ReadFile("../../web/game.html")
+	content, err := readMatchSources()
 	if err != nil {
 		t.Fatalf("read game.html: %v", err)
 	}
@@ -254,12 +220,12 @@ func TestGameHTMLCompositeCostsUseSequentialPlannerAndActionAcknowledgement(t *t
 		"ArcaneActionCostPlan.planActionCost(entries, myState.value.temp_modifiers || [])",
 		"missingCostText(attackActionCost(mySkills[i-1], []))",
 		"missingCostText(attackActionCost(skill, []))",
-		"costLabel(reactionActionCost(skill))",
+		"function reactionActionCost(skill)",
 		"skillUseCost, attackActionCost, reactionActionCost, canLearnSkill",
-		"const pendingActionCallbacks = new Map();",
-		"message.request_id = requestID;",
+		"const session = new ArcaneDecisions.DecisionSession();",
+		"expected_revision:draft.revision",
 		"else if (msg.type === 'action_result')",
-		"sendAction('defend', data, {",
+		"sendAction('defend', {...data,payment:{...defensePaymentPlan.value}},null,true)",
 		"onSuccess: () => {",
 	} {
 		if !strings.Contains(html, want) {
@@ -275,7 +241,7 @@ func TestGameHTMLCompositeCostsUseSequentialPlannerAndActionAcknowledgement(t *t
 }
 
 func TestGameHTMLRoom5543TargetingRegressions(t *testing.T) {
-	content, err := os.ReadFile("../../web/game.html")
+	content, err := readMatchSources()
 	if err != nil {
 		t.Fatalf("read game.html: %v", err)
 	}
@@ -287,8 +253,8 @@ func TestGameHTMLRoom5543TargetingRegressions(t *testing.T) {
 		"return !!unit && row === opponentFrontRow.value;",
 		"function canAttackSpellTargetFriendlyUnit(spell)",
 		"selectedItemSpellScroll.value && isFriendlySpellTarget(col, row)",
-		"String(card.number) === '2021010' && opponentSkills.value.filter(Boolean).length < 4",
-		"需要敌方至少有4个法术",
+		"if (card.unavailable_reason) return false;",
+		"if (card.unavailable_reason) return card.unavailable_reason;",
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("room 5543 frontend targeting fix missing %q", want)

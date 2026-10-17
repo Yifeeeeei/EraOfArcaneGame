@@ -1,0 +1,88 @@
+/* Desktop formation experiment: opposing boards at left, four lanes at right.
+   Stable hand hit boxes are separate from their transformed, noninteractive faces. */
+/* Only life may overlay the card face; the original mobile row stays intact. */
+.unit-card-face { display:contents; }
+.unit-life-badge { display:none; }
+@media(min-width:821px) {
+ .unit-card-face { display:block; position:relative; width:68px; flex:none; }
+ .unit-card-face .unit-life-badge { position:absolute; z-index:20; left:0; bottom:0; display:flex; align-items:center; gap:3px; min-height:30px; padding:2px 5px 2px 3px; color:#fff5e5; background:#35151bef; border:1px solid #d3ad79; border-radius:0 7px 0 0; pointer-events:none; box-shadow:0 1px 4px #000b; }
+ .unit-life-badge svg { width:22px; height:22px; fill:#e56172; stroke:#ffe4d0; stroke-width:1; }
+ .unit-life-badge strong { font:700 23px/1 sans-serif; }
+ .unit-cell .unit-overlay .unit-hp { display:none; }
+ .unit-cell .unit-overlay:not(:has(.front-marker,.unit-atk)) { display:none; }
+
+ .game-layout { grid-template-columns:130px minmax(0,1fr) 330px; grid-template-rows:minmax(0,1fr) 280px; }
+ .battlefield-center { grid-column:2; grid-row:1/3; }
+ .sidebar-left { justify-content:flex-end; }
+ .sidebar-left .end-turn-wrapper { margin-top:0; }
+ .sidebar-left .hero-portrait { display:none; }
+ .sidebar-left .hero-hp { font-size:22px; }
+ .sidebar-left .hero-row { margin:4px 0; }
+ .boards-wrapper { display:grid; grid-template-columns:290px minmax(0,1fr); grid-template-rows:auto auto auto auto; gap:6px 14px; }
+ .player-board { display:contents; }
+ .opponent-board .board-title { grid-column:1; grid-row:1; }
+ .opponent-board .board-grid { grid-column:1; grid-row:2; }
+ .opponent-board .board-side { grid-column:2; grid-row:1/3; }
+ .my-board .board-title { grid-column:1; grid-row:3; border-top:2px solid #bc975a; padding-top:8px; }
+ .my-board .board-grid { grid-column:1; grid-row:4; }
+ .my-board .board-side { grid-column:2; grid-row:3/5; border-top:2px solid #bc975a; padding-top:8px; }
+ .board-title { display:flex; justify-content:space-between; gap:6px; }
+ .board-title small { font-size:10px; }
+ .unit-grid.board-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
+ .unit-cell { min-height:102px; }
+ .unit-cell .unit-img,.unit-cell .unit-img.inside-terrain { width:68px; }
+ .unit-cell .unit-overlay { gap:2px; flex-wrap:wrap; }
+ .unit-hp,.unit-atk { padding:1px 2px; font-size:10px; }
+ .front-marker { font-size:9px; color:#f5d291; }
+ .unit-cell.front-row { border-bottom:3px solid #d8ac61; }
+ .unit-cell .status-badges { font-size:9px; }
+ .board-side { margin:0; min-width:0; }
+ .board-side .slot-bank { border:none; background:none; padding:0; display:flex; flex-direction:column; gap:10px; }
+ .board-side .slot-lane { display:flex; flex-direction:column; border:1px solid #635237; padding:6px; background:#17150f; }
+ .board-side .slot-label { width:auto; min-width:0; text-align:left; }
+ .opponent-board .slot-label::before { content:'敌方 · '; }
+ .my-board .slot-label::before { content:'己方 · '; }
+ .board-side .slots { gap:5px; }
+ .board-side .slot { width:68px; min-width:68px; min-height:100px; }
+ .board-side .slot-actions .slot-action-btn,.board-side .equipment-actions .action-btn { min-height:24px; padding:3px; font-size:10px; }
+ .board-side .pile-controls { margin-top:8px; }
+ .decision-workspace { grid-column:3; grid-row:1; }
+ .sidebar-right { grid-column:3; grid-row:2; padding:42px 8px 8px; }
+ .sidebar-right .rail-tabs { display:none; }
+ .dock-tabs { grid-column:3; grid-row:2; align-self:start; display:flex; gap:5px; padding:6px; z-index:5; background:#211d15; height:36px; }
+ .dock-tabs button { color:#dfc38d; background:#17140e; border:1px solid #75613f; padding:4px 8px; }
+ .dock-tabs [aria-pressed=true] { border-bottom:2px solid #efcb80; }
+ .hand-bar { grid-column:3; grid-row:2; position:relative; display:block; container-type:inline-size; padding:40px 6px 0; overflow:hidden; }
+ .fan-toolbar { display:flex; align-items:center; justify-content:center; gap:4px; font-size:10px; height:28px; position:relative; z-index:3; }
+ .fan-toolbar button,.fan-boost { min-height:26px; padding:3px 7px; color:#e5c991; background:#211b10; border:1px solid #75613f; }
+ .fan-toolbar label { display:flex; align-items:center; gap:2px; }
+ .fan-toolbar input { width:40px; }
+ .hand-cards { --fan-effective-step:min(var(--fan-step),calc((100cqw - 160px)/6)); display:block; position:relative; flex:none; height:200px; width:calc((var(--fan-count) - 1)*var(--fan-effective-step) + 100px); margin:auto; overflow:visible; padding:0; }
+ .hand-card { position:absolute; left:calc(var(--fan-index)*var(--fan-effective-step)); bottom:30px; width:var(--fan-effective-step); min-width:0; height:150px; border:0; border-radius:0; background:transparent; overflow:visible; animation:none; transition:none; transform:none !important; z-index:calc(var(--fan-index) + 1); }
+ .hand-card:last-child { width:100px; }
+ .hand-card:hover,.hand-card:focus-visible { z-index:20; box-shadow:none; }
+ .fan-face { width:100px; border:1px solid #8f7544; background:#19140c; transform-origin:50% 100%; transform:translateY(var(--fan-rise)) rotate(var(--fan-angle)); transition:transform .12s ease; pointer-events:none; }
+ .fan-face .hand-card-img { width:100%; height:auto; display:block; }
+ .hand-card:hover .fan-face,.hand-card:focus-visible .fan-face { transform:translateY(-16px) rotate(0deg) scale(1.07); }
+ .hand-card.selected .fan-face { border:2px solid #f7d583; }
+ .hand-card.unaffordable .fan-card-status { color:#efb398; }
+ .fan-card-status { display:block; height:16px; line-height:16px; font-size:9px; white-space:nowrap; overflow:hidden; color:#e7d5af; }
+ .fan-boost { position:absolute; bottom:4px; right:6px; z-index:30; }
+ .empty-hand { text-align:center; padding:50px 0; color:#a49375; }
+ .flat-hand .hand-cards { width:100%; display:flex; gap:8px; overflow-x:auto; height:170px; align-items:flex-start; padding-top:10px; }
+ .flat-hand .hand-card { position:relative; left:auto; bottom:auto; width:100px; min-width:100px; height:150px; flex:none; }
+ .flat-hand .fan-face { transform:none; }
+ .fan-preview { flex:1; min-height:0; overflow:auto; padding:4px 2px 12px; }
+ .fan-preview > img { display:block; width:min(200px,100%); height:auto; margin:0 auto; object-fit:contain; }
+ .fan-preview h3 { margin:8px 0; font-size:16px; }
+ .fan-preview p { margin:8px 0; font-size:12px; }
+ .fan-preview small { display:block; color:#a8997b; line-height:1.5; }
+ .unit-command-panel { padding:8px 0; border-bottom:1px solid #75613f; }
+}
+@media(min-width:821px) and (max-width:1200px) {
+ .game-layout { grid-template-columns:100px minmax(0,1fr) 300px; }
+ .boards-wrapper { grid-template-columns:270px minmax(0,1fr); gap:5px 8px; }
+ .battlefield-center { padding:6px; }
+ .board-title { flex-wrap:wrap; }
+ .board-side .slot { width:68px; min-width:68px; }
+}

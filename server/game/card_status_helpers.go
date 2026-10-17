@@ -78,8 +78,8 @@ func (e *Engine) promptLampusSwordDelayedDamage(playerID int, modifier Temporary
 		return
 	}
 	maxSelect := min(modifier.Amount, len(candidates))
-	e.SetPendingAction(playerID, "lampus_sword_distribute_damage",
-		"兰普斯之剑:分配延迟伤害", candidates, 1, maxSelect,
+	e.SetAllocatedPendingAction(playerID, "lampus_sword_distribute_damage",
+		"兰普斯之剑:分配延迟伤害", candidates, 1, maxSelect, modifier.Amount,
 		func(selected []string) {
 			allocations := map[string]int{}
 			order := make([]string, 0, len(selected))

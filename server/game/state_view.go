@@ -88,16 +88,19 @@ func (e *Engine) GetStateForPlayer(playerID int) map[string]any {
 	op := state.Players[opponentID]
 
 	return map[string]any{
-		"game_id":       state.GameID,
-		"phase":         state.Phase.String(),
-		"current_turn":  state.CurrentTurn,
-		"first_player":  state.FirstPlayer,
-		"turn_order":    map[string]string{"you": turnOrderLabel(playerID, state.FirstPlayer), "opponent": turnOrderLabel(opponentID, state.FirstPlayer)},
-		"turn_number":   state.TurnNumber,
-		"winner":        state.Winner,
-		"draw_offer_by": state.DrawOfferBy,
-		"you":           e.playerStateToInfo(ps, true),
-		"opponent":      e.playerStateToInfo(op, false),
+		"game_id":         state.GameID,
+		"revision":        e.revision,
+		"decision_player": e.decisionPlayer(),
+		"mulligan_done":   state.MulliganDone,
+		"phase":           state.Phase.String(),
+		"current_turn":    state.CurrentTurn,
+		"first_player":    state.FirstPlayer,
+		"turn_order":      map[string]string{"you": turnOrderLabel(playerID, state.FirstPlayer), "opponent": turnOrderLabel(opponentID, state.FirstPlayer)},
+		"turn_number":     state.TurnNumber,
+		"winner":          state.Winner,
+		"draw_offer_by":   state.DrawOfferBy,
+		"you":             e.playerStateToInfo(ps, true),
+		"opponent":        e.playerStateToInfo(op, false),
 		"pending_spell": func() any {
 			if state.PendingSpell != nil {
 				return map[string]any{
@@ -117,6 +120,8 @@ func (e *Engine) GetStateForPlayer(playerID int) map[string]any {
 			if state.PendingAction != nil && state.PendingAction.PlayerID == playerID {
 				return map[string]any{
 					"type":          state.PendingAction.Type,
+					"decision_id":   state.PendingAction.DecisionID,
+					"ui":            pendingActionUI(state.PendingAction),
 					"player_id":     state.PendingAction.PlayerID,
 					"prompt":        state.PendingAction.Prompt,
 					"candidates":    state.PendingAction.Candidates,
@@ -140,17 +145,20 @@ func (e *Engine) GetStateForSpectator() map[string]any {
 
 	state := e.State
 	return map[string]any{
-		"game_id":       state.GameID,
-		"phase":         state.Phase.String(),
-		"current_turn":  state.CurrentTurn,
-		"first_player":  state.FirstPlayer,
-		"turn_order":    map[string]string{"you": turnOrderLabel(0, state.FirstPlayer), "opponent": turnOrderLabel(1, state.FirstPlayer)},
-		"turn_number":   state.TurnNumber,
-		"winner":        state.Winner,
-		"draw_offer_by": state.DrawOfferBy,
-		"is_spectator":  true,
-		"you":           e.playerStateToInfo(state.Players[0], false),
-		"opponent":      e.playerStateToInfo(state.Players[1], false),
+		"game_id":         state.GameID,
+		"revision":        e.revision,
+		"decision_player": e.decisionPlayer(),
+		"mulligan_done":   state.MulliganDone,
+		"phase":           state.Phase.String(),
+		"current_turn":    state.CurrentTurn,
+		"first_player":    state.FirstPlayer,
+		"turn_order":      map[string]string{"you": turnOrderLabel(0, state.FirstPlayer), "opponent": turnOrderLabel(1, state.FirstPlayer)},
+		"turn_number":     state.TurnNumber,
+		"winner":          state.Winner,
+		"draw_offer_by":   state.DrawOfferBy,
+		"is_spectator":    true,
+		"you":             e.playerStateToInfo(state.Players[0], false),
+		"opponent":        e.playerStateToInfo(state.Players[1], false),
 		"pending_spell": func() any {
 			if state.PendingSpell != nil {
 				return map[string]any{
@@ -169,9 +177,9 @@ func (e *Engine) GetStateForSpectator() map[string]any {
 		"pending_action": func() any {
 			if state.PendingAction != nil {
 				return map[string]any{
-					"type":      state.PendingAction.Type,
+					"kind":      "choice",
 					"player_id": state.PendingAction.PlayerID,
-					"prompt":    state.PendingAction.Prompt,
+					"prompt":    "等待玩家完成选择",
 				}
 			}
 			return nil

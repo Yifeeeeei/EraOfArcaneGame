@@ -8787,8 +8787,9 @@ func TestRoyalConflictTreadingWaveResetsOtherWaterSpellWithRisingCost(t *testing
 	engine := setupEffectTest(t)
 	p0 := engine.State.Players[0]
 	treading := readySkill(baseCard(t, "3221101"), 0)
+	treading.Statuses[StatusAbilityDuration] = 1
 	usedWater := readySkill(baseCard(t, "3221001"), 0)
-	resetTarget := readySkill(baseCard(t, "3221104"), 0)
+	resetTarget := readySkill(baseCard(t, "3221109"), 0)
 	resetTarget.IsHorizontal = true
 	p0.Skills[0] = treading
 	p0.Skills[1] = usedWater
@@ -8832,7 +8833,8 @@ func TestRoyalConflictTreadingWaveResetsOtherWaterSpellWithRisingCost(t *testing
 
 	enemyEngine := setupEffectTest(t)
 	enemyTreading := readySkill(baseCard(t, "3221101"), 0)
-	enemyTarget := readySkill(baseCard(t, "3221104"), 0)
+	enemyTreading.Statuses[StatusAbilityDuration] = 1
+	enemyTarget := readySkill(baseCard(t, "3221109"), 0)
 	enemyTarget.IsHorizontal = true
 	enemyEngine.State.Players[0].Skills[0] = enemyTreading
 	enemyEngine.State.Players[0].Skills[1] = enemyTarget

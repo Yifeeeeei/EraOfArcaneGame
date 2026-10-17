@@ -2,7 +2,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-const html = fs.readFileSync(require.resolve('../game.html'), 'utf8');
+const html = fs.readFileSync(require.resolve('./game.js'), 'utf8');
 const match = html.match(/\/\* ACTION_COST_PLAN_START \*\/([\s\S]*?)\/\* ACTION_COST_PLAN_END \*\//);
 assert.ok(match, 'game.html should contain the action cost planner');
 const browserScope = { window: {} };

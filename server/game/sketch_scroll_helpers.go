@@ -118,6 +118,7 @@ func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, ta
 		TotalPower:  totalPower,
 		BoostSkills: nil,
 	}
+	e.capturePriorSpellCasts(e.State.PendingSpell)
 	openDefenseWindow := func() {
 		if e.State.PendingSpell == nil {
 			return

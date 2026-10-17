@@ -34,7 +34,7 @@ func (wsc *WSConnection) SendJSON(v any) error {
 	return wsc.conn.WriteJSON(v)
 }
 
-func sendActionResult(wsc *WSConnection, requestID string, err error) {
+func sendActionResult(wsc *WSConnection, requestID string, err error, metadata ...map[string]any) {
 	if requestID == "" {
 		if err != nil {
 			wsc.SendJSON(map[string]any{"type": "error", "message": err.Error()})
@@ -48,6 +48,11 @@ func sendActionResult(wsc *WSConnection, requestID string, err error) {
 	}
 	if err != nil {
 		result["message"] = err.Error()
+	}
+	for _, fields := range metadata {
+		for key, value := range fields {
+			result[key] = value
+		}
 	}
 	wsc.SendJSON(result)
 }
@@ -233,14 +238,15 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 				continue
 			}
 
-			if err := engine.HandleAction(slot, action); err != nil {
-				room.LogActionError(slot, playerID, action, err)
-				sendActionResult(wsc, action.RequestID, err)
-				continue
+			revision, executed, actionErr := engine.HandleActionWithRevision(slot, action)
+			if actionErr != nil {
+				room.LogActionError(slot, playerID, action, actionErr)
 			}
-			sendActionResult(wsc, action.RequestID, nil)
-
-			// Send updated state after each action
+			sendActionResult(wsc, action.RequestID, actionErr, map[string]any{
+				"revision": revision, "state_advanced": executed,
+			})
+			// The engine is unlocked here. Broadcast filtered views even on errors:
+			// executed errors may mutate state; stale preflight errors need a resync.
 			room.BroadcastState()
 		}
 	}
