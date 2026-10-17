@@ -5,6 +5,7 @@ package game
 // uses the same counter -> defense/hit -> continuation protocol.
 func (e *Engine) dispatchPreparedSpell(spell *SpellCast, data map[string]any, virtual bool) {
 	playerID, skill, target := spell.AttackerID, spell.Skill, spell.Target
+	e.capturePriorSpellCasts(spell)
 	if isSorcerySkill(skill.Card) {
 		resolve := func() {
 			e.runResolution("sorcery", func() {
@@ -52,4 +53,11 @@ func (e *Engine) dispatchPreparedSpell(spell *SpellCast, data map[string]any, vi
 		return
 	}
 	continueAfterCounters()
+}
+
+// Cast entry points record the use before dispatching triggers. Keep that public
+// count intact, but preserve the earlier-use count for this spell's resolution.
+func (e *Engine) capturePriorSpellCasts(spell *SpellCast) {
+	count := max(0, spellCastByNumberThisTurn(e.State.Players[spell.AttackerID], spell.Skill.Card.Number)-1)
+	spell.priorSameNumberCasts = &count
 }

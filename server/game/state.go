@@ -447,7 +447,9 @@ type SpellCast struct {
 	PowerSources []SpellPowerSource `json:"power_sources,omitempty"`
 	BoostSkills  []*CardInstance    `json:"boost_skills"` // skills used to boost
 	ExtraTargets []SpellTarget      `json:"extra_targets,omitempty"`
-	resolutions  []*resolutionFrame
+	// Number of earlier casts of this card number, excluding this committed cast.
+	priorSameNumberCasts *int
+	resolutions          []*resolutionFrame
 }
 
 type SpellPowerSource struct {

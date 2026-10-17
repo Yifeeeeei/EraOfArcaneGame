@@ -10,24 +10,28 @@ func (Card3221101TreadingWave) ID() string { return "3221101" }
 
 func (Card3221101TreadingWave) Name() string { return "踏浪术" }
 
+func (Card3221101TreadingWave) HasActiveSpellCast(card *CardInstance) bool {
+	return abilityDurationActive(card)
+}
+
 func (Card3221101TreadingWave) OnSpellCast(ctx *EffectContext) error {
-	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || !isFriendlySpellCast(ctx) {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || !abilityDurationActive(ctx.Source) || !isFriendlySpellCast(ctx) {
 		return nil
 	}
 	castSkill := spellCastCardForTrigger(ctx)
-	if castSkill == nil || castSkill.Card == nil || castSkill.Card.Category != model.ElementWater {
+	if castSkill == nil || castSkill.Card == nil || castSkill.Card.Category != model.ElementWater || isSorcerySkill(castSkill.Card) {
 		return nil
 	}
 	candidates := ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, func(skill *CardInstance) bool {
 		return skill != nil && skill != castSkill && skill.Card != nil &&
-			skill.Card.Category == model.ElementWater && skill.IsHorizontal
+			skill.Card.Category == model.ElementWater && !isSorcerySkill(skill.Card) && skill.IsHorizontal
 	})
 	if len(candidates) == 0 {
 		return nil
 	}
 	resetSkill := func(selection string) {
 		target := ctx.Engine.findFriendlyCardIncludingBound(ctx.PlayerID, selection)
-		if target == nil || target == castSkill || target.Card == nil || target.Card.Category != model.ElementWater || !target.IsHorizontal {
+		if target == nil || target == castSkill || target.Card == nil || target.Card.Category != model.ElementWater || isSorcerySkill(target.Card) || !target.IsHorizontal {
 			return
 		}
 		if ctx.Source.Statuses[treadingWaveTriggerTurnStatus] != ctx.Engine.State.TurnNumber {
