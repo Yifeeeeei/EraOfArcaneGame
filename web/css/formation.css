@@ -1,6 +1,16 @@
 /* Desktop formation experiment: opposing boards at left, four lanes at right.
    Stable hand hit boxes are separate from their transformed, noninteractive faces. */
+/* Only life may overlay the card face; the original mobile row stays intact. */
+.unit-card-face { display:contents; }
+.unit-life-badge { display:none; }
 @media(min-width:821px) {
+ .unit-card-face { display:block; position:relative; width:68px; flex:none; }
+ .unit-card-face .unit-life-badge { position:absolute; z-index:20; left:0; bottom:0; display:flex; align-items:center; gap:3px; min-height:30px; padding:2px 5px 2px 3px; color:#fff5e5; background:#35151bef; border:1px solid #d3ad79; border-radius:0 7px 0 0; pointer-events:none; box-shadow:0 1px 4px #000b; }
+ .unit-life-badge svg { width:22px; height:22px; fill:#e56172; stroke:#ffe4d0; stroke-width:1; }
+ .unit-life-badge strong { font:700 23px/1 sans-serif; }
+ .unit-cell .unit-overlay .unit-hp { display:none; }
+ .unit-cell .unit-overlay:not(:has(.front-marker,.unit-atk)) { display:none; }
+
  .game-layout { grid-template-columns:130px minmax(0,1fr) 330px; grid-template-rows:minmax(0,1fr) 280px; }
  .battlefield-center { grid-column:2; grid-row:1/3; }
  .sidebar-left { justify-content:flex-end; }
@@ -19,7 +29,7 @@
  .board-title { display:flex; justify-content:space-between; gap:6px; }
  .board-title small { font-size:10px; }
  .unit-grid.board-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
- .unit-cell { min-height:118px; }
+ .unit-cell { min-height:102px; }
  .unit-cell .unit-img,.unit-cell .unit-img.inside-terrain { width:68px; }
  .unit-cell .unit-overlay { gap:2px; flex-wrap:wrap; }
  .unit-hp,.unit-atk { padding:1px 2px; font-size:10px; }

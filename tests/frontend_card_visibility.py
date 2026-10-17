@@ -28,9 +28,20 @@ async def assert_faces(page):
         for(const other of parent.children) {
           if(other===img || !other.getClientRects().length) continue;
           const b=other.getBoundingClientRect();
+          if(other.classList.contains('unit-life-badge') && innerWidth>820) {
+            if(b.left<r.left-1 || b.right>r.right+1 || b.top<r.top || Math.abs(b.bottom-r.bottom)>1 || Math.abs(b.left-r.left)>1)
+              failures.push('life badge outside lower-left card face');
+            if(Number(getComputedStyle(other).zIndex)<=Number(getComputedStyle(img).zIndex||0)) failures.push('life badge behind card image');
+            if(getComputedStyle(other).pointerEvents!=='none') failures.push('life badge intercepts target');
+            continue; // Explicit user-requested life overlay; no other overlay is exempt.
+          }
           if(Math.min(r.right,b.right)-Math.max(r.left,b.left)>1 && Math.min(r.bottom,b.bottom)-Math.max(r.top,b.top)>1)
             failures.push('overlap '+img.className+' / '+other.className);
         }
+      }
+      if(innerWidth>820) for(const cell of document.querySelectorAll('.unit-cell:has(.unit-img)')) {
+        if(cell.querySelectorAll('.unit-life-badge').length!==1) failures.push('missing life badge');
+        if(getComputedStyle(cell.querySelector('.unit-hp')).display!=='none') failures.push('duplicate life row');
       }
       if(document.documentElement.scrollWidth>innerWidth) failures.push('page horizontal overflow');
       const layout=document.querySelector('.game-layout');
