@@ -11,6 +11,7 @@ async def run():
  async with async_playwright() as pw:
   browser=await pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
   room,pages,errors=await start(browser); actor=(await state(pages[0]))['current_turn']; a=pages[actor]; b=pages[1-actor]
+  dock=await b.locator('#hand').bounding_box()
   await add(room,actor,'3321001','skill_slot')
   await add(room,1-actor,'3321002','skill_slot')
   await add(room,1-actor,'3221008','skill_slot')
@@ -43,22 +44,32 @@ async def run():
   assert '奥术符文' not in await a.locator('.decision-workspace').inner_text()
   await decision_views(b, 'counter')
   await b.screenshot(path=str(OUT/'counter-desktop.png'),full_page=True)
+  assert await b.locator('#hand').bounding_box()==dock
+  await b.screenshot(path='agent-data/defense-steps/counter-1440.png')
   await choose(b)
+  assert await b.locator('#hand').bounding_box()==dock
+  await b.screenshot(path='agent-data/defense-steps/nested-1440.png')
   assert (await state(b))['pending_action']['type']=='arcane_rune_skill'
   await choose(b)
   if (await state(b)).get('pending_action'):
    await b.get_by_role('button',name='不选择 / 放弃发动',exact=True).click(); await commit(b)
   await b.wait_for_function('window.__arcaneDebug.showDefenseWindow.value')
   before=(await state(b))['revision']
-  await b.locator('[data-defense-action="reaction"]').first.click()
+  await b.get_by_role('button',name='跳过透支',exact=True).click()
+  await b.get_by_role('button',name='选择响应牌',exact=True).click()
+  await b.locator('[data-defense-status=eligible]').first.click()
+  assert await b.locator('#hand').bounding_box()==dock
+  await b.screenshot(path='agent-data/defense-steps/response-payment-1440.png')
   assert (await state(b))['revision']==before,'reaction click must not send immediately'
   await payment(b); await commit(b)
   if (await state(b)).get('pending_action'): await choose(b)
   assert (await state(b))['phase']=='defense_window'
   await decision_views(b, 'defense-skills')
   if (await state(b))['phase']=='defense_window':
-   await b.locator('[data-defense-action="overexert"]').filter(has_text='掌门').click()
-   await b.locator('[data-defense-action="skill"]').first.click()
+   await b.locator('[data-defense-card="'+(await state(b))['you']['hero']['instance_id']+'"]').click()
+   await b.get_by_role('button',name='完成透支，下一步',exact=True).click()
+   await b.locator('.my-board .slot[data-defense-status=eligible]').filter(has=b.locator('img[alt="雷击"]')).click()
+   await b.get_by_role('button',name='跳过强化，核对付款',exact=True).click()
    await b.get_by_role('button',name='确认防御',exact=True).click()
    await payment(b); await commit(b)
   await a.wait_for_function('window.__arcaneDebug.gameState.value.phase === "main"')

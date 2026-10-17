@@ -237,6 +237,10 @@
             }
             function guardInteraction(event) {
                 const inWorkspace = !!event.target.closest('#decision');
+                const defenseCard = event.target.closest('[data-defense-card]');
+                if (defenseCard && workspaceMode.value==='defense' && !event.target.closest('[data-inspect]')) {
+                    event.stopImmediatePropagation(); event.preventDefault(); pickDefenseCard(defenseCard.dataset.defenseCard); return;
+                }
                 if (!actionBusy.value && (!actionDraft.value && !paymentRequest.value || inWorkspace)) return;
                 if (event.target.closest('.card-inspect, .interaction-detail-link, .detail-close, .close-btn, [data-inspect], [data-reconnect], a')) return;
                 event.stopImmediatePropagation(); event.preventDefault();
@@ -276,6 +280,7 @@
                     defenseScrollSelected.value = [];
                     defenseOverexertSelected.value = [];
                     defensePowerSacrificeId.value = '';
+                    defenseStep.value=0; defensePickMode.value='normal'; defensePaymentOverride.value=null;
                     loadDistribution.value = {};
                     allocationAmounts.value = {};
                     resourceModes.value = {};
@@ -1987,6 +1992,73 @@
             const defenseBoostSelected = ref([]);
             const defenseOverexertSelected = ref([]);
 
+            const defenseStep = ref(0);
+            const defensePickMode = ref('normal');
+            const defenseStepCandidates = computed(() => {
+                if (workspaceMode.value !== 'defense') return [];
+                const wrap = (cards, kind) => cards.map(card => ({card,kind}));
+                if (defensePickMode.value === 'reaction') return wrap(availableReactionSkills.value,'reaction');
+                if (defensePickMode.value === 'sacrifice') return wrap(defensePowerSacrificeCandidates.value,'power_sacrifice');
+                if (defenseStep.value === 0) return wrap(defenseOverexertUnits.value,'overexert');
+                if (defenseStep.value === 1) return [...wrap(availableDefenseSkills.value,'skill'),...wrap(availableDefenseScrolls.value,'scroll')];
+                if (defenseStep.value === 2) return wrap(availableBoostSkills.value,'boost');
+                return [];
+            });
+            function defenseIsSelected(id) {
+                return [...defenseSelected.value,...defenseScrollSelected.value,...defenseBoostSelected.value,...defenseOverexertSelected.value,defensePowerSacrificeId.value].includes(id);
+            }
+            function defenseCardAttrs(card) {
+                if (!card || card.is_hidden || card.hidden) return {};
+                const active = workspaceMode.value === 'defense';
+                const eligible = active && defenseStepCandidates.value.some(e=>e.card.instance_id===card.instance_id);
+                const selected = active && defenseIsSelected(card.instance_id);
+                return {'data-defense-card':card.instance_id, 'data-defense-status':selected?'selected':eligible?'eligible':null,
+                    'aria-label':card.name+(selected?' · 已选':eligible?' · 可选':''), 'aria-pressed': active?String(selected):null};
+            }
+            const defenseVisibleIDs = computed(()=>new Set([...myUnitCards(),...mySkills.value,...allMyBoundSkills.value,...(myState.value.equipment||[]),...myHand.value].filter(Boolean).map(c=>c.instance_id)));
+            const defenseFallback = computed(()=>defenseStepCandidates.value.filter(e=>!defenseVisibleIDs.value.has(e.card.instance_id)));
+            const defenseHandPages = computed(()=> [...new Set(defenseStepCandidates.value.map(e=>myHand.value.findIndex(c=>c.instance_id===e.card.instance_id)).filter(i=>i>=0).map(i=>Math.floor(i/7)))].filter(p=>p!==currentFanPage.value));
+            function defenseNames(ids) { return ids.map(id=>findVisibleCard(id)?.name||defenseCardById(id)?.name||'卡牌').join('、') || '未选'; }
+            function defenseLocation(card) {
+                const host=allMyFieldCards().find(c=>(c.bound_skills||[]).some(s=>s.instance_id===card.instance_id));
+                return host ? '绑定于 '+host.name : '附属 / 绑定技能';
+            }
+            async function locateDefenseCards(page=null) {
+                railTab.value='hand';
+                if (page!==null) fanPage.value=page;
+                await nextTick();
+                const entries=defenseStepCandidates.value;
+                const entry=page===null?entries.find(e=>document.querySelector('[data-defense-card="'+CSS.escape(e.card.instance_id)+'"]')):entries.find(e=>fanCards.value.some(c=>c.instance_id===e.card.instance_id));
+                const el=entry&&document.querySelector('[data-defense-card="'+CSS.escape(entry.card.instance_id)+'"]');
+                el?.scrollIntoView({block:'nearest',inline:'nearest'}); el?.focus({preventScroll:true});
+            }
+            function revalidateDefenseDraft() {
+                defenseBoostSelected.value=defenseBoostSelected.value.filter(id=>availableBoostSkills.value.some(c=>c.instance_id===id));
+                if (!defensePowerSacrificeCandidates.value.some(c=>c.instance_id===defensePowerSacrificeId.value)) defensePowerSacrificeId.value='';
+                defensePaymentOverride.value=null;
+            }
+            function goDefenseStep(step) {
+                if (actionBusy.value || (step>1 && !hasDefenseSource())) return;
+                defensePickMode.value='normal'; defenseStep.value=step; revalidateDefenseDraft();
+            }
+            function pickDefenseCard(id) {
+                if (actionBusy.value || !connected.value || workspaceMode.value!=='defense') return;
+                const entry=defenseStepCandidates.value.find(e=>e.card.instance_id===id); if(!entry)return;
+                const card=entry.card; previewCard(card);
+                if(entry.kind==='reaction') {reactSpell(card);return;}
+                if(entry.kind==='overexert') toggleDefenseOverexert(card);
+                if(entry.kind==='skill') {toggleDefenseSkill(card);defenseStep.value=2;}
+                if(entry.kind==='scroll') {toggleDefenseScroll(card);defenseStep.value=2;}
+                if(entry.kind==='boost') toggleDefenseBoost(card);
+                if(entry.kind==='power_sacrifice') {toggleDefensePowerSacrifice(card);defensePickMode.value='normal';}
+                revalidateDefenseDraft();
+            }
+            function defenseKeydown(event) {
+                if (!['Enter',' '].includes(event.key) || workspaceMode.value!=='defense' || event.target.closest('[data-inspect]'))return;
+                const el=event.target.closest('[data-defense-card]'); if(!el)return;
+                event.preventDefault(); event.stopImmediatePropagation(); pickDefenseCard(el.dataset.defenseCard);
+            }
+
             const availableDefenseSkills = computed(() => {
                 if (!showDefenseWindow.value) return [];
                 return allMySkills.value.filter(canUseSkillAsDefense);
@@ -2258,100 +2330,10 @@
                 ].find(card => card && card.instance_id === id) || null;
             }
 
-            function handleDefensePanelClick(event) {
-                const actionEl = event.target.closest('[data-defense-action]');
-                if (!actionEl || !event.currentTarget.contains(actionEl)) return;
-                const action = actionEl.dataset.defenseAction;
-                const card = defenseCardById(actionEl.dataset.instanceId || '');
-                event.preventDefault();
-                event.stopPropagation();
-                if (action === 'detail') {
-                    if (card) showCardDetail(card);
-                    return;
-                }
-                if (action === 'reaction') {
-                    if (card) reactSpell(card);
-                    return;
-                }
-                if (action === 'overexert') {
-                    if (card) toggleDefenseOverexert(card);
-                    return;
-                }
-                if (action === 'scroll') {
-                    if (card) toggleDefenseScroll(card);
-                    return;
-                }
-                if (action === 'skill') {
-                    if (card) toggleDefenseSkill(card);
-                    return;
-                }
-                if (action === 'power_sacrifice') {
-                    if (card) toggleDefensePowerSacrifice(card);
-                    return;
-                }
-                if (action === 'boost') {
-                    if (card) toggleDefenseBoost(card);
-                    return;
-                }
-                if (action === 'submit') {
-                    submitDefend();
-                    return;
-                }
-                if (action === 'no_defend') {
-                    noDefend();
-                }
-            }
-
-            function syncDefensePanelVisualState() {
-                const apply = () => {
-                    if (!showDefenseWindow.value) return;
-                    const panel = document.querySelector('.defense-panel');
-                    if (!panel) return;
-                    panel.querySelectorAll('.defense-skill-card[data-defense-action][data-instance-id]').forEach(el => {
-                        const id = el.dataset.instanceId;
-                        const action = el.dataset.defenseAction;
-                        const selected =
-                            (action === 'skill' && defenseSelected.value.includes(id)) ||
-                            (action === 'scroll' && defenseScrollSelected.value.includes(id)) ||
-                            (action === 'boost' && defenseBoostSelected.value.includes(id)) ||
-                            (action === 'power_sacrifice' && defensePowerSacrificeId.value === id) ||
-                            (action === 'overexert' && defenseOverexertSelected.value.includes(id));
-                        el.classList.toggle('selected', selected);
-                        if (action === 'boost') {
-                            const card = defenseCardById(id);
-                            el.classList.toggle('disabled', isDefenseBoostDisabled(card));
-                        }
-                    });
-                    syncDefenseSummary(panel);
-                    const submit = panel.querySelector('[data-defense-action="submit"]');
-                    if (submit) submit.classList.toggle('disabled', !canSubmitDefense.value || !defensePaymentValid.value || actionBusy.value);
-                };
-                apply();
-                nextTick(apply);
-            }
-
-            function syncDefenseSummary(panel) {
-                const power = panel.querySelector('[data-defense-summary="power"]');
-                if (power) {
-                    power.innerHTML = `防御威力：<strong>${totalDefensePower.value}</strong> / 进攻威力：<strong>${pendingAttackPower()}</strong>`;
-                }
-                const cost = panel.querySelector('[data-defense-summary="cost"]');
-                if (cost) {
-                    cost.innerHTML = `费用：<strong>${costLabel(totalDefenseCost.value)}</strong> / 可用：<strong>${costLabel(defenseAvailableElements.value)}</strong>`;
-                }
-                const result = panel.querySelector('[data-defense-summary="result"]');
-                if (result) {
-                    result.textContent = defenseSummaryText();
-                    result.classList.toggle('power-win', defenseSummaryClass() === 'power-win');
-                    result.classList.toggle('power-lose', defenseSummaryClass() === 'power-lose');
-                }
-            }
-
             function toggleDefenseOverexert(unit) {
                 const idx = defenseOverexertSelected.value.indexOf(unit.instance_id);
                 if (idx >= 0) defenseOverexertSelected.value.splice(idx, 1);
                 else defenseOverexertSelected.value.push(unit.instance_id);
-                syncDefensePanelVisualState();
                 logDefenseSelection('defense_overexert_toggle', unit);
             }
 
@@ -2362,7 +2344,6 @@
                     defenseBoostSelected.value = [];
                     defensePowerSacrificeId.value = '';
                 }
-                syncDefensePanelVisualState();
                 logDefenseSelection('defense_skill_toggle', skill);
             }
             function toggleDefenseScroll(scroll) {
@@ -2372,13 +2353,11 @@
                     defenseBoostSelected.value = [];
                     defensePowerSacrificeId.value = '';
                 }
-                syncDefensePanelVisualState();
                 logDefenseSelection('defense_scroll_toggle', scroll);
             }
 
             function toggleDefensePowerSacrifice(unit) {
                 defensePowerSacrificeId.value = defensePowerSacrificeId.value === unit.instance_id ? '' : unit.instance_id;
-                syncDefensePanelVisualState();
                 logDefenseSelection('defense_power_sacrifice_toggle', unit);
             }
 
@@ -2393,7 +2372,6 @@
                 } else {
                     defenseBoostSelected.value.push(skill.instance_id);
                 }
-                syncDefensePanelVisualState();
                 logDefenseSelection('defense_boost_toggle', skill);
             }
 
@@ -2436,6 +2414,7 @@
                 defensePaymentOverride.value={key:defensePaymentKey.value,payment:p};
             }
             function resetDefenseDraft() {
+                defenseStep.value=0; defensePickMode.value='normal';
                 defenseSelected.value=[]; defenseScrollSelected.value=[]; defenseBoostSelected.value=[]; defenseOverexertSelected.value=[]; defensePowerSacrificeId.value=''; defensePaymentOverride.value=null;
             }
             function submitDefend() {
@@ -3028,6 +3007,7 @@
                     connected.value = false;
                     connectionStatus.value = '连接断开';
                     session.disconnect();
+                    resetDefenseDraft();
                     actionBusy.value = false;
                     decisionError.value = '连接已断开。结果未知的动作不会自动重发；重新连接后请核对战场。';
                 };
@@ -3227,7 +3207,6 @@
                         defensePowerSacrificeCandidates,
                         canSubmitDefense,
                         availableDefenseBoostCandidates,
-                        syncDefensePanelVisualState,
                     };
                 }
                 if (roomID && playerID && (isSpectator || deckCode)) connect();
@@ -3275,7 +3254,7 @@
                 canPlayHandCard, canPayCost,
                 // Defense
                 defenseSelected, defenseScrollSelected, defenseBoostSelected, defenseOverexertSelected, defensePowerSacrificeId, availableDefenseSkills, availableDefenseScrolls, availableReactionSkills, availableDefenseBoostCandidates, availableBoostSkills, defenseOverexertUnits, defensePowerSacrificeCandidates,
-                totalDefensePower, totalDefenseCost, defenseAvailableElements, pendingAttackPower, defenseSummaryText, defenseSummaryClass, defensePower, defenseBoostPower, defensePaymentCost, isDefenseBoostDisabled, handleDefensePanelClick, showInteractionCardContextMenu, toggleDefenseSkill, toggleDefenseScroll, toggleDefenseBoost, toggleDefenseOverexert, toggleDefensePowerSacrifice, reactSpell, submitDefend,
+                totalDefensePower, totalDefenseCost, defenseAvailableElements, pendingAttackPower, defenseSummaryText, defenseSummaryClass, defensePower, defenseBoostPower, defensePaymentCost, isDefenseBoostDisabled, showInteractionCardContextMenu, toggleDefenseSkill, toggleDefenseScroll, toggleDefenseBoost, toggleDefenseOverexert, toggleDefensePowerSacrifice, reactSpell, submitDefend,
                 hoverOpponentCell, clearHoverOpponentCell, isSpellAreaPreview,
                 // Pending action
                 pendingAction, showPendingAction, pendingSelected, togglePendingSelect, submitPendingAction, pendingConfirmLabel, pendingCandidateDetail, pendingContextText,
@@ -3288,6 +3267,7 @@
                 canUsePerTurn, canUseUltimate, useAbility, unitActionChips, skillActionChips, cardAvailabilityText,
                 learnSkill, endTurn, surrender, offerDraw, respondDrawOffer,
                 // Context menu
+                defenseIsSelected, defenseStep, defensePickMode, defenseStepCandidates, defenseFallback, defenseHandPages, defenseCardAttrs, defenseNames, defenseLocation, locateDefenseCards, goDefenseStep, pickDefenseCard, defenseKeydown,
                 menuItems, menuKeydown, previewMetadata, defensePaymentPlan, defensePaymentValid, adjustDefensePayment, resetDefenseDraft, ELEMENT_ORDER,
                 contextMenu, showCardContextMenu, hideContextMenu, contextMenuAction
             };

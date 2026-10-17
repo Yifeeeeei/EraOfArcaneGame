@@ -36,20 +36,6 @@
  .defense-panel .spell-info { flex:none; padding:5px; margin:0 0 6px; }
  .defense-panel .spell-info-img,.defense-panel .spell-source-list { display:none; }
  .defense-panel .spell-info-main { display:block; font-size:11px; line-height:1.5; }
- .defense-groups { flex:1; min-height:0; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:5px; }
- .defense-group { display:flex; flex-direction:column; min-width:0; min-height:0; background:#10191d; border:1px solid #5f6a64; }
- .defense-group > h3 { flex:none; background:#343e35; margin:0; padding:6px; color:#e4d8ba; font-size:12px; }
- .defense-group-scroll { flex:1; min-height:0; overflow:auto; padding:4px; }
- .defense-group .defense-skills-section { margin:0 0 5px; }
- .defense-group .defense-skills-section h3 { font-size:10px; margin:3px 0; line-height:1.3; }
- .defense-group .defense-skill-list { display:flex; flex-direction:column; gap:4px; }
- .defense-group .defense-skill-img { display:none; }
- .decision-workspace .defense-group .defense-skill-card { min-height:0; width:100%; padding:5px; background:#202a29; border:1px solid #647069; border-radius:3px; }
- .defense-group .defense-skill-card.selected { border:2px solid #e9c679; background:#51462b; }
- .defense-group .defense-skill-card.selected::before { content:'✓ 已选'; display:block; color:#ffe4a0; font-size:10px; }
- .defense-group .defense-skill-name { font-size:11px; line-height:1.35; }
- .defense-group .defense-skill-power,.defense-group .interaction-detail-link { font-size:10px; line-height:1.3; }
- .defense-group .defense-note { font-size:10px; line-height:1.4; margin:4px 0; }
  .defense-actions { flex:none; padding:6px 0 0; }
  .defense-actions .power-comparison { margin:4px 0; padding:4px; font-size:11px; }
  .defense-actions .btn { padding:6px; min-height:32px; }
@@ -69,12 +55,8 @@
 }
 
 @media(min-width:821px) {
- .defense-layout .decision-workspace { grid-row:1/3; }
- .defense-layout .hand-bar,.defense-layout .dock-tabs,.defense-layout .sidebar-right { grid-column:4; }
- .defense-layout .fan-toolbar { font-size:9px; gap:2px; }
- .defense-layout .fan-toolbar button { padding:3px 5px; }
- .defense-layout .fan-toolbar label { font-size:0; }
- .defense-layout .fan-toolbar input { width:30px; }
+
+
  .defense-actions > .btn { background:#3c4430; border:1px solid #a28a5b; color:#f1dfb6; }
  .sidebar-left { justify-content:safe flex-end; }
  .sidebar-left .hero-name { font-size:13px; }
@@ -95,3 +77,35 @@
  .defense-payment { display:flex; flex-wrap:wrap; gap:6px; }
  .defense-payment button { min-width:36px; min-height:36px; }
 }
+
+/* Defense uses the same dock geometry as every other decision. */
+.defense-steps { display:flex; gap:5px; margin:5px 0; }
+.defense-steps button,.defense-step-actions button,.defense-locators button,.defense-fallback button { background:#293630; color:#f2deb1; border:1px solid #887b55; padding:7px; min-height:32px; }
+.defense-steps [aria-current=step] { border:2px solid #f0c76b; font-weight:bold; }
+.defense-panel .decision-scroll { overflow:auto; }
+.defense-instruction { font-size:12px; line-height:1.5; margin:5px 0; }
+.defense-locators,.defense-step-actions { display:flex; flex-wrap:wrap; gap:5px; margin:5px 0; font-size:11px; }
+.defense-fallback { display:flex; flex-direction:column; gap:4px; font-size:11px; }
+.defense-selection-summary { font-size:11px; line-height:1.5; padding:5px; background:#172220; }
+[data-defense-status=eligible] { outline:3px dashed #71d7ea !important; outline-offset:-3px; }
+[data-defense-status=selected] { outline:4px solid #f4c96b !important; outline-offset:-4px; }
+.hand-card[data-defense-status] .fan-face { outline:3px dashed #71d7ea; }
+.hand-card[data-defense-status=selected] .fan-face { outline:4px solid #f4c96b; }
+[data-defense-card]:focus-visible { box-shadow:0 0 0 3px #fff !important; }
+.defense-steps { position:sticky; top:0; z-index:3; background:#211d15; padding:4px 0; }
+.defense-selection-summary { max-height:66px; overflow:auto; }
+.defense-actions .power-comparison { display:flex; flex-direction:column; gap:2px; }
+
+.defense-fallback [aria-pressed=true] { border:3px double #f4c96b; }
+.defense-incoming { flex:none; display:block; text-align:left; background:#181c18; color:#d8ceb4; border:1px solid #625a3c; padding:4px; font-size:11px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.decision-workspace .defense-actions { display:grid; grid-template-columns:repeat(3,max-content); gap:4px 6px; padding-top:4px; }
+.defense-actions .defense-selection-summary,.defense-actions .defense-payment,.defense-actions .power-comparison,.defense-actions > small { grid-column:1/-1; }
+.defense-actions .defense-selection-summary { max-height:52px; padding:3px; }
+.defense-actions .power-comparison { margin:0; padding:3px; font-size:10px; }
+.defense-panel .defense-instruction { margin:3px 0; }
+.defense-panel .defense-steps { margin:2px 0; flex:none; }
+.defense-panel > small { font-size:10px; }
+.decision-workspace .defense-actions { width:100%; min-width:0; grid-template-columns:repeat(3,minmax(0,1fr)); }
+.defense-actions > * { min-width:0; }
+.defense-actions .power-comparison { overflow-wrap:anywhere; }
+.defense-incoming { white-space:normal; max-height:48px; overflow:auto; }

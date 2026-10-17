@@ -56,7 +56,7 @@ async def visible_in_viewport(page, selector):
       const r=e.getBoundingClientRect();
       if(r.top<0 || r.bottom>innerHeight+1 || r.left<0 || r.right>innerWidth+1) return ['outside viewport '+e.className];
       const hit=document.elementFromPoint((r.left+r.right)/2,(r.top+r.bottom)/2);
-      return hit && (e.contains(hit)||hit===e) ? [] : ['covered '+e.className];
+      return hit && (e.contains(hit)||hit===e) ? [] : ['covered '+e.className+' by '+hit?.className];
     })""")
     assert not failures,failures
 

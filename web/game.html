@@ -12,7 +12,7 @@
     <link rel="stylesheet" href="css/usability.css">
 </head>
 <body>
-    <div id="app" v-cloak @click.capture="guardInteraction">
+    <div id="app" v-cloak>
         <header v-if="gameState" class="match-status"><a href="/">奥术纪元 <small>ERA OF ARCANE</small></a><span>房间 {{ roomID }} · 第 {{ gameState.turn_number }} 回合</span><span>回合：{{ isSpectator ? '玩家' + (gameState.current_turn + 1) : isMyTurn ? '己方' : '对方' }}</span><strong>决策：{{ decisionOwnerLabel }}</strong><span class="connection-dot">{{ connected ? '已连接' : '已断线' }}</span><a :href="legacyURL">旧版入口</a></header>
 
         <!-- ═══ CONNECTION OVERLAY ═══ -->
@@ -147,7 +147,7 @@
         <!-- ═══       MAIN GAME LAYOUT         ═══ -->
         <!-- ═══════════════════════════════════════ -->
         <nav v-if="gameState" class="mobile-jump"><a href="#arena">战场</a><a href="#hand">手牌</a><a href="#decision">当前决策</a></nav>
-        <div v-if="connected && gameState" class="game-layout" :class="{'defense-layout': workspaceMode === 'defense'}">
+        <div v-if="connected && gameState" class="game-layout" @click.capture="guardInteraction" @keydown.capture="defenseKeydown">
 
             <!-- ── LEFT SIDEBAR ── -->
             <div class="sidebar-left">
@@ -393,7 +393,7 @@
                                 </div>
                                 <template v-if="getMyUnit(col, row)"><span class="board-card-label">{{ getMyUnit(col, row).name }}</span>
                                     <div class="unit-card-face">
-                                    <img @error="imageFallback" :src="getCardImage(getMyUnit(col, row))" :alt="getMyUnit(col, row).name" class="unit-img"
+                                    <img @error="imageFallback" v-bind="defenseCardAttrs(getMyUnit(col, row))" :src="getCardImage(getMyUnit(col, row))" :alt="getMyUnit(col, row).name" class="unit-img"
                                          :class="{horizontal: getMyUnit(col, row).is_horizontal, 'inside-terrain': getMyTerrain(col, row)}"
                                          @mouseenter.stop="previewCard(getMyUnit(col, row))"
                                          @click.stop="handleUnitImageClick(mySlot, col, row, getMyUnit(col, row), $event)" tabindex="0" role="button" @keydown.enter.prevent="$event.currentTarget.click()" @keydown.space.prevent="$event.currentTarget.click()">
@@ -422,7 +422,7 @@
                                     <span class="slot-label">技能</span>
                                     <div class="slots">
                                         <div v-for="i in mySkillSlotCount" :key="'ms'+i" class="slot"
-                                             :class="{occupied: mySkills[i-1], 'defense-only': mySkills[i-1]?.is_defense_only, 'boost-selected': selectedBoostSkills.includes(mySkills[i-1]?.instance_id), castable: canCastSkill(mySkills[i-1])}"
+                                             v-bind="defenseCardAttrs(mySkills[i-1])" :class="{occupied: mySkills[i-1], 'defense-only': mySkills[i-1]?.is_defense_only, 'boost-selected': selectedBoostSkills.includes(mySkills[i-1]?.instance_id), castable: canCastSkill(mySkills[i-1])}"
                                              @mouseenter="mySkills[i-1] && previewCard(mySkills[i-1])"
                                              @click="mySkills[i-1] && showCardContextMenu($event,mySkills[i-1],'skill')" tabindex="0" @keydown.enter.prevent="$event.currentTarget.click()">
                                             <template v-if="mySkills[i-1]">
@@ -459,7 +459,7 @@
                                 <div class="slot-lane">
                                     <span class="slot-label">装备</span>
                                     <div class="slots">
-                                        <div v-for="i in myEquipmentSlotCount" :key="'me'+i" class="slot" :class="{occupied: myEquipment[i-1]}"
+                                        <div v-for="i in myEquipmentSlotCount" :key="'me'+i" class="slot" v-bind="defenseCardAttrs(myEquipment[i-1])" :class="{occupied: myEquipment[i-1]}"
                                              @mouseenter="myEquipment[i-1] && previewCard(myEquipment[i-1])"
                                              @click="myEquipment[i-1] && showCardContextMenu($event,myEquipment[i-1],'field')" tabindex="0" @keydown.enter.prevent="$event.currentTarget.click()">
                                             <template v-if="myEquipment[i-1]">
@@ -485,9 +485,9 @@
                                 <span class="slot-label">绑定</span>
                                 <div class="bound-skill-bar">
                                     <button v-for="skill in allMyBoundSkills" :key="skill.instance_id"
-                                            class="bound-skill-action"
+                                            class="bound-skill-action" v-bind="defenseCardAttrs(skill)" :title="defenseLocation(skill)"
                                             :class="{castable: canCastSkill(skill), horizontal: skill.is_horizontal}"
-                                            :disabled="!canCastSkill(skill)"
+                                            :disabled="workspaceMode === 'defense' ? !defenseStepCandidates.some(entry => entry.card.instance_id === skill.instance_id) : !canCastSkill(skill)"
                                             @mouseenter="previewCard(skill)"
                                             @click.stop="selectSkillToCast(skill)">
                                         <span>{{ skill.name }}</span>
@@ -628,149 +628,39 @@
         <!-- ═══ DEFENSE WINDOW OVERLAY ═══ -->
         <div v-if="workspaceMode === 'defense'" class="workspace-mechanism">
             <div class="overlay-content interaction-panel defense-panel"
-                 @click.capture="handleDefensePanelClick"
-                 @contextmenu.prevent="showInteractionCardContextMenu($event)">
-                <div class="decision-scroll">
-                <h2>对手施放法术！</h2>
-                <div v-if="pendingSpellView" class="spell-info">
-                    <div class="spell-info-main">
-                        <img @error="imageFallback" v-if="pendingSpellView.skill" :src="getCardImage(pendingSpellView.skill)" class="spell-info-img"
-                             @mouseenter="previewCard(pendingSpellView.skill)" @click="showCardDetail(pendingSpellView.skill)">
-                        <div>
-                            <div>法术：<strong>{{ pendingSpellView.skill?.name || '未知法术' }}</strong></div>
-                            <div>目标：<strong>{{ pendingSpellTargetLabel() }}</strong></div>
-                            <div v-if="pendingSpellExtraTargetLabels().length">额外目标：{{ pendingSpellExtraTargetLabels().join('、') }}</div>
-                            <div>进攻威力：<strong>{{ pendingSpellView.power }}</strong></div>
-                        </div>
-                    </div>
-                    <div v-if="pendingSpellSources().length" class="spell-source-list">
-                        <div v-for="source in pendingSpellSources()" :key="source.key" class="spell-source-row"
-                             @mouseenter="source.card && previewCard(source.card)"
-                             @click="source.card && showCardDetail(source.card)">
-                            <span>{{ source.is_main ? '主法术' : '强化/效果' }}</span>
-                            <strong>{{ source.name }}</strong>
-                            <b>{{ source.power >= 0 ? '+' + source.power : source.power }}</b>
-                        </div>
-                    </div>
-                </div>
 
-                <div class="defense-groups">
-                <section class="defense-group" aria-label="透支"><h3>1 · 透支</h3><div class="defense-group-scroll"><div class="defense-skills-section" v-if="defenseOverexertUnits.length > 0">
-                    <h3>选择透支单位支付防御费用</h3>
-                    <div class="defense-skill-list">
-                        <button v-for="unit in defenseOverexertUnits" :key="unit.instance_id"
-                                type="button"
-                                class="defense-skill-card interaction-card overexert-card"
-                                :class="{ selected: defenseOverexertSelected.includes(unit.instance_id) }"
-                                :data-instance-id="unit.instance_id"
-                                data-defense-action="overexert"
-                                @mouseenter="previewCard(unit)">
-                            <img @mouseenter="previewCard(unit)" @error="imageFallback" :src="getCardImage(unit)" class="defense-skill-img">
-                            <div class="defense-skill-info">
-                                <div class="defense-skill-name">{{ unit.name }}</div>
-                                <div class="defense-skill-power">{{ costLabel(unit.elements_gain) }}</div>
-                            </div>
-                            <span class="interaction-detail-link" :data-instance-id="unit.instance_id" data-defense-action="detail">查看</span>
-                        </button>
-                    </div>
-                    <div class="defense-note">透支只支付本次防御费用，不保存多余负载，也不会触发“消耗”效果。</div>
-                </div></div></section>
-                <section class="defense-group" aria-label="防御法术"><h3>2 · 防御 / 响应</h3><div class="defense-group-scroll"><div class="defense-skills-section" v-if="availableDefenseSkills.length > 0">
-                    <h3>选择防御技能</h3>
-                    <div class="defense-skill-list">
-                        <button v-for="skill in availableDefenseSkills" :key="skill.instance_id"
-                             type="button"
-                             class="defense-skill-card interaction-card"
-                             :class="{ selected: defenseSelected.includes(skill.instance_id) }"
-                             :data-instance-id="skill.instance_id"
-                             data-defense-action="skill"
-                             @mouseenter="previewCard(skill)">
-                            <img @mouseenter="previewCard(skill)" @error="imageFallback" :src="getCardImage(skill)" class="defense-skill-img">
-                            <div class="defense-skill-info">
-                                <div class="defense-skill-name">{{ skill.name }}</div>
-                                <div class="defense-skill-power">威力 {{ skill.power >= 0 ? skill.power : 0 }}</div>
-                            </div>
-                            <span class="interaction-detail-link" :data-instance-id="skill.instance_id" data-defense-action="detail">查看</span>
-                        </button>
-                    </div>
-                </div><div class="defense-skills-section" v-if="availableDefenseScrolls.length > 0">
-                    <h3>选择防御卷轴</h3>
-                    <div class="defense-skill-list">
-                        <button v-for="scroll in availableDefenseScrolls" :key="scroll.instance_id"
-                             type="button"
-                             class="defense-skill-card interaction-card"
-                             :class="{ selected: defenseScrollSelected.includes(scroll.instance_id) }"
-                             :data-instance-id="scroll.instance_id"
-                             data-defense-action="scroll"
-                             @mouseenter="previewCard(scroll)">
-                            <img @mouseenter="previewCard(scroll)" @error="imageFallback" :src="getCardImage(scroll)" class="defense-skill-img">
-                            <div class="defense-skill-info">
-                                <div class="defense-skill-name">{{ scroll.name }}</div>
-                                <div class="defense-skill-power">威力 {{ scroll.power >= 0 ? scroll.power : 0 }} · {{ costLabel(playCost(scroll)) }}</div>
-                            </div>
-                            <span class="interaction-detail-link" :data-instance-id="scroll.instance_id" data-defense-action="detail">查看</span>
-                        </button>
-                    </div>
-                </div><div class="defense-skills-section" v-if="availableReactionSkills.length > 0">
-                    <h3>可响应咒术</h3>
-                    <div class="defense-skill-list">
-                        <button v-for="skill in availableReactionSkills" :key="skill.instance_id"
-                                type="button"
-                                class="defense-skill-card interaction-card reaction-card"
-                                :data-instance-id="skill.instance_id"
-                                data-defense-action="reaction"
-                                @mouseenter="previewCard(skill)">
-                            <img @mouseenter="previewCard(skill)" @error="imageFallback" :src="getCardImage(skill)" class="defense-skill-img">
-                            <div class="defense-skill-info">
-                                <div class="defense-skill-name">{{ skill.name }}</div>
-                                <div class="defense-skill-power">费用 {{ costLabel(reactionActionCost(skill)) }}</div>
-                            </div>
-                            <span class="interaction-detail-link" :data-instance-id="skill.instance_id" data-defense-action="detail">查看</span>
-                        </button>
-                    </div>
-                </div></div></section>
-                <section class="defense-group" aria-label="强化"><h3>3 · 强化</h3><div class="defense-group-scroll"><div class="defense-skills-section" v-if="availableDefenseBoostCandidates.length > 0">
-                    <h3>强化技能（可选）</h3>
-                    <div class="defense-skill-list">
-                        <button v-for="skill in availableDefenseBoostCandidates" :key="skill.instance_id"
-                             type="button"
-                             class="defense-skill-card interaction-card boost"
-                             :class="{ selected: defenseBoostSelected.includes(skill.instance_id), disabled: isDefenseBoostDisabled(skill) }"
-                             :data-instance-id="skill.instance_id"
-                             data-defense-action="boost"
-                             @mouseenter="previewCard(skill)">
-                            <img @mouseenter="previewCard(skill)" @error="imageFallback" :src="getCardImage(skill)" class="defense-skill-img">
-                            <div class="defense-skill-info">
-                                <div class="defense-skill-name">{{ skill.name }}</div>
-                                <div class="defense-skill-power">+威力 {{ defenseBoostPower(skill) }} · {{ costLabel(defensePaymentCost(skill)) }}</div>
-                            </div>
-                            <span class="interaction-detail-link" :data-instance-id="skill.instance_id" data-defense-action="detail">查看</span>
-                        </button>
-                    </div>
-                </div><div class="defense-skills-section" v-if="defensePowerSacrificeCandidates.length > 0">
-                    <h3>炎狱怒吼祭献</h3>
-                    <div class="defense-skill-list">
-                        <button v-for="unit in defensePowerSacrificeCandidates" :key="unit.instance_id"
-                             type="button"
-                             class="defense-skill-card interaction-card"
-                             :class="{ selected: defensePowerSacrificeId === unit.instance_id }"
-                             :data-instance-id="unit.instance_id"
-                             data-defense-action="power_sacrifice"
-                             @mouseenter="previewCard(unit)">
-                            <img @mouseenter="previewCard(unit)" @error="imageFallback" :src="getCardImage(unit)" class="defense-skill-img">
-                            <div class="defense-skill-info">
-                                <div class="defense-skill-name">{{ unit.name }}</div>
-                                <div class="defense-skill-power">+{{ totalCost(playCost(unit)) }} 威力</div>
-                            </div>
-                            <span class="interaction-detail-link" :data-instance-id="unit.instance_id" data-defense-action="detail">查看</span>
-                        </button>
-                    </div>
-                    <div class="defense-note">可选。选择后提交防御会祭献该火焰伙伴。</div>
-                </div></div></section>
+                 @contextmenu.prevent="showInteractionCardContextMenu($event)">
+                <button class="defense-incoming" data-inspect @mouseenter="pendingSpellView?.skill && previewCard(pendingSpellView.skill)" @click="pendingSpellView?.skill && showCardDetail(pendingSpellView.skill)">来袭：{{ pendingSpellView?.skill?.name }} → {{ pendingSpellTargetLabel() }} · 威力 {{ pendingAttackPower() }}{{ pendingSpellExtraTargetLabels().length ? '；追加目标：'+pendingSpellExtraTargetLabels().join('、') : '' }}</button>
+                <nav class="defense-steps" aria-label="防御步骤">
+                    <button v-for="(label,index) in ['透支','防御牌','强化']" :aria-current="defenseStep===index?'step':null" :disabled="index>1 && !defenseSelected.length && !defenseScrollSelected.length" @click="goDefenseStep(index)">{{ index+1 }} · {{ label }}</button>
+                </nav>
+                <small>虚线框：可选 · 实线框：已选；在原卡位置操作</small><p class="defense-instruction" aria-live="polite">{{ defenseStep===0?'在原卡位置选择透支，可多选；完成后继续，也可跳过。':defenseStep===1?'选择一张防御技能或手牌卷轴，选定后进入强化。':defenseStep===2?'在原卡位置选择强化，可多选；完成或跳过后核对付款。':'核对组合与付款后提交一次。' }}</p>
+                <div class="decision-scroll">
+                <p v-if="defensePickMode!=='normal'">{{ defensePickMode==='reaction'?'当前选择响应牌，发动前仍需确认。':'当前选择可选祭献单位。' }} <button @click="defensePickMode='normal'">返回当前步骤</button></p>
+                <div class="defense-locators" v-if="defenseStep<3">
+                    <button @click="locateDefenseCards()">定位可选牌（{{ defenseStepCandidates.length }}）</button>
+                    <button v-for="page in defenseHandPages" @click="locateDefenseCards(page)">手牌第 {{ page+1 }} 页有候选 · 定位</button>
+                    <span v-if="!defenseStepCandidates.length">当前无可选牌</span>
+                </div>
+                <div class="defense-fallback" v-if="defenseFallback.length">
+                    <button v-for="entry in defenseFallback" :key="entry.card.instance_id" :data-instance-id="entry.card.instance_id" :data-defense-action="entry.kind" :aria-pressed="defenseIsSelected(entry.card.instance_id)" @mouseenter="previewCard(entry.card)" @click.stop="pickDefenseCard(entry.card.instance_id)">{{ defenseIsSelected(entry.card.instance_id)?'✓ 已选 · ':'' }}{{ entry.card.name }} · {{ defenseLocation(entry.card) }} · {{ costLabel(defensePaymentCost(entry.card)) }}</button>
+                </div>
+                <div class="defense-step-actions">
+                    <button v-if="defenseStep===0" @click="goDefenseStep(1)">{{ defenseOverexertSelected.length?'完成透支，下一步':'跳过透支' }}</button>
+                    <button v-if="defenseStep===1 && availableReactionSkills.length" @click="defensePickMode='reaction'">选择响应牌</button>
+                    <button v-if="defenseStep===2 && defensePowerSacrificeCandidates.length" @click="defensePickMode='sacrifice'">选择可选祭献</button>
+                    <button v-if="defenseStep===2" @click="goDefenseStep(3)">{{ defenseBoostSelected.length?'完成强化，核对付款':'跳过强化，核对付款' }}</button>
                 </div>
                 </div>
                 <div class="defense-actions">
-                    <div class="defense-payment" aria-label="防御付款">
+                <div class="defense-selection-summary">
+                    <div>透支：{{ defenseNames(defenseOverexertSelected) }}</div>
+                    <div>防御：{{ defenseNames([...defenseSelected,...defenseScrollSelected]) }}</div>
+                    <div>强化：{{ defenseNames(defenseBoostSelected) }}</div>
+                    <div v-if="defensePowerSacrificeId">祭献：{{ defenseNames([defensePowerSacrificeId]) }}</div>
+                </div>
+
+                    <div class="defense-payment" v-if="defenseStep===3" aria-label="防御付款">
                         <span v-for="elem in ELEMENT_ORDER.filter(e => defenseAvailableElements[e] || defensePaymentPlan[e])" :key="elem"><button @click.stop="adjustDefensePayment(elem,-1)" :aria-label="'减少'+elem">−</button><b>{{ elem }} {{ defensePaymentPlan[elem] || 0 }}</b><button @click.stop="adjustDefensePayment(elem,1)" :aria-label="'增加'+elem">+</button></span>
                     </div>
                     <small v-if="!defensePaymentValid">请调整付款组合</small>
@@ -783,9 +673,9 @@
                 </div>
 
 
-                    <button type="button" class="btn btn-success" :disabled="!canSubmitDefense || !defensePaymentValid || actionBusy" data-defense-action="submit">确认防御</button>
-                    <button class="btn" @click.stop="resetDefenseDraft">重置选择</button>
-                    <button type="button" class="btn btn-danger" data-defense-action="no_defend">不防御</button>
+                    <button type="button" class="btn btn-success" :disabled="!canSubmitDefense || !defensePaymentValid || actionBusy" v-if="defenseStep===3" data-defense-action="submit" @click="submitDefend">确认防御</button>
+                    <button class="btn" @click.stop="resetDefenseDraft">取消本地选择</button>
+                    <button type="button" class="btn btn-danger" data-defense-action="no_defend" @click="noDefend">不防御</button>
                 </div>
             </div>
         </div>
@@ -1040,7 +930,7 @@
                 <div v-if="isSpectator" class="waiting">观战：手牌不可见</div>
                 <div v-else-if="!myHand.length" class="empty-hand">暂无手牌</div>
                 <div v-else class="hand-cards">
-                    <div v-for="(card,index) in fanCards" :key="card.instance_id" class="hand-card" role="button" tabindex="0"
+                    <div v-for="(card,index) in fanCards" :key="card.instance_id" v-bind="defenseCardAttrs(card)" class="hand-card" role="button" tabindex="0"
                         :data-instance-id="card.instance_id" :data-card-number="card.number" :aria-label="(currentFanPage*7+index+1)+'：'+card.name+'，'+cardAvailabilityText(card)"
                         :aria-pressed="selectedHandCard?.instance_id === card.instance_id"
                         :style="{'--fan-index':index,'--fan-angle':((index-(fanCards.length-1)/2)*4)+'deg','--fan-rise':(Math.abs(index-(fanCards.length-1)/2)*5)+'px'}"

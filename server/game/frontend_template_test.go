@@ -104,59 +104,11 @@ func TestGameHTMLDefenseWindowIncludesBoundSkills(t *testing.T) {
 func TestGameHTMLDefenseWindowClickHandlersAreReturned(t *testing.T) {
 	content, err := readMatchSources()
 	if err != nil {
-		t.Fatalf("read game.html: %v", err)
+		t.Fatal(err)
 	}
-	html := string(content)
-	for _, want := range []string{
-		`@click.capture="handleDefensePanelClick"`,
-		`data-defense-action="scroll"`,
-		`data-defense-action="skill"`,
-		`data-defense-action="boost"`,
-		`data-defense-action="overexert"`,
-		`data-defense-action="submit"`,
-		`data-defense-action="no_defend"`,
-		`data-defense-action="detail"`,
-		`:disabled="!canSubmitDefense || !defensePaymentValid || actionBusy"`,
-		"function defenseCardById(id)",
-		"function handleDefensePanelClick(event)",
-		"function syncDefensePanelVisualState()",
-		"el.classList.toggle('selected', selected)",
-		"submit.classList.toggle('disabled', !canSubmitDefense.value || !defensePaymentValid.value || actionBusy.value)",
-		"const CLIENT_BUILD =",
-		"const pendingSpellView = computed(() => normalizePendingSpell(gameState.value?.pending_spell))",
-		"function normalizePendingSpell(spell)",
-		"spell.power ?? spell.total_power",
-		"spell.defender_id === currentPlayerSlot()",
-		"data-defense-summary=\"power\"",
-		"function syncDefenseSummary(panel)",
-		"defensePower, defenseBoostPower, defensePaymentCost,",
-		"function logDefenseWindowStateSync(state)",
-		"function logDefenseSelection(message, card = null)",
-		"defense_submit_blocked",
-		"if (!defenseSelected.value.includes(skill.instance_id))",
-		"if (!defenseScrollSelected.value.includes(scroll.instance_id))",
-		"handleDefensePanelClick, showInteractionCardContextMenu, toggleDefenseSkill, toggleDefenseScroll, toggleDefenseBoost, toggleDefenseOverexert, toggleDefensePowerSacrifice, reactSpell, submitDefend",
-		"canSubmitDefense,",
-		"noDefend,",
-	} {
-		if !strings.Contains(html, want) {
-			t.Fatalf("defense window click handlers should be exposed to the template, missing %q", want)
-		}
-	}
-	if strings.Contains(html, `:disabled="!canSubmitDefense"`) {
-		t.Fatalf("defense submit should not be silently disabled; submitDefend should log why it cannot submit")
-	}
-	for _, bad := range []string{
-		`@pointerdown.capture="handleDefensePanelPointerDown"`,
-		`@pointerdown.stop.prevent="toggleDefenseScroll(scroll)"`,
-		`@pointerdown.stop.prevent="toggleDefenseSkill(skill)"`,
-		`@pointerdown.stop.prevent="toggleDefenseBoost(skill)"`,
-		`@pointerdown.stop.prevent="toggleDefenseOverexert(unit)"`,
-		`@pointerdown.stop.prevent="submitDefend()"`,
-		`@pointerdown.stop.prevent="noDefend()"`,
-	} {
-		if strings.Contains(html, bad) {
-			t.Fatalf("defense card actions should be handled by panel-level delegation, found %q", bad)
+	for _, want := range []string{"defenseStepCandidates", "defenseFallback", "defenseHandPages", "pickDefenseCard", "defenseKeydown", "locateDefenseCards", `@click.capture="guardInteraction"`, `data-defense-action="submit"`, `:disabled="!canSubmitDefense || !defensePaymentValid || actionBusy"`} {
+		if !strings.Contains(string(content), want) {
+			t.Fatalf("missing step defense control %q", want)
 		}
 	}
 }
@@ -268,7 +220,7 @@ func TestGameHTMLCompositeCostsUseSequentialPlannerAndActionAcknowledgement(t *t
 		"ArcaneActionCostPlan.planActionCost(entries, myState.value.temp_modifiers || [])",
 		"missingCostText(attackActionCost(mySkills[i-1], []))",
 		"missingCostText(attackActionCost(skill, []))",
-		"costLabel(reactionActionCost(skill))",
+		"function reactionActionCost(skill)",
 		"skillUseCost, attackActionCost, reactionActionCost, canLearnSkill",
 		"const session = new ArcaneDecisions.DecisionSession();",
 		"expected_revision:draft.revision",

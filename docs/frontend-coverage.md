@@ -58,3 +58,10 @@
 新增 `frontend_usability.py` 验证己方人物检视、菜单四角边界/键盘/关闭、消耗重复点击、双方盖牌和隐藏身份；`frontend_defense_workspace.py` 验证三组组合防御、付款增减及无效付款禁用、重置零发送、一次最终发送、目标点击不误开菜单。原 match/reactions/quality/fan/primitives/failed_action 继续回归。视觉及结果见 [本轮评审](review/usability-desktop/README.md)。
 
 后端提供的 945e577 补丁已独立整合；普通/免费波纹斩的首次单体与后续前排、踏浪术的持续期及 2/3/4 附加费用有 Go 覆盖。新增嵌套反制、虚拟施法、绘制卷轴的快照集成测试。后续已修复离场虚拟波纹斩自身修正遗漏：显式声明的施法来源仅参与本次属性计算，不进入战场或其他法术的光环集合。虚拟、带强化虚拟、速写入口及水镜/速写真实动作路径均验证首次威4单体、第二次威6前排，含嵌套反制恢复及来源清理。见 [离场来源复核](review/usability-desktop/water-source-fix.md)。
+
+
+## 三步防御与固定 dock（基线 82d7c90）
+
+防御改为原卡选择的三步流程：多选透支（可跳过）、单选防御牌后自动推进、多选强化（明确完成/跳过），随后核对付款并一次提交。普通、付款、pending、响应与防御不再切换 dock 跨列。已覆盖单位、装备、已学技能、原绑定栏、手牌卷轴；手牌其他页有明确定位。仅没有已知原卡入口的候选使用紧凑兜底，当前真实绑定 fixture 验证无重复兜底项。
+
+`frontend_defense_workspace.py` 对1440/1366/1024分别检查普通、三步、返回和付款的相同 dock bounding box，费用/威力预览、无中间发送、新revision失效、组合最终单次提交。`frontend_defense_edges.py` 覆盖原绑定栏键盘、手牌防御卷轴替换、断线失效、不防御不消耗本地透支/付款、普通菜单恢复。`frontend_reactions.py` 增加反制内选择、响应付款的相同1440 dock断言。没有后端规则或协议修改。截图与限制见 [本轮材料](review/defense-steps/README.md)。
