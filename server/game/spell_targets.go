@@ -81,7 +81,7 @@ func (e *Engine) effectiveSpellArea(skill *CardInstance) SpellArea {
 		PlayerID:   skill.OwnerID,
 		OpponentID: 1 - skill.OwnerID,
 	}
-	for _, fieldCard := range e.getAllFieldCards(ps) {
+	for _, fieldCard := range e.spellModifierSources(ps, skill) {
 		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
 			continue
 		}

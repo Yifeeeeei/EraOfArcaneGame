@@ -701,7 +701,7 @@ func (e *Engine) spellStatBonusesWithData(playerID int, skill *CardInstance, pur
 		OpponentID: 1 - playerID,
 		ExtraData:  data,
 	}
-	for _, fieldCard := range e.getAllFieldCards(ps) {
+	for _, fieldCard := range e.spellModifierSources(ps, skill) {
 		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
 			continue
 		}

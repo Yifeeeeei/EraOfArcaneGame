@@ -4,6 +4,8 @@ type Card3221109RippleSlash struct{ AlwaysActive }
 
 func (Card3221109RippleSlash) ID() string { return "3221109" }
 
+func (Card3221109RippleSlash) HasSpellSourceModifier() {}
+
 func (Card3221109RippleSlash) Name() string { return "波纹斩" }
 
 func (Card3221109RippleSlash) ModifySpellStats(ctx *EffectContext, stats *SpellStats) {
