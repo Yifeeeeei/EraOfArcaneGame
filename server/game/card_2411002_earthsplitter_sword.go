@@ -10,3 +10,7 @@ func (Card2411002EarthsplitterSword) OnConsume(ctx *EffectContext) error {
 	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModSkillPowerBonus, Amount: 4, RemainingUses: 1, ExpiresTurn: ctx.Engine.State.TurnNumber + 1})
 	return nil
 }
+
+func (Card2411002EarthsplitterSword) AbilityRequiresTap(trigger EffectTrigger) bool {
+	return trigger == TriggerPerTurn
+}

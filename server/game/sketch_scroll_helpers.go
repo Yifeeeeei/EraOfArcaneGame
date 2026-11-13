@@ -77,6 +77,11 @@ func (e *Engine) spellTargetCandidates(playerID int, skill *CardInstance) []map[
 }
 
 func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, target SpellTarget) error {
+	if handled, err := e.chooseEffectSpellSquare(playerID, skill, target, func(chosen SpellTarget) error {
+		return e.castSkillFromSketchScroll(playerID, skill, chosen)
+	}); handled {
+		return err
+	}
 	ps := e.State.Players[playerID]
 	cost := e.effectiveSkillUseCost(ps, skill)
 	if !e.payCostForCardAction(ps, skill, cost, cost, paymentPurposeUse, ActionMessage{}) {

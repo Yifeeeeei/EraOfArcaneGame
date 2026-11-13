@@ -126,25 +126,18 @@ func (e *Engine) summonFreshCardAtPosition(playerID int, cardNumber string, pos 
 	return instance
 }
 
+// The graveyard already contains a clean object from the previous field visit.
+// Do not discard bonuses explicitly granted while it was outside the battlefield.
 func resetCardForResummon(card *CardInstance) {
 	if card == nil || card.Card == nil {
 		return
 	}
-	card.CurrentLife = card.Card.Life
-	card.CurrentAttack = card.Card.Attack
-	card.DamageTakenThisTurn = 0
 	card.IsHorizontal = true
 	card.Position = nil
-	card.Statuses = make(map[string]int)
-	card.ElementsGainBonus = make(map[string]int)
-	card.ElementsGainSet = nil
-	card.PowerBonus = 0
-	card.AttackBonus = 0
-	card.UsedThisTurn = 0
-	card.UltimateUsed = false
-	card.BoundSkills = nil
-	card.UnderCards = nil
-	card.AttachedBehaviors = nil
+	card.fieldLife = nil
+	if card.CurrentLife <= 0 {
+		card.CurrentLife = maxLife(card)
+	}
 }
 
 func adjacentFriendlyCompanions(ctx *EffectContext) []map[string]any {

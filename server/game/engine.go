@@ -9,6 +9,7 @@ import (
 
 // Engine manages a single game instance
 type Engine struct {
+	effectSource     *fieldLifetime
 	revision         uint64
 	decisionSequence uint64
 	State            *GameState

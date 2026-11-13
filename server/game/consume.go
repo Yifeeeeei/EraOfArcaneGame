@@ -88,16 +88,10 @@ func elementMapFromAction(action ActionMessage, key string) map[string]int {
 }
 
 func (e *Engine) handleConsume(playerID int, action ActionMessage) error {
-	if e.State.Phase != PhaseMain && e.State.Phase != PhaseDefenseWindow {
+	if e.State.Phase != PhaseMain {
 		return fmt.Errorf("cannot consume now")
 	}
-	// During defense window, only the defending player can consume (透支)
-	if e.State.Phase == PhaseDefenseWindow {
-		if e.State.PendingSpell == nil || playerID == e.State.PendingSpell.AttackerID {
-			return fmt.Errorf("only defender can overdraft during defense")
-		}
-	}
-	if e.State.Phase == PhaseMain && e.State.CurrentTurn != playerID {
+	if e.State.CurrentTurn != playerID {
 		return fmt.Errorf("not your turn")
 	}
 

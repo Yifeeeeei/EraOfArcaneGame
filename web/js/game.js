@@ -141,6 +141,7 @@
             const hoveredOpponentCell = ref(null);
             const skillReplaceRequest = ref(null);
             const equipmentReplaceRequest = ref(null);
+            const squareAreaRequest = ref(null);
             const pileView = ref(null);
             const actionLog = ref([]);
             const publicEventLog = ref([]);
@@ -185,6 +186,7 @@
                 if (consumeGainRequest.value) return 'consume';
                 if (skillReplaceRequest.value) return 'skill';
                 if (equipmentReplaceRequest.value) return 'equipment';
+                if (squareAreaRequest.value) return 'square';
                 return 'idle';
             });
             function findVisibleCard(id) {
@@ -446,7 +448,7 @@
                 return skills;
             });
             const allMySkills = computed(() => [...mySkills.value.filter(Boolean), ...allMyBoundSkills.value]);
-            const replaceableSkills = computed(() => mySkills.value.filter(skill => skill && !skill.is_horizontal));
+            const replaceableSkills = computed(() => mySkills.value.filter(skill => skill && !skill.is_horizontal && !(skill.statuses?.['冷却'] > 0)));
             const replaceableEquipment = computed(() => {
                 const card = equipmentReplaceRequest.value?.card || selectedHandCard.value;
                 return replaceableEquipmentForCard(card);
@@ -518,17 +520,18 @@
                 if (!myState.value.units) return 0;
                 for (let r = 0; r < 3; r++)
                     for (let c = 0; c < 3; c++)
-                        if (myState.value.units[c] && myState.value.units[c][r]) return r;
+                        if (myState.value.units[c] && myState.value.units[c][r] && !isStealthed(myState.value.units[c][r])) return r;
                 return -1;
             });
             const opponentFrontRow = computed(() => {
                 if (!opponent.value.units) return 0;
                 for (let r = 0; r < 3; r++)
                     for (let c = 0; c < 3; c++)
-                        if (opponent.value.units[c] && opponent.value.units[c][r]) return r;
+                        if (opponent.value.units[c] && opponent.value.units[c][r] && !isStealthed(opponent.value.units[c][r])) return r;
                 return -1;
             });
 
+            function isStealthed(card) { return card?.has_stealth ?? (!!card?.statuses?.['隐蔽'] && !card?.statuses?.['石化']); }
             function getMyUnit(col, row) { return myState.value.units?.[col]?.[row] || null; }
             function getOpponentUnit(col, row) { return opponent.value.units?.[col]?.[row] || null; }
             function myBoardOwnerID() {
@@ -812,6 +815,7 @@
             }
 
             function clearSelection() {
+                squareAreaRequest.value = null;
                 selectedBattleID.value = '';
                 fanPreviewID.value = '';
                 selectedHandCard.value = null;
@@ -1253,10 +1257,11 @@
             function equipmentSubtype(card) { return card?.equipment_subtype || ''; }
 
             function replaceableEquipmentForCard(card) {
-                if (!card) return myEquipment.value.filter(equipment => equipment && !equipment.is_horizontal);
+                if (Array.isArray(card?.equipment_replacement_ids)) return myEquipment.value.filter(equipment => equipment && card.equipment_replacement_ids.includes(equipment.instance_id));
+                if (!card) return myEquipment.value.filter(equipment => equipment && !equipment.is_horizontal && !(equipment.statuses?.['冷却'] > 0));
                 const subtype = equipmentSubtype(card);
                 return myEquipment.value.filter(equipment => {
-                    if (!equipment || equipment.is_horizontal) return false;
+                    if (!equipment || equipment.is_horizontal || equipment.statuses?.['冷却'] > 0) return false;
                     return !subtype || equipmentSubtype(equipment) === subtype;
                 });
             }
@@ -1266,7 +1271,7 @@
                 return myEquipment.value.filter(equipment => equipment && equipmentSubtype(equipment) === subtype);
             }
             function canSetCounterCard(card) {
-                return !!card && card.is_counter_trap && isMyTurn.value && gameState.value.phase === 'main' && hasEmptyEquipmentSlot();
+                return !!card && card.is_counter_trap && isMyTurn.value && gameState.value.phase === 'main' && (card.can_place_without_replacement || replaceableEquipmentForCard(card).length > 0);
             }
             function setCounterCard(card) {
                 if (!canSetCounterCard(card)) {
@@ -1274,12 +1279,14 @@
                     return;
                 }
                 selectedHandCard.value = null;
+                if (!card.can_place_without_replacement) { equipmentReplaceRequest.value = {card, replaceId:''}; return; }
                 sendAction('use_item', { instance_id: card.instance_id }, null, true);
                 addLog(`盖放 ${card.name}`);
             }
             function canEquipCard(card) {
                 if (!isEquippableItem(card) || !isMyTurn.value || gameState.value.phase !== 'main') return false;
                 if (!canPayCost(playCost(card))) return false;
+                if (card.can_place_without_replacement !== undefined) return card.can_place_without_replacement || replaceableEquipmentForCard(card).length > 0;
                 const sameSubtype = sameSubtypeEquipment(card);
                 if (sameSubtype.length > 0) {
                     return sameSubtype.some(equipment => !equipment.is_horizontal);
@@ -1292,14 +1299,14 @@
                     return;
                 }
                 selectedHandCard.value = null;
-                if (sameSubtypeEquipment(card).length > 0 || !hasEmptyEquipmentSlot()) {
+                if (card.can_place_without_replacement === false || (card.can_place_without_replacement === undefined && (sameSubtypeEquipment(card).length > 0 || !hasEmptyEquipmentSlot()))) {
                     equipmentReplaceRequest.value = { card, replaceId: '' };
                     return;
                 }
                 sendEquipCard(card, '');
             }
             function sendEquipCard(card, replaceId) {
-                sendPaidAction('equip', { instance_id: card.instance_id, replace_id: replaceId || '' }, playCost(card), `装备 ${card.name}`, () => {
+                sendPaidAction(card.is_counter_trap ? 'use_item' : 'equip', { instance_id: card.instance_id, replace_id: replaceId || '' }, card.is_counter_trap ? {} : playCost(card), `${card.is_counter_trap ? '盖放' : '装备'} ${card.name}`, () => {
                     addLog(replaceId ? `装备 ${card.name}，替换旧装备` : `装备 ${card.name}`);
                     equipmentReplaceRequest.value = null;
                 });
@@ -1514,6 +1521,9 @@
                 for (const equipment of (myState.value?.equipment || [])) {
                     if (equipment && hasDevourLoadContribution(equipment, requirement)) candidates.push(equipment);
                 }
+                for (const skill of (myState.value?.skills || [])) {
+                    if (skill && hasDevourLoadContribution(skill, requirement)) candidates.push(skill);
+                }
                 return candidates;
             }
 
@@ -1636,20 +1646,22 @@
                 if (selectedAttacker.value) addLog(`选择 ${unit.name} 攻击，点击敌方目标`);
             }
             function isAttackTarget(col, row) {
-                return selectedAttacker.value && row === opponentFrontRow.value && getOpponentUnit(col, row);
+                const unit = getOpponentUnit(col, row);
+                return selectedAttacker.value && row === opponentFrontRow.value && unit && !isStealthed(unit);
             }
             const hasActiveTargeting = computed(() => !!selectedAttacker.value || !!selectedSkill.value || !!selectedItemSpellScroll.value);
             function isValidOpponentTarget(col, row) {
                 const unit = getOpponentUnit(col, row);
-                if (selectedAttacker.value) return !!unit && row === opponentFrontRow.value;
+                if (selectedAttacker.value) return !!unit && !isStealthed(unit) && row === opponentFrontRow.value;
                 const spell = activeTargetSpell();
                 if (!spell) return false;
-                if (pendingExtraTargetCast.value && spell.extra_target_ignore_range) return !!unit;
+                if (pendingExtraTargetCast.value && spell.extra_target_ignore_range) return !!unit && (!isStealthed(unit) || spell.allows_stealth_target);
                 const area = spell.spell_area || 'single';
+                if (area === 'single' && isStealthed(unit) && !spell.allows_stealth_target) return false;
                 if (area === 'front_row') {
                     return !!unit && row === opponentFrontRow.value;
                 }
-                const inRange = activeTargetSpellHasPierce() || hasGlobalSpellRange() || row === opponentFrontRow.value || isTauntUnit(unit);
+                const inRange = activeTargetSpellHasPierce() || hasGlobalSpellRange() || (area !== 'single' ? opponentFrontRow.value < 0 || row <= opponentFrontRow.value : row === opponentFrontRow.value) || isTauntUnit(unit);
                 if (unit) return inRange;
                 if (area === 'column' && inRange) {
                     return opponentColumnHasUnit(col);
@@ -1668,13 +1680,13 @@
                 }
             }
             function isSpellAreaPreview(col, row) {
-                if (!selectedSkill.value || !hoveredOpponentCell.value) return false;
-                const center = hoveredOpponentCell.value;
+                if (!activeTargetSpell() || (!hoveredOpponentCell.value && !squareAreaRequest.value)) return false;
+                const center = squareAreaRequest.value || hoveredOpponentCell.value;
                 if (!isValidOpponentTarget(center.col, center.row)) return false;
-                const area = selectedSkill.value.spell_area || 'single';
+                const area = activeTargetSpell().spell_area || 'single';
                 if (area === 'square') {
-                    const startCol = Math.min(Math.max(center.col, 0), 1);
-                    const startRow = Math.min(Math.max(center.row, 0), 1);
+                    const startCol = squareAreaRequest.value?.preview?.col ?? Math.min(Math.max(center.col, 0), 1);
+                    const startRow = squareAreaRequest.value?.preview?.row ?? Math.min(Math.max(center.row, 0), 1);
                     return col >= startCol && col < startCol + 2 && row >= startRow && row < startRow + 2;
                 }
                 if (area === 'all') return true;
@@ -1821,7 +1833,28 @@
                 }
             }
 
-            function useSpellScrollAt(col, row, targetOwner = 1 - mySlot.value) {
+            function requestSquareArea(card, col, row, submit) {
+                const options = [];
+                for (let c = 0; c < 2; c++) {
+                    for (let r = 0; r < 2; r++) {
+                        if (col >= c && col <= c + 1 && row >= r && row <= r + 1) {
+                            options.push({ col: c, row: r, label: `${r === 0 ? '前' : '后'}${c === 0 ? '左' : '右'}方阵` });
+                        }
+                    }
+                }
+                if (options.length === 1) {
+                    submit(options[0]);
+                    return;
+                }
+                squareAreaRequest.value = { card, col, row, options, preview: options[0], submit };
+            }
+            function chooseSquareArea(origin) {
+                const request = squareAreaRequest.value;
+                if (!request) return;
+                squareAreaRequest.value = null;
+                request.submit(origin);
+            }
+            function useSpellScrollAt(col, row, targetOwner = 1 - mySlot.value, areaOrigin = null) {
                 if (!selectedItemSpellScroll.value) return;
                 const card = selectedItemSpellScroll.value;
                 if (card.preparation === 'fire_sacrifice' && !selectedSpellScrollSacrificeId.value) {
@@ -1830,6 +1863,10 @@
                 }
                 if (card.preparation === 'companion_support' && !selectedSpellScrollSupportId.value) {
                     addLog('神谕卷轴 荣耀：先选择一个生命值+负载大于5的友方伙伴作为支援。');
+                    return;
+                }
+                if (card.spell_area === 'square' && !areaOrigin) {
+                    requestSquareArea(card, col, row, origin => useSpellScrollAt(col, row, targetOwner, origin));
                     return;
                 }
                 const data = {
@@ -1842,6 +1879,10 @@
                 if (selectedSpellScrollSacrificeId.value) {
                     data.sacrifice_id = selectedSpellScrollSacrificeId.value;
                 }
+                if (areaOrigin) {
+                    data.area_col = areaOrigin.col;
+                    data.area_row = areaOrigin.row;
+                }
                 if (selectedSpellScrollSupportId.value) {
                     data.support_id = selectedSpellScrollSupportId.value;
                 }
@@ -1853,8 +1894,12 @@
                     selectedSpellScrollSupportId.value = '';
                 });
             }
-            function castSpellAt(col, row, targetOwner = 1 - mySlot.value) {
+            function castSpellAt(col, row, targetOwner = 1 - mySlot.value, areaOrigin = null) {
                 if (!selectedSkill.value) return;
+                if (!pendingExtraTargetCast.value && selectedSkill.value.spell_area === 'square' && !areaOrigin) {
+                    requestSquareArea(selectedSkill.value, col, row, origin => castSpellAt(col, row, targetOwner, origin));
+                    return;
+                }
                 if (pendingExtraTargetCast.value && selectedSkillNeedsExtraTarget(selectedSkill.value)) {
                     const data = { ...pendingExtraTargetCast.value };
                     if (extraTargetCanRepeatMain(selectedSkill.value) || data.target_col !== col || data.target_row !== row) {
@@ -1884,6 +1929,10 @@
                 };
                 if (selectedBoostSkills.value.length > 0) {
                     data.boost_ids = [...selectedBoostSkills.value];
+                }
+                if (areaOrigin) {
+                    data.area_col = areaOrigin.col;
+                    data.area_row = areaOrigin.row;
                 }
                 if (selectedSpellPowerSacrificeId.value) {
                     data.sacrifice_id = selectedSpellPowerSacrificeId.value;
@@ -2753,14 +2802,16 @@
             // Ability functions
             function canUsePerTurn(unit) {
                 if (!unit || !unit.has_per_turn) return false;
-                if (unit.statuses?.['石化'] > 0 || unit.statuses?.['眩晕'] > 0) return false;
+                if (unit.statuses?.['石化'] > 0) return false;
+                if (unit.per_turn_requires_tap && (unit.is_horizontal || unit.statuses?.['眩晕'] > 0 || unit.statuses?.['冷却'] > 0)) return false;
                 const limit = unit.per_turn_limit || 1;
                 return (unit.used_this_turn || 0) < limit;
             }
 
             function canUseUltimate(unit) {
                 if (!unit || !unit.has_ultimate) return false;
-                if (unit.statuses?.['石化'] > 0 || unit.statuses?.['眩晕'] > 0) return false;
+                if (unit.statuses?.['石化'] > 0) return false;
+                if (unit.ultimate_requires_tap && (unit.is_horizontal || unit.statuses?.['眩晕'] > 0 || unit.statuses?.['冷却'] > 0)) return false;
                 return !unit.ultimate_used;
             }
 
@@ -3243,6 +3294,7 @@
                 canShowCostHint, missingCostText, skillUseCost, attackActionCost, reactionActionCost, canLearnSkill, costLabel,
                 skillReplaceRequest, replaceableSkills, confirmSkillReplacement,
                 equipmentReplaceRequest, replaceableEquipment, confirmEquipmentReplacement,
+                squareAreaRequest, chooseSquareArea,
                 paymentRequest, paymentSelection, paymentElements, selectedPaymentTotal,
                 canAddPayment, addPayment, isPaymentSelectionValid, paymentRemainingText, confirmPayment, cancelPayment, totalCost,
                 consumeGainRequest, consumeGainSelection, consumeGainElements, selectedConsumeGainTotal,

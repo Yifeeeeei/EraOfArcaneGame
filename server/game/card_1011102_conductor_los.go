@@ -87,3 +87,7 @@ func (e *Engine) equipGeneratedCard(playerID int, number string) *CardInstance {
 	e.notifyCardEntered(playerID, card, map[string]any{"entered_player": playerID, "equipped": true})
 	return card
 }
+
+func (Card1011102ConductorLos) AbilityRequiresTap(trigger EffectTrigger) bool {
+	return trigger == TriggerPerTurn
+}

@@ -38,7 +38,6 @@ func (Card3521109Regroup) OnSpellHit(ctx *EffectContext) error {
 			source.IsHorizontal = true
 			ctx.Engine.ApplyKeywordOnSkillUse(source)
 			ctx.Engine.applySkillUseCooldownModifiers(ctx.Engine.State.Players[ctx.PlayerID], source)
-			target.Statuses["max_life_bonus"]++
 			ctx.Engine.gainLife(target, 1, source)
 			ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementLight, 1, source)
 			ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{

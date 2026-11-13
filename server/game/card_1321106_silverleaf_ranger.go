@@ -27,3 +27,7 @@ func (Card1321106SilverleafRanger) OnPerTurn(ctx *EffectContext) error {
 	})
 	return nil
 }
+
+func (Card1321106SilverleafRanger) AbilityRequiresTap(trigger EffectTrigger) bool {
+	return trigger == TriggerPerTurn
+}

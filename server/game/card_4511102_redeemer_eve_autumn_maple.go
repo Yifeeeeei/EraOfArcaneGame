@@ -65,7 +65,6 @@ func (Card4511102RedeemerEveAutumnMaple) OnUltimate(ctx *EffectContext) error {
 				return
 			}
 			ps.Elements[model.ElementLight] -= x
-			target.Statuses["max_life_bonus"] += x
 			ctx.Engine.gainLife(target, x, ctx.Source)
 			ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementLight, x, ctx.Source)
 			ctx.Source.UltimateUsed = true

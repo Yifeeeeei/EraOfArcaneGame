@@ -35,47 +35,9 @@ func (e *Engine) handleEquip(playerID int, action ActionMessage) error {
 		return fmt.Errorf("not enough elements")
 	}
 
-	slotIdx := -1
-	var replacedEquipment *CardInstance
-	newSubtype := restrictedEquipmentSubtype(card.Card)
-	if replaceID != "" {
-		for i := 0; i < equipmentSlotCapacity(ps); i++ {
-			if ps.Equipment[i] != nil && ps.Equipment[i].InstanceID == replaceID {
-				if ps.Equipment[i].IsHorizontal {
-					return fmt.Errorf("can only replace vertical equipment")
-				}
-				if newSubtype != "" && restrictedEquipmentSubtype(ps.Equipment[i].Card) != newSubtype {
-					return fmt.Errorf("restricted equipment can only replace same subtype")
-				}
-				replacedEquipment = ps.Equipment[i]
-				slotIdx = i
-				break
-			}
-		}
-		if slotIdx == -1 {
-			return fmt.Errorf("replacement equipment not found")
-		}
-	} else {
-		if newSubtype != "" && !playerCanEquipDuplicateSubtypes(ps) {
-			for _, equipment := range ps.Equipment {
-				if equipment != nil && restrictedEquipmentSubtype(equipment.Card) == newSubtype {
-					if equipment.IsHorizontal {
-						return fmt.Errorf("same subtype equipment is horizontal and cannot be replaced")
-					}
-					return fmt.Errorf("same subtype equipment must be replaced")
-				}
-			}
-		}
-		// Find empty equipment slot
-		for i := 0; i < equipmentSlotCapacity(ps); i++ {
-			if ps.Equipment[i] == nil {
-				slotIdx = i
-				break
-			}
-		}
-		if slotIdx == -1 {
-			return fmt.Errorf("equipment area is full")
-		}
+	slotIdx, replacedEquipment, err := prepareEquipmentPlacement(ps, card, replaceID)
+	if err != nil {
+		return err
 	}
 
 	if !e.payCostForCardAction(ps, card, cost, cost, paymentPurposePlay, action) {

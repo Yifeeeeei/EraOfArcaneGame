@@ -51,7 +51,6 @@ func (Card3311102StarfallSilverleaf) OnSpellHit(ctx *EffectContext) error {
 			if card == nil {
 				return
 			}
-			resetCardForPublicSpecialZone(card)
 			ctx.Engine.State.Players[ctx.PlayerID].Deck = append(ctx.Engine.State.Players[ctx.PlayerID].Deck, card)
 			ctx.Engine.shuffleDeck(ctx.PlayerID)
 			ctx.Engine.drawCards(ctx.PlayerID, 1)

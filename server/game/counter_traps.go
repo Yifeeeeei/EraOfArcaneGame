@@ -26,20 +26,21 @@ func hiddenCounterInfo(ci *CardInstance) map[string]any {
 
 const iceSoulSealCancelledBoostStatus = "ice_soul_seal_cancelled_boost"
 
-func (e *Engine) placeCounterTrap(playerID int, card *CardInstance, handIdx int) error {
+func (e *Engine) placeCounterTrap(playerID int, card *CardInstance, handIdx int, replaceIDs ...string) error {
 	ps := e.State.Players[playerID]
-	slotIdx := -1
-	for i := 0; i < equipmentSlotCapacity(ps); i++ {
-		if ps.Equipment[i] == nil {
-			slotIdx = i
-			break
-		}
+	replaceID := ""
+	if len(replaceIDs) > 0 {
+		replaceID = replaceIDs[0]
 	}
-	if slotIdx == -1 {
-		return fmt.Errorf("equipment area is full")
+	slotIdx, replaced, err := prepareEquipmentPlacement(ps, card, replaceID)
+	if err != nil {
+		return err
 	}
 
 	ps.RemoveFromHand(handIdx)
+	if replaced != nil {
+		e.moveEquipmentToGraveyard(playerID, slotIdx, replaced)
+	}
 	card.IsSetCounter = true
 	card.IsHorizontal = true
 	card.SlotIndex = slotIdx
@@ -369,9 +370,7 @@ func (e *Engine) discardCounterTrap(playerID int, counter *CardInstance) {
 	ps := e.State.Players[playerID]
 	for i, card := range ps.Equipment {
 		if card != nil && card.InstanceID == counter.InstanceID {
-			ps.Equipment[i] = nil
-			e.addToGraveyard(playerID, counter)
-			e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(counter)}})
+			e.moveEquipmentToGraveyard(playerID, i, card)
 			return
 		}
 	}

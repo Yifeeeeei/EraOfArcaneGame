@@ -26,7 +26,6 @@ func (Card3521108Grace) OnSpellCast(ctx *EffectContext) error {
 			}
 			ctx.Engine.healUnit(target, 2, ctx.Source)
 			if target.CurrentLife >= maxLife(target) {
-				target.Statuses["max_life_bonus"]++
 				ctx.Engine.gainLife(target, 1, ctx.Source)
 				ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementLight, 1, ctx.Source)
 			}

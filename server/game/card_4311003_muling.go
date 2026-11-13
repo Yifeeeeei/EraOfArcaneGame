@@ -85,9 +85,8 @@ func (e *Engine) returnUnitToHand(unit *CardInstance, ownerID int) {
 	if unit.Position != nil {
 		ps.Units[unit.Position.Col][unit.Position.Row] = nil
 	}
-	unit.Position = nil
+	unit = e.leaveBattlefield(unit)
 	unit.IsHorizontal = true
-	unit.Statuses = make(map[string]int)
 	e.addCardToHand(ownerID, unit)
 	e.emit(GameEvent{
 		Type:   "unit_returned",

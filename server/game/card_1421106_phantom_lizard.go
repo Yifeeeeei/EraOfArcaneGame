@@ -62,10 +62,7 @@ func moveUnitToGraveyardWithoutDeath(e *Engine, playerID int, unit *CardInstance
 		return
 	}
 	ps.Units[unit.Position.Col][unit.Position.Row] = nil
-	unit.Position = nil
-	e.releaseUnderCardsToGraveyard(playerID, unit)
-	e.exileTransferredBoundSkills(playerID, unit)
-	unit.BoundSkills = nil
+	unit = e.leaveBattlefield(unit)
 	e.addToGraveyard(playerID, unit)
 	e.emit(GameEvent{Type: "unit_transformed", Player: -1, Data: map[string]any{
 		"player": playerID,

@@ -121,6 +121,7 @@ func (e *Engine) triggerScarletWingsAfterRedMoon(playerID int) {
 			continue
 		}
 		wing := source
+		visit := fieldVisit(wing)
 		candidateProvider := func() []map[string]any {
 			return append(e.friendlyUnits(playerID, true, nil), e.enemyUnits(playerID, true, func(card *CardInstance) bool {
 				return card != nil && card.Position != nil && e.IsInSpellRange(playerID, card.Position.Col, card.Position.Row, false)
@@ -137,13 +138,16 @@ func (e *Engine) triggerScarletWingsAfterRedMoon(playerID int) {
 				// Both effects are unconditional; gaining life does not wait for or
 				// depend on the damage/prevention result.
 				e.ApplyDamage(DamageRequest{Target: target, Amount: 1, Kind: "scarlet_wings", Element: model.ElementShadow, Source: wing, SourcePlayer: playerID, SourceKnown: true})
-				e.gainLife(wing, 1, wing)
+				if e.isBattlefieldInstance(wing) && wing.fieldLife == visit {
+					e.gainLife(wing, 1, wing)
+				}
 				e.emit(GameEvent{Type: "scarlet_wings_red_moon_damage", Player: -1, Data: map[string]any{
 					"player": playerID, "source": cardToInfo(wing), "target": cardToInfo(target), "damage": 1,
 				}})
 				return nil
 			}, map[string]any{"source": cardToInfo(wing)}, nil)
 		if action != nil {
+			action.effectSource = visit
 			action.Refresh = func(action *PendingAction) { action.Candidates = candidateProvider() }
 		}
 	}

@@ -31,8 +31,8 @@ func (e *Engine) pendingSpellAffectedPositions(spell *SpellCast) []map[string]in
 			row := spell.Target.Position.Row
 			switch e.effectiveSpellArea(spell.Skill) {
 			case SpellAreaSquare:
-				startCol := min(max(col, 0), 1)
-				startRow := min(max(row, 0), 1)
+				origin := squareAreaOrigin(spell.Target)
+				startCol, startRow := origin.Col, origin.Row
 				for areaCol := startCol; areaCol < startCol+2; areaCol++ {
 					for areaRow := startRow; areaRow < startRow+2; areaRow++ {
 						addPosition(defenderID, areaCol, areaRow)
