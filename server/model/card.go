@@ -1,5 +1,7 @@
 package model
 
+import "strings"
+
 // Card represents a card definition exposed to the game engine and frontend.
 // Server-side definitions are implemented in Go; JSON snapshots are generated
 // or reference data, not the runtime source of truth.
@@ -67,6 +69,16 @@ func (c *Card) IsSkill() bool { return c.Type == CardTypeSkill }
 
 // IsItem returns true if the card is an item card
 func (c *Card) IsItem() bool { return c.Type == CardTypeItem }
+
+// HasTag reads structured collection/type metadata, never effect descriptions.
+func (c *Card) HasTag(tag string) bool {
+	for _, value := range strings.Split(c.Tag, "-") {
+		if value == tag {
+			return true
+		}
+	}
+	return false
+}
 
 // TotalCost returns the total element cost to play this card
 func (c *Card) TotalCost() int {

@@ -76,14 +76,20 @@ func (d *Deck) Validate(cardDB map[string]*Card) error {
 		if !ok {
 			return fmt.Errorf("unknown card in main deck: %s", id)
 		}
-		if card.IsHero() || card.IsSkill() {
+		if !card.IsCompanion() && !card.IsItem() {
 			return fmt.Errorf("card %s (%s) cannot be in main deck", id, card.Type)
+		}
+		if card.HasTag("衍生") {
+			return fmt.Errorf("derived card %s cannot be in initial main deck", id)
 		}
 		mainCounts[id]++
 	}
 
 	// Check duplicates (legendary max 1, normal max 2)
 	for id, count := range mainCounts {
+		if cardDB[id].HasTag("传奇") && count > 1 {
+			return fmt.Errorf("legendary card %s can appear only once", id)
+		}
 		if count > 2 {
 			return fmt.Errorf("card %s appears %d times in main deck (max 2)", id, count)
 		}
@@ -96,6 +102,7 @@ func (d *Deck) Validate(cardDB map[string]*Card) error {
 
 	// Check skill pool cards
 	skillCounts := make(map[string]int)
+	legendarySkills := 0
 	for _, id := range d.SkillPool {
 		card, ok := cardDB[id]
 		if !ok {
@@ -103,6 +110,15 @@ func (d *Deck) Validate(cardDB map[string]*Card) error {
 		}
 		if !card.IsSkill() {
 			return fmt.Errorf("card %s (%s) is not a skill", id, card.Type)
+		}
+		if card.HasTag("衍生") {
+			return fmt.Errorf("derived skill %s cannot be in initial skill pool", id)
+		}
+		if card.HasTag("传奇") {
+			legendarySkills++
+			if legendarySkills > 1 {
+				return fmt.Errorf("skill pool can contain at most one legendary skill")
+			}
 		}
 		skillCounts[id]++
 		if skillCounts[id] > 1 {

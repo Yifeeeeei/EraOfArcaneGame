@@ -278,7 +278,7 @@
             <aside class="panel right">
                 <div class="test-panel">
                     <h3>前端可操作性自检</h3>
-                    <button class="btn btn-success" data-testid="run-ui-self-test" @click="runSelfTest">运行 378 张卡 UI 自检</button>
+                    <button class="btn btn-success" data-testid="run-ui-self-test" @click="runSelfTest">运行 {{ cards.length }} 张卡 UI 自检</button>
                     <div class="test-result" data-testid="ui-self-test-result" :class="{ pass: selfTest.ok, fail: selfTest.ok === false }">{{ selfTest.message }}</div>
                 </div>
             </aside>
@@ -417,13 +417,18 @@
 
             function buildDeckCode(card) {
                 const heroes = cardIDsByType('人物');
-                const mainCandidates = cards.value.filter(c => c.type === '伙伴' || c.type === '道具').map(c => c.number).sort();
-                const skillCandidates = cardIDsByType('技能');
+                const ordinary = c => !String(c.tag || '').split('-').some(tag => tag === '衍生' || tag === '传奇');
+                const mainCandidates = cards.value.filter(c => (c.type === '伙伴' || c.type === '道具') && ordinary(c)).map(c => c.number).sort();
+                const skillCandidates = cards.value.filter(c => c.type === '技能' && ordinary(c)).map(c => c.number).sort();
                 const hero = card.type === '人物' ? card.number : (heroes.includes(baseHero) ? baseHero : heroes[0]);
                 const main = [];
                 const skills = [];
-                if (card.type === '伙伴' || card.type === '道具') main.push(card.number, card.number);
-                if (card.type === '技能') skills.push(card.number);
+                const derived = String(card.tag || '').split('-').includes('衍生');
+                if (!derived && (card.type === '伙伴' || card.type === '道具')) {
+                    main.push(card.number);
+                    if (!String(card.tag || '').split('-').includes('传奇')) main.push(card.number);
+                }
+                if (!derived && card.type === '技能') skills.push(card.number);
                 fillToCount(main, mainCandidates, 30, 2);
                 fillToCount(skills, skillCandidates, 10, 1);
                 return `${hero} // ${main.join(' ')} // ${skills.join(' ')}`;
@@ -460,8 +465,8 @@
 
             function runSelfTest() {
                 const problems = [];
-                const expected = { '人物': 20, '伙伴': 131, '技能': 109, '道具': 118 };
-                if (cards.value.length !== 378) problems.push(`基础包总数应为 378，实际 ${cards.value.length}`);
+                const expected = { '人物': 20, '伙伴': 138, '技能': 110, '道具': 125 };
+                if (cards.value.length !== 393) problems.push(`基础包总数应为 393，实际 ${cards.value.length}`);
                 for (const [type, count] of Object.entries(expected)) {
                     const actual = typeCount(type);
                     if (actual !== count) problems.push(`${type} 应为 ${count}，实际 ${actual}`);
@@ -472,11 +477,11 @@
                     if (!operationLabel(card)) problems.push(`${card.number} ${card.name} 缺少操作标签`);
                     if (!operationSteps(card).length) problems.push(`${card.number} ${card.name} 缺少操作步骤`);
                     const deck = buildDeckCode(card);
-                    if (!deck.includes(card.number)) problems.push(`${card.number} ${card.name} 生成测试卡组未包含本卡`);
+                    if (!String(card.tag || '').split('-').includes('衍生') && !deck.includes(card.number)) problems.push(`${card.number} ${card.name} 生成测试卡组未包含本卡`);
                 }
                 selfTest.value = problems.length
                     ? { ok: false, message: `失败：${problems.length} 个问题\n` + problems.slice(0, 20).join('\n') }
-                    : { ok: true, message: '通过：378 张基础包卡均可在前端检索、查看操作路径，并可生成真实对局测试卡组。' };
+                    : { ok: true, message: `通过：${cards.value.length} 张基础包卡均可在前端检索、查看操作路径，并可生成合法测试卡组。衍生牌通过后台测试房间添加。` };
             }
 
             onMounted(async () => {
