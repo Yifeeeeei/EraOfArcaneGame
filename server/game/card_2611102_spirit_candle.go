@@ -15,12 +15,12 @@ func (Card2611102SpiritCandle) OnEquip(ctx *EffectContext) error {
 }
 
 func (Card2611102SpiritCandle) SlotGrant(*CardInstance) SlotGrant {
-	return SlotGrant{Group: "spirit_candle", SkillSlots: 2, SkillTags: []string{"灵媒", "神秘"}}
+	return SlotGrant{SkillSlots: 2, SkillTags: []string{"灵媒", "神秘"}}
 }
 
 func (Card2611102SpiritCandle) SpellPowerScale(_ *CardInstance, skill *CardInstance) SpellPowerScale {
 	if skill == nil || skill.Card == nil || hasCardTag(skill.Card, "灵媒") || hasCardTag(skill.Card, "神秘") {
 		return SpellPowerScale{}
 	}
-	return SpellPowerScale{Group: "spirit_candle", Numerator: 1, Denominator: 2}
+	return SpellPowerScale{Numerator: 1, Denominator: 2}
 }

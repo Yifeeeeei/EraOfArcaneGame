@@ -294,9 +294,12 @@ func (e *Engine) triggerEffects(trigger EffectTrigger, source *CardInstance, tar
 	}
 
 	// Check for petrify - petrified cards have no effects
-	if e.hasEffectiveStatus(source, StatusPetrify) && trigger != TriggerOnDeath {
+	if e.hasEffectiveStatus(source, StatusPetrify) {
 		return
 	}
+	previousSource := e.effectSource
+	e.effectSource = fieldVisit(source)
+	defer func() { e.effectSource = previousSource }()
 
 	ctx := &EffectContext{
 		Engine:     e,

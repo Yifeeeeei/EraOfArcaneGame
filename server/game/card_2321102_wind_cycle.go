@@ -70,3 +70,7 @@ func (Card2321102WindCycle) OnPerTurn(ctx *EffectContext) error {
 		})
 	return nil
 }
+
+func (Card2321102WindCycle) AbilityRequiresTap(trigger EffectTrigger) bool {
+	return trigger == TriggerPerTurn
+}

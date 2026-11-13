@@ -22,6 +22,7 @@ func (p Position) String() string {
 
 // CardInstance represents a card in play with runtime state
 type CardInstance struct {
+	fieldLife  *fieldLifetime
 	InstanceID string      `json:"instance_id"`
 	Card       *model.Card `json:"card"`
 	OwnerID    int         `json:"owner_id"` // 0 or 1
@@ -115,9 +116,9 @@ const (
 
 const (
 	BaseSkillSlots     = 5
-	MaxSkillSlots      = 8
+	MaxSkillSlots      = 99
 	BaseEquipmentSlots = 5
-	MaxEquipmentSlots  = 8
+	MaxEquipmentSlots  = 99
 )
 
 // PlayerState holds all state for one player
@@ -307,7 +308,7 @@ func (ps *PlayerState) FindEmptyPosition() *Position {
 func (ps *PlayerState) GetFrontRow() int {
 	for row := 0; row < 3; row++ {
 		for col := 0; col < 3; col++ {
-			if ps.Units[col][row] != nil {
+			if unit := ps.Units[col][row]; unit != nil && !(unit.Statuses[StatusStealth] > 0 && unit.Statuses[StatusPetrify] <= 0) {
 				return row
 			}
 		}
@@ -391,6 +392,7 @@ func (p GamePhase) String() string {
 
 // PendingAction represents a player choice that must be resolved
 type PendingAction struct {
+	effectSource    *fieldLifetime
 	AllocationTotal int                                                `json:"allocation_total,omitempty"`
 	DecisionID      uint64                                             `json:"decision_id"`
 	Type            string                                             `json:"type"`       // "select_target", "select_card", "discard", "select_position"
@@ -461,9 +463,10 @@ type SpellPowerSource struct {
 
 // SpellTarget represents the target of a spell
 type SpellTarget struct {
-	Type     string   `json:"type"`     // "unit" or "area"
-	Position Position `json:"position"` // for unit targets
-	OwnerID  *int     `json:"owner_id,omitempty"`
+	AreaOrigin *Position `json:"area_origin,omitempty"`
+	Type       string    `json:"type"`     // "unit" or "area"
+	Position   Position  `json:"position"` // for unit targets
+	OwnerID    *int      `json:"owner_id,omitempty"`
 }
 
 // NewGameState creates a new game state

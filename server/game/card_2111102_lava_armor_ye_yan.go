@@ -26,13 +26,6 @@ func (Card2111102LavaArmorYeYan) OnSpellHit(ctx *EffectContext) error {
 				return
 			}
 			ctx.Engine.moveEquipmentToGraveyard(ctx.PlayerID, slot, armor)
-			_ = (Card2111102LavaArmorYeYan{}).OnDeath(&EffectContext{
-				Engine:     ctx.Engine,
-				Source:     armor,
-				PlayerID:   ctx.PlayerID,
-				OpponentID: 1 - ctx.PlayerID,
-				ExtraData:  ctx.ExtraData,
-			})
 			ctx.Engine.gainPlayerShield(ctx.PlayerID, 2)
 		})
 	return nil

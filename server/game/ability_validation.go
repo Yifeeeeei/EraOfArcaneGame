@@ -1,5 +1,7 @@
 package game
 
+import "fmt"
+
 // AbilityValidationBehavior checks card-specific requirements without changing
 // state. The engine separately checks timing, active state and use limits.
 type AbilityValidationBehavior interface {
@@ -7,6 +9,9 @@ type AbilityValidationBehavior interface {
 }
 
 func (e *Engine) validateAbility(card *CardInstance, trigger EffectTrigger) error {
+	if abilityRequiresTap(card, trigger) && !e.canConsumeCard(card) {
+		return fmt.Errorf("card cannot pay this ability's tap cost")
+	}
 	behavior, ok := cardBehavior(card).(AbilityValidationBehavior)
 	if !ok {
 		return nil

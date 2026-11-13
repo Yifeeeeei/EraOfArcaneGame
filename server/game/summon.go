@@ -202,5 +202,5 @@ func isValidSummonDevourTarget(target *CardInstance, summoned *CardInstance) boo
 	if target == nil || target.Card == nil || target == summoned || target.Card.IsHero() {
 		return false
 	}
-	return target.Card.IsCompanion() || isEquipmentItem(target)
+	return target.Card.IsCompanion() || isEquipmentItem(target) || target.Card.IsSkill()
 }

@@ -67,6 +67,8 @@ func cardToInfo(ci *CardInstance) map[string]any {
 	info["has_per_turn"] = hasPerTurn
 	info["has_prayer"] = cardHasActivePrayer(ci)
 	info["has_ultimate"] = hasUltimate
+	info["per_turn_requires_tap"] = abilityRequiresTap(ci, TriggerPerTurn)
+	info["ultimate_requires_tap"] = abilityRequiresTap(ci, TriggerUltimate)
 	if cardHasActiveSpellReaction(ci) {
 		info["can_react"] = true
 	}
@@ -233,6 +235,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 		"hero":                           e.cardToInfoForPlayer(ps, ps.Hero),
 		"elements":                       ps.Elements,
 		"strict_arcane":                  ps.StrictArcane,
+		"duplicate_equipment_subtypes":   playerCanEquipDuplicateSubtypes(ps),
 		"shield":                         ps.Shield,
 		"cannot_gain_shield":             ps.CannotGainShield,
 		"next_red_moon_duration":         ps.NextRedMoonDuration,
@@ -329,6 +332,22 @@ func (e *Engine) cardToInfoForPlayer(ps *PlayerState, card *CardInstance) map[st
 	info := e.cardToInfo(card)
 	if ps == nil || card == nil || card.Card == nil {
 		return info
+	}
+	info["allows_stealth_target"] = e.spellAllowsStealthTarget(card)
+	info["has_stealth"] = e.hasActiveStealth(card)
+	if isEquipmentCard(card.Card) || isCounterTrapCard(card.Card.Number) {
+		replacements := []string{}
+		for _, old := range ps.Equipment {
+			if old == nil {
+				continue
+			}
+			if _, _, err := prepareEquipmentPlacement(ps, card, old.InstanceID); err == nil {
+				replacements = append(replacements, old.InstanceID)
+			}
+		}
+		_, _, err := prepareEquipmentPlacement(ps, card, "")
+		info["can_place_without_replacement"] = err == nil
+		info["equipment_replacement_ids"] = replacements
 	}
 	if validator, ok := behaviorForNumber(card.Card.Number).(ItemUseValidationBehavior); ok {
 		if err := validator.ValidateItemUse(&EffectContext{Engine: e, Source: card, PlayerID: ps.PlayerID, OpponentID: 1 - ps.PlayerID}); err != nil {

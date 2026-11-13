@@ -17,12 +17,7 @@ func (e *Engine) enforceSlotCapacities(ps *PlayerState) {
 		if equipment == nil {
 			continue
 		}
-		ps.Equipment[i] = nil
-		equipment.SlotIndex = -1
-		e.exileTransferredBoundSkills(ps.PlayerID, equipment)
-		equipment.BoundSkills = nil
-		e.addToGraveyard(ps.PlayerID, equipment)
-		e.emit(GameEvent{Type: "discard", Player: ps.PlayerID, Data: map[string]any{"card": cardToInfo(equipment)}})
+		e.moveEquipmentToGraveyard(ps.PlayerID, i, equipment)
 	}
 
 	for i := 0; i < len(ps.Skills); i++ {
@@ -34,7 +29,7 @@ func (e *Engine) enforceSlotCapacities(ps *PlayerState) {
 			continue
 		}
 		ps.Skills[i] = nil
-		returnSkillToPool(skill)
+		skill = e.leaveBattlefield(skill)
 		ps.SkillPool = append(ps.SkillPool, skill)
 		e.emit(GameEvent{Type: "skill_returned_to_pool", Player: ps.PlayerID, Data: map[string]any{"card": cardToInfo(skill)}})
 	}

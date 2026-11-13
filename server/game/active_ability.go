@@ -31,9 +31,6 @@ func (e *Engine) handleUseAbility(playerID int, action ActionMessage) error {
 	if e.hasEffectiveStatus(card, StatusPetrify) {
 		return fmt.Errorf("card is petrified")
 	}
-	if e.hasEffectiveStatus(card, StatusStun) {
-		return fmt.Errorf("card is stunned")
-	}
 
 	var trigger EffectTrigger
 	if abilityType == "ultimate" {
@@ -91,6 +88,9 @@ func (e *Engine) handleUseAbility(playerID int, action ActionMessage) error {
 		PlayerID:   playerID,
 		OpponentID: 1 - playerID,
 	}
+	previousSource := e.effectSource
+	e.effectSource = fieldVisit(card)
+	defer func() { e.effectSource = previousSource }()
 
 	for _, eff := range effects {
 		if eff.IsActive {

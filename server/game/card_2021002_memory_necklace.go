@@ -12,5 +12,5 @@ func (Card2021002MemoryNecklace) OnEquip(ctx *EffectContext) error {
 }
 
 func (Card2021002MemoryNecklace) SlotGrant(*CardInstance) SlotGrant {
-	return SlotGrant{Group: "memory_necklace", SkillSlots: 1}
+	return SlotGrant{SkillSlots: 1}
 }

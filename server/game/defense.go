@@ -51,6 +51,12 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 	if err != nil {
 		return err
 	}
+	if len(defenseSkills)+len(defenseScrolls) == 0 {
+		if len(boostSkills)+len(boostScrolls)+len(overexertUnits) > 0 {
+			return fmt.Errorf("defense requires a main spell before boosts or overexertion")
+		}
+		return e.handleNoDefend(playerID, action)
+	}
 	costPlan := newActionCostPlan(ps)
 	totalCost := make(map[string]int)
 	for _, defenseSkill := range defenseSkills {
@@ -335,7 +341,7 @@ func (e *Engine) finishDefenseResolution(playerID int, defenseSkills []*CardInst
 	})
 
 	requiredPower := e.requiredDefensePowerForSpell(e.State.PendingSpell.Skill, attackPower)
-	defenseSuccess := attackPower <= 0 || (totalDefPower >= requiredPower && len(defenseSkills) > 0)
+	defenseSuccess := totalDefPower >= requiredPower && len(defenseSkills) > 0
 	defendData := map[string]any{
 		"defender":        playerID,
 		"attacker":        e.State.PendingSpell.AttackerID,

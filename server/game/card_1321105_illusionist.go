@@ -27,7 +27,6 @@ func (Card1321105Illusionist) OnUltimate(ctx *EffectContext) error {
 			}
 			gain := copyElementAmounts(effectiveElementsGain(target))
 			ctx.Engine.returnUnitToHand(target, ctx.PlayerID)
-			resetCardForHiddenZone(target)
 			ctx.Engine.State.Players[ctx.PlayerID].GainElements(gain)
 		})
 	return nil

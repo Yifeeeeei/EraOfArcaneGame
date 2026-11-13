@@ -68,7 +68,6 @@ func moveSelectedHandCardsToDeck(e *Engine, playerID int, selected []string, max
 		card := ps.Hand[i]
 		if card != nil && selectedSet[card.InstanceID] {
 			ps.Hand = append(ps.Hand[:i], ps.Hand[i+1:]...)
-			resetCardForHiddenZone(card)
 			ps.Deck = append(ps.Deck, card)
 			moved++
 			continue

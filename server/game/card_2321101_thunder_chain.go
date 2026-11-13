@@ -33,3 +33,7 @@ func (Card2321101ThunderChain) OnPerTurn(ctx *EffectContext) error {
 }
 
 var _ PerTurnAbility = Card2321101ThunderChain{}
+
+func (Card2321101ThunderChain) AbilityRequiresTap(trigger EffectTrigger) bool {
+	return trigger == TriggerPerTurn
+}

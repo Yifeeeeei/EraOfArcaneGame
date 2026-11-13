@@ -13,8 +13,8 @@ func (e *Engine) spellAffectedUnits(defenderID int, skill *CardInstance, target 
 
 	switch e.effectiveSpellArea(skill) {
 	case SpellAreaSquare:
-		startCol := min(max(target.Position.Col, 0), 1)
-		startRow := min(max(target.Position.Row, 0), 1)
+		origin := squareAreaOrigin(target)
+		startCol, startRow := origin.Col, origin.Row
 		for col := startCol; col < startCol+2; col++ {
 			for row := startRow; row < startRow+2; row++ {
 				if defender.Units[col][row] != nil {

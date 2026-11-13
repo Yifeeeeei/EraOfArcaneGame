@@ -6,6 +6,10 @@ import (
 
 type Card1211002Leviathan struct{ AlwaysActive }
 
+func (Card1211002Leviathan) AbilityRequiresTap(trigger EffectTrigger) bool {
+	return trigger == TriggerPerTurn
+}
+
 func (Card1211002Leviathan) ID() string { return "1211002" }
 
 func (Card1211002Leviathan) Name() string { return "深渊巨口 利维坦" }

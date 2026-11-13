@@ -29,7 +29,7 @@ func fireArrowSelectAndDamage(ctx *EffectContext, sacrificeSelf bool) error {
 				return
 			}
 			if sacrificeSelf {
-				if ctx.Source.IsHorizontal {
+				if !ctx.Engine.canConsumeCard(ctx.Source) {
 					return
 				}
 				ctx.Source.IsHorizontal = true
@@ -44,4 +44,8 @@ func fireArrowSelectAndDamage(ctx *EffectContext, sacrificeSelf bool) error {
 			ctx.DealDamage(target, 1)
 		})
 	return nil
+}
+
+func (Card2121004FireArrowItem) AbilityRequiresTap(trigger EffectTrigger) bool {
+	return trigger == TriggerUltimate
 }

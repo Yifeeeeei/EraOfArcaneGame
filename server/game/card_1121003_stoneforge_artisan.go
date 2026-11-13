@@ -6,6 +6,10 @@ import (
 
 type Card1121003StoneforgeArtisan struct{ AlwaysActive }
 
+func (Card1121003StoneforgeArtisan) AbilityRequiresTap(trigger EffectTrigger) bool {
+	return trigger == TriggerPerTurn
+}
+
 func (Card1121003StoneforgeArtisan) ID() string { return "1121003" }
 
 func (Card1121003StoneforgeArtisan) Name() string { return "锻石工匠" }

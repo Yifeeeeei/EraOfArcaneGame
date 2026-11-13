@@ -16,6 +16,17 @@ func (e *Engine) handleResolveAction(playerID int, action ActionMessage) error {
 	if pa.PlayerID != playerID {
 		return fmt.Errorf("not your pending action")
 	}
+	if !e.pendingActionAvailable(pa) {
+		e.State.PendingAction = nil
+		e.State.Phase = e.State.ResumePhase
+		e.emitPendingActionCleared(pa)
+		e.advancePendingActionQueue()
+		e.completeActionResolutions(pa)
+		return nil
+	}
+	previousSource := e.effectSource
+	e.effectSource = pa.effectSource
+	defer func() { e.effectSource = previousSource }()
 
 	selectedRaw, _ := action.Data["selected"].([]any)
 	var selected []string
@@ -144,6 +155,7 @@ func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, pr
 		resumePhase = e.State.ResumePhase
 	}
 	action := &PendingAction{
+		effectSource: e.effectSource,
 		Type:         actionType,
 		PlayerID:     playerID,
 		Prompt:       prompt,
@@ -228,7 +240,7 @@ func (e *Engine) advancePendingActionQueue() bool {
 				continue
 			}
 		}
-		if next.Available != nil && !next.Available() {
+		if !e.pendingActionAvailable(next) {
 			skipped = append(skipped, next)
 			continue
 		}
@@ -251,11 +263,15 @@ func (e *Engine) emitPendingActionCleared(action *PendingAction) {
 // Refresh only after the enclosing action and its continuations have settled
 // deaths. Earlier siblings may change both candidates and the spell front row.
 func (e *Engine) refreshCurrentPendingAction() {
-	for e.State.PendingAction != nil && e.State.PendingAction.Refresh != nil {
+	for e.State.PendingAction != nil {
 		action := e.State.PendingAction
-		action.Refresh(action)
-		if len(action.Candidates) >= action.MinSelect {
-			e.emitPendingAction(action)
+		if action.Refresh != nil {
+			action.Refresh(action)
+		}
+		if len(action.Candidates) >= action.MinSelect && e.pendingActionAvailable(action) {
+			if action.Refresh != nil {
+				e.emitPendingAction(action)
+			}
 			return
 		}
 		e.State.PendingAction = nil
@@ -264,4 +280,8 @@ func (e *Engine) refreshCurrentPendingAction() {
 		e.advancePendingActionQueue()
 		e.completeActionResolutions(action)
 	}
+}
+
+func (e *Engine) pendingActionAvailable(action *PendingAction) bool {
+	return action != nil && e.effectSourceAvailable(action.effectSource) && (action.Available == nil || action.Available())
 }

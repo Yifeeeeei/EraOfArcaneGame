@@ -38,9 +38,8 @@ func healUnit(card *CardInstance, amount int) {
 		return
 	}
 	wasFull := maxLife(card) > 0 && card.CurrentLife >= maxLife(card)
-	card.CurrentLife += amount
-	if life := maxLife(card); life > 0 && card.CurrentLife > life {
-		card.CurrentLife = life
+	if room := maxLife(card) - card.CurrentLife; room > 0 {
+		card.CurrentLife += min(amount, room)
 	}
 	if wasFull && card.Card != nil && card.Card.Number == "1521016" {
 		card.Statuses["max_life_bonus"]++
@@ -67,6 +66,7 @@ func (e *Engine) gainLife(card *CardInstance, amount int, source *CardInstance) 
 		return 0
 	}
 	before := card.CurrentLife
+	card.Statuses["max_life_bonus"] += amount
 	card.CurrentLife += amount
 	return e.notifyLifeGain(card, source, before)
 }
@@ -191,6 +191,7 @@ func inheritLifeSeedBonuses(e *Engine, source *CardInstance, target *CardInstanc
 		return
 	}
 	if bonusLife := source.CurrentLife - source.Card.Life; bonusLife > 0 {
+		target.Statuses["max_life_bonus"] += bonusLife
 		target.CurrentLife += bonusLife
 	}
 	target.CurrentAttack += max(source.CurrentAttack-source.Card.Attack, 0)
@@ -205,7 +206,7 @@ func inheritLifeSeedBonuses(e *Engine, source *CardInstance, target *CardInstanc
 		target.ElementsGainSet = copyElementCost(source.ElementsGainSet)
 	}
 	for status, amount := range source.Statuses {
-		if amount <= 0 || status == StatusMastery {
+		if amount <= 0 || status == StatusMastery || status == "max_life_bonus" {
 			continue
 		}
 		target.Statuses[status] += amount
@@ -223,6 +224,7 @@ func summonGreatDruidLifeSeedAtPosition(ctx *EffectContext, pos Position) {
 	seed.EnterTurn = ctx.Engine.State.TurnNumber
 	seed.IsHorizontal = true
 	if bonusLife := ctx.Target.CurrentLife - ctx.Target.Card.Life; bonusLife > 0 {
+		seed.Statuses["max_life_bonus"] += bonusLife
 		seed.CurrentLife += bonusLife
 	}
 	for elem, amount := range ctx.Target.ElementsGainBonus {
@@ -255,7 +257,7 @@ func resolveWhiteRobeSageControl(ctx *EffectContext, target *CardInstance, pos P
 	}
 	op := ctx.Engine.State.Players[ctx.OpponentID]
 	op.Units[target.Position.Col][target.Position.Row] = nil
-	target.OwnerID = ctx.PlayerID
+	transferCardControl(target, ctx.PlayerID)
 	target.Position = &Position{Col: pos.Col, Row: pos.Row}
 	ps.Units[pos.Col][pos.Row] = target
 	return nil

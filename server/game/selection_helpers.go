@@ -236,6 +236,15 @@ func (e *Engine) discardFriendlyCandidate(playerID int, instanceID string) bool 
 			return true
 		}
 	}
+	for i, card := range ps.Skills {
+		if card != nil && card.InstanceID == instanceID {
+			ps.Skills[i] = nil
+			e.addToGraveyard(playerID, e.leaveBattlefield(card))
+			e.notifyCardStateChanges(CardStateChange{Card: card, LeftField: true})
+			e.queueDeathTriggersWithData(card, playerID, nil)
+			return true
+		}
+	}
 	return false
 }
 
@@ -363,7 +372,8 @@ func (e *Engine) moveGraveyardCardToDeckTop(playerID int, instanceID string) boo
 			continue
 		}
 		ps.Graveyard = append(ps.Graveyard[:i], ps.Graveyard[i+1:]...)
-		resetCardForHiddenZone(card)
+		card.IsHorizontal = true
+		delete(card.Statuses, enteredGraveyardTurnStatus)
 		ps.Deck = append([]*CardInstance{card}, ps.Deck...)
 		e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
 			"effect": "graveyard_to_deck_top",
@@ -381,7 +391,8 @@ func (e *Engine) moveGraveyardCardToHand(playerID int, instanceID string) bool {
 			continue
 		}
 		ps.Graveyard = append(ps.Graveyard[:i], ps.Graveyard[i+1:]...)
-		resetCardForHiddenZone(card)
+		card.IsHorizontal = true
+		delete(card.Statuses, enteredGraveyardTurnStatus)
 		e.addCardToHand(playerID, card)
 		e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
 			"effect": "graveyard_to_hand",
@@ -392,18 +403,11 @@ func (e *Engine) moveGraveyardCardToHand(playerID int, instanceID string) bool {
 	return false
 }
 
-func resetCardForHiddenZone(card *CardInstance) {
-	if card == nil || card.Card == nil {
-		return
-	}
-	resetCardForPublicSpecialZone(card)
-	card.IsHorizontal = true
-}
-
 func resetCardForPublicSpecialZone(card *CardInstance) {
 	if card == nil || card.Card == nil {
 		return
 	}
+	card.fieldLife = nil
 	card.CurrentLife = card.Card.Life
 	card.CurrentAttack = card.Card.Attack
 	card.DamageTakenThisTurn = 0

@@ -12,5 +12,5 @@ func (Card2021017TravelPack) OnEquip(ctx *EffectContext) error {
 }
 
 func (Card2021017TravelPack) SlotGrant(*CardInstance) SlotGrant {
-	return SlotGrant{Group: "travel_pack", EquipmentSlots: 3}
+	return SlotGrant{EquipmentSlots: 3}
 }
