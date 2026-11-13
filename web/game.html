@@ -908,6 +908,14 @@
         </div>
 
 
+                <div v-if="workspaceMode === 'square'" class="workspace-mechanism" data-square-area>
+                    <div class="decision-scroll">
+                        <h3>选择方阵</h3><p>{{ squareAreaRequest.card.name }} · 中心 {{ squareAreaRequest.col+1 }}列{{ squareAreaRequest.row+1 }}排</p>
+                        <p>选择包含中心的 2×2 区域；悬停按钮可预览。</p>
+                        <button v-for="origin in squareAreaRequest.options" :key="origin.col+','+origin.row" class="btn" @mouseenter="squareAreaRequest.preview=origin" @focus="squareAreaRequest.preview=origin" @click="chooseSquareArea(origin)">{{ origin.label }}</button>
+                    </div>
+                    <div class="decision-confirm"><button class="btn" @click="squareAreaRequest=null">重新选择目标</button></div>
+                </div>
                 <div v-if="workspaceMode === 'idle'" class="workspace-idle">
                     <div class="eyebrow">{{ isMyTurn ? '行动准备' : '等待交接' }}</div>
                     <h2>{{ guideKicker }}</h2><p>{{ currentHint }}</p>

@@ -235,7 +235,7 @@ These are rules that previous agents have misunderstood. Treat them as hard cons
 - Cards reset from horizontal to vertical at the end of their owner's turn, not at the beginning of that player's next turn.
 - `消耗:` is a tap payment. It requires the source card to be vertical first. A horizontal card can still use `回合技` or `绝技` if rules allow, but it cannot pay a `消耗:` cost because that cost is turning vertical to horizontal.
 - `奥术`/`无` in a play cost is a wildcard requirement whose exact paid element can be ambiguous. If the player has multiple possible elements that could satisfy an arcane cost, the frontend should ask the player to choose the payment rather than silently picking one.
-- `吞噬:3\气` and similar summon requirements happen before choosing/placing the summoned card on the battlefield. The player must select a valid friendly companion with sufficient load and destroy it as part of summoning. Do not model this as a later optional ability.
+- `吞噬:3\气` and similar summon requirements happen before choosing/placing the summoned card on the battlefield. Select other friendly battlefield cards satisfying the printed requirement (companions, equipment, or learned skills as applicable) and discard them as part of summoning; do not universally restrict devour to companions. Do not model this as a later optional ability.
 - `速攻` means the card can be vertical and usable immediately after entering, according to the card's type/implementation. Apply the keyword generally, not only for one named card.
 - Bound, generated, or temporary cards still need to be visible enough in the frontend for a human to understand why an effect exists. Showing bound skills in the inspector/detail view is appropriate; showing them in the skill pool is wrong.
 - Remaining deck visibility must not reveal order. If exposing deck contents, expose only an unordered summary by card number/name/count, never the ordered deck slice or instance IDs.
@@ -418,3 +418,16 @@ Rules:
 - Only use the supported issue forms: Bug Report, Card Effect, and Frontend UX. Blank issues are disabled intentionally.
 - Every issue must include a version or commit hash. If there is no formal version number yet, use the exact commit tested.
 - Do not require every PR to close an issue; normal iteration PRs are allowed. When a PR does fix a tracked issue, mention it in the PR description.
+
+## Confirmed Rules Update (2026-11-13)
+
+The rule author's rulings in issues #166–#174 supersede older conflicting notes above and in historical tests. Only 基础包 and 王权纷争 are in scope.
+
+- +life raises both current and maximum life and is not healing. Off-field buffs survive entry and off-field moves. Leaving the battlefield clears that visit's instance state, including permanent instance buffs. Preserve last-known information for damage/death resolution separately from the clean card in its new zone. Explicit until-game-end rules are player/game-scoped and survive instance cleanup.
+- End turn: discard, reset orientations, settle marks, resolve end-turn triggers, expire until-end effects/abilities/temporary cards, refresh uses and clear elements, switch player. Finish each phase's choices/spells/deaths before continuing. A lethal mark must not permit the next player's draw.
+- Unqualified next turn means the immediately following turn of either player. Per-turn uses still refresh at their owner's turn end.
+- No defense main spell means no successful defense even at zero attacking power. Existing element pools remain usable during defense/counters; ordinary consume is forbidden there. Stun blocks tap payments, not every active ability.
+- Auras stack unless explicitly stated otherwise. Implementation slot capacity is 99, not a game-rule limit of 8.
+- Stealth does not form a front row. It prevents opposing single-target selection even with pierce; area centers are regions and may contain stealth units.
+- Devour eligibility comes from the printed requirement and can include equipment or learned skills. Player-selected trigger ordering is deferred in #174: keep deterministic order and preserve every legal trigger for now.
+- A departed source does not erase otherwise legal results; skip results requiring the departed battlefield instance. Petrification/effect invalidation can cancel queued source effects and deathrattles. Control transfer also transfers attached bound skills and subsequent zone ownership to the new player.
