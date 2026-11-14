@@ -111,7 +111,7 @@
     }());
     /* ACTION_COST_PLAN_END */
 
-    const { createApp, ref, computed, onMounted, onUnmounted, nextTick } = Vue;
+    const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
 
     createApp({
         setup() {
@@ -457,7 +457,7 @@
                 return result;
             }
             function slotStyle(count) {
-                return { '--slot-columns': Math.min(10, Math.max(5, Number(count))), '--slot-count': Number(count) };
+                return { '--slot-columns': 5, '--slot-count': 5 };
             }
             const mySkillSlotCount = computed(() => slotCount(myState.value, 'skill_slot_capacity'));
             const myEquipmentSlotCount = computed(() => slotCount(myState.value, 'equipment_slot_capacity'));
@@ -476,6 +476,25 @@
                 return skills;
             });
             const allMySkills = computed(() => [...mySkills.value.filter(Boolean), ...allMyBoundSkills.value]);
+            const opponentBoundSkills = computed(() => {
+                const state = opponent.value;
+                const field = [...(state.units || []).flat(), ...(state.terrain || []).flat(), ...(state.skills || []), ...(state.equipment || [])].filter(Boolean);
+                return field.flatMap(card => card.bound_skills || []);
+            });
+            const mySkillPageIndex = ref(0), myEquipmentPageIndex = ref(0), opponentSkillPageIndex = ref(0), opponentEquipmentPageIndex = ref(0);
+            const mySkillPages = computed(() => ArcaneBattlePresentation.slotPages(mySkills.value, mySkillSlotCount.value, allMyBoundSkills.value));
+            const opponentSkillPages = computed(() => ArcaneBattlePresentation.slotPages(opponentSkills.value, opponentSkillSlotCount.value, opponentBoundSkills.value));
+            const myEquipmentPages = computed(() => ArcaneBattlePresentation.slotPages(myEquipment.value, myEquipmentSlotCount.value, [], '装备'));
+            const opponentEquipmentPages = computed(() => ArcaneBattlePresentation.slotPages(opponent.value.equipment, opponentEquipmentSlotCount.value, [], '装备'));
+            function pageView(pages, index) { return pages[Math.max(0, Math.min(index, pages.length - 1))]; }
+            const mySkillPage = computed(() => pageView(mySkillPages.value, mySkillPageIndex.value));
+            const opponentSkillPage = computed(() => pageView(opponentSkillPages.value, opponentSkillPageIndex.value));
+            const myEquipmentPage = computed(() => pageView(myEquipmentPages.value, myEquipmentPageIndex.value));
+            const opponentEquipmentPage = computed(() => pageView(opponentEquipmentPages.value, opponentEquipmentPageIndex.value));
+            function changeSlotPage(lane, delta) {
+                const [pages, index] = ({mySkills:[mySkillPages,mySkillPageIndex], myEquipment:[myEquipmentPages,myEquipmentPageIndex], opponentSkills:[opponentSkillPages,opponentSkillPageIndex], opponentEquipment:[opponentEquipmentPages,opponentEquipmentPageIndex]})[lane];
+                index.value = Math.max(0, Math.min(pages.value.length - 1, pages.value.indexOf(pageView(pages.value,index.value)) + delta));
+            }
             const replaceableSkills = computed(() => mySkills.value.filter(skill => skill && !skill.is_horizontal && !(skill.statuses?.['冷却'] > 0)));
             const replaceableEquipment = computed(() => {
                 const card = equipmentReplaceRequest.value?.card || selectedHandCard.value;
@@ -871,24 +890,8 @@
                 hoveredOpponentCell.value = null;
             }
 
-            function statusEntries(card, limit = 3) {
-                if (!card) return [];
-                const entries = [];
-                if (card.is_horizontal) entries.push({ label: '横置' });
-                const statusLabels = {
-                    winter_bow_water_mark: '水纹',
-                    cannot_use_skill_until_turn: '技能受限',
-                };
-                for (const [name, count] of Object.entries(card.statuses || {})) {
-                    // Internal bookkeeping remains in the snapshot for engine/debug
-                    // use, but is not player-facing card text.
-                    if (/[A-Za-z_]/.test(name) && !statusLabels[name]) continue;
-                    if (Number(count) > 0) {
-                        const label = statusLabels[name] || name;
-                        entries.push({ label: `${label}${name !== 'cannot_use_skill_until_turn' && Number(count) > 1 ? count : ''}` });
-                    }
-                }
-                return limit > 0 ? entries.slice(0, limit) : entries;
+            function statusEntries(card, limit = 4) {
+                return ArcaneBattlePresentation.statuses(card, limit === 0, limit);
             }
 
             function effectLabels(card) {
@@ -1464,15 +1467,11 @@
                 } else showCardDetail(terrain);
             }
             function handleUnitImageClick(ownerSlot, col, row, unit, event) {
-                if ((selectedSkill.value || selectedItemSpellScroll.value) && ((ownerSlot === mySlot.value && isFriendlySpellTarget(col, row)) || ownerSlot !== mySlot.value)) {
+                if (activeTargetSpell() && ((ownerSlot === mySlot.value && isFriendlySpellTarget(col, row)) || ownerSlot !== mySlot.value)) {
                     handleCellClick(ownerSlot, col, row);
                     return;
                 }
                 if (ownerSlot !== mySlot.value && selectedAttacker.value) {
-                    handleCellClick(ownerSlot, col, row);
-                    return;
-                }
-                if (ownerSlot !== mySlot.value && selectedItemSpellScroll.value) {
                     handleCellClick(ownerSlot, col, row);
                     return;
                 }
@@ -1681,7 +1680,7 @@
                 const unit = getOpponentUnit(col, row);
                 return selectedAttacker.value && row === opponentFrontRow.value && unit && !isStealthed(unit);
             }
-            const hasActiveTargeting = computed(() => !!selectedAttacker.value || !!selectedSkill.value || !!selectedItemSpellScroll.value);
+            const hasActiveTargeting = computed(() => !!selectedAttacker.value || !!activeTargetSpell());
             function isValidOpponentTarget(col, row) {
                 const unit = getOpponentUnit(col, row);
                 if (selectedAttacker.value) return !!unit && !isStealthed(unit) && row === opponentFrontRow.value;
@@ -1751,7 +1750,8 @@
                 return !!spell && !!spell.needs_target && spell.can_attack !== false && !spell.is_sorcery;
             }
             function activeTargetSpell() {
-                return selectedSkill.value || selectedItemSpellScroll.value || null;
+                const spell = selectedSkill.value || selectedItemSpellScroll.value;
+                return skillNeedsTarget(spell) ? spell : null;
             }
             function activeTargetSpellHasPierce() {
                 const spell = activeTargetSpell();
@@ -2050,8 +2050,7 @@
             }
 
             function skillNeedsTarget(skill) {
-                if (!skill) return false;
-                return !!skill.needs_target;
+                return ArcaneBattlePresentation.needsTarget(skill);
             }
 
             function canSacrificeForFlameArray(unit) {
@@ -2081,6 +2080,8 @@
             const defenseReactionCard = ref(null);
             const defenseStep = ref(0);
             const defensePickMode = ref('normal');
+            const locatedDefenseID = ref(''), defenseLocateMessage = ref('');
+            watch([defenseStep, defensePickMode, showDefenseWindow], () => {locatedDefenseID.value='';defenseLocateMessage.value='';});
             const defenseStepCandidates = computed(() => {
                 if (workspaceMode.value !== 'defense') return [];
                 const wrap = (cards, kind) => cards.map(card => ({card,kind}));
@@ -2100,6 +2101,7 @@
                 const eligible = active && defenseStepCandidates.value.some(e=>e.card.instance_id===card.instance_id);
                 const selected = active && defenseIsSelected(card.instance_id);
                 return {'data-defense-card':card.instance_id, 'data-defense-status':selected?'selected':eligible?'eligible':null,
+                    'data-defense-located':active && locatedDefenseID.value===card.instance_id?'true':null,
                     'aria-label':card.name+(selected?' · 已选':eligible?' · 可选':''), 'aria-pressed': active?String(selected):null};
             }
             const defenseVisibleIDs = computed(()=>new Set([...myUnitCards(),...mySkills.value,...allMyBoundSkills.value,...(myState.value.equipment||[]),...myHand.value].filter(Boolean).map(c=>c.instance_id)));
@@ -2111,12 +2113,21 @@
                 return host ? '绑定于 '+host.name : '附属 / 绑定技能';
             }
             async function locateDefenseCards(page=null) {
-                railTab.value='hand';
-                if (page!==null) fanPage.value=page;
+                const entries=defenseStepCandidates.value.filter(entry=>page===null || Math.floor(myHand.value.findIndex(c=>c.instance_id===entry.card.instance_id)/7)===page);
+                if (!entries.length) { defenseLocateMessage.value='当前步骤没有可定位的牌'; return; }
+                const previous=entries.findIndex(entry=>entry.card.instance_id===locatedDefenseID.value);
+                const card=entries[(previous+1)%entries.length].card, id=card.instance_id;
+                const handIndex=myHand.value.findIndex(c=>c.instance_id===id);
+                const skillPage=ArcaneBattlePresentation.cardPage(mySkillPages.value,id);
+                const equipmentPage=ArcaneBattlePresentation.cardPage(myEquipmentPages.value,id);
+                let location='战场';
+                if (handIndex>=0) {railTab.value='hand';fanPage.value=Math.floor(handIndex/7);location='手牌第 '+(fanPage.value+1)+' 页';}
+                else if (skillPage>=0) {mySkillPageIndex.value=skillPage;location=mySkillPages.value[skillPage].label;}
+                else if (equipmentPage>=0) {myEquipmentPageIndex.value=equipmentPage;location=myEquipmentPages.value[equipmentPage].label;}
+                locatedDefenseID.value=id; previewCard(card);
+                defenseLocateMessage.value='已定位：'+card.name+' · '+location;
                 await nextTick();
-                const entries=defenseStepCandidates.value;
-                const entry=page===null?entries.find(e=>document.querySelector('[data-defense-card="'+CSS.escape(e.card.instance_id)+'"]')):entries.find(e=>fanCards.value.some(c=>c.instance_id===e.card.instance_id));
-                const el=entry&&document.querySelector('[data-defense-card="'+CSS.escape(entry.card.instance_id)+'"]');
+                const el=[...document.querySelectorAll('[data-defense-card="'+CSS.escape(id)+'"]')].find(node=>node.getClientRects().length);
                 el?.scrollIntoView({block:'nearest',inline:'nearest'}); el?.focus({preventScroll:true});
             }
             function revalidateDefenseDraft() {
@@ -2127,6 +2138,7 @@
             function goDefenseStep(step) {
                 if (actionBusy.value || (step>0 && !hasDefenseSource() && !defenseReactionCard.value)) return;
                 defensePickMode.value='normal'; defenseStep.value=step; revalidateDefenseDraft();
+                locatedDefenseID.value=''; defenseLocateMessage.value='';
             }
             function pickDefenseCard(id) {
                 if (actionBusy.value || !connected.value || workspaceMode.value!=='defense') return;
@@ -3006,6 +3018,7 @@
                 if (selectedAttacker.value) return `选择敌方前排目标，让 ${selectedAttacker.value.name} 攻击。`;
                 if (pendingExtraTargetCast.value && selectedSkillNeedsExtraTarget(selectedSkill.value)) return `选择 ${selectedSkill.value.name} 的额外目标。`;
                 if (selectedSkill.value && selectedSkillPowerSacrificeSource() && !selectedSpellPowerSacrificeId.value) return `可先选择友方火焰伙伴祭献，或直接选择目标施放 ${selectedSkill.value.name}。`;
+                if (selectedSkill.value && !skillNeedsTarget(selectedSkill.value)) return `${selectedSkill.value.name} 无需预选单位；确认强化后点击“准备施放”。`;
                 if (selectedSkill.value) return `选择敌方目标施放 ${selectedSkill.value.name}。`;
                 return '消耗竖置卡牌获得元素，然后召唤、学习技能、施法或攻击。';
             });
@@ -3346,6 +3359,7 @@
                 selectedHandCard, selectedAttacker, selectedSkill, selectedItemSpellScroll, selectedSpellScrollSacrificeId, selectedSpellScrollSupportId, selectedSpellPowerSacrificeId, selectedBoostSkills, pileView, actionLog,
                 isTestRoom, testCardNumber, testElement, testElementAmount, ELEMENT_ORDER,
                 myState, opponent, myHand, opponentHandCards, mySkills, myEquipment, mySkillSlotCount, myEquipmentSlotCount, opponentSkillSlotCount, opponentEquipmentSlotCount, allMySkills, allMyBoundSkills,
+                mySkillPages, opponentSkillPages, myEquipmentPages, opponentEquipmentPages, mySkillPage, opponentSkillPage, myEquipmentPage, opponentEquipmentPage, opponentBoundSkills, changeSlotPage,
                 isMyTurn, showDefenseWindow, pendingSpellView, myFrontRow, opponentFrontRow,
                 incomingDrawOffer, outgoingDrawOffer, canUseMatchActions,
                 getCardImage, getElementIcon, getMyUnit, getOpponentUnit, getMyTerrain, getOpponentTerrain, elemFull, costHTML, descriptionHTML, hasCost, hasUseCost, hasGain, playCost, learnCost, entryCostLabel, effectLabels,
@@ -3388,6 +3402,7 @@
                 learnSkill, endTurn, surrender, offerDraw, respondDrawOffer,
                 // Context menu
                 defenseIsSelected, defenseStep, defensePickMode, defenseStepCandidates, defenseFallback, defenseHandPages, defenseCardAttrs, defenseNames, defenseLocation, locateDefenseCards, goDefenseStep, pickDefenseCard, defenseKeydown,
+                defenseLocateMessage,
                 menuItems, menuKeydown, previewMetadata, defensePaymentPlan, defensePaymentValid, adjustDefensePayment, resetDefenseDraft, ELEMENT_ORDER,
                 contextMenu, showCardContextMenu, hideContextMenu, contextMenuAction
             };

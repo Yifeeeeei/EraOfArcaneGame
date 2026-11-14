@@ -14,6 +14,7 @@
     <script src="js/arcane-ui.js"></script>
     <script src="js/deck-store.js"></script>
     <script src="js/board-view.js"></script>
+    <script src="js/battle-presentation.js"></script>
     <script src="js/payment-choice.js"></script>
     <script src="js/battle-effects.js"></script>
 </head>
@@ -325,32 +326,42 @@
                         </div>
                         <div class="board-side">
                             <div class="slot-bank">
-                                <div class="slot-lane">
-                                    <span class="slot-label">技能 <small>{{ opponent.skills?.filter(Boolean).length||0 }} / {{ opponentSkillSlotCount }}</small></span>
+                                <div class="slot-lane" data-slot-lane="opponent-skills">
+                                    <div class="slot-heading"><span class="slot-label"><strong>{{ opponentSkillPage.label }}</strong><small>{{ opponentSkillPage.kind === "bound" ? "共 " + opponentBoundSkills.length + " 张" : ((opponent.skills?.filter(Boolean).length||0) + "/" + opponentSkillSlotCount) }}</small></span>
+                                        <nav class="slot-pager" v-if="opponentSkillPages.length > 1" data-inspect aria-label="对方技能翻页">
+                                            <button aria-label="上一页" :disabled="opponentSkillPages.indexOf(opponentSkillPage)===0" @click.stop="changeSlotPage('opponentSkills',-1)">‹</button>
+                                            <span>{{ opponentSkillPages.indexOf(opponentSkillPage)+1 }}/{{ opponentSkillPages.length }}</span>
+                                            <button aria-label="下一页" :disabled="opponentSkillPages.indexOf(opponentSkillPage)===opponentSkillPages.length-1" @click.stop="changeSlotPage('opponentSkills',1)">›</button>
+                                        </nav></div>
                                     <div class="slots" :style="slotStyle(opponentSkillSlotCount)">
-                                        <div v-for="i in opponentSkillSlotCount" :key="'os'+i" class="slot" :data-instance-id="opponent.skills[i-1]?.instance_id" :class="{occupied: opponent.skills[i-1]}"
-                                             @mouseenter="opponent.skills[i-1] && previewCard(opponent.skills[i-1])"
-                                             @click="opponent.skills[i-1] && showCardDetail(opponent.skills[i-1])">
-                                            <template v-if="opponent.skills[i-1]"><span class="slot-card-name">{{ opponent.skills[i-1].is_hidden ? '盖放' : opponent.skills[i-1].name }}</span>
-                                                <img @mouseenter="previewCard(opponent.skills[i-1])" @error="imageFallback" v-bind="artAttrs(opponent.skills[i-1])" class="slot-img"
-                                                     :class="{horizontal: opponent.skills[i-1].is_horizontal}">
-                                                <div class="status-badges compact" v-if="statusEntries(opponent.skills[i-1]).length">
-                                                    <span v-for="s in statusEntries(opponent.skills[i-1])" :key="s.label" class="status-badge">{{ s.label }}</span>
+                                        <div v-for="entry in opponentSkillPage.entries" :key="'os'+opponentSkillPage.kind+entry.index" class="slot" :data-instance-id="entry.card?.instance_id" :class="{occupied: entry.card}"
+                                             @mouseenter="entry.card && previewCard(entry.card)"
+                                             @click="entry.card && showCardDetail(entry.card)">
+                                            <template v-if="entry.card"><span class="slot-card-name">{{ entry.card.is_hidden ? '盖放' : entry.card.name }}</span>
+                                                <img @mouseenter="previewCard(entry.card)" @error="imageFallback" v-bind="artAttrs(entry.card)" class="slot-img"
+                                                     :class="{horizontal: entry.card.is_horizontal}">
+                                                <div class="status-badges compact" v-if="statusEntries(entry.card, 2).length">
+                                                    <span v-for="s in statusEntries(entry.card, 2)" :key="s.label" class="status-badge">{{ s.label }}</span>
                                                 </div>
                                             </template>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="slot-lane">
-                                    <span class="slot-label">装备 <small>{{ opponent.equipment?.filter(Boolean).length||0 }} / {{ opponentEquipmentSlotCount }}</small></span>
+                                <div class="slot-lane" data-slot-lane="opponent-equipment">
+                                    <div class="slot-heading"><span class="slot-label"><strong>{{ opponentEquipmentPage.label }}</strong><small>{{ (opponent.equipment?.filter(Boolean).length||0) + "/" + opponentEquipmentSlotCount }}</small></span>
+                                        <nav class="slot-pager" v-if="opponentEquipmentPages.length > 1" data-inspect aria-label="对方装备翻页">
+                                            <button aria-label="上一页" :disabled="opponentEquipmentPages.indexOf(opponentEquipmentPage)===0" @click.stop="changeSlotPage('opponentEquipment',-1)">‹</button>
+                                            <span>{{ opponentEquipmentPages.indexOf(opponentEquipmentPage)+1 }}/{{ opponentEquipmentPages.length }}</span>
+                                            <button aria-label="下一页" :disabled="opponentEquipmentPages.indexOf(opponentEquipmentPage)===opponentEquipmentPages.length-1" @click.stop="changeSlotPage('opponentEquipment',1)">›</button>
+                                        </nav></div>
                                     <div class="slots" :style="slotStyle(opponentEquipmentSlotCount)">
-                                        <div v-for="i in opponentEquipmentSlotCount" :key="'oe'+i" class="slot" :data-instance-id="opponent.equipment[i-1]?.instance_id" :class="{occupied: opponent.equipment[i-1]}"
-                                             @mouseenter="opponent.equipment[i-1] && !opponent.equipment[i-1].is_hidden && previewCard(opponent.equipment[i-1])"
-                                             @click="opponent.equipment[i-1] && !opponent.equipment[i-1].is_hidden && showCardDetail(opponent.equipment[i-1])">
-                                            <template v-if="opponent.equipment[i-1]"><span class="slot-card-name">{{ opponent.equipment[i-1].is_hidden ? '盖放' : opponent.equipment[i-1].name }}</span>
-                                                <img v-if="opponent.equipment[i-1].is_hidden" src="assets/card-back.png" alt="对手盖放牌" class="slot-img set-card-back">
-                                                <img @mouseenter="previewCard(opponent.equipment[i-1])" @error="imageFallback" v-else v-bind="artAttrs(opponent.equipment[i-1])" class="slot-img"
-                                                     :class="{horizontal: opponent.equipment[i-1].is_horizontal}">
+                                        <div v-for="entry in opponentEquipmentPage.entries" :key="'oe'+opponentEquipmentPage.kind+entry.index" class="slot" :data-instance-id="entry.card?.instance_id" :class="{occupied: entry.card}"
+                                             @mouseenter="entry.card && !entry.card.is_hidden && previewCard(entry.card)"
+                                             @click="entry.card && !entry.card.is_hidden && showCardDetail(entry.card)">
+                                            <template v-if="entry.card"><span class="slot-card-name">{{ entry.card.is_hidden ? '盖放' : entry.card.name }}</span>
+                                                <img v-if="entry.card.is_hidden" src="assets/card-back.png" alt="对手盖放牌" class="slot-img set-card-back">
+                                                <img @mouseenter="previewCard(entry.card)" @error="imageFallback" v-else v-bind="artAttrs(entry.card)" class="slot-img"
+                                                     :class="{horizontal: entry.card.is_horizontal}">
                                             </template>
                                         </div>
                                     </div>
@@ -436,81 +447,77 @@
                         </div>
                         <div class="board-side">
                             <div class="slot-bank">
-                                <div class="slot-lane">
-                                    <span class="slot-label">技能 <small>{{ mySkills.filter(Boolean).length }} / {{ mySkillSlotCount }}</small></span>
+                                <div class="slot-lane" data-slot-lane="my-skills">
+                                    <div class="slot-heading"><span class="slot-label"><strong>{{ mySkillPage.label }}</strong><small>{{ mySkillPage.kind === "bound" ? "共 " + allMyBoundSkills.length + " 张" : (mySkills.filter(Boolean).length + "/" + mySkillSlotCount) }}</small></span>
+                                        <nav class="slot-pager" v-if="mySkillPages.length > 1" data-inspect aria-label="己方技能翻页">
+                                            <button aria-label="上一页" :disabled="mySkillPages.indexOf(mySkillPage)===0" @click.stop="changeSlotPage('mySkills',-1)">‹</button>
+                                            <span>{{ mySkillPages.indexOf(mySkillPage)+1 }}/{{ mySkillPages.length }}</span>
+                                            <button aria-label="下一页" :disabled="mySkillPages.indexOf(mySkillPage)===mySkillPages.length-1" @click.stop="changeSlotPage('mySkills',1)">›</button>
+                                        </nav></div>
                                     <div class="slots" :style="slotStyle(mySkillSlotCount)">
-                                        <div v-for="i in mySkillSlotCount" :key="'ms'+i" class="slot"
-                                             :data-instance-id="mySkills[i-1]?.instance_id" v-bind="defenseCardAttrs(mySkills[i-1])" :class="{occupied: mySkills[i-1], 'defense-only': mySkills[i-1]?.is_defense_only, 'boost-selected': selectedBoostSkills.includes(mySkills[i-1]?.instance_id), castable: canCastSkill(mySkills[i-1])}"
-                                             @mouseenter="mySkills[i-1] && previewCard(mySkills[i-1])"
-                                             @click="mySkills[i-1] && showCardContextMenu($event,mySkills[i-1],'skill')" tabindex="0" @keydown.enter.prevent="$event.currentTarget.click()">
-                                            <template v-if="mySkills[i-1]"><span class="slot-card-name">{{ mySkills[i-1].is_hidden ? '盖放' : mySkills[i-1].name }}</span>
-                                                <img @mouseenter="previewCard(mySkills[i-1])" @error="imageFallback" v-bind="artAttrs(mySkills[i-1])" :alt="mySkills[i-1].name" class="slot-img"
-                                                     :class="{horizontal: mySkills[i-1].is_horizontal}">
+                                        <div v-for="entry in mySkillPage.entries" :key="'ms'+mySkillPage.kind+entry.index" class="slot"
+                                             :data-instance-id="entry.card?.instance_id" v-bind="defenseCardAttrs(entry.card)" :class="{occupied: entry.card, 'defense-only': entry.card?.is_defense_only, 'boost-selected': selectedBoostSkills.includes(entry.card?.instance_id), castable: canCastSkill(entry.card)}"
+                                             @mouseenter="entry.card && previewCard(entry.card)"
+                                             @click="entry.card && showCardContextMenu($event,entry.card,'skill')" tabindex="0" @keydown.enter.prevent="$event.currentTarget.click()">
+                                            <template v-if="entry.card"><span class="slot-card-name">{{ entry.card.is_hidden ? '盖放' : entry.card.name }}</span>
+                                                <img @mouseenter="previewCard(entry.card)" @error="imageFallback" v-bind="artAttrs(entry.card)" :alt="entry.card.name" class="slot-img"
+                                                     :class="{horizontal: entry.card.is_horizontal}">
                                                 <div class="skill-badges">
-                                                    <span v-if="mySkills[i-1].is_defense_only" class="badge badge-defense">防御</span>
-                                                    <span v-if="mySkills[i-1].is_sorcery" class="badge badge-sorcery">咒术</span>
+                                                    <span v-if="entry.card.is_defense_only" class="badge badge-defense">防御</span>
+                                                    <span v-if="entry.card.is_sorcery" class="badge badge-sorcery">咒术</span>
                                                 </div>
-                                                <div class="status-badges compact" v-if="statusEntries(mySkills[i-1]).length">
-                                                    <span v-for="s in statusEntries(mySkills[i-1])" :key="s.label" class="status-badge">{{ s.label }}</span>
+                                                <div class="status-badges compact" v-if="statusEntries(entry.card, 2).length">
+                                                    <span v-for="s in statusEntries(entry.card, 2)" :key="s.label" class="status-badge">{{ s.label }}</span>
                                                 </div>
-                                                <div v-if="canCastSkill(mySkills[i-1]) || canUsePerTurn(mySkills[i-1])" class="slot-actions">
-                                                    <button v-if="canCastSkill(mySkills[i-1])" class="slot-action-btn"
-                                                            @click.stop="selectSkillToCast(mySkills[i-1])">施放</button>
-                                                    <button v-if="canUsePerTurn(mySkills[i-1])" class="slot-action-btn ability"
-                                                            :title="abilityLabel(mySkills[i-1], 'per_turn')"
-                                                            @click.stop="useAbility(mySkills[i-1], 'per_turn')">{{ compactAbilityLabel(mySkills[i-1], 'per_turn') }}</button>
+                                                <div v-if="canCastSkill(entry.card) || canUsePerTurn(entry.card)" class="slot-actions">
+                                                    <button v-if="canCastSkill(entry.card)" class="slot-action-btn"
+                                                            @click.stop="selectSkillToCast(entry.card)">施放</button>
+                                                    <button v-if="canUsePerTurn(entry.card)" class="slot-action-btn ability"
+                                                            :title="abilityLabel(entry.card, 'per_turn')"
+                                                            @click.stop="useAbility(entry.card, 'per_turn')">{{ compactAbilityLabel(entry.card, 'per_turn') }}</button>
                                                 </div>
-                                                <div v-if="canShowCostHint(mySkills[i-1]) && !(canCastSkill(mySkills[i-1]) || canUsePerTurn(mySkills[i-1]))" class="slot-cost-hint">
-                                                    {{ missingCostText(attackActionCost(mySkills[i-1], [])) }}
+                                                <div v-if="canShowCostHint(entry.card) && !(canCastSkill(entry.card) || canUsePerTurn(entry.card))" class="slot-cost-hint">
+                                                    {{ missingCostText(attackActionCost(entry.card, [])) }}
                                                 </div>
-                                                <div v-if="selectedSkill && canBoostWith(mySkills[i-1])" class="boost-btn"
-                                                     @click.stop="toggleBoostSkill(mySkills[i-1])">
-                                                    {{ selectedBoostSkills.includes(mySkills[i-1].instance_id) ? '取消强化' : '强化' }}
-                                                </div>
-                                                <div class="action-peek slot-peek" v-if="skillActionChips(mySkills[i-1]).length">
-                                                    <span v-for="chip in skillActionChips(mySkills[i-1])" :key="chip">{{ chip }}</span>
+                                                <button v-if="selectedSkill && canBoostWith(entry.card)" type="button" class="boost-btn" :aria-pressed="selectedBoostSkills.includes(entry.card.instance_id)"
+                                                     @click.stop="toggleBoostSkill(entry.card)">
+                                                    {{ selectedBoostSkills.includes(entry.card.instance_id) ? '取消强化' : '强化' }}
+                                                </button>
+                                                <div class="action-peek slot-peek" v-if="skillActionChips(entry.card).length">
+                                                    <span v-for="chip in skillActionChips(entry.card)" :key="chip">{{ chip }}</span>
                                                 </div>
                                             </template>
                                         </div>
                                     </div>
                                 </div>
-                                <div class="slot-lane">
-                                    <span class="slot-label">装备 <small>{{ myEquipment.filter(Boolean).length }} / {{ myEquipmentSlotCount }}</small></span>
+                                <div class="slot-lane" data-slot-lane="my-equipment">
+                                    <div class="slot-heading"><span class="slot-label"><strong>{{ myEquipmentPage.label }}</strong><small>{{ myEquipment.filter(Boolean).length + "/" + myEquipmentSlotCount }}</small></span>
+                                        <nav class="slot-pager" v-if="myEquipmentPages.length > 1" data-inspect aria-label="己方装备翻页">
+                                            <button aria-label="上一页" :disabled="myEquipmentPages.indexOf(myEquipmentPage)===0" @click.stop="changeSlotPage('myEquipment',-1)">‹</button>
+                                            <span>{{ myEquipmentPages.indexOf(myEquipmentPage)+1 }}/{{ myEquipmentPages.length }}</span>
+                                            <button aria-label="下一页" :disabled="myEquipmentPages.indexOf(myEquipmentPage)===myEquipmentPages.length-1" @click.stop="changeSlotPage('myEquipment',1)">›</button>
+                                        </nav></div>
                                     <div class="slots" :style="slotStyle(myEquipmentSlotCount)">
-                                        <div v-for="i in myEquipmentSlotCount" :key="'me'+i" class="slot" :data-instance-id="myEquipment[i-1]?.instance_id" v-bind="defenseCardAttrs(myEquipment[i-1])" :class="{occupied: myEquipment[i-1]}"
-                                             @mouseenter="myEquipment[i-1] && previewCard(myEquipment[i-1])"
-                                             @click="myEquipment[i-1] && showCardContextMenu($event,myEquipment[i-1],'field')" tabindex="0" @keydown.enter.prevent="$event.currentTarget.click()">
-                                            <template v-if="myEquipment[i-1]"><span class="slot-card-name">{{ myEquipment[i-1].is_hidden ? '盖放' : myEquipment[i-1].name }}</span>
-                                                <img v-if="myEquipment[i-1].is_set_counter" src="assets/card-back.png" alt="己方盖放牌" class="slot-img set-card-back">
-                                                <img @mouseenter="previewCard(myEquipment[i-1])" v-else @error="imageFallback" v-bind="artAttrs(myEquipment[i-1])" :alt="myEquipment[i-1].name" class="slot-img"
-                                                     :class="{horizontal: myEquipment[i-1].is_horizontal}">
+                                        <div v-for="entry in myEquipmentPage.entries" :key="'me'+myEquipmentPage.kind+entry.index" class="slot" :data-instance-id="entry.card?.instance_id" v-bind="defenseCardAttrs(entry.card)" :class="{occupied: entry.card}"
+                                             @mouseenter="entry.card && previewCard(entry.card)"
+                                             @click="entry.card && showCardContextMenu($event,entry.card,'field')" tabindex="0" @keydown.enter.prevent="$event.currentTarget.click()">
+                                            <template v-if="entry.card"><span class="slot-card-name">{{ entry.card.is_hidden ? '盖放' : entry.card.name }}</span>
+                                                <img v-if="entry.card.is_set_counter" src="assets/card-back.png" alt="己方盖放牌" class="slot-img set-card-back">
+                                                <img @mouseenter="previewCard(entry.card)" v-else @error="imageFallback" v-bind="artAttrs(entry.card)" :alt="entry.card.name" class="slot-img"
+                                                     :class="{horizontal: entry.card.is_horizontal}">
                                                 <div class="equipment-actions" v-if="isMyTurn && gameState.phase === 'main'">
-                                                    <button v-if="canConsumeUnit(myEquipment[i-1])"
-                                                            class="action-btn consume small" @click.stop="consumeCard(myEquipment[i-1])">消耗</button>
-                                                    <button v-if="canAttackWith(myEquipment[i-1])"
-                                                            class="action-btn attack small" @click.stop="selectAttacker(myEquipment[i-1])">攻击</button>
-                                                    <button v-if="canUsePerTurn(myEquipment[i-1])"
-                                                            class="action-btn ability small" @click.stop="useAbility(myEquipment[i-1], 'per_turn')">{{ abilityLabel(myEquipment[i-1], 'per_turn') }}</button>
-                                                    <button v-if="canUseUltimate(myEquipment[i-1])"
-                                                            class="action-btn ability ultimate small" @click.stop="useAbility(myEquipment[i-1], 'ultimate')">绝技</button>
+                                                    <button v-if="canConsumeUnit(entry.card)"
+                                                            class="action-btn consume small" @click.stop="consumeCard(entry.card)">消耗</button>
+                                                    <button v-if="canAttackWith(entry.card)"
+                                                            class="action-btn attack small" @click.stop="selectAttacker(entry.card)">攻击</button>
+                                                    <button v-if="canUsePerTurn(entry.card)"
+                                                            class="action-btn ability small" @click.stop="useAbility(entry.card, 'per_turn')">{{ abilityLabel(entry.card, 'per_turn') }}</button>
+                                                    <button v-if="canUseUltimate(entry.card)"
+                                                            class="action-btn ability ultimate small" @click.stop="useAbility(entry.card, 'ultimate')">绝技</button>
                                                 </div>
                                             </template>
                                         </div>
                                     </div>
-                                </div>
-                            </div>
-                            <div class="slot-lane" v-if="allMyBoundSkills.length">
-                                <span class="slot-label">绑定</span>
-                                <div class="bound-skill-bar">
-                                    <button v-for="skill in allMyBoundSkills" :key="skill.instance_id"
-                                            class="bound-skill-action" v-bind="defenseCardAttrs(skill)" :title="defenseLocation(skill)"
-                                            :class="{castable: canCastSkill(skill), horizontal: skill.is_horizontal}"
-                                            :disabled="workspaceMode === 'defense' ? !defenseStepCandidates.some(entry => entry.card.instance_id === skill.instance_id) : !canCastSkill(skill)"
-                                            @mouseenter="previewCard(skill)"
-                                            @click.stop="selectSkillToCast(skill)">
-                                        <span>{{ skill.name }}</span>
-                                        <small v-if="canShowCostHint(skill)">{{ missingCostText(attackActionCost(skill, [])) }}</small>
-                                    </button>
                                 </div>
                             </div>
                             <div class="pile-controls">
@@ -580,7 +587,7 @@
             <aside v-show="showInspector" class="fixed-inspector" aria-label="卡牌详情" data-inspect>
                 <header><span class="eyebrow">CARD INSPECTOR</span><button v-if="activePreviewCard" class="mini-btn" @click="showCardDetail(activePreviewCard)">原卡</button></header>
                 <div class="inspector-scroll" v-if="activePreviewCard && !activePreviewCard.is_hidden">
-                    <div class="inspector-art" @click="showCardDetail(activePreviewCard)"><img :key="activePreviewCard.instance_id || activePreviewCard.number" @error="imageFallback" v-bind="artAttrs(activePreviewCard)" :alt="activePreviewCard.name" class="inspector-image"></div>
+                    <div class="inspector-art" @click="showCardDetail(activePreviewCard)"><img :key="activePreviewCard.instance_id || activePreviewCard.number" @error="imageFallback" :src="getCardImage(activePreviewCard)" :alt="activePreviewCard.name" class="inspector-image"></div>
                     <h3>{{ activePreviewCard.name }}</h3>
                     <p>{{ activePreviewCard.type }} · {{ activePreviewCard.category }} <span v-if="activePreviewCard.current_life >= 0"> · 生命 {{ activePreviewCard.current_life }}</span></p>
                     <div class="inspector-costs"><p>{{ activePreviewCard.type === '技能' ? '学习费用' : '入场费用' }}<b>{{ costLabel(playCost(activePreviewCard)) }}</b></p><p v-if="activePreviewCard.type === '技能'">施放费用<b>{{ costLabel(activePreviewCard.elements_expense) }}</b></p><p v-if="hasGain(activePreviewCard)">负载<b>{{ costLabel(activePreviewCard.elements_gain) }}</b></p></div>
@@ -656,19 +663,20 @@
                 <div class="decision-scroll">
                 <p v-if="defensePickMode!=='normal'">{{ defensePickMode==='reaction'?'当前选择响应牌，发动前仍需确认。':'当前选择可选祭献单位。' }} <button @click="defensePickMode='normal'">返回当前步骤</button></p>
                 <div class="defense-locators" v-if="defenseStep<3">
-                    <button @click="locateDefenseCards()">定位可选牌（{{ defenseStepCandidates.length }}）</button>
+                    <button class="defense-locate-button" @click="locateDefenseCards()" :disabled="!defenseStepCandidates.length"><span aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="6"></circle><path d="M12 2v5m0 10v5M2 12h5m10 0h5"></path><circle cx="12" cy="12" r="1.5"></circle></svg></span> 定位可选牌 <b>{{ defenseStepCandidates.length }}</b></button>
                     <button v-for="page in defenseHandPages" @click="locateDefenseCards(page)">手牌第 {{ page+1 }} 页有候选 · 定位</button>
                     <span v-if="!defenseStepCandidates.length">当前无可选牌</span>
                 </div>
+                <p v-if="defenseLocateMessage && defenseStep<3" class="defense-location-feedback" role="status">{{ defenseLocateMessage }}</p>
                 <div class="defense-fallback" v-if="defenseFallback.length">
                     <button v-for="entry in defenseFallback" :key="entry.card.instance_id" :data-instance-id="entry.card.instance_id" :data-defense-action="entry.kind" :aria-pressed="defenseIsSelected(entry.card.instance_id)" @mouseenter="previewCard(entry.card)" @click.stop="pickDefenseCard(entry.card.instance_id)">{{ defenseIsSelected(entry.card.instance_id)?'✓ 已选 · ':'' }}{{ entry.card.name }} · {{ defenseLocation(entry.card) }} · {{ costLabel(defensePaymentCost(entry.card)) }}</button>
                 </div>
                 <div class="defense-step-actions">
                     <button v-if="defenseStep===0 && availableReactionSkills.length" @click="defensePickMode=defensePickMode==='reaction'?'normal':'reaction'">选择响应牌</button>
                     <button v-if="defenseStep===1 && defensePowerSacrificeCandidates.length" @click="defensePickMode='sacrifice'">可选祭献</button>
-                    <button v-if="defenseStep===1" @click="goDefenseStep(2)">{{ defenseBoostSelected.length?'完成强化':'跳过强化' }} → 透支</button>
-                    <button v-if="defenseStep===2" @click="goDefenseStep(3)">核对付款 →</button>
-                    <button v-if="defenseStep>0" @click="goDefenseStep(defenseStep-1)">← 返回</button>
+                    <button class="btn btn-primary step-advance" v-if="defenseStep===1" @click="goDefenseStep(2)">{{ defenseBoostSelected.length?'完成强化':'跳过强化' }} → 透支</button>
+                    <button class="btn btn-primary step-advance" v-if="defenseStep===2" @click="goDefenseStep(3)">核对付款 →</button>
+                    <button class="mini-btn step-back" v-if="defenseStep>0" @click="goDefenseStep(defenseStep-1)">← 返回</button>
                 </div>
                 </div>
                 <div class="defense-actions">
