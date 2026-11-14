@@ -383,11 +383,11 @@ img[data-artwork="true"]:not([data-art-fallback]) {
   height: 100%;
   max-width: 100%;
   object-fit: cover;
-  object-position: 50% 40%;
+  object-position: var(--art-position, 50% 40%);
   transform: none;
 }
 img[data-artwork="true"][data-art-type="人物"]:not([data-art-fallback]) {
-  object-position: 50% 18%;
+  object-position: var(--art-position, 50% 18%);
 }
 .arcane-dialog-backdrop {
   position: fixed;

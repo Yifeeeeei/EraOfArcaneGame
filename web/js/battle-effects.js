@@ -180,7 +180,8 @@
     const art = document.createElement("div");
     art.className = "legendary-art";
     const img = document.createElement("img");
-    const attrs = ArcaneUI.artAttrs(card);
+    // This temporary DOM node has a fixed viewport and no Vue unmount lifecycle.
+    const attrs = ArcaneUI.artAttrs(card, false);
     for (const [key, value] of Object.entries(attrs)) {
       if (key === "onLoad") img.onload = value;
       else if (value !== null) img.setAttribute(key, value);

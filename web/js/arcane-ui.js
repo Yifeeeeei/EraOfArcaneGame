@@ -140,23 +140,86 @@
     const path = artworkPath(card);
     return path ? IMAGE_BASE + path : image(card);
   }
-  function artworkLoaded(event) {
+  // Cover crops discard different amounts at different viewport aspect ratios.
+  // Convert an original-image point into the CSS alignment for this viewport.
+  function artFocusPosition(point, imageWidth, imageHeight, width, height) {
+    if (![imageWidth, imageHeight, width, height].every((n) => n > 0))
+      return "50% 40%";
+    const scale = Math.max(width / imageWidth, height / imageHeight);
+    function axis(percent, scaled, viewport) {
+      const overflow = scaled - viewport;
+      if (overflow < 0.01) return 50;
+      return Math.max(
+        0,
+        Math.min(
+          100,
+          (((scaled * percent) / 100 - viewport / 2) / overflow) * 100,
+        ),
+      );
+    }
+    return `${axis(point[0], imageWidth * scale, width)}% ${axis(point[1], imageHeight * scale, height)}%`;
+  }
+  function updateArtFocus(img) {
+    if (
+      img.dataset.artwork !== "true" ||
+      img.hasAttribute("data-art-fallback") ||
+      !img.naturalWidth ||
+      !img.clientWidth ||
+      !img.clientHeight
+    )
+      return;
+    const point = [
+      Number(img.dataset.artFocusX),
+      Number(img.dataset.artFocusY),
+    ];
+    if (!point.every(Number.isFinite) || img.dataset.artFocusX === undefined)
+      return;
+    img.style.setProperty(
+      "--art-position",
+      artFocusPosition(
+        point,
+        img.naturalWidth,
+        img.naturalHeight,
+        img.clientWidth,
+        img.clientHeight,
+      ),
+    );
+  }
+  const artObserver = root.ResizeObserver
+    ? new root.ResizeObserver((entries) =>
+        entries.forEach(({ target }) => updateArtFocus(target)),
+      )
+    : null;
+  function artworkUnmounted(vnode) {
+    artObserver?.unobserve(vnode.el);
+  }
+  function artworkLoaded(event, observe = true) {
     const img = event.target;
     if ((img.currentSrc || img.src).includes("/drawings/")) {
       img.removeAttribute("data-art-fallback");
+      updateArtFocus(img);
+      if (observe && img.dataset.artFocusX !== undefined)
+        artObserver?.observe(img);
     }
   }
-  function artAttrs(card) {
+  function artAttrs(card, observe = true) {
+    const point =
+      artworkPath(card) && root.ArcaneArtworkFocusIndex?.[card.number];
     return {
       src: artwork(card),
       "data-artwork": artworkPath(card) ? "true" : null,
       "data-art-type": card?.type || null,
       "data-card-src": image(card),
-      onLoad: artworkLoaded,
+      "data-art-focus-x": point ? point[0] : null,
+      "data-art-focus-y": point ? point[1] : null,
+      onLoad: observe ? artworkLoaded : (event) => artworkLoaded(event, false),
+      ...(observe ? { onVnodeUnmounted: artworkUnmounted } : {}),
     };
   }
   function imageError(e) {
     const img = e.target;
+    artObserver?.unobserve(img);
+    img.style.removeProperty("--art-position");
     const url = img.getAttribute("src") || "";
     if (url.includes("yifeeeeei.github.io/ArcaneImages/")) {
       img.src = url.replace(
@@ -207,12 +270,19 @@
     artwork,
     artAttrs,
     artworkLoaded,
+    artFocusPosition,
     imageError,
     cost,
     request,
     download,
   };
   apply();
+  if (!artObserver)
+    root.addEventListener("resize", () => {
+      document
+        .querySelectorAll('img[data-artwork="true"]')
+        .forEach(updateArtFocus);
+    });
   root.addEventListener("storage", (e) => {
     if (e.key === KEY) apply();
   });
