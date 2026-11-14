@@ -3,213 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>基础包卡牌测试台</title>
+    <title>卡牌测试台</title>
     <link rel="icon" href="/favicon.ico">
-    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="vendor/vue.global.prod.js"></script>
     <link rel="stylesheet" href="css/main.css">
-    <style>
-        body { background: var(--arcane-void); color: var(--arcane-text); }
-        header {
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            gap: 18px;
-            padding: 16px 22px;
-            background: rgba(13, 10, 8, 0.92);
-            border-bottom: 1px solid var(--arcane-line);
-        }
-        header h1 {
-            font-family: var(--font-display);
-            font-size: 26px;
-            color: var(--arcane-bone);
-            letter-spacing: 0.04em;
-        }
-        header a { color: var(--arcane-gold-bright); text-decoration: none; }
-        .lab {
-            height: calc(100vh - 66px);
-            display: grid;
-            grid-template-columns: 300px minmax(430px, 1fr) 330px;
-            gap: 0;
-            overflow: hidden;
-        }
-        .panel {
-            min-height: 0;
-            overflow: auto;
-            border-right: 1px solid var(--arcane-line);
-            background: rgba(24, 18, 13, 0.9);
-        }
-        .panel.right { border-right: 0; border-left: 1px solid var(--arcane-line); }
-        .toolbar {
-            position: sticky;
-            top: 0;
-            z-index: 5;
-            padding: 12px;
-            background: rgba(24, 18, 13, 0.98);
-            border-bottom: 1px solid var(--arcane-line);
-        }
-        .search {
-            width: 100%;
-            padding: 9px 10px;
-            border: 1px solid var(--arcane-line);
-            border-radius: 0;
-            color: var(--arcane-bone);
-            background: #090705;
-            margin-bottom: 10px;
-        }
-        .filters { display: grid; grid-template-columns: repeat(5, 1fr); gap: 4px; }
-        .filter-btn {
-            border: 1px solid var(--arcane-line);
-            border-radius: 0;
-            background: rgba(13, 10, 8, 0.74);
-            color: var(--arcane-muted);
-            padding: 6px 0;
-            cursor: pointer;
-            font-size: 12px;
-        }
-        .filter-btn.active { border-color: var(--arcane-gold); color: var(--arcane-gold-bright); background: rgba(45, 34, 22, 0.96); }
-        .card-list { padding: 8px; display: grid; gap: 6px; }
-        .card-row {
-            border: 1px solid transparent;
-            border-radius: 0;
-            background: rgba(33, 24, 16, 0.88);
-            display: grid;
-            grid-template-columns: 42px 1fr auto;
-            gap: 8px;
-            padding: 6px;
-            cursor: pointer;
-            align-items: center;
-        }
-        .card-row:hover, .card-row.active { border-color: var(--arcane-gold); }
-        .card-row img { width: 42px; height: 58px; object-fit: contain; border-radius: 3px; background: rgba(8,6,5,0.8); }
-        .row-name { font-weight: 700; color: var(--arcane-bone); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .row-meta { color: var(--arcane-muted); font-size: 12px; margin-top: 2px; }
-        .chip {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            min-width: 34px;
-            padding: 3px 7px;
-            border-radius: 0;
-            border: 1px solid rgba(198,174,116,0.18);
-            background: rgba(13, 10, 8, 0.72);
-            color: var(--arcane-gold-bright);
-            font-size: 12px;
-        }
-        .detail {
-            min-height: 0;
-            overflow: auto;
-            padding: 18px 22px 28px;
-            background:
-                linear-gradient(180deg, rgba(33,24,16,0.52), rgba(5,4,3,0.7)),
-                var(--arcane-ink);
-        }
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(5, minmax(80px, 1fr));
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-        .summary {
-            border: 1px solid var(--arcane-line);
-            border-radius: 0;
-            background: rgba(24,18,13,0.84);
-            padding: 10px;
-        }
-        .summary strong { display: block; color: var(--arcane-gold-bright); font-size: 20px; line-height: 1; }
-        .summary span { color: var(--arcane-muted); font-size: 12px; }
-        .selected-card {
-            display: grid;
-            grid-template-columns: 220px 1fr;
-            gap: 20px;
-            align-items: start;
-        }
-        .selected-card img {
-            width: 220px;
-            height: auto;
-            object-fit: contain;
-            border-radius: 0;
-            border: 2px solid rgba(211,180,106,0.42);
-            box-shadow: 0 18px 48px rgba(0,0,0,0.45);
-        }
-        h2 { color: var(--arcane-bone); margin-bottom: 8px; font-family: var(--font-display); }
-        h3 { color: var(--arcane-gold-bright); margin: 18px 0 8px; font-size: 15px; font-family: var(--font-display); }
-        .meta-line { color: var(--arcane-muted); margin-bottom: 4px; }
-        .desc {
-            margin-top: 12px;
-            padding: 12px;
-            border-left: 3px solid var(--arcane-gold);
-            background: rgba(8,6,5,0.58);
-            line-height: 1.65;
-            white-space: pre-wrap;
-        }
-        .steps { display: grid; gap: 8px; margin-top: 10px; }
-        .step {
-            display: grid;
-            grid-template-columns: 26px 1fr;
-            gap: 8px;
-            align-items: start;
-            border: 1px solid var(--arcane-line);
-            background: rgba(24,18,13,0.78);
-            padding: 8px;
-            border-radius: 0;
-        }
-        .step-num {
-            width: 24px;
-            height: 24px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 0;
-            background: var(--arcane-gold);
-            color: var(--arcane-void);
-            font-weight: 800;
-        }
-        .action-box {
-            margin-top: 12px;
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-        }
-        .deck-code {
-            width: 100%;
-            min-height: 78px;
-            resize: vertical;
-            padding: 8px;
-            border-radius: 0;
-            border: 1px solid var(--arcane-line);
-            background: #090705;
-            color: var(--arcane-bone);
-            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-            font-size: 12px;
-        }
-        .test-panel { padding: 14px; }
-        .test-result {
-            margin-top: 10px;
-            border-radius: 0;
-            border: 1px solid var(--arcane-line);
-            background: #090705;
-            padding: 10px;
-            color: var(--arcane-muted);
-            white-space: pre-wrap;
-            line-height: 1.55;
-        }
-        .pass { color: #7ee29b; }
-        .fail { color: #ff8c7a; }
-        @media (max-width: 1100px) {
-            .lab { grid-template-columns: 270px 1fr; }
-            .panel.right { grid-column: 1 / 3; height: 220px; border-left: 0; border-top: 1px solid var(--arcane-line); }
-            .selected-card { grid-template-columns: 170px 1fr; }
-            .selected-card img { width: 170px; }
-        }
-    </style>
+    <link rel="stylesheet" href="css/workbench.css">
+    <script src="assets/card-art-index.js"></script>
+    <script src="js/arcane-ui.js"></script>
 </head>
 <body>
-    <div id="app">
-        <header>
-            <h1>基础包卡牌测试台</h1>
-            <a href="/">返回大厅</a>
-        </header>
+    <div id="app" v-cloak>
+        <header class="site-header"><a class="brand" href="/"><span v-html="crest"></span><span><strong>奥术纪元</strong><small>ERA OF ARCANE</small></span></a><nav class="site-nav"><a href="/">大厅</a><a href="/decks.html">卡组与图鉴</a><a href="/stories.html">故事</a><a class="active" href="/card-test.html">测试台</a><button class="btn icon-btn" data-open-settings aria-label="界面设置">⚙</button></nav></header>
 
+        <div v-if="requestError" class="notice-error workbench-error" role="alert">{{ requestError }} <button class="mini-btn" @click="requestError=''">关闭</button></div>
         <main class="lab">
             <aside class="panel">
                 <div class="toolbar">
@@ -226,7 +32,7 @@
                          :class="{ active: selected && selected.number === card.number }"
                          @click="selectCard(card)"
                          :data-card-number="card.number">
-                        <img :src="getCardImage(card)" :alt="card.name">
+                        <img @error="imageError" loading="lazy" :src="getCardImage(card)" :alt="card.name">
                         <div>
                             <div class="row-name">{{ card.name }}</div>
                             <div class="row-meta">{{ card.number }} · {{ card.type }} · {{ card.category }}</div>
@@ -238,7 +44,7 @@
 
             <section class="detail">
                 <div class="summary-grid" data-testid="summary">
-                    <div class="summary"><strong>{{ cards.length }}</strong><span>基础包总数</span></div>
+                    <div class="summary"><strong>{{ cards.length }}</strong><span>支持卡牌</span></div>
                     <div class="summary"><strong>{{ typeCount('人物') }}</strong><span>人物</span></div>
                     <div class="summary"><strong>{{ typeCount('伙伴') }}</strong><span>伙伴</span></div>
                     <div class="summary"><strong>{{ typeCount('技能') }}</strong><span>技能</span></div>
@@ -246,11 +52,11 @@
                 </div>
 
                 <div v-if="selected" class="selected-card" data-testid="selected-card">
-                    <img :src="getCardImage(selected)" :alt="selected.name">
+                    <img @error="imageError" :src="getCardImage(selected)" :alt="selected.name">
                     <div>
                         <h2>{{ selected.name }}</h2>
                         <div class="meta-line">{{ selected.number }} · {{ selected.version_name }} · {{ selected.type }} · {{ selected.category }}</div>
-                        <div class="meta-line">费用：{{ costLabel(selected.elements_cost) }}　负载：{{ costLabel(selected.elements_gain) }}</div>
+                        <div class="meta-line">{{ selected.type === '技能' ? '学习费用' : '入场费用' }}：{{ costLabel(selected.elements_cost) }}　负载：{{ costLabel(selected.elements_gain) }}</div>
                         <div class="meta-line" v-if="selected.type === '技能'">施放费用：{{ costLabel(selected.elements_expense) }}　威力：{{ valueLabel(selected.power) }}　伤害：{{ valueLabel(selected.attack) }}</div>
                         <div class="meta-line" v-else>攻击：{{ valueLabel(selected.attack) }}　生命：{{ valueLabel(selected.life) }}</div>
                         <div class="desc">{{ selected.description || '无描述。' }}</div>
@@ -266,13 +72,13 @@
                         <h3>真实对局测试入口</h3>
                         <textarea class="deck-code" readonly :value="deckCodeForSelected"></textarea>
                         <div class="action-box">
-                            <button class="btn btn-primary" @click="createRoomForSelected">用这张卡创建测试房间</button>
-                            <button class="btn btn-success" @click="createDebugRoomForSelected">创建后台测试房间</button>
+                            <button class="btn btn-primary" :disabled="busy || String(selected.tag||'').split('-').includes('衍生')" @click="createRoomForSelected">用这张卡创建测试房间</button>
+                            <button class="btn btn-success" :disabled="busy" @click="createDebugRoomForSelected">创建后台测试房间</button>
                             <button class="btn btn-info" @click="copyDeck">复制测试卡组</button>
                         </div>
                     </div>
                 </div>
-                <div v-else>正在加载基础包卡牌...</div>
+                <div v-else>正在加载卡牌…</div>
             </section>
 
             <aside class="panel right">
@@ -290,12 +96,13 @@
 
     createApp({
         setup() {
-            const IMAGE_BASE = 'https://yifeeeeei.github.io/ArcaneImages/';
             const cards = ref([]);
             const query = ref('');
             const selectedType = ref('全部');
             const selected = ref(null);
             const selfTest = ref({ ok: null, message: '尚未运行。' });
+            const requestError = ref('');
+            const busy = ref(false);
             const filters = ['全部', '人物', '伙伴', '技能', '道具'];
             const baseHero = '4311003';
 
@@ -312,8 +119,7 @@
             const deckCodeForSelected = computed(() => selected.value ? buildDeckCode(selected.value) : '');
 
             function getCardImage(card) {
-                if (!card || !card.output_path) return '';
-                return IMAGE_BASE + card.output_path.replace(/\\/g, '/');
+                return ArcaneUI.image(card);
             }
 
             function selectCard(card) {
@@ -378,15 +184,15 @@
                     return steps;
                 }
                 if (card.type === '伙伴') {
-                    const steps = ['在手牌中点击这张伙伴。', '己方战场空格会高亮，点击空格召唤。', '下个己方回合竖置后，可点击“消耗”获得负载元素。'];
+                    const steps = ['在手牌中点击这张伙伴。', '己方战场空格会高亮，点击空格召唤。', '回合末重置为竖置后，可点击“消耗”获得负载元素。'];
                     if (Number(card.attack) > 0) steps.push('若它位于己方前排且竖置，可点击“攻击”，再点敌方前排目标。');
                     if (hasAbility(card)) steps.push('若界面出现能力按钮，点击后按顶部提示操作。');
                     return steps;
                 }
                 if (card.type === '技能') {
-                    const steps = ['在右侧技能池找到这张技能，右键选择学习。', '技能进入下方技能槽，下个己方回合竖置后可操作。'];
+                    const steps = ['打开下方技能池，点击卡牌选择学习。', '技能进入下方技能槽，回合末重置为竖置后可操作。'];
                     if (isDefenseSkill(card)) steps.push('对手施放可防御法术时，防御窗口会列出这张技能，点击选择后确认防御。');
-                    if (!isDefenseSkill(card)) steps.push('点击技能槽上的“施放”，再点击敌方合法目标。');
+                    if (!isDefenseSkill(card)) steps.push('点击已学技能，选择“施放”，再选择合法目标。');
                     if (!isSorcery(card)) steps.push('这类法术会打开对手防御窗口；无人防御时正常命中。');
                     return steps;
                 }
@@ -435,44 +241,42 @@
             }
 
             async function copyDeck() {
-                await navigator.clipboard.writeText(deckCodeForSelected.value);
+                try { await navigator.clipboard.writeText(deckCodeForSelected.value); ArcaneUI.toast('测试卡组已复制'); }
+                catch { ArcaneUI.download('测试卡组.txt',deckCodeForSelected.value); }
             }
 
             async function createRoomForSelected() {
-                const resp = await fetch('/api/room/create', { method: 'POST' });
-                const data = await resp.json();
-                const params = new URLSearchParams({
-                    room: data.room_id,
-                    player_id: `card_test_${Date.now()}`,
-                    player_name: `测试-${selected.value.name}`,
-                    deck_code: deckCodeForSelected.value
-                });
-                window.location.href = '/game.html?' + params.toString();
+                await enterTestRoom(false);
             }
 
             async function createDebugRoomForSelected() {
-                const resp = await fetch('/api/test-room/create', { method: 'POST' });
-                const data = await resp.json();
-                const params = new URLSearchParams({
-                    room: data.room_id,
-                    player_id: `debug_test_${Date.now()}`,
-                    player_name: `后台测试-${selected.value.name}`,
-                    deck_code: deckCodeForSelected.value,
-                    test_mode: '1'
-                });
-                window.location.href = '/game.html?' + params.toString();
+                await enterTestRoom(true);
+            }
+
+            async function enterTestRoom(debug) {
+                if (busy.value || !selected.value) return;
+                busy.value = true; requestError.value = '';
+                try {
+                    const code = deckCodeForSelected.value;
+                    await ArcaneUI.request('/api/deck/validate', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({deck_code:code})});
+                    const data = await ArcaneUI.request(debug ? '/api/test-room/create' : '/api/room/create', {method:'POST'});
+                    const params = new URLSearchParams({room:data.room_id, player_id:`card_test_${Date.now()}`, player_name:`测试-${selected.value.name}`, deck_code:code});
+                    if (debug) params.set('test_mode','1');
+                    window.location.href = '/game.html?' + params;
+                } catch (e) { requestError.value = e.message; }
+                finally { busy.value = false; }
             }
 
             function runSelfTest() {
                 const problems = [];
-                const expected = { '人物': 20, '伙伴': 138, '技能': 110, '道具': 125 };
-                if (cards.value.length !== 393) problems.push(`基础包总数应为 393，实际 ${cards.value.length}`);
+                const expected = { '人物': 34, '伙伴': 268, '技能': 194, '道具': 232 };
+                if (cards.value.length !== 728) problems.push(`支持卡牌应为 728，实际 ${cards.value.length}`);
                 for (const [type, count] of Object.entries(expected)) {
                     const actual = typeCount(type);
                     if (actual !== count) problems.push(`${type} 应为 ${count}，实际 ${actual}`);
                 }
                 for (const card of cards.value) {
-                    if (card.version_name !== '基础包') problems.push(`${card.number} ${card.name} 不是基础包`);
+                    if (!['基础包', '王权纷争'].includes(card.version_name)) problems.push(`${card.number} ${card.name} 不在支持卡包`);
                     if (!card.output_path) problems.push(`${card.number} ${card.name} 缺少图片路径`);
                     if (!operationLabel(card)) problems.push(`${card.number} ${card.name} 缺少操作标签`);
                     if (!operationSteps(card).length) problems.push(`${card.number} ${card.name} 缺少操作步骤`);
@@ -481,17 +285,20 @@
                 }
                 selfTest.value = problems.length
                     ? { ok: false, message: `失败：${problems.length} 个问题\n` + problems.slice(0, 20).join('\n') }
-                    : { ok: true, message: `通过：${cards.value.length} 张基础包卡均可在前端检索、查看操作路径，并可生成合法测试卡组。衍生牌通过后台测试房间添加。` };
+                    : { ok: true, message: `通过：${cards.value.length} 张卡牌的元数据与操作入口检查。进房前仍由服务器校验卡组；衍生牌通过测试工具添加。` };
             }
 
             onMounted(async () => {
-                const resp = await fetch('/api/cards');
-                const data = await resp.json();
-                cards.value = Object.values(data).sort((a, b) => a.number.localeCompare(b.number));
-                selected.value = cards.value[0] || null;
+                try {
+                    const data = await ArcaneUI.request('/api/cards');
+                    cards.value = Object.values(data).sort((a, b) => a.number.localeCompare(b.number));
+                    selected.value = cards.value[0] || null;
+                } catch(e) { requestError.value = '卡牌加载失败：' + e.message; }
             });
 
             return {
+                crest: ArcaneUI.crest, imageError: ArcaneUI.imageError,
+                requestError, busy,
                 cards, query, selectedType, selected, selfTest, filters, filteredCards,
                 deckCodeForSelected, getCardImage, selectCard, typeCount, valueLabel, costLabel,
                 operationLabel, operationSteps, runSelfTest, copyDeck, createRoomForSelected, createDebugRoomForSelected

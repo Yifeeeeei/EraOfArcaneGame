@@ -1,0 +1,384 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>奥术纪元 · 卡组与图鉴</title>
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="stylesheet" href="css/main.css" />
+    <link rel="stylesheet" href="css/decks.css" />
+    <script src="vendor/vue.global.prod.js"></script>
+    <script src="assets/card-art-index.js"></script>
+    <script src="js/arcane-ui.js"></script>
+    <script src="js/deck-store.js"></script>
+  </head>
+  <body class="archive-page">
+    <div id="app" v-cloak>
+      <header class="site-header">
+        <a class="brand" href="/"
+          ><span v-html="crest"></span
+          ><span><strong>奥术纪元</strong><small>ERA OF ARCANE</small></span></a
+        >
+        <nav class="site-nav">
+          <a href="/">大厅</a><a class="active" href="/decks.html">卡组与图鉴</a
+          ><a href="/stories.html">故事</a><a href="/card-test.html">测试台</a
+          ><button
+            class="btn icon-btn"
+            data-open-settings
+            aria-label="界面设置"
+          >
+            ⚙
+          </button>
+        </nav>
+      </header>
+      <main class="archive-layout">
+        <aside class="deck-library surface">
+          <div class="section-title">
+            <h2>本地卡组</h2>
+            <button class="mini-btn" @click="newDeck">新建</button>
+          </div>
+          <button class="btn" @click="showImport=true">导入卡组</button
+          ><button class="mini-btn" @click="loadSample">示例卡组</button>
+          <div v-if="storageError" class="notice-error">
+            {{ storageError }}<button class="mini-btn" @click="backupRaw">
+              导出原始备份
+            </button>
+          </div>
+          <div class="saved-decks">
+            <button
+              v-for="deck in decks"
+              :key="deck.id"
+              class="saved-deck"
+              :class="{active:deck.id===editingId}"
+              @click="openDeck(deck)"
+            >
+              <div class="saved-hero card-art">
+                <img
+                  v-bind="artAttrs(heroFor(deck))"
+                  @error="imageError"
+                  alt=""
+                />
+              </div>
+              <span
+                ><strong>{{ deck.name }}</strong
+                ><small>{{ deckSummary(deck) }}</small></span
+              >
+            </button>
+            <p v-if="!decks.length" class="empty-state">尚未保存卡组</p>
+          </div>
+          <footer>
+            <button
+              class="mini-btn"
+              @click="backupAll"
+              :disabled="!decks.length"
+            >
+              备份全部</button
+            ><label class="mini-btn file-button"
+              >恢复备份<input
+                type="file"
+                accept=".json,application/json"
+                @change="restoreBackup" /></label
+            ><small>保存在当前浏览器</small>
+          </footer>
+        </aside>
+        <section class="catalog">
+          <div class="catalog-heading">
+            <div>
+              <div class="eyebrow">CARD ARCHIVE</div>
+              <h1>卡牌图鉴 <small>{{ allCards.length }}</small></h1>
+            </div>
+            <input
+              class="input-field"
+              type="search"
+              v-model="query"
+              aria-label="搜索卡牌"
+              placeholder="搜索卡名 / 卡号 / 标签"
+            />
+          </div>
+          <div class="catalog-filters">
+            <div class="type-filters">
+              <button
+                v-for="type in ['全部','人物','伙伴','技能','道具']"
+                class="filter-btn"
+                :class="{active:typeFilter===type}"
+                @click="typeFilter=type;page=0"
+              >
+                {{ type }}
+              </button>
+            </div>
+            <select v-model="versionFilter" aria-label="卡包筛选">
+              <option value="">全部卡包</option>
+              <option v-for="pack in packs" :value="pack">
+                {{ pack }}
+              </option></select
+            ><select v-model="elementFilter" aria-label="元素筛选">
+              <option value="">全部元素</option>
+              <option v-for="e in elements" :value="e">
+                {{ e==='无'?'奥术':e }}
+              </option>
+            </select>
+          </div>
+          <div v-if="loadError" class="notice-error">
+            {{ loadError }}
+            <button class="mini-btn" @click="loadCards">重试</button>
+          </div>
+          <div v-if="loading" class="empty-state">正在读取卡牌…</div>
+          <div v-else-if="!filtered.length" class="empty-state">
+            没有匹配的卡牌
+          </div>
+          <div v-else class="catalog-grid">
+            <article
+              v-for="card in pageCards"
+              :key="card.number"
+              class="catalog-card"
+              :class="{selected:selected?.number===card.number}"
+              :data-card-number="card.number"
+            >
+              <button
+                class="catalog-art"
+                @click="selected=card"
+                :aria-label="'查看 '+card.name"
+              >
+                <img
+                  :src="image(card)"
+                  @error="imageError"
+                  :alt="card.name"
+                  loading="lazy"
+                />
+              </button>
+              <div class="catalog-card-name" :title="card.name">
+                {{ card.name }}
+              </div>
+              <div class="catalog-card-bottom">
+                <small
+                  >{{ card.category==='无'?'奥术':card.category }} · {{
+                  card.type }}</small
+                ><button
+                  class="mini-btn add-card"
+                  @click="addCard(card)"
+                  :disabled="!!addReason(card)"
+                  :title="addReason(card)||'加入卡组'"
+                  :aria-label="'加入 '+card.name"
+                >
+                  {{ countInDeck(card) ? countInDeck(card)+' ＋' : '＋' }}
+                </button>
+              </div>
+            </article>
+          </div>
+          <footer class="catalog-pagination">
+            <span>{{ filtered.length }} 张</span
+            ><button class="mini-btn" @click="page--" :disabled="page===0">
+              上一页</button
+            ><span>{{ effectivePage+1 }} / {{ pageCount }}</span
+            ><button
+              class="mini-btn"
+              @click="page++"
+              :disabled="effectivePage+1>=pageCount"
+            >
+              下一页
+            </button>
+          </footer>
+        </section>
+        <aside class="deck-draft surface">
+          <div class="section-title">
+            <h2>构筑</h2>
+            <span class="tag" :class="validCode===deckCode?'tag-valid':''"
+              >{{ validCode===deckCode?'已校验':'未校验' }}</span
+            >
+          </div>
+          <input
+            class="input-field"
+            v-model="deckName"
+            maxlength="60"
+            aria-label="卡组名称"
+            placeholder="卡组名称"
+          /><button class="draft-hero" @click="typeFilter='人物';page=0">
+            <div class="card-art">
+              <img v-bind="artAttrs(draftHero)" @error="imageError" alt="" />
+            </div>
+            <span>{{ draftHero?.name || '选择人物' }}</span
+            ><b>{{ draft.hero?'1/1':'0/1' }}</b>
+          </button>
+          <div class="draft-counts">
+            <button @click="draftTab='main'" :aria-pressed="draftTab==='main'">
+              主卡组 <b>{{ draft.main.length }}/30</b></button
+            ><button
+              @click="draftTab='skills'"
+              :aria-pressed="draftTab==='skills'"
+            >
+              技能 <b>{{ draft.skills.length }}/10</b></button
+            ><button
+              v-if="draft.extra.length"
+              @click="draftTab='extra'"
+              :aria-pressed="draftTab==='extra'"
+            >
+              额外 {{ draft.extra.length }}
+            </button>
+          </div>
+          <div class="draft-list">
+            <article
+              v-for="row in draftRows"
+              :key="row.number"
+              class="draft-row"
+            >
+              <button
+                class="draft-row-name"
+                @mouseenter="selected=row.card"
+                @click="selected=row.card"
+              >
+                <span class="row-element"
+                  >{{ row.card?.category==='无'?'◇':row.card?.category }}</span
+                ><span>{{ row.card?.name||row.number }}</span></button
+              ><button
+                class="mini-btn"
+                @click="removeCard(row.number)"
+                :aria-label="'移除 '+(row.card?.name||row.number)"
+              >
+                −</button
+              ><b>×{{ row.count }}</b>
+            </article>
+            <p v-if="!draftRows.length" class="empty-state">从图鉴加入卡牌</p>
+          </div>
+          <div v-if="error" class="notice-error" role="alert">{{ error }}</div>
+          <div class="draft-actions">
+            <button
+              class="btn btn-primary"
+              @click="saveDeck(false)"
+              :disabled="busy||!!storageError"
+            >
+              校验并保存</button
+            ><button
+              class="btn"
+              @click="useDeck"
+              :disabled="busy||!!storageError"
+            >
+              用于对局</button
+            ><button
+              class="mini-btn"
+              @click="saveDeck(true)"
+              :disabled="busy||!!storageError"
+            >
+              保存草稿</button
+            ><button class="mini-btn" @click="exportCode">导出卡组码</button
+            ><button
+              v-if="editingId"
+              class="mini-btn btn-danger"
+              @click="deleteDeck"
+            >
+              删除卡组
+            </button>
+          </div>
+        </aside>
+      </main>
+      <div v-if="selected" class="archive-inspector surface">
+        <button
+          class="mini-btn close-inspector"
+          aria-label="收起卡牌详情"
+          @click="selected=null"
+        >
+          ×</button
+        ><button
+          class="inspector-full-image"
+          @click="fullCard=selected"
+          :aria-label="'放大 '+selected.name"
+        >
+          <img
+            :src="image(selected)"
+            @error="imageError"
+            :alt="selected.name"
+          />
+        </button>
+        <div class="archive-inspector-body">
+          <small>No. {{ selected.number }} · {{ selected.version_name }}</small>
+          <h2>{{ selected.name }}</h2>
+          <p>
+            {{ selected.type }} · {{ selected.category }}<span
+              v-if="selected.tag"
+            >
+              · {{ selected.tag }}</span
+            >
+          </p>
+          <div class="cost-pair">
+            <span
+              >{{ selected.type==='技能'?'学习':'入场' }} {{
+              cost(selected.elements_cost) }}</span
+            ><span v-if="selected.type==='技能'"
+              >施放 {{ cost(selected.elements_expense) }}</span
+            ><span v-if="Object.keys(selected.elements_gain||{}).length"
+              >负载 {{ cost(selected.elements_gain) }}</span
+            >
+          </div>
+          <p class="archive-description">
+            {{ description(selected.description) }}
+          </p>
+          <button
+            class="btn"
+            @click="addCard(selected)"
+            :disabled="!!addReason(selected)"
+          >
+            {{ addReason(selected)||'加入卡组' }}</button
+          ><button class="mini-btn" @click="fullCard=selected">完整原卡</button>
+        </div>
+      </div>
+      <div
+        v-if="showImport"
+        class="arcane-dialog-backdrop"
+        @click.self="showImport=false"
+      >
+        <section
+          class="arcane-dialog"
+          role="dialog"
+          aria-modal="true"
+          aria-label="导入卡组"
+        >
+          <button
+            class="btn dialog-close"
+            aria-label="关闭"
+            @click="showImport=false"
+          >
+            ×
+          </button>
+          <h2>导入卡组</h2>
+          <textarea
+            class="import-code"
+            v-model="importCode"
+            rows="6"
+            placeholder="粘贴卡组码"
+            aria-label="卡组码"
+          ></textarea>
+          <p v-if="importError" class="notice-error">{{ importError }}</p>
+          <div class="dialog-footer">
+            <button class="btn btn-primary" @click="importDeck">
+              读取卡牌
+            </button>
+          </div>
+        </section>
+      </div>
+      <div
+        v-if="fullCard"
+        class="arcane-dialog-backdrop"
+        @click.self="fullCard=null"
+      >
+        <section
+          class="arcane-dialog full-card-dialog"
+          role="dialog"
+          aria-modal="true"
+          :aria-label="fullCard.name"
+        >
+          <button
+            class="btn dialog-close"
+            aria-label="关闭"
+            @click="fullCard=null"
+          >
+            ×</button
+          ><img
+            :src="image(fullCard)"
+            @error="imageError"
+            :alt="fullCard.name"
+          />
+        </section>
+      </div>
+    </div>
+    <script src="js/decks.js"></script>
+  </body>
+</html>

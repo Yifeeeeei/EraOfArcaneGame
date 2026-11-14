@@ -120,7 +120,7 @@ func TestGameHTMLInteractionWindowsUseUnifiedReadableCards(t *testing.T) {
 	}
 	html := string(content)
 	for _, want := range []string{
-		"css/workspace.css",
+		"css/battle.css",
 		"workspaceMode === 'defense'",
 		"class=\"overlay-content interaction-panel defense-panel\"",
 		"workspaceMode === 'pending'",

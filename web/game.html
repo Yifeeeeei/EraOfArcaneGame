@@ -6,41 +6,61 @@
     <title>奥术纪元 — 对战</title>
     <link rel="icon" href="/favicon.ico">
     <script src="vendor/vue.global.prod.js"></script>
-    <link rel="stylesheet" href="css/game.css">
-    <link rel="stylesheet" href="css/workspace.css">
-    <link rel="stylesheet" href="css/formation.css">
-    <link rel="stylesheet" href="css/usability.css">
+    <link rel="stylesheet" href="css/main.css">
+    <link rel="stylesheet" href="css/battle.css">
+    <link rel="stylesheet" href="css/battle-effects.css">
+    <link rel="stylesheet" href="css/match-scenes.css">
+    <script src="assets/card-art-index.js"></script>
+    <script src="js/arcane-ui.js"></script>
+    <script src="js/deck-store.js"></script>
+    <script src="js/board-view.js"></script>
+    <script src="js/battle-effects.js"></script>
 </head>
-<body>
+<body class="match-page">
     <div id="app" v-cloak>
-        <header v-if="gameState" class="match-status"><a href="/">奥术纪元 <small>ERA OF ARCANE</small></a><span>房间 {{ roomID }} · 第 {{ gameState.turn_number }} 回合</span><span>回合：{{ isSpectator ? '玩家' + (gameState.current_turn + 1) : isMyTurn ? '己方' : '对方' }}</span><strong>决策：{{ decisionOwnerLabel }}</strong><span class="connection-dot">{{ connected ? '已连接' : '已断线' }}</span><a :href="legacyURL">旧版入口</a></header>
+        <header class="match-status"><a href="/" class="brand"><span v-html="crest"></span><span><strong>奥术纪元</strong><small>ERA OF ARCANE</small></span></a><span>房间 {{ roomID }}<template v-if="gameState"> · 第 {{ gameState.turn_number }} 回合</template></span><span v-if="gameState && gameState.phase !== 'game_over'">回合：{{ isSpectator ? '玩家' + ((gameState.current_turn || 0) + 1) : isMyTurn ? '己方' : '对方' }}</span><strong>决策：{{ decisionOwnerLabel }}</strong><span class="connection-dot">{{ connected ? '已连接' : '已断线' }}</span><button class="mini-btn" data-open-settings aria-label="界面设置">⚙</button></header>
 
         <!-- ═══ CONNECTION OVERLAY ═══ -->
-        <div v-if="!connected" class="overlay">
-            <div class="overlay-content">
-                <h2>{{ connectionStatus }}</h2><p v-if="gameState">连接中断后不会自动重发动作。重连后请核对战场。</p><button v-if="gameState" data-reconnect class="btn" @click="reloadMatch">重连并同步</button>
+        <div v-if="!connected" class="overlay connection-overlay" role="dialog" aria-modal="true" aria-labelledby="connection-title">
+            <div class="connection-box">
+                <div class="scene-sigil" v-html="crest"></div>
+                <div class="eyebrow">{{ gameState ? 'CONNECTION INTERRUPTED' : 'ENTERING THE ARCANE HALL' }}</div>
+                <h2 id="connection-title">{{ gameState ? '连接暂时中断' : connectionStatus }}</h2>
+                <p v-if="gameState">战场仍在此处。<br>重新连接后，将同步最新状态。</p>
+                <p v-else>正在为你打开这场对决。</p>
                 <div v-if="error" class="error-msg">{{ error }}</div>
-                <a href="/" class="btn btn-primary" style="margin-top:16px;display:inline-block;text-decoration:none">返回大厅</a>
+                <div class="scene-actions"><button v-if="gameState" data-reconnect class="btn btn-primary" @click="reloadMatch">重连并同步</button><a href="/" class="btn">返回大厅</a></div>
+                <p v-if="gameState" class="connection-footnote">刚才的行动不会自动重发。<br>连接恢复后，请先核对战场与当前决策。</p>
             </div>
         </div>
 
-        <div v-if="connected && !gameState" class="overlay">
-            <div class="overlay-content">
-                <h2>{{ isSpectator ? '等待对局开始...' : '等待对手加入...' }}</h2>
-                <div>房间 #{{ roomID }}</div>
-                <a href="/" class="btn btn-primary" style="margin-top:16px;display:inline-block;text-decoration:none">返回大厅</a>
+        <div v-if="connected && !gameState" class="overlay waiting-room-overlay match-scene">
+            <div class="waiting-scene">
+                <header class="scene-heading"><div><div class="eyebrow">PRIVATE DUEL</div><h2>{{ isSpectator ? '等待对局开始...' : '等待对手加入...' }}</h2><p>另一位旅法师入席后，对决即将开始。</p></div><a href="/" class="btn">离开房间</a></header>
+                <div class="waiting-seats">
+                    <section class="duelist-seat occupied-seat">
+                        <img v-if="waitingHero" v-bind="artAttrs(waitingHero)" @error="imageFallback" :alt="waitingHero.name">
+                        <div v-else class="seat-emblem" v-html="crest"></div>
+                        <div class="seat-caption"><span class="seat-status">已连接</span><h3>{{ isSpectator ? '观战席' : playerName || '旅法师' }}</h3><p>{{ waitingHero?.name || (isSpectator ? '等待双方落座' : '准备你的奥术与誓约') }}</p></div>
+                    </section>
+                    <span class="seat-versus">VS</span>
+                    <section class="duelist-seat empty-seat"><div class="empty-seat-sigil" v-html="crest"></div><div class="seat-caption"><h3>虚位以待</h3><p>邀请朋友，开启本局</p></div></section>
+                </div>
+                <section class="waiting-invite"><div><div class="eyebrow">ROOM CODE</div><strong>{{ roomID }}</strong></div><div><p>分享房间号或邀请链接</p><p class="muted">第二位玩家加入后，进入起手阶段。</p><button class="btn btn-primary" @click="copyRoomLink">复制邀请链接</button></div></section>
+                <footer class="waiting-footer"><span v-if="!isSpectator">已选：{{ waitingHero?.name || '出战卡组' }} · {{ waitingCounts.main }} 主卡组 / {{ waitingCounts.skills }} 技能</span><span v-else>观战只展示双方公开信息</span><a href="/decks.html" v-if="!isSpectator">管理卡组 ↗</a></footer>
             </div>
         </div>
 
+        <div class="vfx-layer" aria-hidden="true"></div>
         <!-- ═══ GAME OVER OVERLAY ═══ -->
-        <div v-if="gameState && gameState.phase === 'game_over'" class="overlay">
-            <div class="overlay-content">
-                <h2 v-if="isSpectator && gameState.winner === -2" class="draw">平 局</h2>
-                <h2 v-else-if="isSpectator" class="win">玩家{{ gameState.winner + 1 }} 获胜</h2>
-                <h2 v-else-if="gameState.winner === -2" class="draw">平 局</h2>
-                <h2 v-else-if="gameState.winner === mySlot" class="win">胜 利</h2>
-                <h2 v-else class="lose">战 败</h2>
-                <a href="/" class="btn btn-primary" style="margin-top:16px;display:inline-block;text-decoration:none">返回大厅</a>
+        <div v-if="gameState && gameState.phase === 'game_over' && !resultDismissed" class="overlay result-scene match-scene" :class="'result-'+resultKind" role="dialog" aria-modal="true" aria-labelledby="result-title">
+            <div class="result-center">
+                <div class="result-crest" v-html="crest"></div>
+                <h2 id="result-title" :class="resultKind">{{ resultTitle }}</h2>
+                <div class="result-motto">{{ resultMotto }}</div>
+                <div class="result-stats"><div><strong>{{ String(gameState.turn_number || 0).padStart(2,'0') }}</strong><small>结束回合</small></div><div v-if="resultHero"><strong>{{ resultHero.current_life }} / {{ resultHero.max_life ?? resultHero.life }}</strong><small>{{ isSpectator ? (gameState.winner === -2 ? '玩家1人物生命' : '获胜人物生命') : '人物剩余生命' }}</small></div><div><strong>{{ roomID }}</strong><small>对局房间</small></div></div>
+                <p class="result-summary">{{ resultSummary }}</p><p class="result-hero-name">{{ resultHero?.name }}</p>
+                <div class="scene-actions"><button class="btn" @click="resultDismissed=true;railTab='events'">查看战场与记录</button><a href="/" class="btn btn-primary">返回大厅 →</a></div>
             </div>
         </div>
 
@@ -53,7 +73,7 @@
 
         <!-- ═══ CARD DETAIL MODAL ═══ -->
         <div v-if="detailCard" class="overlay card-detail-overlay" @click.self="detailCard = null">
-            <div class="card-detail-modal">
+            <div class="card-detail-modal" role="dialog" aria-modal="true" :aria-label="detailCard.name">
                 <img @mouseenter="previewCard(detailCard)" @error="imageFallback" :src="getCardImage(detailCard)" :alt="detailCard.name" class="card-img-large">
                 <div class="card-detail-info">
                     <h3>{{ detailCard.name }}</h3>
@@ -115,7 +135,7 @@
 
         <!-- ═══ PILE VIEW MODAL ═══ -->
         <div v-if="pileView" class="overlay" @click.self="closePileView">
-            <div class="pile-modal">
+            <div class="pile-modal" role="dialog" aria-modal="true" :aria-label="pileView.title">
                 <div class="pile-modal-header">
                     <div>
                         <div class="pile-owner">{{ pileView.ownerName }}</div>
@@ -147,7 +167,7 @@
         <!-- ═══       MAIN GAME LAYOUT         ═══ -->
         <!-- ═══════════════════════════════════════ -->
         <nav v-if="gameState" class="mobile-jump"><a href="#arena">战场</a><a href="#hand">手牌</a><a href="#decision">当前决策</a></nav>
-        <div v-if="connected && gameState" class="game-layout" @click.capture="guardInteraction" @keydown.capture="defenseKeydown">
+        <div v-if="gameState" class="game-layout" :data-mode="workspaceMode" :inert="!connected || (gameState.phase === 'game_over' && !resultDismissed)" @click.capture="guardInteraction" @keydown.capture="defenseKeydown">
 
             <!-- ── LEFT SIDEBAR ── -->
             <div class="sidebar-left">
@@ -160,10 +180,10 @@
                     </div>
                     <div class="hero-row" v-if="opponent.hero">
                         <div class="hero-portrait" @mouseenter="previewCard(opponent.hero)" @click="showCardDetail(opponent.hero)">
-                            <img @mouseenter="previewCard(opponent.hero)" @error="imageFallback" :src="getCardImage(opponent.hero)" :alt="opponent.hero.name">
+                            <img @mouseenter="previewCard(opponent.hero)" @error="imageFallback" v-bind="artAttrs(opponent.hero)" :alt="opponent.hero.name">
                         </div>
                         <div>
-                            <div class="hero-hp">{{ opponent.hero.current_life }}</div>
+                            <div class="hero-hp">{{ opponent.hero.current_life }} <small>/ {{ opponent.hero.max_life ?? opponent.hero.life }}</small></div>
                             <div class="hero-hp-label">生命值</div>
                             <div v-if="opponent.shield > 0" class="shield-chip">护盾 {{ opponent.shield }}</div>
                         </div>
@@ -184,10 +204,10 @@
                         </div>
                     </div>
                     <div class="elem-grid">
-                        <div v-for="(v,k) in opponent.elements" :key="k" class="elem-item">
+                        <div v-for="k in ELEMENT_ORDER" :key="k" class="elem-item">
                             <img @error="imageFallback" :src="getElementIcon(k)" :alt="elemFull(k)" class="elem-icon">
                             <span class="elem-name">{{ elemFull(k) }}</span>
-                            <span class="elem-count" :class="{'has-value': v > 0}">{{ v }}</span>
+                            <span class="elem-count" :class="{'has-value': (opponent.elements[k]||0) > 0}">{{ opponent.elements[k]||0 }}</span>
                         </div>
                     </div>
                 </div>
@@ -205,10 +225,10 @@
                              :class="{ 'spell-target': isFriendlyHeroSpellTarget(), 'invalid-target': selectedSkill && selectedSkill.allows_friendly_target && !isFriendlyHeroSpellTarget() }"
                              @mouseenter="previewCard(myState.hero)"
                              @click="handleMyHeroClick">
-                            <img @mouseenter="previewCard(myState.hero)" @error="imageFallback" :src="getCardImage(myState.hero)" :alt="myState.hero.name">
+                            <img @mouseenter="previewCard(myState.hero)" @error="imageFallback" v-bind="artAttrs(myState.hero)" :alt="myState.hero.name">
                         </div>
                         <div>
-                            <div class="hero-hp">{{ myState.hero.current_life }}</div>
+                            <div class="hero-hp">{{ myState.hero.current_life }} <small>/ {{ myState.hero.max_life ?? myState.hero.life }}</small></div>
                             <div class="hero-hp-label">生命值</div>
                             <div v-if="myState.shield > 0" class="shield-chip">护盾 {{ myState.shield }}</div>
                             <div class="hero-abilities" v-if="isMyTurn && gameState.phase === 'main'">
@@ -224,18 +244,14 @@
                         <span>卡组 {{ myState.deck_count || 0 }}</span>
                     </div>
                     <div class="elem-grid">
-                        <div v-for="(v,k) in myState.elements" :key="k" class="elem-item">
+                        <div v-for="k in ELEMENT_ORDER" :key="k" class="elem-item">
                             <img @error="imageFallback" :src="getElementIcon(k)" :alt="elemFull(k)" class="elem-icon">
                             <span class="elem-name">{{ elemFull(k) }}</span>
-                            <span class="elem-count" :class="{'has-value': v > 0}">{{ v }}</span>
+                            <span class="elem-count" :class="{'has-value': (myState.elements[k]||0) > 0}">{{ myState.elements[k]||0 }}</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- End Turn -->
-                <div class="end-turn-wrapper" v-if="isMyTurn && gameState.phase === 'main'">
-                    <button @click="endTurn" class="btn-end-turn">结束回合</button>
-                </div>
                 <div class="match-actions" v-if="canUseMatchActions">
                     <button @click="offerDraw" class="btn-match-action draw" :disabled="outgoingDrawOffer">
                         {{ outgoingDrawOffer ? '等待和局回应' : '求和' }}
@@ -263,10 +279,11 @@
                         <!-- Opponent Grid (row 2 at top = back, row 0 at bottom = front) -->
                         <div class="unit-grid board-grid">
                         <template v-for="row in [2,1,0]">
-                            <div v-for="col in [0,1,2]" :key="'ou'+col+'_'+row"
-                                 class="unit-cell" :data-col="col" :data-row="row"
+                            <div v-for="col in [2,1,0]" :key="'ou'+col+'_'+row"
+                                 class="unit-cell" :data-owner-id="opponentBoardOwnerID()" :data-instance-id="getOpponentUnit(col,row)?.instance_id" :data-col="col" :data-row="row"
                                  :class="{
                                      occupied: getOpponentUnit(col, row),
+                                     stealthed: getOpponentUnit(col,row)?.has_stealth,
                                      'has-terrain': getOpponentTerrain(col, row),
                                      'front-row': row === opponentFrontRow,
                                      'attack-target': isAttackTarget(col, row),
@@ -281,12 +298,12 @@
                                  @click="handleCellClick(1 - mySlot, col, row)">
                                 <div v-if="getOpponentTerrain(col, row)" class="terrain-layer"
                                      @mouseenter.stop="previewCard(getOpponentTerrain(col, row))"
-                                     @click.stop="showCardDetail(getOpponentTerrain(col, row))">
-                                    <img @error="imageFallback" :src="getCardImage(getOpponentTerrain(col, row))" class="terrain-img">
+                                     @click.stop="handleTerrainClick(opponentBoardOwnerID(), col, row, getOpponentTerrain(col,row))">
+                                    <img @error="imageFallback" v-bind="artAttrs(getOpponentTerrain(col, row))" class="terrain-img">
                                 </div>
                                 <template v-if="getOpponentUnit(col, row)"><span class="board-card-label">{{ getOpponentUnit(col, row).name }}</span>
                                     <div class="unit-card-face">
-                                    <img @error="imageFallback" :src="getCardImage(getOpponentUnit(col, row))" :alt="getOpponentUnit(col, row).name" class="unit-img"
+                                    <img @error="imageFallback" v-bind="artAttrs(getOpponentUnit(col, row))" :alt="getOpponentUnit(col, row).name" class="unit-img"
                                          :class="{horizontal: getOpponentUnit(col, row).is_horizontal, 'inside-terrain': getOpponentTerrain(col, row)}"
                                          @mouseenter.stop="previewCard(getOpponentUnit(col, row))"
                                          @click.stop="handleUnitImageClick(1 - mySlot, col, row, getOpponentUnit(col, row), $event)">
@@ -309,13 +326,13 @@
                         <div class="board-side">
                             <div class="slot-bank">
                                 <div class="slot-lane">
-                                    <span class="slot-label">技能</span>
-                                    <div class="slots">
-                                        <div v-for="i in opponentSkillSlotCount" :key="'os'+i" class="slot" :class="{occupied: opponent.skills[i-1]}"
+                                    <span class="slot-label">技能 <small>{{ opponent.skills?.filter(Boolean).length||0 }} / {{ opponentSkillSlotCount }}</small></span>
+                                    <div class="slots" :style="slotStyle(opponentSkillSlotCount)">
+                                        <div v-for="i in opponentSkillSlotCount" :key="'os'+i" class="slot" :data-instance-id="opponent.skills[i-1]?.instance_id" :class="{occupied: opponent.skills[i-1]}"
                                              @mouseenter="opponent.skills[i-1] && previewCard(opponent.skills[i-1])"
                                              @click="opponent.skills[i-1] && showCardDetail(opponent.skills[i-1])">
-                                            <template v-if="opponent.skills[i-1]">
-                                                <img @mouseenter="previewCard(opponent.skills[i-1])" @error="imageFallback" :src="getCardImage(opponent.skills[i-1])" class="slot-img"
+                                            <template v-if="opponent.skills[i-1]"><span class="slot-card-name">{{ opponent.skills[i-1].is_hidden ? '盖放' : opponent.skills[i-1].name }}</span>
+                                                <img @mouseenter="previewCard(opponent.skills[i-1])" @error="imageFallback" v-bind="artAttrs(opponent.skills[i-1])" class="slot-img"
                                                      :class="{horizontal: opponent.skills[i-1].is_horizontal}">
                                                 <div class="status-badges compact" v-if="statusEntries(opponent.skills[i-1]).length">
                                                     <span v-for="s in statusEntries(opponent.skills[i-1])" :key="s.label" class="status-badge">{{ s.label }}</span>
@@ -325,14 +342,14 @@
                                     </div>
                                 </div>
                                 <div class="slot-lane">
-                                    <span class="slot-label">装备</span>
-                                    <div class="slots">
-                                        <div v-for="i in opponentEquipmentSlotCount" :key="'oe'+i" class="slot" :class="{occupied: opponent.equipment[i-1]}"
+                                    <span class="slot-label">装备 <small>{{ opponent.equipment?.filter(Boolean).length||0 }} / {{ opponentEquipmentSlotCount }}</small></span>
+                                    <div class="slots" :style="slotStyle(opponentEquipmentSlotCount)">
+                                        <div v-for="i in opponentEquipmentSlotCount" :key="'oe'+i" class="slot" :data-instance-id="opponent.equipment[i-1]?.instance_id" :class="{occupied: opponent.equipment[i-1]}"
                                              @mouseenter="opponent.equipment[i-1] && !opponent.equipment[i-1].is_hidden && previewCard(opponent.equipment[i-1])"
                                              @click="opponent.equipment[i-1] && !opponent.equipment[i-1].is_hidden && showCardDetail(opponent.equipment[i-1])">
-                                            <template v-if="opponent.equipment[i-1]">
-                                                <img v-if="opponent.equipment[i-1].is_hidden" src="images/card-back.svg" alt="对手盖放牌" class="slot-img set-card-back">
-                                                <img @mouseenter="previewCard(opponent.equipment[i-1])" @error="imageFallback" v-else :src="getCardImage(opponent.equipment[i-1])" class="slot-img"
+                                            <template v-if="opponent.equipment[i-1]"><span class="slot-card-name">{{ opponent.equipment[i-1].is_hidden ? '盖放' : opponent.equipment[i-1].name }}</span>
+                                                <img v-if="opponent.equipment[i-1].is_hidden" src="assets/card-back.png" alt="对手盖放牌" class="slot-img set-card-back">
+                                                <img @mouseenter="previewCard(opponent.equipment[i-1])" @error="imageFallback" v-else v-bind="artAttrs(opponent.equipment[i-1])" class="slot-img"
                                                      :class="{horizontal: opponent.equipment[i-1].is_horizontal}">
                                             </template>
                                         </div>
@@ -356,7 +373,7 @@
                         <span class="divider-text">
                             回合 {{ gameState.turn_number }}
                             <span class="turn-indicator" :class="isMyTurn ? 'my-turn' : 'opp-turn'">
-                                {{ isMyTurn ? '你的回合' : '对手回合' }}
+                                {{ isSpectator ? '玩家' + (gameState.current_turn + 1) + '的回合' : isMyTurn ? '你的回合' : '对手回合' }}
                             </span>
                         </span>
                     </div>
@@ -371,11 +388,12 @@
                         <template v-for="row in [0,1,2]">
                             <div v-for="col in [0,1,2]" :key="'mu'+col+'_'+row"
                                  class="unit-cell"
-                                 data-owner="me"
+                                 data-owner="me" :data-owner-id="myBoardOwnerID()" :data-instance-id="getMyUnit(col,row)?.instance_id"
                                  :data-col="col"
                                  :data-row="row"
                                  :class="{
                                      occupied: getMyUnit(col, row),
+                                     stealthed: getMyUnit(col,row)?.has_stealth,
                                      'has-terrain': getMyTerrain(col, row),
                                      'front-row': row === myFrontRow,
                                      'summon-target': selectedHandCard && canSummonAt(col, row),
@@ -388,12 +406,12 @@
                                  @click="handleCellClick(mySlot, col, row)">
                                 <div v-if="getMyTerrain(col, row)" class="terrain-layer"
                                      @mouseenter.stop="previewCard(getMyTerrain(col, row))"
-                                     @click.stop="showCardDetail(getMyTerrain(col, row))">
-                                    <img @error="imageFallback" :src="getCardImage(getMyTerrain(col, row))" class="terrain-img">
+                                     @click.stop="handleTerrainClick(myBoardOwnerID(), col, row, getMyTerrain(col,row))">
+                                    <img @error="imageFallback" v-bind="artAttrs(getMyTerrain(col, row))" class="terrain-img">
                                 </div>
                                 <template v-if="getMyUnit(col, row)"><span class="board-card-label">{{ getMyUnit(col, row).name }}</span>
                                     <div class="unit-card-face">
-                                    <img @error="imageFallback" v-bind="defenseCardAttrs(getMyUnit(col, row))" :src="getCardImage(getMyUnit(col, row))" :alt="getMyUnit(col, row).name" class="unit-img"
+                                    <img @error="imageFallback" v-bind="{...artAttrs(getMyUnit(col,row)), ...defenseCardAttrs(getMyUnit(col,row))}" :alt="getMyUnit(col, row).name" class="unit-img"
                                          :class="{horizontal: getMyUnit(col, row).is_horizontal, 'inside-terrain': getMyTerrain(col, row)}"
                                          @mouseenter.stop="previewCard(getMyUnit(col, row))"
                                          @click.stop="handleUnitImageClick(mySlot, col, row, getMyUnit(col, row), $event)" tabindex="0" role="button" @keydown.enter.prevent="$event.currentTarget.click()" @keydown.space.prevent="$event.currentTarget.click()">
@@ -419,14 +437,14 @@
                         <div class="board-side">
                             <div class="slot-bank">
                                 <div class="slot-lane">
-                                    <span class="slot-label">技能</span>
-                                    <div class="slots">
+                                    <span class="slot-label">技能 <small>{{ mySkills.filter(Boolean).length }} / {{ mySkillSlotCount }}</small></span>
+                                    <div class="slots" :style="slotStyle(mySkillSlotCount)">
                                         <div v-for="i in mySkillSlotCount" :key="'ms'+i" class="slot"
-                                             v-bind="defenseCardAttrs(mySkills[i-1])" :class="{occupied: mySkills[i-1], 'defense-only': mySkills[i-1]?.is_defense_only, 'boost-selected': selectedBoostSkills.includes(mySkills[i-1]?.instance_id), castable: canCastSkill(mySkills[i-1])}"
+                                             :data-instance-id="mySkills[i-1]?.instance_id" v-bind="defenseCardAttrs(mySkills[i-1])" :class="{occupied: mySkills[i-1], 'defense-only': mySkills[i-1]?.is_defense_only, 'boost-selected': selectedBoostSkills.includes(mySkills[i-1]?.instance_id), castable: canCastSkill(mySkills[i-1])}"
                                              @mouseenter="mySkills[i-1] && previewCard(mySkills[i-1])"
                                              @click="mySkills[i-1] && showCardContextMenu($event,mySkills[i-1],'skill')" tabindex="0" @keydown.enter.prevent="$event.currentTarget.click()">
-                                            <template v-if="mySkills[i-1]">
-                                                <img @mouseenter="previewCard(mySkills[i-1])" @error="imageFallback" :src="getCardImage(mySkills[i-1])" :alt="mySkills[i-1].name" class="slot-img"
+                                            <template v-if="mySkills[i-1]"><span class="slot-card-name">{{ mySkills[i-1].is_hidden ? '盖放' : mySkills[i-1].name }}</span>
+                                                <img @mouseenter="previewCard(mySkills[i-1])" @error="imageFallback" v-bind="artAttrs(mySkills[i-1])" :alt="mySkills[i-1].name" class="slot-img"
                                                      :class="{horizontal: mySkills[i-1].is_horizontal}">
                                                 <div class="skill-badges">
                                                     <span v-if="mySkills[i-1].is_defense_only" class="badge badge-defense">防御</span>
@@ -457,14 +475,14 @@
                                     </div>
                                 </div>
                                 <div class="slot-lane">
-                                    <span class="slot-label">装备</span>
-                                    <div class="slots">
-                                        <div v-for="i in myEquipmentSlotCount" :key="'me'+i" class="slot" v-bind="defenseCardAttrs(myEquipment[i-1])" :class="{occupied: myEquipment[i-1]}"
+                                    <span class="slot-label">装备 <small>{{ myEquipment.filter(Boolean).length }} / {{ myEquipmentSlotCount }}</small></span>
+                                    <div class="slots" :style="slotStyle(myEquipmentSlotCount)">
+                                        <div v-for="i in myEquipmentSlotCount" :key="'me'+i" class="slot" :data-instance-id="myEquipment[i-1]?.instance_id" v-bind="defenseCardAttrs(myEquipment[i-1])" :class="{occupied: myEquipment[i-1]}"
                                              @mouseenter="myEquipment[i-1] && previewCard(myEquipment[i-1])"
                                              @click="myEquipment[i-1] && showCardContextMenu($event,myEquipment[i-1],'field')" tabindex="0" @keydown.enter.prevent="$event.currentTarget.click()">
-                                            <template v-if="myEquipment[i-1]">
-                                                <img v-if="myEquipment[i-1].is_set_counter" src="images/card-back.svg" alt="己方盖放牌" class="slot-img set-card-back">
-                                                <img @mouseenter="previewCard(myEquipment[i-1])" v-else @error="imageFallback" :src="getCardImage(myEquipment[i-1])" :alt="myEquipment[i-1].name" class="slot-img"
+                                            <template v-if="myEquipment[i-1]"><span class="slot-card-name">{{ myEquipment[i-1].is_hidden ? '盖放' : myEquipment[i-1].name }}</span>
+                                                <img v-if="myEquipment[i-1].is_set_counter" src="assets/card-back.png" alt="己方盖放牌" class="slot-img set-card-back">
+                                                <img @mouseenter="previewCard(myEquipment[i-1])" v-else @error="imageFallback" v-bind="artAttrs(myEquipment[i-1])" :alt="myEquipment[i-1].name" class="slot-img"
                                                      :class="{horizontal: myEquipment[i-1].is_horizontal}">
                                                 <div class="equipment-actions" v-if="isMyTurn && gameState.phase === 'main'">
                                                     <button v-if="canConsumeUnit(myEquipment[i-1])"
@@ -516,12 +534,12 @@
                 <div class="skill-pool-panel" v-show="railTab === 'skills'" v-if="myState.skill_pool && myState.skill_pool.length">
                     <h3>技能池 ({{ myState.skill_pool.length }})</h3>
                     <div class="skill-pool-grid">
-                        <div v-for="card in myState.skill_pool" :key="card.instance_id" class="sp-card" tabindex="0" @keydown.enter.prevent="$event.currentTarget.click()" @click="showCardContextMenu($event,card,'skill_pool')"
+                        <div v-for="card in myState.skill_pool" :key="card.instance_id" :data-card-number="card.number" class="sp-card" tabindex="0" @keydown.enter.prevent="$event.currentTarget.click()" @click="showCardContextMenu($event,card,'skill_pool')"
                              :class="{ learnable: canLearnSkill(card), unaffordable: isMyTurn && gameState.phase === 'main' && !canLearnSkill(card) }"
                              @mouseenter="previewCard(card)"
                              @contextmenu.prevent="showCardContextMenu($event, card, 'skill_pool')"
                              title="右键点击查看选项">
-                            <img @mouseenter="previewCard(card)" @error="imageFallback" :src="getCardImage(card)" :alt="card.name">
+                            <div class="sp-art"><img @mouseenter="previewCard(card)" @error="imageFallback" v-bind="artAttrs(card)" :alt="card.name"></div>
                             <button class="mini-btn" @click.stop="showCardDetail(card)">查看</button>
                             <div class="sp-name">{{ card.name }}</div>
                             <div class="sp-cost" v-html="costHTML(learnCost(card))"></div>
@@ -559,33 +577,33 @@
             </div>
 
 
-            <aside class="fixed-inspector" aria-label="卡牌详情" data-inspect>
-                <header>卡牌详情 <small>悬停 / 聚焦读牌</small></header>
+            <aside v-show="showInspector" class="fixed-inspector" aria-label="卡牌详情" data-inspect>
+                <header><span class="eyebrow">CARD INSPECTOR</span><button v-if="activePreviewCard" class="mini-btn" @click="showCardDetail(activePreviewCard)">原卡</button></header>
                 <div class="inspector-scroll" v-if="activePreviewCard && !activePreviewCard.is_hidden">
-                    <img @mouseenter="previewCard(activePreviewCard)" :key="activePreviewCard.instance_id || activePreviewCard.number" @error="imageFallback" :src="getCardImage(activePreviewCard)" :alt="activePreviewCard.name" class="inspector-image" @click="showCardDetail(activePreviewCard)">
+                    <div class="inspector-art" @click="showCardDetail(activePreviewCard)"><img :key="activePreviewCard.instance_id || activePreviewCard.number" @error="imageFallback" v-bind="artAttrs(activePreviewCard)" :alt="activePreviewCard.name" class="inspector-image"></div>
                     <h3>{{ activePreviewCard.name }}</h3>
                     <p>{{ activePreviewCard.type }} · {{ activePreviewCard.category }} <span v-if="activePreviewCard.current_life >= 0"> · 生命 {{ activePreviewCard.current_life }}</span></p>
-                    <p>{{ entryCostLabel(activePreviewCard) }}：{{ costLabel(playCost(activePreviewCard)) }}<br>使用：{{ costLabel(activePreviewCard.elements_expense) }} · 负载：{{ costLabel(activePreviewCard.elements_gain) }}</p>
+                    <div class="inspector-costs"><p>{{ activePreviewCard.type === '技能' ? '学习费用' : '入场费用' }}<b>{{ costLabel(playCost(activePreviewCard)) }}</b></p><p v-if="activePreviewCard.type === '技能'">施放费用<b>{{ costLabel(activePreviewCard.elements_expense) }}</b></p><p v-if="hasGain(activePreviewCard)">负载<b>{{ costLabel(activePreviewCard.elements_gain) }}</b></p></div>
                     <p class="inspector-metadata"><span v-for="label in previewMetadata(activePreviewCard)" :key="label">{{ label }}</span></p>
                     <div class="inspector-description" v-html="descriptionHTML(activePreviewCard.description)"></div>
                     <button class="btn" data-inspect @click="showCardDetail(activePreviewCard)">放大查看</button>
                 </div>
                 <p v-else>将鼠标移到可见卡牌上查看详情。</p>
             </aside>
-            <nav class="dock-tabs" aria-label="右下区域">
-                <button data-inspect @click="railTab = 'hand'" :aria-pressed="railTab === 'hand'">手牌 {{ myHand.length }}</button>
-                <button data-inspect @click="railTab = 'skills'" :aria-pressed="railTab === 'skills'">技能池</button>
+            <nav class="dock-tabs" aria-label="手牌与技能池">
+                <button data-inspect @click="railTab = 'hand'" :aria-pressed="railTab === 'hand'">{{ isSpectator ? '隐藏手牌' : '手牌 ' + myHand.length }}</button>
+                <button v-if="!isSpectator" data-inspect @click="railTab = 'skills'" :aria-pressed="railTab === 'skills'">技能池</button>
                 <button data-inspect @click="railTab = 'events'" :aria-pressed="railTab === 'events'">记录</button>
             </nav>
-            <aside id="decision" class="decision-workspace" aria-label="决策工作区">
-                <header class="workspace-heading"><span>决策工作区</span><small>{{ decisionOwnerLabel }}</small></header>
+            <aside id="decision" v-show="!showInspector" class="decision-workspace" aria-label="决策工作区">
+                <header class="workspace-heading"><span>当前决策</span><button v-if="activePreviewCard" class="mini-btn" data-inspect @click="showCardDetail(activePreviewCard)">查看卡牌</button><small>{{ decisionOwnerLabel }}</small></header>
                 <div v-if="decisionError" role="alert" class="decision-error">{{ decisionError }}</div>
                 <div v-if="actionBusy" class="submission-status" role="status">{{ decisionError ? '服务器已返回错误，正在同步战场…' : '操作已发送，等待服务器回执与状态…' }}<button data-reconnect class="mini-btn" @click="reloadMatch">长时间无响应？重连核对</button></div>
                 <div v-if="workspaceMode === 'review'" class="action-review"><div class="decision-scroll">
-                    <div class="eyebrow">{{ actionBusy ? '已提交 · 等待状态同步' : '本地草稿 · 尚未提交' }}</div>
+                    <div class="eyebrow">{{ actionBusy ? '提交中' : '行动确认' }}</div>
                     <h2>{{ draftTitle }}</h2>
                     <ul><li v-for="line in draftSummary" :key="line">{{ line }}</li></ul>
-                    <p>确认后交由服务器校验并结算。</p>
+
                     </div><div class="workspace-footer"><button class="btn btn-success" :disabled="actionBusy" @click="commitDraft">确认提交</button>
                     <button class="btn" :disabled="actionBusy" @click="cancelDraft">返回编辑</button>
                 </div></div>
@@ -632,9 +650,9 @@
                  @contextmenu.prevent="showInteractionCardContextMenu($event)">
                 <button class="defense-incoming" data-inspect @mouseenter="pendingSpellView?.skill && previewCard(pendingSpellView.skill)" @click="pendingSpellView?.skill && showCardDetail(pendingSpellView.skill)">来袭：{{ pendingSpellView?.skill?.name }} → {{ pendingSpellTargetLabel() }} · 威力 {{ pendingAttackPower() }}{{ pendingSpellExtraTargetLabels().length ? '；追加目标：'+pendingSpellExtraTargetLabels().join('、') : '' }}</button>
                 <nav class="defense-steps" aria-label="防御步骤">
-                    <button v-for="(label,index) in ['透支','防御牌','强化']" :aria-current="defenseStep===index?'step':null" :disabled="index>1 && !defenseSelected.length && !defenseScrollSelected.length" @click="goDefenseStep(index)">{{ index+1 }} · {{ label }}</button>
+                    <button v-for="(label,index) in ['防御','强化','透支','付款']" :aria-current="defenseStep===index?'step':null" :disabled="index>0 && !defenseSelected.length && !defenseScrollSelected.length && !defenseReactionCard" @click="goDefenseStep(index)">{{ index+1 }} · {{ label }}</button>
                 </nav>
-                <small>虚线框：可选 · 实线框：已选；在原卡位置操作</small><p class="defense-instruction" aria-live="polite">{{ defenseStep===0?'在原卡位置选择透支，可多选；完成后继续，也可跳过。':defenseStep===1?'选择一张防御技能或手牌卷轴，选定后进入强化。':defenseStep===2?'在原卡位置选择强化，可多选；完成或跳过后核对付款。':'核对组合与付款后提交一次。' }}</p>
+                <p class="defense-instruction" aria-live="polite">{{ defenseStep===0?'选择主防御牌，或选择响应。':defenseStep===1?'选择强化，也可跳过。':defenseStep===2?'选择透支；不足时可返回重选防御。':'核对组合与实际支付。' }}</p>
                 <div class="decision-scroll">
                 <p v-if="defensePickMode!=='normal'">{{ defensePickMode==='reaction'?'当前选择响应牌，发动前仍需确认。':'当前选择可选祭献单位。' }} <button @click="defensePickMode='normal'">返回当前步骤</button></p>
                 <div class="defense-locators" v-if="defenseStep<3">
@@ -646,16 +664,17 @@
                     <button v-for="entry in defenseFallback" :key="entry.card.instance_id" :data-instance-id="entry.card.instance_id" :data-defense-action="entry.kind" :aria-pressed="defenseIsSelected(entry.card.instance_id)" @mouseenter="previewCard(entry.card)" @click.stop="pickDefenseCard(entry.card.instance_id)">{{ defenseIsSelected(entry.card.instance_id)?'✓ 已选 · ':'' }}{{ entry.card.name }} · {{ defenseLocation(entry.card) }} · {{ costLabel(defensePaymentCost(entry.card)) }}</button>
                 </div>
                 <div class="defense-step-actions">
-                    <button v-if="defenseStep===0" @click="goDefenseStep(1)">{{ defenseOverexertSelected.length?'完成透支，下一步':'跳过透支' }}</button>
-                    <button v-if="defenseStep===1 && availableReactionSkills.length" @click="defensePickMode='reaction'">选择响应牌</button>
-                    <button v-if="defenseStep===2 && defensePowerSacrificeCandidates.length" @click="defensePickMode='sacrifice'">选择可选祭献</button>
-                    <button v-if="defenseStep===2" @click="goDefenseStep(3)">{{ defenseBoostSelected.length?'完成强化，核对付款':'跳过强化，核对付款' }}</button>
+                    <button v-if="defenseStep===0 && availableReactionSkills.length" @click="defensePickMode=defensePickMode==='reaction'?'normal':'reaction'">选择响应牌</button>
+                    <button v-if="defenseStep===1 && defensePowerSacrificeCandidates.length" @click="defensePickMode='sacrifice'">可选祭献</button>
+                    <button v-if="defenseStep===1" @click="goDefenseStep(2)">{{ defenseBoostSelected.length?'完成强化':'跳过强化' }} → 透支</button>
+                    <button v-if="defenseStep===2" @click="goDefenseStep(3)">核对付款 →</button>
+                    <button v-if="defenseStep>0" @click="goDefenseStep(defenseStep-1)">← 返回</button>
                 </div>
                 </div>
                 <div class="defense-actions">
                 <div class="defense-selection-summary">
                     <div>透支：{{ defenseNames(defenseOverexertSelected) }}</div>
-                    <div>防御：{{ defenseNames([...defenseSelected,...defenseScrollSelected]) }}</div>
+                    <div>{{ defenseReactionCard?'响应':'防御' }}：{{ defenseReactionCard?.name || defenseNames([...defenseSelected,...defenseScrollSelected]) }}</div>
                     <div>强化：{{ defenseNames(defenseBoostSelected) }}</div>
                     <div v-if="defensePowerSacrificeId">祭献：{{ defenseNames([defensePowerSacrificeId]) }}</div>
                 </div>
@@ -663,7 +682,7 @@
                     <div class="defense-payment" v-if="defenseStep===3" aria-label="防御付款">
                         <span v-for="elem in ELEMENT_ORDER.filter(e => defenseAvailableElements[e] || defensePaymentPlan[e])" :key="elem"><button @click.stop="adjustDefensePayment(elem,-1)" :aria-label="'减少'+elem">−</button><b>{{ elem }} {{ defensePaymentPlan[elem] || 0 }}</b><button @click.stop="adjustDefensePayment(elem,1)" :aria-label="'增加'+elem">+</button></span>
                     </div>
-                    <small v-if="!defensePaymentValid">请调整付款组合</small>
+                    <small v-if="defenseStep>=2 && !defensePaymentValid">付款不足：可补选透支或返回重选。</small>
 
                 <!-- Power comparison -->
                 <div class="power-comparison defense-live-summary">
@@ -673,7 +692,7 @@
                 </div>
 
 
-                    <button type="button" class="btn btn-success" :disabled="!canSubmitDefense || !defensePaymentValid || actionBusy" v-if="defenseStep===3" data-defense-action="submit" @click="submitDefend">确认防御</button>
+                    <button type="button" class="btn btn-success" :disabled="!canSubmitDefense || !defensePaymentValid || actionBusy" v-if="defenseStep===3" data-defense-action="submit" @click="submitDefend">{{ defenseReactionCard?'确认响应':'确认防御' }}</button>
                     <button class="btn" @click.stop="resetDefenseDraft">取消本地选择</button>
                     <button type="button" class="btn btn-danger" data-defense-action="no_defend" @click="noDefend">不防御</button>
                 </div>
@@ -698,6 +717,7 @@
                             <div v-if="isPendingPositionCandidate(candidate)" class="pending-position-board" :aria-label="pendingPositionLabel(candidate)">
                                 <span v-for="cell in pendingPositionCells(candidate)" :key="cell.key"
                                       class="pending-position-cell"
+                                      :data-col="cell.col" :data-row="cell.row"
                                       :class="{ active: cell.active, front: cell.row === 0 }"></span>
                             </div>
                             <span>{{ pendingPositionLabel(candidate) }}</span>
@@ -911,8 +931,8 @@
                 <div v-if="workspaceMode === 'square'" class="workspace-mechanism" data-square-area>
                     <div class="decision-scroll">
                         <h3>选择方阵</h3><p>{{ squareAreaRequest.card.name }} · 中心 {{ squareAreaRequest.col+1 }}列{{ squareAreaRequest.row+1 }}排</p>
-                        <p>选择包含中心的 2×2 区域；悬停按钮可预览。</p>
-                        <button v-for="origin in squareAreaRequest.options" :key="origin.col+','+origin.row" class="btn" @mouseenter="squareAreaRequest.preview=origin" @focus="squareAreaRequest.preview=origin" @click="chooseSquareArea(origin)">{{ origin.label }}</button>
+                        <p>选择包含中心的 2×2 区域；下图与战场朝向一致。</p>
+                        <div class="square-area-options"><button v-for="origin in squareAreaRequest.options" :key="origin.col+','+origin.row" class="square-area-option" :aria-label="origin.label" @mouseenter="squareAreaRequest.preview=origin" @focus="squareAreaRequest.preview=origin" @click="chooseSquareArea(origin)"><span class="area-side-label">{{ squareAreaRequest.owner === myBoardOwnerID() ? '己方战场' : '敌方战场' }}</span><span class="pending-position-board"><span v-for="cell in squareAreaCells(origin)" :key="cell.key" class="pending-position-cell" :data-col="cell.col" :data-row="cell.row" :class="{active:cell.active,center:cell.center,front:cell.row===0}"></span></span><span>{{ origin.label }}</span></button></div>
                     </div>
                     <div class="decision-confirm"><button class="btn" @click="squareAreaRequest=null">重新选择目标</button></div>
                 </div>
@@ -923,9 +943,14 @@
                     <button v-if="selectedHandCard || selectedAttacker || selectedSkill" class="btn" @click="clearSelection">取消本地选择</button>
                     <div v-if="selectedSkill" class="local-selection"><strong>{{ selectedSkill.name }}</strong><p>当前费用：{{ costLabel(attackActionCost(selectedSkill, selectedBoostSkills)) }}</p><p>已选强化 {{ selectedBoostSkills.length }} 项；可点击手牌或技能的强化按钮调整。</p><button v-if="!skillNeedsTarget(selectedSkill)" class="btn btn-success" @click="castSpellWithoutTarget">准备施放</button></div>
                     <button v-if="selectedHandCard && selectedHandCard.type === '道具' && !selectedHandCard.is_terrain" class="btn" @click="selectHandCard(selectedHandCard)">准备使用 {{ selectedHandCard.name }}</button>
-                    <p class="workspace-help">点击卡牌打开操作菜单；悬停查看右上详情。选择目标或参数后提交一次。</p>
+
                 </div>
             </aside>
+            <div class="turn-actions">
+                <button v-if="isMyTurn && gameState.phase === 'main'" @click="endTurn" class="btn btn-primary btn-end-turn" :disabled="actionBusy || workspaceMode !== 'idle'">结束回合</button>
+                <div v-else class="turn-waiting">{{ decisionOwnerLabel }}</div>
+                <button class="mini-btn" data-inspect @click="railTab = railTab === 'events' ? 'hand' : 'events'">对局记录</button>
+            </div>
             <!-- ── HAND BAR ── -->
             <div id="hand" class="hand-bar" v-show="railTab === 'hand'" :class="{ 'flat-hand': fanLayout === 'flat' }" :style="{'--fan-step':fanSpread+'px','--fan-count':Math.max(1,fanCards.length)}">
                 <div class="fan-toolbar">
@@ -933,7 +958,7 @@
                     <span>{{ currentFanPage+1 }} / {{ fanPageCount }} · 共 {{ myHand.length }} 张</span>
                     <button data-inspect @click="changeFanPage(1)" :disabled="currentFanPage+1 >= fanPageCount" aria-label="下一页手牌">›</button>
                     <button data-inspect @click="fanLayout = fanLayout === 'fan' ? 'flat' : 'fan'">{{ fanLayout === 'fan' ? '平铺' : '扇形' }}</button>
-                    <label>间距<input data-inspect type="range" aria-label="手牌间距" min="22" max="30" v-model.number="fanSpread"></label>
+                    <label>间距<input data-inspect type="range" aria-label="手牌间距" min="60" max="125" v-model.number="fanSpread"></label>
                 </div>
                 <div v-if="isSpectator" class="waiting">观战：手牌不可见</div>
                 <div v-else-if="!myHand.length" class="empty-hand">暂无手牌</div>
@@ -947,8 +972,10 @@
                         @keydown.enter.prevent="$event.currentTarget.click()" @keydown.space.prevent="$event.currentTarget.click()"
                         @click="showCardContextMenu($event,card,'hand')" @contextmenu.prevent="showCardContextMenu($event,card,'hand')">
                         <div class="fan-face">
-                            <img @mouseenter="previewCard(card)" @error="imageFallback" :src="getCardImage(card)" :alt="card.name" class="hand-card-img">
-                            <span class="fan-card-status">{{ selectedHandCard?.instance_id === card.instance_id ? '已选' : selectedBoostSkills.includes(card.instance_id) ? '强化' : (currentFanPage*7+index+1)+' · '+card.name }}</span>
+                            <div class="fan-art"><img @error="imageFallback" v-bind="artAttrs(card)" :alt="card.name" class="hand-card-img"></div>
+                            <span class="fan-card-cost">{{ totalCost(playCost(card)) }}</span>
+                            <span class="fan-card-status">{{ selectedHandCard?.instance_id === card.instance_id ? '已选' : selectedBoostSkills.includes(card.instance_id) ? '强化' : card.name }}</span>
+                            <small class="fan-card-type">{{ card.type }} · {{ card.category === '无' ? '奥术' : card.category }}</small>
                         </div>
                     </div>
                 </div>
