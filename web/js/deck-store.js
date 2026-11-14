@@ -2,8 +2,6 @@
 (function (root) {
   "use strict";
   const KEY = "eraofarcane.decks.v1";
-  const SAMPLE =
-    "4311003 // 1021001 1021001 1021004 1021004 1021011 1021011 1321002 1321002 1321001 1321001 1321003 1321003 1321007 1321007 1321013 1321013 1321011 1321011 1321010 1321010 1321008 1321008 1321004 1321004 1021006 1021006 1021007 1021007 1021012 1021012 // 3321002 3321003 3321005 3321010 3321013 3321015 3021008 3021009 3021005 3021003";
   function parse(code) {
     const parts = String(code || "")
       .split("//")
@@ -81,7 +79,33 @@
       selectedId: record.id,
     };
   }
-  const api = { KEY, SAMPLE, parse, encode, groups, load, write, put };
+  function recipeName(recipe) {
+    return `${recipe.name} · ${recipe.version.join(" / ")}`;
+  }
+  function useRecipe(data, recipe) {
+    const code = encode(parse(recipe.deckCode));
+    const existing = data.decks.find((deck) => {
+      try {
+        return encode(parse(deck.code)) === code;
+      } catch {
+        return false;
+      }
+    });
+    return existing
+      ? { ...data, selectedId: existing.id }
+      : put(data, { name: recipeName(recipe), code });
+  }
+  const api = {
+    KEY,
+    parse,
+    encode,
+    groups,
+    load,
+    write,
+    put,
+    recipeName,
+    useRecipe,
+  };
   if (typeof module !== "undefined") module.exports = api;
   root.ArcaneDecks = api;
 })(typeof window === "undefined" ? globalThis : window);

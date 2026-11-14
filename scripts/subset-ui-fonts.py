@@ -51,6 +51,7 @@ def collect_text(story_root: Path) -> tuple[set[int], list[dict[str, str]]]:
         if path.is_file() and path.suffix.lower() in {".html", ".js", ".css"}
     )
     paths.append(REPO / "data" / "supported_card_infos.json")
+    paths.append(REPO / "web" / "assets" / "preconstructed-decks.json")
     paths.extend(story_root / name for name in STORIES)
     codepoints = set(range(0x20, 0x7F))
     codepoints.update(map(ord, PUNCTUATION))

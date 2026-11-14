@@ -11,6 +11,7 @@
     <script src="assets/card-art-index.js"></script>
     <script src="js/arcane-ui.js"></script>
     <script src="js/deck-store.js"></script>
+    <script src="js/preconstructed-picker.js"></script>
   </head>
   <body class="archive-page">
     <div id="app" v-cloak>
@@ -38,7 +39,13 @@
             <button class="mini-btn" @click="newDeck">新建</button>
           </div>
           <button class="btn" @click="showImport=true">导入卡组</button
-          ><button class="mini-btn" @click="loadSample">示例卡组</button>
+          ><button
+            class="mini-btn"
+            @click="error='';showPreconstructed=true"
+            :disabled="busy"
+          >
+            预组卡组
+          </button>
           <div v-if="storageError" class="notice-error">
             {{ storageError }}<button class="mini-btn" @click="backupRaw">
               导出原始备份
@@ -320,6 +327,15 @@
           ><button class="mini-btn" @click="fullCard=selected">完整原卡</button>
         </div>
       </div>
+      <preconstructed-picker
+        v-if="showPreconstructed"
+        :cards="cards"
+        :busy="busy"
+        :error="error"
+        action-label="载入编辑"
+        @close="showPreconstructed=false"
+        @pick="loadPreconstructed"
+      ></preconstructed-picker>
       <div
         v-if="showImport"
         class="arcane-dialog-backdrop"

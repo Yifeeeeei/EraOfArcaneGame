@@ -11,6 +11,7 @@
     <script src="assets/card-art-index.js"></script>
     <script src="js/arcane-ui.js"></script>
     <script src="js/deck-store.js"></script>
+    <script src="js/preconstructed-picker.js"></script>
   </head>
   <body class="lobby-page">
     <div id="app" v-cloak>
@@ -49,6 +50,14 @@
             />
             <div class="section-title">
               <h2>出战卡组</h2>
+              <button
+                class="mini-btn"
+                v-if="selectedDeck"
+                @click="error='';showPreconstructed=true"
+                :disabled="busy"
+              >
+                预组卡组
+              </button>
               <a href="/decks.html">管理卡组 ↗</a>
             </div>
             <template v-if="selectedDeck"
@@ -95,8 +104,12 @@
             </template>
             <div v-else class="no-deck">
               <a class="btn" href="/decks.html">新建或导入卡组</a
-              ><button class="btn" @click="sample" :disabled="busy">
-                使用示例卡组
+              ><button
+                class="btn"
+                @click="error='';showPreconstructed=true"
+                :disabled="busy"
+              >
+                选择预组卡组
               </button>
             </div>
             <div v-if="error" class="notice-error" role="alert">
@@ -195,6 +208,14 @@
           </footer>
         </section>
       </main>
+      <preconstructed-picker
+        v-if="showPreconstructed"
+        :cards="cards"
+        :busy="busy"
+        :error="error"
+        @close="showPreconstructed=false"
+        @pick="usePreconstructed"
+      ></preconstructed-picker>
       <div
         v-if="inspect"
         class="arcane-dialog-backdrop"

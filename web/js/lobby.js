@@ -3,6 +3,7 @@
   const UI = ArcaneUI,
     DS = ArcaneDecks;
   createApp({
+    components: { PreconstructedPicker: ArcanePreconstructedPicker },
     setup() {
       const playerName = ref(""),
         decks = ref([]),
@@ -17,7 +18,8 @@
         loadingRooms = ref(false),
         roomError = ref(""),
         deckExpanded = ref(false),
-        inspect = ref(null);
+        inspect = ref(null),
+        showPreconstructed = ref(false);
       let timer;
       let store;
       try {
@@ -74,22 +76,21 @@
           error.value = e.message;
         }
       }
-      async function sample() {
+      async function usePreconstructed(recipe) {
+        if (busy.value) return;
         busy.value = true;
         error.value = "";
         try {
           await UI.request("/api/deck/validate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ deck_code: DS.SAMPLE }),
+            body: JSON.stringify({ deck_code: recipe.deckCode }),
           });
-          store = DS.put(DS.load(), {
-            name: "大气 · 基础示例",
-            code: DS.SAMPLE,
-          });
+          store = DS.useRecipe(DS.load(), recipe);
           DS.write(store);
           decks.value = store.decks;
           selectedId.value = store.selectedId;
+          showPreconstructed.value = false;
         } catch (e) {
           error.value = e.message;
         } finally {
@@ -211,6 +212,7 @@
         artAttrs: UI.artAttrs,
         imageError: UI.imageError,
         playerName,
+        cards,
         decks,
         selectedId,
         selectedDeck,
@@ -225,9 +227,10 @@
         roomError,
         deckExpanded,
         inspect,
+        showPreconstructed,
         saveName,
         chooseDeck,
-        sample,
+        usePreconstructed,
         createRoom,
         joinRoom,
         refreshRooms,

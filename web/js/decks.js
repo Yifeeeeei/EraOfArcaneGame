@@ -3,6 +3,7 @@
     UI = ArcaneUI,
     DS = ArcaneDecks;
   createApp({
+    components: { PreconstructedPicker: ArcanePreconstructedPicker },
     setup() {
       const cards = ref({}),
         decks = ref([]),
@@ -16,6 +17,7 @@
         page = ref(0),
         selected = ref(null),
         fullCard = ref(null),
+        showPreconstructed = ref(false),
         showImport = ref(new URLSearchParams(location.search).has("import")),
         importCode = ref(""),
         importError = ref("");
@@ -185,14 +187,17 @@
         const i = zone.indexOf(number);
         if (i >= 0) zone.splice(i, 1);
       }
-      function loadSample() {
+      function loadPreconstructed(recipe) {
         if (busy.value) return;
         if (!discardChanges()) return;
-        draft.value = DS.parse(DS.SAMPLE);
-        deckName.value = "大气 · 基础示例";
+        draft.value = DS.parse(recipe.deckCode);
+        deckName.value = DS.recipeName(recipe);
         editingId.value = "";
         validCode.value = "";
         error.value = "";
+        selected.value = cards.value[draft.value.hero] || null;
+        draftTab.value = "main";
+        showPreconstructed.value = false;
       }
       function importDeck() {
         if (busy.value) return;
@@ -393,6 +398,7 @@
         selected,
         fullCard,
         showImport,
+        showPreconstructed,
         importCode,
         importError,
         editingId,
@@ -420,7 +426,7 @@
         addReason,
         addCard,
         removeCard,
-        loadSample,
+        loadPreconstructed,
         importDeck,
         saveDeck,
         useDeck,

@@ -413,6 +413,89 @@ img[data-artwork="true"][data-art-type="人物"]:not([data-art-fallback]) {
 .arcane-dialog h2 {
   padding-right: 36px;
 }
+.preconstructed-dialog {
+  width: min(900px, 100%);
+}
+.preconstructed-intro,
+.preconstructed-source {
+  color: var(--arcane-muted);
+  font-size: 13px;
+}
+.preconstructed-tabs {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 20px 0 14px;
+}
+.preconstructed-tabs [aria-pressed="true"] {
+  color: var(--arcane-gold-bright);
+  border-color: var(--arcane-gold);
+  background: #c9ab7024;
+}
+.preconstructed-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+.preconstructed-deck {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 0 12px 0 0;
+  text-align: left;
+  color: var(--arcane-text);
+  border: 1px solid var(--arcane-line);
+  background: #10191bd9;
+}
+.preconstructed-deck:hover:not(:disabled) {
+  border-color: var(--arcane-gold);
+  background: #343728;
+}
+.preconstructed-hero {
+  width: 66px;
+  height: 96px;
+  flex: none;
+  border-right: 1px solid var(--arcane-line);
+}
+.preconstructed-info {
+  min-width: 0;
+}
+.preconstructed-info strong,
+.preconstructed-info > span,
+.preconstructed-info small {
+  display: block;
+}
+.preconstructed-info strong {
+  color: var(--arcane-gold-bright);
+  font: 600 18px var(--font-display);
+  margin-bottom: 5px;
+}
+.preconstructed-info > span {
+  font-size: 12px;
+}
+.preconstructed-info small {
+  font-size: 10px;
+  margin-top: 5px;
+  color: var(--arcane-muted);
+}
+.preconstructed-action {
+  margin-left: auto;
+  flex: none;
+  font-size: 12px;
+  color: var(--arcane-gold);
+}
+.preconstructed-source {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 18px;
+}
+@media (max-width: 700px) {
+  .preconstructed-list {
+    grid-template-columns: 1fr;
+  }
+}
 .dialog-close {
   position: absolute;
   right: 15px;
