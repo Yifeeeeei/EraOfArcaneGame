@@ -1,5 +1,14 @@
 # Frontend asset sources
 
+## Arcane emblem
+
+`brand/arcane-emblem.png` was created with the built-in imagegen tool on
+2026-11-14 from the user's supplied black-and-white arcane line drawing.
+It preserves the supplied interwoven ribbon design, with antique-gold shading
+and a transparent background. The source drawing retains its original ownership.
+The exact generation prompt and visual check are kept with the ignored local
+review record under `docs/project/payment-and-emblem-20261114/`.
+
 ## Original concept backgrounds
 
 - `backgrounds/royal-hall.png`

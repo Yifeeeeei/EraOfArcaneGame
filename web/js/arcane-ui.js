@@ -33,7 +33,7 @@
     }
   }
   const crest =
-    '<svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="21"/><g class="arcane-weave"><path d="M35.2 18a11.2 11.2 0 1 1 -22.4 0a11.2 11.2 0 1 1 22.4 0"/><path d="M35.2 18a11.2 11.2 0 1 1 -22.4 0a11.2 11.2 0 1 1 22.4 0" transform="rotate(120 24 24)"/><path d="M35.2 18a11.2 11.2 0 1 1 -22.4 0a11.2 11.2 0 1 1 22.4 0" transform="rotate(240 24 24)"/></g></svg>';
+    '<img class="brand-mark" src="/assets/brand/arcane-emblem.png" alt="" aria-hidden="true" decoding="async">';
   function toast(message) {
     document.querySelector(".arcane-toast")?.remove();
     const node = document.createElement("div");
