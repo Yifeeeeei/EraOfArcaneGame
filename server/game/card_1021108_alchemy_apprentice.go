@@ -53,3 +53,7 @@ func (Card1021108AlchemyApprentice) OnPerTurn(ctx *EffectContext) error {
 		})
 	return nil
 }
+
+func (Card1021108AlchemyApprentice) AbilityRequiresTap(trigger EffectTrigger) bool {
+	return trigger == TriggerPerTurn
+}

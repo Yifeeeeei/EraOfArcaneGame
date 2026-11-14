@@ -701,7 +701,7 @@ func (e *Engine) spellStatBonusesWithData(playerID int, skill *CardInstance, pur
 		OpponentID: 1 - playerID,
 		ExtraData:  data,
 	}
-	for _, fieldCard := range e.getAllFieldCards(ps) {
+	for _, fieldCard := range e.spellModifierSources(ps, skill) {
 		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
 			continue
 		}
@@ -768,6 +768,9 @@ func (e *Engine) validateSpellTarget(playerID int, skill *CardInstance, target S
 }
 
 func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance, target SpellTarget, hasPierce bool) error {
+	if err := e.validateSpellAreaSelection(skill, target); err != nil {
+		return err
+	}
 	if !skillNeedsTargetInstance(skill) {
 		if target.Type == "" || target.Type == "none" {
 			return nil
@@ -843,8 +846,17 @@ func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance
 	if e.hasStealthFromOpponent(playerID, targetUnit) && e.spellAllowsStealthTarget(skill) {
 		return nil
 	}
+	if e.effectiveSpellArea(skill) == SpellAreaSingle && e.hasStealthFromOpponent(playerID, targetUnit) {
+		return fmt.Errorf("single-target spell cannot select a stealthed enemy")
+	}
 	if e.spellTargetGrants(playerID, skill, target).IgnoreRange {
 		return nil
+	}
+	if e.effectiveSpellArea(skill) != SpellAreaSingle {
+		if e.isAreaCenterInRange(playerID, skill, target, hasPierce) {
+			return nil
+		}
+		return fmt.Errorf("area center is not in spell range")
 	}
 	if !e.IsInSpellRange(playerID, target.Position.Col, target.Position.Row, hasPierce) {
 		return fmt.Errorf("target is not in spell range")
@@ -900,6 +912,10 @@ func (e *Engine) validateSpellExtraTargetForSkill(playerID int, skill *CardInsta
 	}
 	if err := e.validateSpellExtraTarget(playerID, extra); err != nil {
 		return err
+	}
+	unit := e.State.Players[1-playerID].Units[extra.Position.Col][extra.Position.Row]
+	if e.hasStealthFromOpponent(playerID, unit) && !e.spellAllowsStealthTarget(skill) {
+		return fmt.Errorf("extra target cannot select a stealthed enemy")
 	}
 	if e.extraTargetIgnoresRange(playerID, skill) {
 		return nil

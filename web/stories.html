@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>奥术纪元 · 故事</title>
+    <link rel="icon" href="/favicon.ico" />
+    <link rel="stylesheet" href="css/main.css" />
+    <link rel="stylesheet" href="css/stories.css" />
+    <script src="vendor/vue.global.prod.js"></script>
+    <script src="assets/card-art-index.js"></script>
+    <script src="js/arcane-ui.js"></script>
+  </head>
+  <body class="story-page">
+    <div id="app" v-cloak>
+      <header class="site-header">
+        <a class="brand" href="/"
+          ><span v-html="crest"></span
+          ><span><strong>奥术纪元</strong><small>ERA OF ARCANE</small></span></a
+        >
+        <nav class="site-nav">
+          <a href="/">大厅</a><a href="/decks.html">卡组与图鉴</a
+          ><a href="/stories.html" class="active">故事</a
+          ><a href="/card-test.html">测试台</a
+          ><button
+            class="btn icon-btn"
+            data-open-settings
+            aria-label="界面设置"
+          >
+            ⚙
+          </button>
+        </nav>
+      </header>
+      <main class="story-layout">
+        <aside class="story-index">
+          <div class="eyebrow">THE CHRONICLES</div>
+          <h1>故事</h1>
+          <button
+            v-for="story in stories"
+            :key="story.id"
+            class="story-entry surface"
+            :class="{active:active?.id===story.id}"
+            @click="read(story)"
+          >
+            <div class="story-entry-art card-art">
+              <img
+                v-if="cards[story.card]"
+                v-bind="artAttrs(cards[story.card])"
+                @error="imageError"
+                alt=""
+              />
+            </div>
+            <span>{{ story.title }}</span>
+          </button>
+        </aside>
+        <article class="story-reader surface" ref="reader">
+          <div v-if="loading" class="empty-state">读取中…</div>
+          <div v-else-if="error" class="notice-error">
+            {{ error }}
+            <button class="mini-btn" @click="read(active)">重试</button>
+          </div>
+          <template v-else
+            ><div class="section-title">
+              <div>
+                <div class="eyebrow">ERA OF ARCANE</div>
+                <h2>{{ active?.title }}</h2>
+              </div>
+              <a
+                v-if="active"
+                :href="active.source"
+                target="_blank"
+                rel="noopener"
+                >官网原文 ↗</a
+              >
+            </div>
+            <template v-for="(block,index) in blocks" :key="index"
+              ><h3 v-if="block.kind==='heading'">{{ block.text }}</h3>
+              <hr v-else-if="block.kind==='rule'" />
+              <p v-else>{{ block.text }}</p></template
+            ></template
+          >
+        </article>
+      </main>
+    </div>
+    <script src="js/stories.js"></script>
+  </body>
+</html>

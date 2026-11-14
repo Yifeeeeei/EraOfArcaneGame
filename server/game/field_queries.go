@@ -121,3 +121,21 @@ func (e *Engine) getAllFieldCards(ps *PlayerState) []*CardInstance {
 	}
 	return cards
 }
+
+// spellModifierSources never inserts a virtual source into game state. Only
+// explicitly opted-in self modifiers join this one evaluation, once by identity.
+func (e *Engine) spellModifierSources(ps *PlayerState, skill *CardInstance) []*CardInstance {
+	sources := e.getAllFieldCards(ps)
+	if skill == nil || skill.Card == nil || skill.OwnerID != ps.PlayerID {
+		return sources
+	}
+	if _, ok := behaviorForNumber(skill.Card.Number).(SpellSourceModifier); !ok {
+		return sources
+	}
+	for _, source := range sources {
+		if source == skill {
+			return sources
+		}
+	}
+	return append(sources, skill)
+}

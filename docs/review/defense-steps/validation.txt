@@ -1,0 +1,284 @@
+=== go ===
+?   	eraofarcane	[no test files]
+ok  	eraofarcane/api	5.212s
+ok  	eraofarcane/cards	0.019s
+ok  	eraofarcane/cmd/agent-player	0.005s
+?   	eraofarcane/cmd/card-impact	[no test files]
+?   	eraofarcane/cmd/check-card-metadata	[no test files]
+?   	eraofarcane/cmd/extract-supported-cards	[no test files]
+?   	eraofarcane/cmd/generate-card-definitions	[no test files]
+?   	eraofarcane/cmd/snapshot-supported-cards	[no test files]
+ok  	eraofarcane/game	1.080s
+ok  	eraofarcane/internal/cardimpact	0.003s
+ok  	eraofarcane/match	0.004s
+?   	eraofarcane/model	[no test files]
+
+
+=== vet ===
+
+
+=== race ===
+?   	eraofarcane	[no test files]
+Loaded 728 cards (728 playable supported cards)
+2026/10/17 20:44:32 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 20:44:32 Player P0 (pr163-p0) joined room 6306 as slot 0
+2026/10/17 20:44:32 Player P1 (pr163-p1) joined room 6306 as slot 1
+2026/10/17 20:44:32 [Game 6306] Player 0 action: mulligan
+2026/10/17 20:44:32 [Game 6306] Player 1 action: mulligan
+2026/10/17 20:44:32 [Game 6306] Player 1 action: end_turn
+2026/10/17 20:44:32 [Game 6306] Player 0 action: end_turn
+2026/10/17 20:44:32 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:32 Player pr163-p1 disconnected from room 6306
+2026/10/17 20:44:32 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 20:44:32 Player P0 (pr163-p0) joined room 3363 as slot 0
+2026/10/17 20:44:32 Player P1 (pr163-p1) joined room 3363 as slot 1
+2026/10/17 20:44:32 Failed to send event to player pr163-p1: writev tcp 127.0.0.1:38385->127.0.0.1:52188: use of closed network connection
+2026/10/17 20:44:32 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:32 Player pr163-p0 disconnected from room 6306
+2026/10/17 20:44:32 [Game 3363] Player 0 action: mulligan
+2026/10/17 20:44:32 [Game 3363] Player 1 action: mulligan
+2026/10/17 20:44:32 [Game 3363] Player 0 action: use_item
+2026/10/17 20:44:32 [Game 3363] Player 0 action: resolve_action
+2026/10/17 20:44:32 [Game 3363] Player 0 action: resolve_action
+2026/10/17 20:44:32 [Game 3363] Player 0 action: resolve_action
+2026/10/17 20:44:32 [Game 3363] Player 0 action: resolve_action
+2026/10/17 20:44:32 [Game 3363] Player 0 action: resolve_action
+2026/10/17 20:44:33 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:33 Player pr163-p1 disconnected from room 3363
+2026/10/17 20:44:33 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:33 Player pr163-p0 disconnected from room 3363
+2026/10/17 20:44:33 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 20:44:33 Player P0 (pr163-p0) joined room 7901 as slot 0
+2026/10/17 20:44:33 Player P1 (pr163-p1) joined room 7901 as slot 1
+2026/10/17 20:44:33 [Game 7901] Player 0 action: mulligan
+2026/10/17 20:44:33 [Game 7901] Player 1 action: mulligan
+2026/10/17 20:44:33 [Game 7901] Player 1 action: cast_spell
+2026/10/17 20:44:33 Player pr163-p0 disconnected from room 7901
+==================
+WARNING: DATA RACE
+Write at 0x000002adccf8 by goroutine 82:
+  eraofarcane/game.RegisterAllCardEffects()
+      /workspace/EraOfArcaneGame/server/game/card_effects_catalog.go:652 +0x1c4
+  eraofarcane/api.pr163StartMatch()
+      /workspace/EraOfArcaneGame/server/api/pr163_api_matrix_test.go:128 +0x59
+  eraofarcane/api.TestPR163APIRedMoonExtraTargetAndDefenseHandshake.func1()
+      /workspace/EraOfArcaneGame/server/api/pr163_api_matrix_test.go:345 +0x46
+  testing.tRunner()
+      /tmp/era-toolchain/go/src/testing/testing.go:2036 +0x21c
+  testing.(*T).Run.gowrap1()
+      /tmp/era-toolchain/go/src/testing/testing.go:2101 +0x38
+
+Previous read at 0x000002adccf8 by goroutine 55:
+  eraofarcane/game.behaviorForNumber()
+      /workspace/EraOfArcaneGame/server/game/card_traits.go:287 +0xfc
+  eraofarcane/game.(*Engine).cardToInfoForPlayer()
+      /workspace/EraOfArcaneGame/server/game/card_view.go:333 +0xad
+  eraofarcane/game.(*Engine).playerStateToInfo()
+      /workspace/EraOfArcaneGame/server/game/card_view.go:252 +0xb54
+  eraofarcane/game.(*Engine).GetStateForPlayer()
+      /workspace/EraOfArcaneGame/server/game/state_view.go:103 +0xa8e
+  eraofarcane/match.(*Room).BroadcastState()
+      /workspace/EraOfArcaneGame/server/match/room.go:401 +0x5b3
+  eraofarcane/api.SetupRoutes.HandleWebSocket.func9()
+      /workspace/EraOfArcaneGame/server/api/ws.go:250 +0x1f91
+  net/http.HandlerFunc.ServeHTTP()
+      /tmp/era-toolchain/go/src/net/http/server.go:2286 +0x47
+  net/http.(*ServeMux).ServeHTTP()
+      /tmp/era-toolchain/go/src/net/http/server.go:2828 +0x242
+  net/http.serverHandler.ServeHTTP()
+      /tmp/era-toolchain/go/src/net/http/server.go:3311 +0x2a1
+  net/http.(*conn).serve()
+      /tmp/era-toolchain/go/src/net/http/server.go:2073 +0xda4
+  net/http.(*Server).Serve.gowrap3()
+      /tmp/era-toolchain/go/src/net/http/server.go:3464 +0x46
+
+Goroutine 82 (running) created at:
+  testing.(*T).Run()
+      /tmp/era-toolchain/go/src/testing/testing.go:2101 +0xb12
+  eraofarcane/api.TestPR163APIRedMoonExtraTargetAndDefenseHandshake()
+      /workspace/EraOfArcaneGame/server/api/pr163_api_matrix_test.go:344 +0xf9
+  testing.tRunner()
+      /tmp/era-toolchain/go/src/testing/testing.go:2036 +0x21c
+  testing.(*T).Run.gowrap1()
+      /tmp/era-toolchain/go/src/testing/testing.go:2101 +0x38
+
+Goroutine 55 (running) created at:
+  net/http.(*Server).Serve()
+      /tmp/era-toolchain/go/src/net/http/server.go:3464 +0x889
+  net/http/httptest.(*Server).goServe.func1()
+      /tmp/era-toolchain/go/src/net/http/httptest/server.go:341 +0xb2
+==================
+2026/10/17 20:44:33 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 20:44:33 Player P0 (pr163-p0) joined room 9303 as slot 0
+2026/10/17 20:44:33 Player P1 (pr163-p1) joined room 9303 as slot 1
+2026/10/17 20:44:33 Failed to send event to player pr163-p1: write tcp 127.0.0.1:43687->127.0.0.1:42562: write: broken pipe
+2026/10/17 20:44:33 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:33 Player pr163-p1 disconnected from room 7901
+2026/10/17 20:44:33 [Game 9303] Player 0 action: mulligan
+2026/10/17 20:44:33 [Game 9303] Player 1 action: mulligan
+2026/10/17 20:44:33 [Game 9303] Player 0 action: cast_spell
+2026/10/17 20:44:33 [Game 9303] Player 1 action: no_defend
+2026/10/17 20:44:34 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:34 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:34 Player pr163-p1 disconnected from room 9303
+2026/10/17 20:44:34 Player pr163-p0 disconnected from room 9303
+--- FAIL: TestPR163APIRedMoonExtraTargetAndDefenseHandshake (1.03s)
+    --- FAIL: TestPR163APIRedMoonExtraTargetAndDefenseHandshake/active_accepts (0.72s)
+        testing.go:1712: race detected during execution of test
+2026/10/17 20:44:34 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 20:44:34 Player P0 (pr163-p0) joined room 5121 as slot 0
+2026/10/17 20:44:34 Player P1 (pr163-p1) joined room 5121 as slot 1
+2026/10/17 20:44:34 [Game 5121] Player 0 action: mulligan
+2026/10/17 20:44:34 [Game 5121] Player 1 action: mulligan
+2026/10/17 20:44:34 [Game 5121] Player 0 action: cast_spell
+2026/10/17 20:44:34 [Game 5121] Player 0 action: resolve_action
+2026/10/17 20:44:34 [Game 5121] Player 0 action: resolve_action
+2026/10/17 20:44:34 [Game 5121] Player 0 action: resolve_action
+2026/10/17 20:44:34 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:34 Player pr163-p1 disconnected from room 5121
+2026/10/17 20:44:34 Player pr163-p0 disconnected from room 5121
+2026/10/17 20:44:34 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 20:44:34 Player P0 (pr163-p0) joined room 8730 as slot 0
+2026/10/17 20:44:34 Player P1 (pr163-p1) joined room 8730 as slot 1
+2026/10/17 20:44:34 [Game 8730] Player 0 action: mulligan
+2026/10/17 20:44:34 [Game 8730] Player 1 action: mulligan
+2026/10/17 20:44:34 [Game 8730] Player 0 action: cast_spell
+2026/10/17 20:44:34 [Game 8730] Player 0 action: cast_spell
+2026/10/17 20:44:34 [Game 8730] Player 1 action: no_defend
+2026/10/17 20:44:34 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:34 Player pr163-p1 disconnected from room 8730
+2026/10/17 20:44:34 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:34 Player pr163-p0 disconnected from room 8730
+2026/10/17 20:44:34 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 20:44:34 Player P0 (pr163-p0) joined room 9294 as slot 0
+2026/10/17 20:44:34 Player P1 (pr163-p1) joined room 9294 as slot 1
+2026/10/17 20:44:35 [Game 9294] Player 1 action: mulligan
+2026/10/17 20:44:35 [Game 9294] Player 0 action: mulligan
+2026/10/17 20:44:35 [Game 9294] Player 0 action: end_turn
+2026/10/17 20:44:35 [Game 9294] Player 1 action: use_item
+2026/10/17 20:44:35 [Game 9294] Player 1 action: use_item
+2026/10/17 20:44:35 [Game 9294] Player 1 action: end_turn
+2026/10/17 20:44:35 [Game 9294] Player 0 action: cast_spell
+2026/10/17 20:44:35 [Game 9294] Player 1 action: resolve_action
+2026/10/17 20:44:35 [Game 9294] Player 1 action: resolve_action
+2026/10/17 20:44:35 [Game 9294] Player 1 action: resolve_action
+2026/10/17 20:44:35 [Game 9294] Player 1 action: no_defend
+2026/10/17 20:44:35 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:35 Player pr163-p1 disconnected from room 9294
+2026/10/17 20:44:35 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 20:44:35 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:35 Player pr163-p0 disconnected from room 9294
+2026/10/17 20:44:35 Player P0 (pr163-p0) joined room 6587 as slot 0
+2026/10/17 20:44:35 Player P1 (pr163-p1) joined room 6587 as slot 1
+2026/10/17 20:44:35 [Game 6587] Player 1 action: mulligan
+2026/10/17 20:44:35 [Game 6587] Player 0 action: mulligan
+2026/10/17 20:44:35 [Game 6587] Player 1 action: use_item
+2026/10/17 20:44:35 [Game 6587] Player 1 action: use_ability
+2026/10/17 20:44:35 [Game 6587] Player 1 action: resolve_action
+2026/10/17 20:44:35 [Game 6587] Player 1 action: resolve_action
+2026/10/17 20:44:35 [Game 6587] Player 1 action: resolve_action
+2026/10/17 20:44:35 [Game 6587] Player 1 action: resolve_action
+2026/10/17 20:44:36 [Game 6587] Player 1 action: resolve_action
+2026/10/17 20:44:36 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:36 Player pr163-p0 disconnected from room 6587
+2026/10/17 20:44:36 Player pr163-p1 disconnected from room 6587
+2026/10/17 20:44:36 [Effects] Registered 617 lazy card behavior factories
+2026/10/17 20:44:36 Player P0 (pr163-p0) joined room 6447 as slot 0
+2026/10/17 20:44:36 Player P1 (pr163-p1) joined room 6447 as slot 1
+2026/10/17 20:44:36 [Game 6447] Player 0 action: mulligan
+2026/10/17 20:44:36 [Game 6447] Player 1 action: mulligan
+2026/10/17 20:44:36 [Game 6447] Player 1 action: use_item
+2026/10/17 20:44:36 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:36 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:36 Player pr163-p1 disconnected from room 6447
+2026/10/17 20:44:36 Player pr163-p0 disconnected from room 6447
+2026/10/17 20:44:36 Player Player1 (p1) joined room 9758 as slot 0
+2026/10/17 20:44:36 Player Player2 (p2) joined room 9758 as slot 1
+2026/10/17 20:44:40 [Game 9758] Player 0 action: mulligan
+2026/10/17 20:44:40 [Game 9758] Player 1 action: mulligan
+2026/10/17 20:44:40 [Game 9758] Player 0 action: end_turn
+2026/10/17 20:44:40 [Game 9758] Player 1 action: end_turn
+2026/10/17 20:44:40 Player p2 disconnected from room 9758
+2026/10/17 20:44:40 Player p1 disconnected from room 9758
+2026/10/17 20:44:40 Player Player1 (p1) joined room 1837 as slot 0
+2026/10/17 20:44:40 Player Player2 (p2) joined room 1837 as slot 1
+2026/10/17 20:44:40 Spectator Watcher (s1) joined room 1837
+2026/10/17 20:44:40 Player Player1 (p1) joined room 9984 as slot 0
+2026/10/17 20:44:40 Player p1 disconnected from room 1837
+2026/10/17 20:44:40 Player p2 disconnected from room 1837
+2026/10/17 20:44:40 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:40 Spectator s1 disconnected from room 1837
+2026/10/17 20:44:40 WebSocket error: websocket: close 1006 (abnormal closure): unexpected EOF
+2026/10/17 20:44:40 Player p1 disconnected from room 9984
+FAIL
+FAIL	eraofarcane/api	8.597s
+ok  	eraofarcane/cards	1.225s
+ok  	eraofarcane/cmd/agent-player	1.054s
+?   	eraofarcane/cmd/card-impact	[no test files]
+?   	eraofarcane/cmd/check-card-metadata	[no test files]
+?   	eraofarcane/cmd/extract-supported-cards	[no test files]
+?   	eraofarcane/cmd/generate-card-definitions	[no test files]
+?   	eraofarcane/cmd/snapshot-supported-cards	[no test files]
+ok  	eraofarcane/game	3.643s
+ok  	eraofarcane/internal/cardimpact	1.011s
+ok  	eraofarcane/match	1.017s
+?   	eraofarcane/model	[no test files]
+FAIL
+
+
+=== node ===
+decision-session: duplicate, retry, reordered receipt, continuous window, disconnect passed
+executed errors: wait for state, preserve original error, stale drafts and receipts rejected
+✔ web/js/decision-session.test.js (36.522222ms)
+game-costs tests passed
+✔ web/js/game-costs.test.js (35.31122ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 46.246317
+
+
+=== match ===
+PASS smoke: mulligan, consume, learn/payment, cast, defense handoff, discard, end-turn, game-over
+PASS disconnect: unknown-result action is not replayed after reconnect
+PASS continuous choices: two wings, target death refresh, replacement, private wait, retry, duplicate click, narrow desktop
+
+
+=== reactions ===
+PASS two clients: extra target -> counter/payment -> nested choice -> decline next counter -> explicit reaction -> paid defense -> original turn
+
+
+=== quality ===
+PASS quality: equipment replacement, binding inspection, inspection close during draft, end-turn discard/under-card chain, under-card inspection, spectator privacy/turn badge, explicit surrender
+
+
+=== fan ===
+PASS fan: 31+ cards, duplicate instances, stable mouse hit strips, persistent preview, all-card keyboard traversal, disabled/selected cards, no hover/key submission, paging/spread/flat layout, scroll boost toggle, isolated empty-hand fixture; 1440/1366/1024
+
+
+=== primitives ===
+PASS primitives: load redistribution, deck top/bottom ordering, exact damage allocation, resource modes and two-player payment handoff
+
+
+=== failed ===
+PASS failed action: real partial life payment, original errors, revision/decision identity, two-player+observer filtered sync, no-change rule rejection, preflight draft preservation, fresh decision resumes
+
+
+=== usability ===
+PASS usability: own hero hover/enlarge; edge-clamped keyboard menus; escape; direct consume duplicate protection; owner/opponent card backs and hidden identity; 1440/1366/1024
+
+
+=== visibility ===
+PASS desktop formation: pinned hand/confirmation, two dense boards, skills/equipment, last hand, inspector; 1440/1366/1024; full card ratios
+
+
+=== test ===
+PASS steps: invariant dock at 1440/1366/1024 normal/overexert/defense/boost/back/payment; original-card mouse+keyboard; hand pagination; no intermediate sends; revision invalidation; editable payment; one submission
+
+
+=== edges ===
+PASS edges: original bound bar keyboard, no duplicate fallback; hand scroll original-card selection; replacement; dock stable; no middle sends; disconnect invalidates; no-defense does not consume local overexert/payment; menus restored

@@ -9,9 +9,10 @@ type GameEvent struct {
 
 // ActionMessage is a player action received via WebSocket
 type ActionMessage struct {
-	Action    string         `json:"action"`
-	Data      map[string]any `json:"data"`
-	RequestID string         `json:"request_id,omitempty"`
+	ExpectedRevision *uint64        `json:"expected_revision,omitempty"`
+	Action           string         `json:"action"`
+	Data             map[string]any `json:"data"`
+	RequestID        string         `json:"request_id,omitempty"`
 }
 
 // EventCallback is called when events occur (to send to clients)

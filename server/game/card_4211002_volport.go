@@ -6,10 +6,7 @@ func (Card4211002Volport) ID() string { return "4211002" }
 
 func (Card4211002Volport) Name() string { return "大贤者 沃尔波特" }
 
-func (Card4211002Volport) OnTurnStart(ctx *EffectContext) error {
-	if ctx.Source.Statuses["开局技能"] == 0 {
-		addSkillToPool(ctx, "3201001")
-		ctx.Source.Statuses["开局技能"] = 1
-	}
+func (Card4211002Volport) OnEnter(ctx *EffectContext) error {
+	addSkillToPool(ctx, "3201001")
 	return nil
 }

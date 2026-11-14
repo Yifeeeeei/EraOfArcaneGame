@@ -20,7 +20,6 @@ func (Card1421110RockWallColossus) OnUnitEnter(ctx *EffectContext) error {
 	if playerHasLearnedSpell(ctx.Engine.State.Players[ctx.PlayerID]) {
 		return nil
 	}
-	ctx.Target.Statuses["max_life_bonus"]++
 	ctx.Engine.gainLife(ctx.Target, 1, ctx.Source)
 	return nil
 }

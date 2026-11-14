@@ -202,7 +202,7 @@ func TestSlotExpansionItemsAdjustCapacity(t *testing.T) {
 			t.Fatalf("counter trap should be placed in sixth equipment slot, equipment=%v", cardsToInfo(p0.Equipment[:]))
 		}
 		info := engine.playerStateToInfo(p0, true)
-		if info["equipment_slot_capacity"] != MaxEquipmentSlots || len(info["equipment"].([]any)) != MaxEquipmentSlots {
+		if info["equipment_slot_capacity"] != BaseEquipmentSlots+3 || len(info["equipment"].([]any)) != BaseEquipmentSlots+3 {
 			t.Fatalf("player info should expose extended counter slot, capacity=%v equipment=%v", info["equipment_slot_capacity"], info["equipment"])
 		}
 	})
@@ -229,7 +229,7 @@ func TestSlotExpansionItemsAdjustCapacity(t *testing.T) {
 		if engine.findSkill(p0, overflowSkill.InstanceID) != nil {
 			t.Fatalf("overflow skill should not remain findable as a field skill")
 		}
-		if len(p0.SkillPool) == 0 || p0.SkillPool[len(p0.SkillPool)-1] != overflowSkill {
+		if len(p0.SkillPool) == 0 || !sameCardInstance(p0.SkillPool[len(p0.SkillPool)-1], overflowSkill) {
 			t.Fatalf("overflow skill should return to skill pool")
 		}
 		info := engine.playerStateToInfo(p0, true)
@@ -251,7 +251,7 @@ func TestSlotExpansionItemsAdjustCapacity(t *testing.T) {
 		if engine.findEquipment(p0, overflowEquipment.InstanceID) != nil {
 			t.Fatalf("overflow equipment should not remain findable as field equipment")
 		}
-		if len(p0.Graveyard) == 0 || p0.Graveyard[len(p0.Graveyard)-1] != overflowEquipment {
+		if len(p0.Graveyard) == 0 || !sameCardInstance(p0.Graveyard[len(p0.Graveyard)-1], overflowEquipment) {
 			t.Fatalf("overflow equipment should go to graveyard")
 		}
 		info = engine.playerStateToInfo(p0, true)
@@ -533,7 +533,7 @@ func TestIssue31PlaytestRegressions(t *testing.T) {
 }
 
 func TestIssue33PlaytestRegressions(t *testing.T) {
-	t.Run("ice dissolve can reduce attack power to zero and defender can confirm with no skill", func(t *testing.T) {
+	t.Run("ice dissolve reduces power to zero but empty defense still allows hit", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		p1 := engine.State.Players[1]
@@ -567,8 +567,8 @@ func TestIssue33PlaytestRegressions(t *testing.T) {
 		if engine.State.Phase != PhaseMain || engine.State.PendingSpell != nil {
 			t.Fatalf("zero-power defense should close defense window, phase=%v pending=%+v", engine.State.Phase, engine.State.PendingSpell)
 		}
-		if target.CurrentLife != target.Card.Life {
-			t.Fatalf("zero-power defense should prevent spell hit, life=%d", target.CurrentLife)
+		if target.CurrentLife >= target.Card.Life {
+			t.Fatalf("zero-power attack without a defense spell should still hit, life=%d", target.CurrentLife)
 		}
 	})
 
@@ -708,7 +708,7 @@ func TestIssue33PlaytestRegressions(t *testing.T) {
 		if engine.State.PendingSpell.TotalPower != main.Card.Power+scroll.Card.Power {
 			t.Fatalf("scorching scroll should add its power, total=%d want=%d", engine.State.PendingSpell.TotalPower, main.Card.Power+scroll.Card.Power)
 		}
-		if len(p0.Hand) != 0 || len(p0.Graveyard) != 1 || p0.Graveyard[0] != scroll {
+		if len(p0.Hand) != 0 || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], scroll) {
 			t.Fatalf("used boost scroll should move from hand to graveyard, hand=%v graveyard=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
 		}
 		if p0.Elements[model.ElementFire] != 7 || p0.Elements[model.ElementArcane] != 9 {
@@ -922,7 +922,7 @@ func TestIssue25PlaytestRegressions(t *testing.T) {
 		}
 		foundInPool := false
 		for _, skill := range p0.SkillPool {
-			if skill == replace {
+			if sameCardInstance(skill, replace) {
 				foundInPool = true
 				break
 			}
@@ -2411,7 +2411,7 @@ func TestHighRiskItemSemanticsBatch(t *testing.T) {
 		if !burier.IsHorizontal || burier.Statuses[burierCounter] != 2 || engine.State.PendingAction != nil {
 			t.Fatalf("burier should pay consume/marker without opening a target window, horizontal=%v statuses=%v pending=%+v", burier.IsHorizontal, burier.Statuses, engine.State.PendingAction)
 		}
-		if len(p0.Graveyard) != 2 || p0.Graveyard[0] != top || p0.Graveyard[1] != second || len(p0.Deck) != 1 || p0.Deck[0] != third {
+		if len(p0.Graveyard) != 2 || !sameCardInstance(p0.Graveyard[0], top) || !sameCardInstance(p0.Graveyard[1], second) || len(p0.Deck) != 1 || p0.Deck[0] != third {
 			t.Fatalf("burier should mill the top two cards in order, graveyard=%v deck=%v", cardsToInfo(p0.Graveyard), cardsToInfo(p0.Deck))
 		}
 		if p0.Elements[model.ElementShadow] != 2 {
@@ -3236,7 +3236,7 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		if len(p0.Hand) != 1 || p0.Hand[0] != replacement {
 			t.Fatalf("shackle should discard itself and draw replacement, hand=%+v", cardsToInfo(p0.Hand))
 		}
-		if len(p0.Graveyard) != 1 || p0.Graveyard[0] != shackle {
+		if len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], shackle) {
 			t.Fatalf("shackle should move to graveyard, grave=%+v", cardsToInfo(p0.Graveyard))
 		}
 		if p0.RevealedHand[shackle.InstanceID] {
@@ -3353,7 +3353,7 @@ func TestHighRiskItemSemanticsBatchTwo(t *testing.T) {
 		if p0.Elements[model.ElementShadow] != shadowAfterEntryCost-4 || p0.Units[1][0] != nil || engine.State.Players[1].Units[1][0] != nil {
 			t.Fatalf("demon contract should pay 4 shadow and destroy both units, elements=%v own=%v enemy=%v", p0.Elements, p0.Units[1][0], engine.State.Players[1].Units[1][0])
 		}
-		if len(p0.Graveyard) != 1 || p0.Graveyard[0] != sacrifice || len(p0.Deck) != 1 || p0.Deck[0] != contract {
+		if len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], sacrifice) || len(p0.Deck) != 1 || p0.Deck[0] != contract {
 			t.Fatalf("contract should shuffle itself into deck while sacrifice goes to graveyard, grave=%v deck=%v", cardsToInfo(p0.Graveyard), cardsToInfo(p0.Deck))
 		}
 	})
@@ -3508,7 +3508,7 @@ func TestDragIntoAbyssCounterTrap(t *testing.T) {
 		backEnemy := placeUnit(baseCard(t, "1021002"), 1, 1, 1, engine)
 
 		engine.dealDamageWithExtra(ally, 2, 0, map[string]any{"damage_source": "spell", "attacker": 1})
-		if ally.DamageTakenThisTurn != 2 || len(p0.Graveyard) == 0 || p0.Graveyard[0] != ally {
+		if ally.DamageTakenThisTurn != 2 || len(p0.Graveyard) == 0 || !sameCardInstance(p0.Graveyard[0], ally) {
 			t.Fatalf("ally should record actual damage and die, damage=%d grave=%v", ally.DamageTakenThisTurn, cardsToInfo(p0.Graveyard))
 		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "counter_trigger" {
@@ -3535,7 +3535,7 @@ func TestDragIntoAbyssCounterTrap(t *testing.T) {
 		if enemy.CurrentLife != 3 {
 			t.Fatalf("enemy should take 2 damage from abyss, life=%d", enemy.CurrentLife)
 		}
-		if p0.Equipment[0] != nil || len(p0.Graveyard) != 2 || p0.Graveyard[1] != counter {
+		if p0.Equipment[0] != nil || len(p0.Graveyard) != 2 || !sameCardInstance(p0.Graveyard[1], counter) {
 			t.Fatalf("triggered drag into abyss should go to graveyard, equipment=%v grave=%v", p0.Equipment[0], cardsToInfo(p0.Graveyard))
 		}
 	})
@@ -3556,7 +3556,7 @@ func TestDragIntoAbyssCounterTrap(t *testing.T) {
 		if engine.State.PendingAction != nil {
 			t.Fatalf("direct death should not trigger drag into abyss, pending=%+v", engine.State.PendingAction)
 		}
-		if p0.Equipment[0] != counter || len(p0.Graveyard) != 1 || p0.Graveyard[0] != ally {
+		if p0.Equipment[0] != counter || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], ally) {
 			t.Fatalf("counter should remain set after direct death, equipment=%v grave=%v", p0.Equipment[0], cardsToInfo(p0.Graveyard))
 		}
 	})
@@ -3604,7 +3604,7 @@ func TestFrenzyRuneCounterTrap(t *testing.T) {
 		if target.CurrentLife != 3 {
 			t.Fatalf("adjacent unit should take attack damage, life=%d", target.CurrentLife)
 		}
-		if p0.Equipment[0] != nil || len(p0.Graveyard) != 1 || p0.Graveyard[0] != counter {
+		if p0.Equipment[0] != nil || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], counter) {
 			t.Fatalf("triggered frenzy rune should go to graveyard, equipment=%v grave=%v", p0.Equipment[0], cardsToInfo(p0.Graveyard))
 		}
 		if !attacker.IsHorizontal || p1.Units[1][1] != attacker {
@@ -3838,7 +3838,7 @@ func TestRoom5543CardAndTargetingRegressions(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("consume Fuye-marked target: %v", err)
 		}
-		if p0.Units[1][0] != nil || len(p0.Graveyard) == 0 || p0.Graveyard[len(p0.Graveyard)-1] != target {
+		if p0.Units[1][0] != nil || len(p0.Graveyard) == 0 || !sameCardInstance(p0.Graveyard[len(p0.Graveyard)-1], target) {
 			t.Fatalf("Fuye-marked target should die after consuming, units=%v graveyard=%v", p0.Units[1][0], cardsToInfo(p0.Graveyard))
 		}
 	})
@@ -4029,7 +4029,7 @@ func TestCounterTrapCanBeSetHiddenAndTriggeredWithOverexert(t *testing.T) {
 	if !payer.IsHorizontal {
 		t.Fatalf("overexert payer should become horizontal")
 	}
-	if p0.Equipment[0] != nil || len(p0.Graveyard) != 1 || p0.Graveyard[0] != counter {
+	if p0.Equipment[0] != nil || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], counter) {
 		t.Fatalf("triggered counter should go to graveyard, equipment=%v grave=%d", p0.Equipment[0], len(p0.Graveyard))
 	}
 }
@@ -4077,7 +4077,7 @@ func TestSetCounterTrapDoesNotAutoTriggerBehindExistingPrompt(t *testing.T) {
 	if target.Statuses[StatusBurn] != 1 {
 		t.Fatalf("second counter should resolve after queue prompt, statuses=%v", target.Statuses)
 	}
-	if p0.Equipment[0] != first || !first.IsSetCounter || p0.Equipment[1] != nil || len(p0.Graveyard) != 1 || p0.Graveyard[0] != second {
+	if p0.Equipment[0] != first || !first.IsSetCounter || p0.Equipment[1] != nil || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], second) {
 		t.Fatalf("only the selected second counter should be spent, equipment=%v graveyard=%v", p0.Equipment, cardsToInfo(p0.Graveyard))
 	}
 }
@@ -4339,7 +4339,7 @@ func TestCounterRuneCancelsConsumableBeforeEffect(t *testing.T) {
 	if target.Statuses[StatusBurn] != 0 {
 		t.Fatalf("cancelled scroll should not burn target, statuses=%v", target.Statuses)
 	}
-	if p1.Equipment[0] != nil || len(p1.Graveyard) != 1 || p1.Graveyard[0] != counter {
+	if p1.Equipment[0] != nil || len(p1.Graveyard) != 1 || !sameCardInstance(p1.Graveyard[0], counter) {
 		t.Fatalf("counter rune should go to graveyard, equipment=%v grave=%d", p1.Equipment[0], len(p1.Graveyard))
 	}
 }
@@ -4391,7 +4391,7 @@ func TestShelterRuneCancelsLowPowerSpellHitBeforeDamage(t *testing.T) {
 	if engine.State.PendingSpell != nil || engine.State.Phase != PhaseMain {
 		t.Fatalf("cancelled spell hit should close the defense window, phase=%s pending=%+v", engine.State.Phase, engine.State.PendingSpell)
 	}
-	if p1.Equipment[0] != nil || len(p1.Graveyard) != 1 || p1.Graveyard[0] != counter {
+	if p1.Equipment[0] != nil || len(p1.Graveyard) != 1 || !sameCardInstance(p1.Graveyard[0], counter) {
 		t.Fatalf("shelter rune should be discarded after reveal, equipment=%v graveyard=%v", p1.Equipment[0], cardsToInfo(p1.Graveyard))
 	}
 }
@@ -5318,7 +5318,7 @@ func TestFuyeMarkedCompanionDiesAfterDefenseOverexert(t *testing.T) {
 	}}); err != nil {
 		t.Fatalf("defend by overexerting Fuye-marked unit: %v", err)
 	}
-	if p1.Units[0][0] != nil || len(p1.Graveyard) == 0 || p1.Graveyard[len(p1.Graveyard)-1] != overexerted {
+	if p1.Units[0][0] != nil || len(p1.Graveyard) == 0 || !sameCardInstance(p1.Graveyard[len(p1.Graveyard)-1], overexerted) {
 		t.Fatalf("Fuye-marked unit should die after overexerting, unit=%v graveyard=%v", p1.Units[0][0], cardsToInfo(p1.Graveyard))
 	}
 	if target.CurrentLife != target.Card.Life {
@@ -6558,7 +6558,9 @@ func TestRecyclingSpriteMovesSelectedGraveyardCardToDeckTop(t *testing.T) {
 	recovered.UsedThisTurn = 1
 	recovered.UltimateUsed = true
 	p0.Hand = []*CardInstance{sprite}
-	p0.Graveyard = []*CardInstance{recovered}
+	p0.Units[2][0] = recovered
+	engine.destroyUnit(recovered, 0)
+	recovered = p0.Graveyard[0]
 	p0.Deck = []*CardInstance{otherDeckCard}
 	p0.Elements[model.ElementArcane] = 10
 
@@ -6668,9 +6670,10 @@ func TestDarkDeathEffects(t *testing.T) {
 			t.Fatalf("bone knight should ask for reborn position, pending=%+v", engine.State.PendingAction)
 		}
 		resolvePendingSelection(t, engine, 0, positionSelectionID(Position{Col: 0, Row: 0}))
-		if engine.State.Players[0].Units[0][0] != knight {
+		if !sameCardInstance(engine.State.Players[0].Units[0][0], knight) {
 			t.Fatalf("bone knight should return to its position")
 		}
+		knight = engine.State.Players[0].Units[0][0]
 		if knight.Statuses[boneKnightRebornStatus] != 1 {
 			t.Fatalf("bone knight should lose deathrattle after return, statuses=%v", knight.Statuses)
 		}
@@ -7055,7 +7058,7 @@ func TestSkillPendingChoiceEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("resolve engrave: %v", err)
 		}
-		if len(p0.Graveyard) != 1 || p0.Graveyard[0] != discard || len(p0.Hand) != 1 {
+		if len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], discard) || len(p0.Hand) != 1 {
 			t.Fatalf("engrave should discard selected hand card and search to hand, graveyard=%v hand=%v", cardsToInfo(p0.Graveyard), cardsToInfo(p0.Hand))
 		}
 		if p0.Hand[0] != scroll {
@@ -7254,7 +7257,7 @@ func TestMoreSkillChoiceEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("resolve insight eye destroy: %v", err)
 		}
-		if p1.Equipment[0] != first || p1.Equipment[1] != nil || len(p1.Graveyard) != 1 || p1.Graveyard[0] != second {
+		if p1.Equipment[0] != first || p1.Equipment[1] != nil || len(p1.Graveyard) != 1 || !sameCardInstance(p1.Graveyard[0], second) {
 			t.Fatalf("insight eye should destroy only selected equipment, equipment=%v/%v graveyard=%v", p1.Equipment[0], p1.Equipment[1], cardsToInfo(p1.Graveyard))
 		}
 	})
@@ -8131,6 +8134,7 @@ func TestBagOfTricksSacrificesToSearchConsumable(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
 	bag := NewCardInstance(baseCard(t, "2021006"), 0, 1)
+	bag.IsHorizontal = false
 	p0.Equipment[0] = bag
 	target := NewCardInstance(baseCard(t, "2021021"), 0, 1)
 	p0.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021001"), 0, 1), target}
@@ -9728,7 +9732,7 @@ func TestEnemyAndGlobalSpellDamageReducers(t *testing.T) {
 		if len(p1.TempModifiers) != 0 {
 			t.Fatalf("frost heart modifier should be consumed by the triggering spell, modifiers=%v", p1.TempModifiers)
 		}
-		if p1.Equipment[0] != nil || len(p1.Graveyard) != 1 || p1.Graveyard[0] != frostHeart {
+		if p1.Equipment[0] != nil || len(p1.Graveyard) != 1 || !sameCardInstance(p1.Graveyard[0], frostHeart) {
 			t.Fatalf("frost heart should sacrifice to graveyard, equipment=%v graveyard=%v", p1.Equipment[0], cardsToInfo(p1.Graveyard))
 		}
 		if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
@@ -10679,7 +10683,7 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("summon fire dragon with devour: %v", err)
 		}
-		if p0.Units[0][0] != nil || len(p0.Graveyard) != 1 || p0.Graveyard[0] != food {
+		if p0.Units[0][0] != nil || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], food) {
 			t.Fatalf("fire dragon should devour the selected companion, unit=%v graveyard=%v", p0.Units[0][0], cardsToInfo(p0.Graveyard))
 		}
 		if len(p0.SkillPool) != 0 {
@@ -10710,7 +10714,7 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("summon fire dragon by devouring equipment load: %v", err)
 		}
-		if p0.Equipment[0] != nil || len(p0.Graveyard) != 1 || p0.Graveyard[0] != equipment {
+		if p0.Equipment[0] != nil || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], equipment) {
 			t.Fatalf("fire dragon should devour equipment to graveyard, equipment=%v graveyard=%v", p0.Equipment[0], cardsToInfo(p0.Graveyard))
 		}
 	})
@@ -10812,12 +10816,12 @@ func TestHighRiskCompanionAndHeroSemantics(t *testing.T) {
 				engine := setupReportedBugEngine(t)
 				hero := NewCardInstance(baseCard(t, tc.id), 0, 1)
 				engine.State.Players[0].Hero = hero
-				if tc.id == "4411002" {
-					engine.triggerEffects(TriggerOnEnter, hero, nil, nil)
-				} else {
-					engine.triggerEffects(TriggerOnTurnStart, hero, nil, nil)
-					engine.triggerEffects(TriggerOnTurnStart, hero, nil, nil)
+				if tc.id == "4511003" {
+					engine.State.Players[0].SkillPool = []*CardInstance{NewCardInstance(baseCard(t, "3521007"), 0, 1)}
 				}
+				engine.triggerEffects(TriggerOnEnter, hero, nil, nil)
+				engine.triggerEffects(TriggerOnTurnStart, hero, nil, nil)
+				engine.triggerEffects(TriggerOnTurnStart, hero, nil, nil)
 
 				switch tc.location {
 				case "pool":
@@ -11797,7 +11801,7 @@ func TestDamagedAndDeathTriggeredCardEffects(t *testing.T) {
 		if ally.CurrentLife != 2 || engine.State.Players[0].Units[1][0] != ally {
 			t.Fatalf("dolphin should prevent the full damage event, ally=%+v", ally)
 		}
-		if engine.State.Players[0].Units[0][0] != nil || len(engine.State.Players[0].Graveyard) != 1 || engine.State.Players[0].Graveyard[0] != dolphin {
+		if engine.State.Players[0].Units[0][0] != nil || len(engine.State.Players[0].Graveyard) != 1 || !sameCardInstance(engine.State.Players[0].Graveyard[0], dolphin) {
 			t.Fatalf("dolphin should be sacrificed, units=%v graveyard=%v", engine.State.Players[0].Units[0][0], cardsToInfo(engine.State.Players[0].Graveyard))
 		}
 	})

@@ -16,6 +16,17 @@ func (e *Engine) handleResolveAction(playerID int, action ActionMessage) error {
 	if pa.PlayerID != playerID {
 		return fmt.Errorf("not your pending action")
 	}
+	if !e.pendingActionAvailable(pa) {
+		e.State.PendingAction = nil
+		e.State.Phase = e.State.ResumePhase
+		e.emitPendingActionCleared(pa)
+		e.advancePendingActionQueue()
+		e.completeActionResolutions(pa)
+		return nil
+	}
+	previousSource := e.effectSource
+	e.effectSource = pa.effectSource
+	defer func() { e.effectSource = previousSource }()
 
 	selectedRaw, _ := action.Data["selected"].([]any)
 	var selected []string
@@ -51,6 +62,33 @@ func (e *Engine) handleResolveAction(playerID int, action ActionMessage) error {
 			return fmt.Errorf("duplicate selection")
 		}
 		seen[id] = true
+	}
+
+	if raw, ok := action.Data["allocations"]; ok {
+		if pa.AllocationTotal <= 0 {
+			return fmt.Errorf("this decision does not accept allocations")
+		}
+		amounts, ok := raw.(map[string]any)
+		if !ok || len(amounts) != len(selected) {
+			return fmt.Errorf("allocation must match selected candidates")
+		}
+		expanded := []string{}
+		for _, id := range selected {
+			count, ok := intFromAny(amounts[id])
+			if raw, numeric := amounts[id].(float64); numeric && raw != float64(count) {
+				return fmt.Errorf("allocation amount must be an integer")
+			}
+			if !ok || count <= 0 || count > pa.AllocationTotal {
+				return fmt.Errorf("invalid allocation amount")
+			}
+			for i := 0; i < count; i++ {
+				expanded = append(expanded, id)
+			}
+		}
+		if len(expanded) != pa.AllocationTotal {
+			return fmt.Errorf("allocation total must equal %d", pa.AllocationTotal)
+		}
+		selected = expanded
 	}
 
 	// Execute callback
@@ -117,6 +155,7 @@ func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, pr
 		resumePhase = e.State.ResumePhase
 	}
 	action := &PendingAction{
+		effectSource: e.effectSource,
 		Type:         actionType,
 		PlayerID:     playerID,
 		Prompt:       prompt,
@@ -143,6 +182,10 @@ func (e *Engine) activatePendingAction(action *PendingAction, resumePhase GamePh
 	if action == nil {
 		return
 	}
+	if action.DecisionID == 0 {
+		e.decisionSequence++
+		action.DecisionID = e.decisionSequence
+	}
 	e.State.ResumePhase = resumePhase
 	e.State.Phase = PhaseWaitingAction
 	e.State.PendingAction = action
@@ -154,12 +197,14 @@ func (e *Engine) activatePendingAction(action *PendingAction, resumePhase GamePh
 
 func (e *Engine) emitPendingAction(action *PendingAction) {
 	data := map[string]any{
-		"type":       action.Type,
-		"player_id":  action.PlayerID,
-		"prompt":     action.Prompt,
-		"candidates": action.Candidates,
-		"min_select": action.MinSelect,
-		"max_select": action.MaxSelect,
+		"type":        action.Type,
+		"decision_id": action.DecisionID,
+		"ui":          pendingActionUI(action),
+		"player_id":   action.PlayerID,
+		"prompt":      action.Prompt,
+		"candidates":  action.Candidates,
+		"min_select":  action.MinSelect,
+		"max_select":  action.MaxSelect,
 	}
 	if action.Context != nil {
 		data["context"] = action.Context
@@ -195,7 +240,7 @@ func (e *Engine) advancePendingActionQueue() bool {
 				continue
 			}
 		}
-		if next.Available != nil && !next.Available() {
+		if !e.pendingActionAvailable(next) {
 			skipped = append(skipped, next)
 			continue
 		}
@@ -218,11 +263,15 @@ func (e *Engine) emitPendingActionCleared(action *PendingAction) {
 // Refresh only after the enclosing action and its continuations have settled
 // deaths. Earlier siblings may change both candidates and the spell front row.
 func (e *Engine) refreshCurrentPendingAction() {
-	for e.State.PendingAction != nil && e.State.PendingAction.Refresh != nil {
+	for e.State.PendingAction != nil {
 		action := e.State.PendingAction
-		action.Refresh(action)
-		if len(action.Candidates) >= action.MinSelect {
-			e.emitPendingAction(action)
+		if action.Refresh != nil {
+			action.Refresh(action)
+		}
+		if len(action.Candidates) >= action.MinSelect && e.pendingActionAvailable(action) {
+			if action.Refresh != nil {
+				e.emitPendingAction(action)
+			}
 			return
 		}
 		e.State.PendingAction = nil
@@ -231,4 +280,8 @@ func (e *Engine) refreshCurrentPendingAction() {
 		e.advancePendingActionQueue()
 		e.completeActionResolutions(action)
 	}
+}
+
+func (e *Engine) pendingActionAvailable(action *PendingAction) bool {
+	return action != nil && e.effectSourceAvailable(action.effectSource) && (action.Available == nil || action.Available())
 }

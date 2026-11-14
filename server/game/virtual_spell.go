@@ -48,6 +48,11 @@ func (e *Engine) startVirtualSpellCastNoBoost(playerID int, skill *CardInstance,
 			return err
 		}
 	}
+	if handled, err := e.chooseEffectSpellSquare(playerID, skill, target, func(chosen SpellTarget) error {
+		return e.startVirtualSpellCastNoBoost(playerID, skill, chosen, extraData)
+	}); handled {
+		return err
+	}
 	e.applyCoralBellyFirstSpellAttackBonus(playerID, skill)
 	totalPower := e.effectiveSpellPower(playerID, skill, nil, target)
 	powerSources := e.spellPowerSources(playerID, skill, nil, totalPower, target)
@@ -96,6 +101,11 @@ func (e *Engine) startVirtualSpellCastWithBoosts(playerID int, skill *CardInstan
 	}
 	if target.Type == "unit" && !target.Position.Valid() {
 		return fmt.Errorf("invalid virtual spell target")
+	}
+	if handled, err := e.chooseEffectSpellSquare(playerID, skill, target, func(chosen SpellTarget) error {
+		return e.startVirtualSpellCastWithBoosts(playerID, skill, chosen, boostSkills, extraData)
+	}); handled {
+		return err
 	}
 	e.applyCoralBellyFirstSpellAttackBonus(playerID, skill)
 	totalPower := e.effectiveSpellPower(playerID, skill, boostSkills, target)

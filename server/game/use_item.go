@@ -28,7 +28,8 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 		return fmt.Errorf("card is not an item")
 	}
 	if isCounterTrapCard(card.Card.Number) {
-		return e.placeCounterTrap(playerID, card, handIdx)
+		replaceID, _ := action.Data["replace_id"].(string)
+		return e.placeCounterTrap(playerID, card, handIdx, replaceID)
 	}
 
 	// Check if this is a terrain card - terrain cards go to battlefield
@@ -120,6 +121,10 @@ func (e *Engine) handleUseSpellScrollItem(playerID int, action ActionMessage, ca
 				return fmt.Errorf("spell scroll requires a target: %w", err)
 			}
 			target = SpellTarget{Type: "unit", Position: targetPos}
+			target, err = e.spellAreaSelection(card, target, action)
+			if err != nil {
+				return err
+			}
 			if ownerF, ok := action.Data["target_owner"].(float64); ok {
 				ownerID := int(ownerF)
 				target.OwnerID = &ownerID

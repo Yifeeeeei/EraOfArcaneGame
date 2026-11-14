@@ -28,3 +28,7 @@ func (Card1121010FireArtist) OnUltimate(ctx *EffectContext) error {
 		})
 	return nil
 }
+
+func (Card1121010FireArtist) AbilityRequiresTap(trigger EffectTrigger) bool {
+	return trigger == TriggerUltimate
+}

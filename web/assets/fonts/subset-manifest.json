@@ -1,0 +1,54 @@
+{
+  "generator": "scripts/subset-ui-fonts.py",
+  "fonttools_version": "4.68.0",
+  "text_source_count": 39,
+  "requested_codepoints": 2139,
+  "cmap_coverage": "All requested codepoints supported by each original font are retained.",
+  "fallback": "Characters outside an original font's cmap require the CSS system fallback.",
+  "fonts": [
+    {
+      "file": "noto-serif-sc.woff2",
+      "source_file": "noto-serif-sc.ttf",
+      "source_sha256": "050080d9255a86808f2945bffac582b31ef32bc36411ce29563b4961670c66f9",
+      "source_bytes": 25125512,
+      "bytes": 783900,
+      "sha256": "6e0c4f0f8c2c53fee2dd834fe44fbb5b1b8460f724f8f307186c0877293d9046",
+      "requested_codepoints": 2139,
+      "source_supported_requested_codepoints": 2132,
+      "output_cmap_codepoints": 2132,
+      "missing_supported_codepoints": 0,
+      "source_glyphs": 31058,
+      "subset_glyphs": 2556,
+      "axes": [
+        {
+          "tag": "wght",
+          "min": 200.0,
+          "default": 200.0,
+          "max": 900.0
+        }
+      ]
+    },
+    {
+      "file": "cinzel.woff2",
+      "source_file": "cinzel.ttf",
+      "source_sha256": "f4d83d34d1f6c741193e4acf4b3dff9531e5a67b6aa65228d00a7db72a4e0f34",
+      "source_bytes": 125468,
+      "bytes": 26448,
+      "sha256": "37077f33e292f7bcd69eea564865f8940c37420b98a31db32371e7f16a2dd696",
+      "requested_codepoints": 2139,
+      "source_supported_requested_codepoints": 108,
+      "output_cmap_codepoints": 108,
+      "missing_supported_codepoints": 0,
+      "source_glyphs": 548,
+      "subset_glyphs": 172,
+      "axes": [
+        {
+          "tag": "wght",
+          "min": 400.0,
+          "default": 400.0,
+          "max": 900.0
+        }
+      ]
+    }
+  ]
+}

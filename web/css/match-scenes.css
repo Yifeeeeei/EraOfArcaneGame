@@ -1,0 +1,430 @@
+/* Room arrival, connection recovery and the closing scene share the hall. */
+.match-scene {
+  inset: 64px 0 0;
+  padding: 0;
+  overflow: auto;
+  backdrop-filter: none;
+  background:
+    linear-gradient(90deg, #070f12b8, #07111540 70%, #070f1170),
+    url("../assets/backgrounds/royal-hall.png") center/cover;
+}
+.waiting-scene {
+  width: min(1320px, 90vw);
+  margin: auto;
+  padding: 36px 0 24px;
+}
+.scene-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 30px;
+}
+.scene-heading h2 {
+  font-size: 32px;
+  margin: 12px 0 8px;
+  letter-spacing: 0.08em;
+}
+.scene-heading p {
+  font-size: 13px;
+  color: var(--arcane-muted);
+}
+.waiting-seats {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 90px minmax(0, 1fr);
+  align-items: center;
+  width: min(1120px, 100%);
+  margin: 0 auto 32px;
+}
+.duelist-seat {
+  position: relative;
+  height: clamp(260px, 37vh, 420px);
+  overflow: hidden;
+  border: 1px solid var(--arcane-line-strong);
+  background: #13202377;
+}
+.duelist-seat > img[data-artwork="true"] {
+  object-position: 50% 26%;
+}
+.seat-caption {
+  position: absolute;
+  inset: auto 0 0;
+  padding: 70px 25px 28px;
+  text-align: center;
+  background: linear-gradient(transparent, #091317ec 65%);
+}
+.seat-caption h3 {
+  font: 600 28px/1.4 var(--font-display);
+  color: var(--arcane-gold-bright);
+  margin: 12px 0 8px;
+}
+.seat-caption p {
+  margin: 0;
+  font: 14px var(--font-display);
+  color: #d5c6a2;
+}
+.seat-status {
+  border: 1px solid #8abcb17a;
+  color: #9ecac2;
+  background: #142828ba;
+  font-size: 10px;
+  padding: 2px 8px;
+}
+.seat-versus {
+  text-align: center;
+  font:
+    26px Cinzel,
+    serif;
+  color: #d9b96e;
+}
+.empty-seat {
+  border-style: dashed;
+}
+.empty-seat .seat-caption {
+  background: none;
+}
+.empty-seat-sigil,
+.seat-emblem {
+  position: absolute;
+  width: 126px;
+  height: 126px;
+  top: 20%;
+  left: calc(50% - 63px);
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--arcane-line-strong);
+  border-radius: 50%;
+}
+.empty-seat-sigil .brand-mark,
+.seat-emblem .brand-mark {
+  width: 70px;
+  height: 70px;
+  opacity: 0.7;
+}
+.waiting-invite {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 46px;
+  width: min(1120px, 100%);
+  margin: auto;
+  padding: 24px 32px;
+  background: linear-gradient(120deg, #26312dcc, #101a1dce);
+  border: 1px solid var(--arcane-line-strong);
+  box-shadow: inset 0 0 0 3px #c9ab7009;
+}
+.waiting-invite > div:first-child {
+  text-align: center;
+}
+.waiting-invite strong {
+  display: block;
+  font:
+    42px/1.4 Cinzel,
+    serif;
+  letter-spacing: 0.22em;
+  color: #e1c58a;
+  margin-top: 8px;
+}
+.waiting-invite p {
+  font-size: 13px;
+  margin: 0 0 8px;
+}
+.waiting-invite .btn {
+  margin-top: 6px;
+}
+.waiting-footer {
+  display: flex;
+  justify-content: space-between;
+  margin: 25px auto 0;
+  width: min(1120px, 100%);
+  font-size: 12px;
+  color: var(--arcane-muted);
+}
+.result-scene {
+  background:
+    radial-gradient(ellipse at 50% 30%, #b28e4526, transparent 65%),
+    linear-gradient(90deg, #070e12ba, #0c151866),
+    url("../assets/backgrounds/royal-hall.png") center/cover;
+}
+.result-center {
+  width: min(960px, 80vw);
+  margin: auto;
+  text-align: center;
+  padding: 40px 0 55px;
+}
+.result-crest {
+  width: 160px;
+  height: 160px;
+  position: relative;
+  margin: auto;
+  color: #d2b77a;
+  display: grid;
+  place-items: center;
+}
+.result-crest::before,
+.result-crest::after {
+  content: "";
+  position: absolute;
+  inset: 6px;
+  border: 1px solid #c9ab7048;
+  transform: rotate(45deg);
+}
+.result-crest::after {
+  inset: 19px;
+  transform: rotate(15deg);
+}
+.result-crest .brand-mark {
+  width: 105px;
+  height: 105px;
+}
+.result-center h2 {
+  font: 600 clamp(48px, 4.4vw, 76px)/1.4 var(--font-display);
+  letter-spacing: 0.24em;
+  text-indent: 0.24em;
+  color: #f0d6a1;
+  margin: 36px 0 8px;
+}
+.result-motto {
+  font:
+    14px Cinzel,
+    serif;
+  letter-spacing: 0.38em;
+  color: #c0a976;
+}
+.result-stats {
+  display: flex;
+  justify-content: center;
+  gap: 65px;
+  border-block: 1px solid var(--arcane-line-strong);
+  padding: 28px 0;
+  margin: 42px 0 28px;
+}
+.result-stats strong {
+  display: block;
+  font:
+    30px/1.5 Cinzel,
+    serif;
+  color: #dcc998;
+  margin-bottom: 10px;
+}
+.result-stats small {
+  font-size: 12px;
+}
+.result-summary {
+  color: #c9b583;
+  font: 16px/1.8 var(--font-display);
+}
+.result-hero-name {
+  color: var(--arcane-muted);
+  font-size: 13px;
+}
+.scene-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  justify-content: center;
+  margin-top: 28px;
+}
+.scene-actions .btn {
+  min-height: 43px;
+  padding-inline: 25px;
+}
+.result-lose {
+  background:
+    radial-gradient(ellipse at 50% 36%, #7e4a3d2b, transparent 65%),
+    linear-gradient(#0a1015b0, #0a1015ba),
+    url("../assets/backgrounds/royal-hall.png") center/cover;
+}
+.result-lose .result-crest {
+  color: #ad8c7b;
+}
+.result-lose h2 {
+  color: #cbb19f;
+}
+.result-lose .result-crest::after {
+  border-style: dashed;
+}
+.result-draw .result-crest {
+  color: #a6c3bb;
+}
+.result-draw h2 {
+  color: #c4d7ca;
+}
+.result-draw {
+  background:
+    radial-gradient(ellipse at 50% 30%, #7b9c9222, transparent 65%),
+    linear-gradient(#09151b8a, #09151b99),
+    url("../assets/backgrounds/royal-hall.png") center/cover;
+}
+.connection-overlay {
+  z-index: 300;
+  background: #0710148c;
+  backdrop-filter: blur(6px);
+}
+.connection-box {
+  text-align: center;
+  width: min(510px, 90vw);
+  padding: 40px 38px 46px;
+  border: 1px solid var(--arcane-line-strong);
+  background: linear-gradient(135deg, #27332dda, #101b20ed);
+  box-shadow:
+    inset 0 0 0 3px #c9ab7009,
+    0 20px 80px #0007;
+}
+.scene-sigil {
+  margin: 0 auto 22px;
+  color: #c9ab70;
+}
+.scene-sigil .brand-mark {
+  width: 72px;
+  height: 72px;
+}
+.connection-box > .eyebrow {
+  letter-spacing: 0.28em;
+}
+.connection-box h2 {
+  font: 600 30px/1.5 var(--font-display);
+  margin: 24px 0 20px;
+}
+.connection-box p {
+  font-size: 13px;
+  line-height: 2;
+  color: #c0bdab;
+}
+.connection-footnote {
+  margin-top: 30px;
+  padding-top: 24px;
+  border-top: 1px solid var(--arcane-line);
+  color: var(--arcane-muted) !important;
+  font-size: 11px !important;
+}
+.square-area-options {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin: 20px 0;
+}
+.square-area-option {
+  display: grid;
+  gap: 9px;
+  padding: 13px;
+  text-align: center;
+  color: var(--arcane-bone);
+  background: #152325;
+  border: 1px solid var(--arcane-line-strong);
+  font: 13px var(--font-display);
+}
+.square-area-option:hover,
+.square-area-option:focus-visible {
+  border-color: #e3ca8d;
+  background: #343c2e;
+}
+.area-side-label {
+  font: 11px var(--font-body);
+  color: #c9b17e;
+}
+.square-area-option .pending-position-board,
+.pending-position-tile .pending-position-board {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: repeat(3, 1fr);
+  gap: 3px;
+  width: 100%;
+  height: 82px;
+  margin: 0;
+}
+.pending-position-cell {
+  width: auto;
+  height: auto;
+  border: 1px solid #b19a6248;
+  background: #0c171c;
+  min-width: 0;
+  min-height: 0;
+}
+.pending-position-cell.active {
+  background: #9d8b509c;
+  border-color: #e2c886;
+  box-shadow: inset 0 0 10px #dfbc6533;
+}
+.pending-position-cell.center::after {
+  content: "";
+  display: block;
+  margin: 5px auto;
+  width: 7px;
+  height: 7px;
+  background: #f2dfa8;
+  transform: rotate(45deg);
+}
+.interaction-card {
+  box-shadow: inset 0 0 0 3px #c9ab7009;
+}
+.interaction-card.selected {
+  border-color: #a1c6b7;
+  background: #2a3c33;
+  box-shadow: inset 0 0 0 2px #98bd9c25;
+}
+@media (min-width: 1750px) {
+  .waiting-scene {
+    padding-block: 44px 30px;
+  }
+  .scene-heading h2 {
+    font-size: 38px;
+  }
+  .waiting-seats {
+    margin-bottom: 40px;
+  }
+  .waiting-invite {
+    padding-block: 28px;
+  }
+}
+@media (max-height: 800px) {
+  .waiting-scene {
+    padding-block: 20px;
+  }
+  .scene-heading {
+    margin-bottom: 20px;
+  }
+  .scene-heading h2 {
+    font-size: 26px;
+  }
+  .duelist-seat {
+    height: 240px;
+  }
+  .empty-seat-sigil {
+    top: 12%;
+    width: 100px;
+    height: 100px;
+    left: calc(50% - 50px);
+  }
+  .waiting-seats {
+    margin-bottom: 20px;
+  }
+  .waiting-invite {
+    padding: 16px;
+  }
+  .waiting-invite strong {
+    font-size: 32px;
+  }
+  .result-center {
+    padding-block: 22px;
+  }
+  .result-crest {
+    width: 100px;
+    height: 100px;
+  }
+  .result-crest .brand-mark {
+    width: 72px;
+    height: 72px;
+  }
+  .result-center h2 {
+    margin-top: 23px;
+    font-size: 48px;
+  }
+  .result-stats {
+    margin-block: 25px 18px;
+    padding-block: 18px;
+  }
+  .connection-box {
+    padding-block: 30px;
+  }
+}

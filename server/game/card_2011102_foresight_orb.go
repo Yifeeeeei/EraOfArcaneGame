@@ -6,6 +6,10 @@ import (
 
 type Card2011102ForesightOrb struct{ AlwaysActive }
 
+func (Card2011102ForesightOrb) AbilityRequiresTap(trigger EffectTrigger) bool {
+	return trigger == TriggerPerTurn
+}
+
 func (Card2011102ForesightOrb) ID() string { return "2011102" }
 
 func (Card2011102ForesightOrb) Name() string { return "预知宝珠" }

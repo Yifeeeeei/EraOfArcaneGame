@@ -19,6 +19,7 @@ func (e *Engine) SetupGameWithFirstPlayer(p1Name string, p1Deck *model.Deck, p2N
 }
 
 func (e *Engine) setupGameWithFirstPlayer(p1Name string, p1Deck *model.Deck, p2Name string, p2Deck *model.Deck, firstPlayer int) error {
+	defer func() { e.revision++ }()
 	if firstPlayer < 0 || firstPlayer > 1 {
 		firstPlayer = 0
 	}

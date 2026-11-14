@@ -1,0 +1,237 @@
+body {
+  height: 100vh;
+  overflow: hidden;
+  background:
+    linear-gradient(#0d1619e6, #0d1619ee),
+    url("../assets/backgrounds/battlefield.png") center/cover;
+  min-width: 1100px;
+}
+.lab {
+  height: calc(100vh - 76px);
+  display: grid;
+  grid-template-columns: 260px minmax(440px, 1fr) 270px;
+  gap: 18px;
+  padding: 22px;
+}
+.workbench-error {
+  position: fixed;
+  top: 85px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 20;
+  max-width: 700px;
+  box-shadow: 0 10px 40px #000b;
+}
+.panel,
+.detail {
+  min-height: 0;
+  overflow: auto;
+  background: #152023db;
+  border: 1px solid var(--arcane-line);
+}
+.panel.right {
+  padding: 4px;
+}
+.toolbar {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  padding: 14px;
+  background: #172427;
+  border-bottom: 1px solid var(--arcane-line);
+}
+.search {
+  width: 100%;
+  padding: 9px;
+  background: #0b1518;
+  border: 1px solid var(--arcane-line);
+  color: var(--arcane-text);
+  margin-bottom: 10px;
+}
+.filters {
+  display: flex;
+  gap: 3px;
+}
+.filters .filter-btn {
+  font-size: 11px;
+  padding: 5px;
+  min-height: 28px;
+  flex: 1;
+}
+.filter-btn.active {
+  color: var(--arcane-gold-bright);
+  border-color: var(--arcane-gold);
+}
+.card-list {
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.card-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px;
+  border: 1px solid transparent;
+  background: #0a1518;
+  cursor: pointer;
+}
+.card-row.active,
+.card-row:hover {
+  border-color: var(--arcane-gold);
+}
+.card-row > img {
+  width: 36px;
+  height: 51px;
+  object-fit: contain;
+}
+.card-row > div {
+  min-width: 0;
+  flex: 1;
+}
+.row-name {
+  font-size: 12px;
+  color: var(--arcane-bone);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.row-meta {
+  font-size: 9px;
+  color: var(--arcane-muted);
+  margin-top: 4px;
+}
+.chip {
+  font-size: 9px;
+  padding: 1px 4px;
+  border: 1px solid var(--arcane-line);
+  color: var(--arcane-gold);
+}
+.detail {
+  padding: 24px;
+}
+.summary-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 8px;
+  margin-bottom: 25px;
+}
+.summary {
+  padding: 12px 6px;
+  background: #0d181c;
+  border: 1px solid var(--arcane-line);
+  text-align: center;
+}
+.summary strong {
+  display: block;
+  font: 22px Cinzel;
+  color: var(--arcane-gold-bright);
+}
+.summary span {
+  font-size: 10px;
+  color: var(--arcane-muted);
+}
+.selected-card {
+  display: grid;
+  grid-template-columns: minmax(130px, 210px) minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+.selected-card > img {
+  width: 100%;
+  height: auto;
+  box-shadow: 0 15px 50px #0007;
+  border: 1px solid var(--arcane-gold);
+}
+.selected-card h2 {
+  font-size: 26px;
+  color: var(--arcane-gold-bright);
+  margin-bottom: 14px;
+}
+.meta-line {
+  font-size: 11px;
+  color: var(--arcane-muted);
+  margin-bottom: 6px;
+}
+.desc {
+  font-size: 13px;
+  line-height: 1.9;
+  white-space: pre-wrap;
+  border-block: 1px solid var(--arcane-line);
+  padding: 15px 0;
+  margin: 20px 0;
+}
+.selected-card h3,
+.test-panel h3 {
+  font-size: 16px;
+  margin: 20px 0 12px;
+  color: var(--arcane-gold-bright);
+}
+.steps {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.step {
+  display: flex;
+  gap: 10px;
+  font-size: 11px;
+  align-items: start;
+}
+.step-num {
+  font: 12px Cinzel;
+  color: var(--arcane-gold);
+  padding: 3px 6px;
+  border: 1px solid var(--arcane-line);
+  flex: none;
+}
+.action-box {
+  display: flex;
+  gap: 7px;
+  flex-wrap: wrap;
+  margin-top: 12px;
+}
+.action-box > .btn {
+  font-size: 11px;
+  padding: 6px 10px;
+}
+.deck-code {
+  width: 100%;
+  font: 11px/1.7 monospace;
+  min-height: 84px;
+  resize: vertical;
+}
+.test-panel {
+  padding: 12px;
+}
+.test-panel > .btn {
+  width: 100%;
+  font-size: 11px;
+}
+.test-result {
+  white-space: pre-wrap;
+  font-size: 12px;
+  color: var(--arcane-muted);
+  padding: 14px 0;
+}
+.test-result.pass {
+  color: var(--arcane-green);
+}
+.test-result.fail {
+  color: #e9aa98;
+}
+@media (max-width: 1350px) {
+  .lab {
+    grid-template-columns: 230px minmax(420px, 1fr) 220px;
+    gap: 12px;
+    padding: 15px;
+  }
+  .selected-card {
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 18px;
+  }
+  .detail {
+    padding: 18px;
+  }
+}

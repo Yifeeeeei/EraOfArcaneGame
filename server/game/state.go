@@ -22,6 +22,7 @@ func (p Position) String() string {
 
 // CardInstance represents a card in play with runtime state
 type CardInstance struct {
+	fieldLife  *fieldLifetime
 	InstanceID string      `json:"instance_id"`
 	Card       *model.Card `json:"card"`
 	OwnerID    int         `json:"owner_id"` // 0 or 1
@@ -115,9 +116,9 @@ const (
 
 const (
 	BaseSkillSlots     = 5
-	MaxSkillSlots      = 8
+	MaxSkillSlots      = 99
 	BaseEquipmentSlots = 5
-	MaxEquipmentSlots  = 8
+	MaxEquipmentSlots  = 99
 )
 
 // PlayerState holds all state for one player
@@ -307,7 +308,7 @@ func (ps *PlayerState) FindEmptyPosition() *Position {
 func (ps *PlayerState) GetFrontRow() int {
 	for row := 0; row < 3; row++ {
 		for col := 0; col < 3; col++ {
-			if ps.Units[col][row] != nil {
+			if unit := ps.Units[col][row]; unit != nil && !(unit.Statuses[StatusStealth] > 0 && unit.Statuses[StatusPetrify] <= 0) {
 				return row
 			}
 		}
@@ -391,21 +392,24 @@ func (p GamePhase) String() string {
 
 // PendingAction represents a player choice that must be resolved
 type PendingAction struct {
-	Type         string                                             `json:"type"`       // "select_target", "select_card", "discard", "select_position"
-	PlayerID     int                                                `json:"player_id"`  // which player must choose
-	Prompt       string                                             `json:"prompt"`     // display text
-	Candidates   []map[string]any                                   `json:"candidates"` // selectable options (cards or positions)
-	MinSelect    int                                                `json:"min_select"` // minimum selections required
-	MaxSelect    int                                                `json:"max_select"` // maximum selections allowed
-	Context      map[string]any                                     `json:"context,omitempty"`
-	Cost         map[string]int                                     `json:"cost,omitempty"`
-	CanOverexert bool                                               `json:"can_overexert,omitempty"`
-	Callback     func(selected []string)                            `json:"-"` // called when resolved
-	CallbackData func(selected []string, data map[string]any)       `json:"-"`
-	CallbackErr  func(selected []string, data map[string]any) error `json:"-"`
-	Refresh      func(*PendingAction)                               `json:"-"` // refresh queued choices after earlier effects change the board
-	Available    func() bool                                        `json:"-"` // checked before a queued action is shown
-	resolutions  []*resolutionFrame
+	effectSource    *fieldLifetime
+	AllocationTotal int                                                `json:"allocation_total,omitempty"`
+	DecisionID      uint64                                             `json:"decision_id"`
+	Type            string                                             `json:"type"`       // "select_target", "select_card", "discard", "select_position"
+	PlayerID        int                                                `json:"player_id"`  // which player must choose
+	Prompt          string                                             `json:"prompt"`     // display text
+	Candidates      []map[string]any                                   `json:"candidates"` // selectable options (cards or positions)
+	MinSelect       int                                                `json:"min_select"` // minimum selections required
+	MaxSelect       int                                                `json:"max_select"` // maximum selections allowed
+	Context         map[string]any                                     `json:"context,omitempty"`
+	Cost            map[string]int                                     `json:"cost,omitempty"`
+	CanOverexert    bool                                               `json:"can_overexert,omitempty"`
+	Callback        func(selected []string)                            `json:"-"` // called when resolved
+	CallbackData    func(selected []string, data map[string]any)       `json:"-"`
+	CallbackErr     func(selected []string, data map[string]any) error `json:"-"`
+	Refresh         func(*PendingAction)                               `json:"-"` // refresh queued choices after earlier effects change the board
+	Available       func() bool                                        `json:"-"` // checked before a queued action is shown
+	resolutions     []*resolutionFrame
 }
 
 // GameState holds the entire game state
@@ -445,7 +449,9 @@ type SpellCast struct {
 	PowerSources []SpellPowerSource `json:"power_sources,omitempty"`
 	BoostSkills  []*CardInstance    `json:"boost_skills"` // skills used to boost
 	ExtraTargets []SpellTarget      `json:"extra_targets,omitempty"`
-	resolutions  []*resolutionFrame
+	// Number of earlier casts of this card number, excluding this committed cast.
+	priorSameNumberCasts *int
+	resolutions          []*resolutionFrame
 }
 
 type SpellPowerSource struct {
@@ -457,9 +463,10 @@ type SpellPowerSource struct {
 
 // SpellTarget represents the target of a spell
 type SpellTarget struct {
-	Type     string   `json:"type"`     // "unit" or "area"
-	Position Position `json:"position"` // for unit targets
-	OwnerID  *int     `json:"owner_id,omitempty"`
+	AreaOrigin *Position `json:"area_origin,omitempty"`
+	Type       string    `json:"type"`     // "unit" or "area"
+	Position   Position  `json:"position"` // for unit targets
+	OwnerID    *int      `json:"owner_id,omitempty"`
 }
 
 // NewGameState creates a new game state

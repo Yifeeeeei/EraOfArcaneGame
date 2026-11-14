@@ -402,7 +402,7 @@ func TestRoyalConflictPublicSpecialZones(t *testing.T) {
 	}
 
 	engine.destroyUnit(host, 0)
-	if len(p0.Graveyard) != 2 || p0.Graveyard[0] != under || p0.Graveyard[1] != host || len(host.UnderCards) != 0 {
+	if len(p0.Graveyard) != 2 || !sameCardInstance(p0.Graveyard[0], under) || !sameCardInstance(p0.Graveyard[1], host) || len(host.UnderCards) != 0 {
 		t.Fatalf("destroying host should release under cards before host, graveyard=%v hostUnder=%v", cardsToInfo(p0.Graveyard), cardsToInfo(host.UnderCards))
 	}
 
@@ -411,7 +411,7 @@ func TestRoyalConflictPublicSpecialZones(t *testing.T) {
 	if !engine.exileCard(0, exiled) {
 		t.Fatal("expected graveyard card to be exiled")
 	}
-	if len(p0.Exile) != 1 || p0.Exile[0] != exiled {
+	if len(p0.Exile) != 1 || !sameCardInstance(p0.Exile[0], exiled) {
 		t.Fatalf("exile zone should contain moved card, exile=%v", cardsToInfo(p0.Exile))
 	}
 	for _, card := range p0.Graveyard {
@@ -540,7 +540,7 @@ func TestRoyalConflictAdditionalSpellBehaviors(t *testing.T) {
 		target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
 		target.CurrentLife = 2
 		engine.dealDamageWithExtra(target, 1, 1, map[string]any{"damage_source": "effect", "attacker": 0})
-		if engine.State.Players[1].Units[0][0] != nil || len(engine.State.Players[1].Graveyard) != 1 || engine.State.Players[1].Graveyard[0] != target {
+		if engine.State.Players[1].Units[0][0] != nil || len(engine.State.Players[1].Graveyard) != 1 || !sameCardInstance(engine.State.Players[1].Graveyard[0], target) {
 			t.Fatalf("3321105 should destroy damaged one-life unit, unit=%v grave=%v", cardToInfo(engine.State.Players[1].Units[0][0]), cardsToInfo(engine.State.Players[1].Graveyard))
 		}
 	})
@@ -839,7 +839,7 @@ func TestRoyalConflictDemonChildRequiresShadowCompanionDevour(t *testing.T) {
 	}}); err != nil {
 		t.Fatalf("summon demon child with shadow companion devour: %v", err)
 	}
-	if p0.Units[0][0] != demon || len(p0.Graveyard) != 1 || p0.Graveyard[0] != sacrifice {
+	if p0.Units[0][0] != demon || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], sacrifice) {
 		t.Fatalf("1621108 should enter after devouring shadow companion, unit=%v grave=%v", cardToInfo(p0.Units[0][0]), cardsToInfo(p0.Graveyard))
 	}
 
@@ -945,7 +945,7 @@ func TestRoyalConflictShieldCardBehaviors(t *testing.T) {
 		t.Fatalf("2021113 should be eligible when an enemy spell hits, candidates=%v", candidates)
 	}
 	barrierEngine.executeCounterTrap(barrier, TriggerOnSpellHitBeforeDamage, enemySpell, map[string]any{"attacker": 1})
-	if barrierP0.Shield != 2 || barrierP0.Equipment[0] != nil || len(barrierP0.Graveyard) != 1 || barrierP0.Graveyard[0] != barrier {
+	if barrierP0.Shield != 2 || barrierP0.Equipment[0] != nil || len(barrierP0.Graveyard) != 1 || !sameCardInstance(barrierP0.Graveyard[0], barrier) {
 		t.Fatalf("2021113 should gain shield 2 then be discarded, shield=%d equipment=%v grave=%v", barrierP0.Shield, barrierP0.Equipment, cardsToInfo(barrierP0.Graveyard))
 	}
 
@@ -1824,7 +1824,7 @@ func TestRoyalConflictLightweightSpellAndItemEffects(t *testing.T) {
 			t.Fatalf("2121110 should ask which fire spell to exile, pending=%+v", engine.State.PendingAction)
 		}
 		resolvePendingSelection(t, engine, 0, exiled.InstanceID)
-		if len(p0.Exile) != 1 || p0.Exile[0] != exiled || p0.Skills[0] != nil {
+		if len(p0.Exile) != 1 || !sameCardInstance(p0.Exile[0], exiled) || p0.Skills[0] != nil {
 			t.Fatalf("2121110 should exile the selected fire spell, exile=%v skills=%v", cardsToInfo(p0.Exile), cardsToInfo(p0.Skills[:]))
 		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "offering_torch_buff" {
@@ -1873,7 +1873,7 @@ func TestRoyalConflictLightweightSpellAndItemEffects(t *testing.T) {
 			t.Fatalf("2121101 should ask which fire skill to exile, pending=%+v", engine.State.PendingAction)
 		}
 		resolvePendingSelection(t, engine, 0, source.InstanceID)
-		if len(p0.Exile) != 1 || p0.Exile[0] != source || len(p0.SkillPool) != 0 {
+		if len(p0.Exile) != 1 || !sameCardInstance(p0.Exile[0], source) || len(p0.SkillPool) != 0 {
 			t.Fatalf("2121101 should exile selected fire skill from field or pool, exile=%v pool=%v", cardsToInfo(p0.Exile), cardsToInfo(p0.SkillPool))
 		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "lavafort_ashes_search_fire_card" || len(engine.State.PendingAction.Candidates) != 1 {
@@ -2000,6 +2000,9 @@ func TestRoyalConflictRadiantAngelLetsAnyElementPayLightCosts(t *testing.T) {
 	}
 
 	angel := placeUnit(baseCard(t, "1521109"), 0, 0, 0, engine)
+	if enabled, _ := engine.playerStateToInfo(p0, true)["light_cost_wildcard"].(bool); !enabled {
+		t.Fatal("frontend must see the active any-element-for-light payment rule")
+	}
 	if !engine.canPayCostForCardAction(p0, lightCard, cost, cost, paymentPurposePlay, ActionMessage{}) {
 		t.Fatal("1521109 should let other elements pay light costs")
 	}
@@ -2009,6 +2012,9 @@ func TestRoyalConflictRadiantAngelLetsAnyElementPayLightCosts(t *testing.T) {
 
 	p0.Elements = cloneElements(map[string]int{model.ElementFire: 5})
 	angel.Statuses[StatusPetrify] = 1
+	if enabled, _ := engine.playerStateToInfo(p0, true)["light_cost_wildcard"].(bool); enabled {
+		t.Fatal("frontend must stop offering light-cost alternatives after the source is petrified")
+	}
 	if engine.canPayCostForCardAction(p0, lightCard, cost, cost, paymentPurposePlay, ActionMessage{}) {
 		t.Fatal("petrified 1521109 should not enable other elements as light")
 	}
@@ -2045,7 +2051,7 @@ func TestRoyalConflictCouncilSpokesmanReducesEnemyHandLimit(t *testing.T) {
 		t.Fatalf("1311103 should force immediate discard after exceeding reduced hand limit, pending=%+v", engine.State.PendingAction)
 	}
 	resolvePendingSelection(t, engine, 1, drawn.InstanceID)
-	if len(p1.Hand) != engine.State.HandLimit-1 || len(p1.Graveyard) != 1 || p1.Graveyard[0] != drawn {
+	if len(p1.Hand) != engine.State.HandLimit-1 || len(p1.Graveyard) != 1 || !sameCardInstance(p1.Graveyard[0], drawn) {
 		t.Fatalf("discard should restore reduced hand limit, hand=%d grave=%v", len(p1.Hand), cardsToInfo(p1.Graveyard))
 	}
 
@@ -2075,7 +2081,7 @@ func TestRoyalConflictCouncilSpokesmanReducesEnemyHandLimit(t *testing.T) {
 		t.Fatalf("1311103 should force discard after searching over hand limit, pending=%+v", searchEngine.State.PendingAction)
 	}
 	resolvePendingSelection(t, searchEngine, 1, searched.InstanceID)
-	if len(searchP1.Hand) != searchEngine.State.HandLimit-1 || len(searchP1.Graveyard) != 1 || searchP1.Graveyard[0] != searched {
+	if len(searchP1.Hand) != searchEngine.State.HandLimit-1 || len(searchP1.Graveyard) != 1 || !sameCardInstance(searchP1.Graveyard[0], searched) {
 		t.Fatalf("searched card should be discarded back to reduced limit, hand=%d grave=%v", len(searchP1.Hand), cardsToInfo(searchP1.Graveyard))
 	}
 
@@ -2365,7 +2371,7 @@ func TestRoyalConflictFlipMechanicAndCards(t *testing.T) {
 
 func containsCardInstance(cards []*CardInstance, target *CardInstance) bool {
 	for _, card := range cards {
-		if card == target {
+		if sameCardInstance(card, target) {
 			return true
 		}
 	}
@@ -2393,6 +2399,7 @@ func TestRoyalConflictSoulAndInsightUtilityCards(t *testing.T) {
 		if p0.Elements[model.ElementArcane] != 0 || p0.Elements[model.ElementAir] != 3 {
 			t.Fatalf("1321105 should gain returned companion load before hidden-zone reset, elements=%v", p0.Elements)
 		}
+		target, _ = p0.FindHandCard(target.InstanceID)
 		if target.ElementsGainBonus[model.ElementAir] != 0 || effectiveElementsGain(target)[model.ElementAir] != target.Card.ElementsGain[model.ElementAir] {
 			t.Fatalf("1321105 should reset returned companion state in hand, bonus=%v load=%v", target.ElementsGainBonus, effectiveElementsGain(target))
 		}
@@ -3701,9 +3708,10 @@ func TestRoyalConflictPrintedBoundSkills(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("replace five rainbow ring: %v", err)
 		}
-		if len(p0.Graveyard) != 1 || p0.Graveyard[0] != oldRing {
+		if len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], oldRing) {
 			t.Fatalf("old ring should move to graveyard, grave=%v", cardsToInfo(p0.Graveyard))
 		}
+		oldRing = p0.Graveyard[0]
 		if len(oldRing.BoundSkills) != 0 {
 			t.Fatalf("bound skills should disappear when equipment host leaves, bound=%v", cardsToInfo(oldRing.BoundSkills))
 		}
@@ -3729,9 +3737,10 @@ func TestRoyalConflictPrintedBoundSkills(t *testing.T) {
 		if !engine.destroyEnemyEquipment(0, ring.InstanceID) {
 			t.Fatal("destroyEnemyEquipment should destroy opponent ring")
 		}
-		if len(p1.Graveyard) != 1 || p1.Graveyard[0] != ring {
+		if len(p1.Graveyard) != 1 || !sameCardInstance(p1.Graveyard[0], ring) {
 			t.Fatalf("destroyed ring should move to opponent graveyard, grave=%v", cardsToInfo(p1.Graveyard))
 		}
+		ring = p1.Graveyard[0]
 		if ring.SlotIndex != -1 || len(ring.BoundSkills) != 0 {
 			t.Fatalf("destroyed equipment should clear slot and bound skills, slot=%d bound=%v", ring.SlotIndex, cardsToInfo(ring.BoundSkills))
 		}
@@ -4078,7 +4087,7 @@ func TestRoyalConflictRedMoonPendantExtendsNextRedMoon(t *testing.T) {
 	}}); err != nil {
 		t.Fatalf("use red moon pendant: %v", err)
 	}
-	if p0.Equipment[0] != nil || len(p0.Graveyard) != 1 || p0.Graveyard[0] != pendant {
+	if p0.Equipment[0] != nil || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], pendant) {
 		t.Fatalf("pendant should be sacrificed to graveyard, equipment=%v grave=%v", p0.Equipment[0], cardsToInfo(p0.Graveyard))
 	}
 	if p0.NextRedMoonDuration != 1 {
@@ -4243,7 +4252,7 @@ func TestRoyalConflictSimpleCardEffects(t *testing.T) {
 		if len(p0.Hand) != 2 || p0.Hand[0] != drawA || p0.Hand[1] != drawB {
 			t.Fatalf("reshape should discard hand then draw two, hand=%v", cardsToInfo(p0.Hand))
 		}
-		if len(p0.Graveyard) != 3 || p0.Graveyard[0] != reshape || p0.Graveyard[1] != discardA || p0.Graveyard[2] != discardB {
+		if len(p0.Graveyard) != 3 || !sameCardInstance(p0.Graveyard[0], reshape) || !sameCardInstance(p0.Graveyard[1], discardA) || !sameCardInstance(p0.Graveyard[2], discardB) {
 			t.Fatalf("reshape should place itself and discarded cards in graveyard, grave=%v", cardsToInfo(p0.Graveyard))
 		}
 		if p0.RevealedHand[discardA.InstanceID] {
@@ -4284,7 +4293,7 @@ func TestRoyalConflictSimpleCardEffects(t *testing.T) {
 		if p0.Equipment[0] != nil || len(p0.Hand) != 2 {
 			t.Fatalf("golden dragonbone should sacrifice itself and draw two, equipment=%v hand=%v", p0.Equipment[0], cardsToInfo(p0.Hand))
 		}
-		if len(p0.Graveyard) == 0 || p0.Graveyard[len(p0.Graveyard)-1] != dragonbone {
+		if len(p0.Graveyard) == 0 || !sameCardInstance(p0.Graveyard[len(p0.Graveyard)-1], dragonbone) {
 			t.Fatalf("golden dragonbone should move to graveyard, grave=%v", cardsToInfo(p0.Graveyard))
 		}
 	})
@@ -4321,7 +4330,7 @@ func TestRoyalConflictSimpleConsumableChoiceEffects(t *testing.T) {
 		if len(p0.Hand) != 2 || p0.Hand[0] != kept || p0.Hand[1] != drawB {
 			t.Fatalf("lost silverleaf should discard the selected card, hand=%v", cardsToInfo(p0.Hand))
 		}
-		if len(p0.Graveyard) != 2 || p0.Graveyard[0] != silverleaf || p0.Graveyard[1] != drawA {
+		if len(p0.Graveyard) != 2 || !sameCardInstance(p0.Graveyard[0], silverleaf) || !sameCardInstance(p0.Graveyard[1], drawA) {
 			t.Fatalf("lost silverleaf graveyard order wrong, grave=%v", cardsToInfo(p0.Graveyard))
 		}
 	})
@@ -4632,10 +4641,10 @@ func TestRoyalConflictBloodNourishExilesShadowGraveyardCard(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("resolve blood nourish: %v", err)
 		}
-		if len(p0.Exile) != 1 || p0.Exile[0] != shadow {
+		if len(p0.Exile) != 1 || !sameCardInstance(p0.Exile[0], shadow) {
 			t.Fatalf("blood nourish should exile selected shadow card, exile=%v grave=%v", cardsToInfo(p0.Exile), cardsToInfo(p0.Graveyard))
 		}
-		if len(p0.Graveyard) != 1 || p0.Graveyard[0] != other {
+		if len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], other) {
 			t.Fatalf("blood nourish should leave non-selected graveyard cards, grave=%v", cardsToInfo(p0.Graveyard))
 		}
 		if p0.Elements[model.ElementShadow] != afterPay+2 {
@@ -4688,7 +4697,7 @@ func TestRoyalConflictSimpleEnterBatchTwo(t *testing.T) {
 			t.Fatal("1021104 should reject forged out-of-range selections")
 		}
 		resolvePendingSelection(t, engine, 0, inRange.InstanceID)
-		if len(engine.State.Players[1].Exile) != 1 || engine.State.Players[1].Exile[0] != inRange {
+		if len(engine.State.Players[1].Exile) != 1 || !sameCardInstance(engine.State.Players[1].Exile[0], inRange) {
 			t.Fatalf("1021104 should exile selected enemy companion, exile=%v", cardsToInfo(engine.State.Players[1].Exile))
 		}
 		if engine.State.Players[1].Units[outOfRange.Position.Col][outOfRange.Position.Row] != outOfRange {
@@ -4995,7 +5004,7 @@ func TestRoyalConflictJiuxiaoMarkEffects(t *testing.T) {
 		if p1.Hero.CurrentLife != beforeLife-2 {
 			t.Fatalf("discarding Jiuxiao Mark to hand limit should damage hero by 2, before=%d life=%d", beforeLife, p1.Hero.CurrentLife)
 		}
-		if len(p1.Graveyard) != 1 || p1.Graveyard[0] != mark {
+		if len(p1.Graveyard) != 1 || !sameCardInstance(p1.Graveyard[0], mark) {
 			t.Fatalf("discarded mark should be in graveyard, grave=%v", cardsToInfo(p1.Graveyard))
 		}
 	})
@@ -5314,7 +5323,7 @@ func TestRoyalConflictPermanentSkillCostAndGraveyardBurstEffects(t *testing.T) {
 		if len(p0.Exile) != 5 {
 			t.Fatalf("2621111 should exile five shadow companions, exile=%v grave=%v", cardsToInfo(p0.Exile), cardsToInfo(p0.Graveyard))
 		}
-		if len(p0.Graveyard) != 2 || p0.Graveyard[0] != nonShadow || p0.Graveyard[1] != scroll {
+		if len(p0.Graveyard) != 2 || !sameCardInstance(p0.Graveyard[0], nonShadow) || !sameCardInstance(p0.Graveyard[1], scroll) {
 			t.Fatalf("2621111 should leave non-shadow card and itself in graveyard, grave=%v", cardsToInfo(p0.Graveyard))
 		}
 		if p0.Elements[model.ElementShadow] != 10 {
@@ -5363,7 +5372,7 @@ func TestRoyalConflictRaiderSearchItemEffects(t *testing.T) {
 		if engine.State.PendingAction != nil {
 			t.Fatalf("2221105 should not ask for a discount without a raider on field, pending=%+v", engine.State.PendingAction)
 		}
-		if len(p0.Hand) != 1 || p0.Hand[0] != target || len(p0.Graveyard) != 1 || p0.Graveyard[0] != scroll {
+		if len(p0.Hand) != 1 || p0.Hand[0] != target || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], scroll) {
 			t.Fatalf("2221105 should search target to hand and move itself to graveyard, hand=%v grave=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
 		}
 		if target.Statuses["入场费用"+model.ElementWater+"-1"] != 0 || target.Statuses["入场费用"+model.ElementShadow+"-1"] != 0 {
@@ -5443,7 +5452,7 @@ func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
 		if p0.Elements[model.ElementFire] != 6 {
 			t.Fatalf("2121108 should spend 1 fire then gain target entry cost 2 fire, elements=%v", p0.Elements)
 		}
-		if len(p0.Hand) != 0 || len(p0.Graveyard) != 1 || p0.Graveyard[0] != scroll {
+		if len(p0.Hand) != 0 || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], scroll) {
 			t.Fatalf("2121108 should move itself from hand to graveyard, hand=%v grave=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
 		}
 
@@ -5523,7 +5532,7 @@ func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
 		if secondTarget.Statuses["入场费用"+model.ElementShadow+"-1"] != 0 || !containsCardInstance(p0.Deck, secondTarget) {
 			t.Fatalf("2621109 should not reveal or discount later matching cards, deck=%v second_statuses=%v", cardsToInfo(p0.Deck), secondTarget.Statuses)
 		}
-		if len(p0.Graveyard) != 2 || p0.Graveyard[1] != scroll || p0.Elements[model.ElementShadow] != 1 {
+		if len(p0.Graveyard) != 2 || !sameCardInstance(p0.Graveyard[1], scroll) || p0.Elements[model.ElementShadow] != 1 {
 			t.Fatalf("2621109 should spend 1 shadow and move itself to graveyard, grave=%v elements=%v", cardsToInfo(p0.Graveyard), p0.Elements)
 		}
 	})
@@ -5546,7 +5555,7 @@ func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("use 2321102: %v", err)
 		}
-		if p0.Equipment[0] != nil || len(p0.Graveyard) != 4 || p0.Graveyard[3] != cycle {
+		if p0.Equipment[0] != nil || len(p0.Graveyard) != 4 || !sameCardInstance(p0.Graveyard[3], cycle) {
 			t.Fatalf("2321102 should sacrifice itself before selection, equipment=%v grave=%v", p0.Equipment[0], cardsToInfo(p0.Graveyard))
 		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "wind_cycle_shuffle_air" || len(engine.State.PendingAction.Candidates) != 2 {
@@ -5556,7 +5565,7 @@ func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
 		if countCardsByNumber(p0.Deck, airA.Card.Number) != 1 || countCardsByNumber(p0.Deck, airB.Card.Number) != 1 {
 			t.Fatalf("2321102 should shuffle selected air cards into deck, deck=%v", cardsToInfo(p0.Deck))
 		}
-		if len(p0.Graveyard) != 2 || p0.Graveyard[0] != nonAir || p0.Graveyard[1] != cycle {
+		if len(p0.Graveyard) != 2 || !sameCardInstance(p0.Graveyard[0], nonAir) || !sameCardInstance(p0.Graveyard[1], cycle) {
 			t.Fatalf("2321102 should leave non-selected/non-air cards and itself in graveyard, grave=%v", cardsToInfo(p0.Graveyard))
 		}
 	})
@@ -5571,7 +5580,7 @@ func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("use 2321103: %v", err)
 		}
-		if p0.Elements[model.ElementAir] != 1 || len(p0.Graveyard) != 1 || p0.Graveyard[0] != used {
+		if p0.Elements[model.ElementAir] != 1 || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], used) {
 			t.Fatalf("used 2321103 should gain 1 air and enter graveyard, elements=%v grave=%v", p0.Elements, cardsToInfo(p0.Graveyard))
 		}
 
@@ -5579,7 +5588,7 @@ func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
 		p0.Hand = []*CardInstance{discarded}
 		before := p0.Elements[model.ElementAir]
 		engine.discardHandCardAt(0, 0)
-		if p0.Elements[model.ElementAir] != before+1 || len(p0.Hand) != 0 || p0.Graveyard[len(p0.Graveyard)-1] != discarded {
+		if p0.Elements[model.ElementAir] != before+1 || len(p0.Hand) != 0 || !sameCardInstance(p0.Graveyard[len(p0.Graveyard)-1], discarded) {
 			t.Fatalf("discarded 2321103 should gain 1 air and enter graveyard, elements=%v hand=%v grave=%v", p0.Elements, cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
 		}
 	})
@@ -5630,6 +5639,7 @@ func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
 		frontRow := 0
 		front := placeUnit(baseCard(t, "1021001"), 1, 0, frontRow, stealthEngine)
 		front.Statuses[StatusStealth] = 2
+		placeUnit(baseCard(t, "1021001"), 1, 2, frontRow, stealthEngine) // visible unit establishes the row
 		backRow := 1
 		if backRow == stealthP1.GetFrontRow() {
 			backRow = 0
@@ -6622,7 +6632,7 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		if len(millP0.Deck) != 1 || len(millP1.Deck) != 1 || len(millP0.Graveyard) != 4 || len(millP1.Graveyard) != 4 {
 			t.Fatalf("dom should mill top four from both decks, p0 deck/grave=%d/%d p1 deck/grave=%d/%d", len(millP0.Deck), len(millP0.Graveyard), len(millP1.Deck), len(millP1.Graveyard))
 		}
-		if millP0.Graveyard[0] != firstP0 || millP1.Graveyard[0] != firstP1 {
+		if !sameCardInstance(millP0.Graveyard[0], firstP0) || !sameCardInstance(millP1.Graveyard[0], firstP1) {
 			t.Fatalf("dom should preserve top-deck mill order, p0 grave=%v p1 grave=%v", cardsToInfo(millP0.Graveyard), cardsToInfo(millP1.Graveyard))
 		}
 	})
@@ -7046,7 +7056,7 @@ func TestRoyalConflictDeathrattleEffects(t *testing.T) {
 		if engine.State.Players[1].Units[1][0] == nil || engine.State.Players[1].Units[1][0].Card.Number != "1001101" {
 			t.Fatalf("abandoned pawn should replace killed adjacent companion, unit=%v", cardToInfo(engine.State.Players[1].Units[1][0]))
 		}
-		if len(engine.State.Players[1].Graveyard) != 1 || engine.State.Players[1].Graveyard[0] != killed {
+		if len(engine.State.Players[1].Graveyard) != 1 || !sameCardInstance(engine.State.Players[1].Graveyard[0], killed) {
 			t.Fatalf("killed adjacent companion should enter graveyard, grave=%v", cardsToInfo(engine.State.Players[1].Graveyard))
 		}
 		if survivor.CurrentLife != 2 || engine.State.Players[0].Units[0][1] != survivor {
@@ -7079,7 +7089,7 @@ func TestRoyalConflictDeathrattleEffects(t *testing.T) {
 		}
 		blocker := placeUnit(baseCard(t, "1021001"), 1, 0, 0, staleEngine)
 		resolvePendingSelection(t, staleEngine, 1, positionSelectionID(Position{Col: 0, Row: 0}))
-		if len(staleEngine.State.Players[0].Graveyard) != 1 || staleEngine.State.Players[0].Graveyard[0] != staleKnight || staleKnight.OwnerID != 0 || staleKnight.Card.Life != 4 {
+		if len(staleEngine.State.Players[0].Graveyard) != 1 || !sameCardInstance(staleEngine.State.Players[0].Graveyard[0], staleKnight) || staleKnight.OwnerID != 0 || staleKnight.Card.Life != 4 {
 			t.Fatalf("stale contradictory knight position should leave card in original graveyard, grave=%v owner=%d life=%d", cardsToInfo(staleEngine.State.Players[0].Graveyard), staleKnight.OwnerID, staleKnight.Card.Life)
 		}
 		if staleEngine.State.Players[1].Units[0][0] != blocker {
@@ -7174,7 +7184,7 @@ func TestRoyalConflictSimpleActiveAbilityEffects(t *testing.T) {
 			t.Fatalf("storm horn should prompt to search air equipment, pending=%+v", engine.State.PendingAction)
 		}
 		resolvePendingSelection(t, engine, 0, equipment.InstanceID)
-		if len(p0.Graveyard) != 1 || p0.Graveyard[0] != discard || len(p0.Hand) != 1 || p0.Hand[0] != equipment {
+		if len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], discard) || len(p0.Hand) != 1 || p0.Hand[0] != equipment {
 			t.Fatalf("storm horn should discard cost and search equipment, hand=%v grave=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard), cardsToInfo(p0.Deck))
 		}
 
@@ -8081,7 +8091,7 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 			t.Fatalf("1321101 should ask which air graveyard cards to recycle, pending=%+v", recycleEngine.State.PendingAction)
 		}
 		resolvePendingSelection(t, recycleEngine, 0, airA.InstanceID, airB.InstanceID)
-		if len(recycleP0.Graveyard) != 1 || recycleP0.Graveyard[0] != nonAir || !containsCardInstance(recycleP0.Deck, airA) || !containsCardInstance(recycleP0.Deck, airB) {
+		if len(recycleP0.Graveyard) != 1 || !sameCardInstance(recycleP0.Graveyard[0], nonAir) || !containsCardInstance(recycleP0.Deck, airA) || !containsCardInstance(recycleP0.Deck, airB) {
 			t.Fatalf("1321101 should move selected air graveyard cards to deck, grave=%v deck=%v", cardsToInfo(recycleP0.Graveyard), cardsToInfo(recycleP0.Deck))
 		}
 	})
@@ -8707,7 +8717,7 @@ func TestRoyalConflictPrimalDivineFlameLopsius(t *testing.T) {
 		t.Fatalf("3111102 should offer other fire skills only, pending=%+v", engine.State.PendingAction)
 	}
 	resolvePendingSelection(t, engine, 0, fireSpell.InstanceID)
-	if p0.Skills[1] != nil || len(p0.Exile) != 1 || p0.Exile[0] != fireSpell {
+	if p0.Skills[1] != nil || len(p0.Exile) != 1 || !sameCardInstance(p0.Exile[0], fireSpell) {
 		t.Fatalf("3111102 should exile selected fire skill, skills=%v exile=%v", cardsToInfo(p0.Skills[:]), cardsToInfo(p0.Exile))
 	}
 	if lopsius.AttackBonus != 1 || lopsius.PowerBonus != 2 || lopsius.UsedThisTurn != 1 {
@@ -8741,7 +8751,7 @@ func TestRoyalConflictPrimalDivineFlameLopsius(t *testing.T) {
 		t.Fatalf("3111102 should be marked used after opening pending action, used=%d", actionLopsius.UsedThisTurn)
 	}
 	resolvePendingSelection(t, actionEngine, 0, actionFireSpell.InstanceID)
-	if actionP0.Skills[1] != nil || len(actionP0.Exile) != 1 || actionP0.Exile[0] != actionFireSpell {
+	if actionP0.Skills[1] != nil || len(actionP0.Exile) != 1 || !sameCardInstance(actionP0.Exile[0], actionFireSpell) {
 		t.Fatalf("3111102 handle action path should exile selected fire skill, skills=%v exile=%v", cardsToInfo(actionP0.Skills[:]), cardsToInfo(actionP0.Exile))
 	}
 	if actionLopsius.AttackBonus != 1 || actionLopsius.PowerBonus != 2 || actionLopsius.UsedThisTurn != 1 {
@@ -8787,8 +8797,9 @@ func TestRoyalConflictTreadingWaveResetsOtherWaterSpellWithRisingCost(t *testing
 	engine := setupEffectTest(t)
 	p0 := engine.State.Players[0]
 	treading := readySkill(baseCard(t, "3221101"), 0)
+	treading.Statuses[StatusAbilityDuration] = 1
 	usedWater := readySkill(baseCard(t, "3221001"), 0)
-	resetTarget := readySkill(baseCard(t, "3221104"), 0)
+	resetTarget := readySkill(baseCard(t, "3221109"), 0)
 	resetTarget.IsHorizontal = true
 	p0.Skills[0] = treading
 	p0.Skills[1] = usedWater
@@ -8832,7 +8843,8 @@ func TestRoyalConflictTreadingWaveResetsOtherWaterSpellWithRisingCost(t *testing
 
 	enemyEngine := setupEffectTest(t)
 	enemyTreading := readySkill(baseCard(t, "3221101"), 0)
-	enemyTarget := readySkill(baseCard(t, "3221104"), 0)
+	enemyTreading.Statuses[StatusAbilityDuration] = 1
+	enemyTarget := readySkill(baseCard(t, "3221109"), 0)
 	enemyTarget.IsHorizontal = true
 	enemyEngine.State.Players[0].Skills[0] = enemyTreading
 	enemyEngine.State.Players[0].Skills[1] = enemyTarget
@@ -9307,7 +9319,7 @@ func TestRoyalConflictRottenAncientTreeHeartRemovesLoadEveryTwoSpells(t *testing
 	if engine.State.PendingAction != nil {
 		resolvePendingSelection(t, engine, 0, heart.InstanceID+"|"+model.ElementEarth)
 	}
-	if p0.Equipment[0] != nil || len(p0.Graveyard) == 0 || p0.Graveyard[len(p0.Graveyard)-1] != heart {
+	if p0.Equipment[0] != nil || len(p0.Graveyard) == 0 || !sameCardInstance(p0.Graveyard[len(p0.Graveyard)-1], heart) {
 		t.Fatalf("2411102 should destroy itself after losing all load, equipment=%v grave=%v", p0.Equipment[0], cardsToInfo(p0.Graveyard))
 	}
 
@@ -9483,7 +9495,7 @@ func TestRoyalConflictBloodRoseContractBindsOwnSpellToEarthOrShadowCompanion(t *
 		t.Fatalf("2421104 bound spell should preserve ready state, become slotless, gain host load power, and be marked transferred; slot=%d horizontal=%v power=%d hostLoad=%d statuses=%v", skill.SlotIndex, skill.IsHorizontal, skill.PowerBonus, hostLoad, skill.Statuses)
 	}
 	engine.destroyUnit(host, 0)
-	if len(p0.Graveyard) == 0 || p0.Graveyard[len(p0.Graveyard)-1] != host || len(host.BoundSkills) != 0 || !containsCardInstance(p0.Exile, skill) {
+	if len(p0.Graveyard) == 0 || !sameCardInstance(p0.Graveyard[len(p0.Graveyard)-1], host) || len(host.BoundSkills) != 0 || !containsCardInstance(p0.Exile, skill) {
 		t.Fatalf("2421104 transferred bound spell should be exiled when host dies, grave=%v bound=%v exile=%v", cardsToInfo(p0.Graveyard), cardsToInfo(host.BoundSkills), cardsToInfo(p0.Exile))
 	}
 }
@@ -10059,7 +10071,11 @@ func TestRoyalConflictBloodThornGardenResummonsAfterFriendlyKill(t *testing.T) {
 		t.Fatalf("blood thorn should ask for resummon position, pending=%+v", engine.State.PendingAction)
 	}
 	resolvePendingSelection(t, engine, 0, positionSelectionID(Position{Col: 0, Row: 0}))
-	if p0.Units[0][0] != thorn || thorn.CurrentLife != thorn.Card.Life || !thorn.IsHorizontal {
+	if !sameCardInstance(p0.Units[0][0], thorn) {
+		t.Fatal("wrong thorn revived")
+	}
+	thorn = p0.Units[0][0]
+	if thorn.CurrentLife != thorn.Card.Life || !thorn.IsHorizontal {
 		t.Fatalf("blood thorn should return fresh at its old position, unit=%v card=%v", p0.Units[0][0], cardToInfo(thorn))
 	}
 	if p0.Elements[model.ElementShadow] != 0 || containsCardInstance(p0.Graveyard, thorn) {
@@ -10111,7 +10127,11 @@ func TestRoyalConflictRebornUnitsCanChooseCurrentEmptyPositions(t *testing.T) {
 		t.Fatalf("bone knight should ask for a current empty position, pending=%+v", engine.State.PendingAction)
 	}
 	resolvePendingSelection(t, engine, 0, positionSelectionID(Position{Col: 2, Row: 2}))
-	if p0.Units[2][2] != bone || bone.Statuses[boneKnightRebornStatus] != 1 || containsCardInstance(p0.Graveyard, bone) {
+	if !sameCardInstance(p0.Units[2][2], bone) {
+		t.Fatal("wrong bone knight revived")
+	}
+	bone = p0.Units[2][2]
+	if bone.Statuses[boneKnightRebornStatus] != 1 || containsCardInstance(p0.Graveyard, bone) {
 		t.Fatalf("bone knight should reborn at chosen current empty position, pos=%v grave=%v statuses=%v", bone.Position, cardsToInfo(p0.Graveyard), bone.Statuses)
 	}
 
@@ -10129,7 +10149,7 @@ func TestRoyalConflictRebornUnitsCanChooseCurrentEmptyPositions(t *testing.T) {
 		t.Fatalf("blood thorn should ask for a current empty position, pending=%+v", engine.State.PendingAction)
 	}
 	resolvePendingSelection(t, engine, 0, positionSelectionID(Position{Col: 2, Row: 1}))
-	if p0.Units[2][1] != thorn || containsCardInstance(p0.Graveyard, thorn) || p0.Elements[model.ElementShadow] != 0 {
+	if !sameCardInstance(p0.Units[2][1], thorn) || containsCardInstance(p0.Graveyard, thorn) || p0.Elements[model.ElementShadow] != 0 {
 		t.Fatalf("blood thorn should spend one shadow and resummon at chosen current empty position, unit=%v blocker=%v grave=%v elements=%v", cardToInfo(p0.Units[2][1]), cardToInfo(blocker), cardsToInfo(p0.Graveyard), p0.Elements)
 	}
 }
@@ -10691,7 +10711,11 @@ func TestRoyalConflictFireRebirthScrollRevivesFireCompanionsThatDiedThisTurn(t *
 	}
 	resolvePendingSelection(t, engine, 0, positionSelectionID(revivePos))
 
-	if p0.Units[revivePos.Col][revivePos.Row] != fire2 || fire2.IsHorizontal || fire2.CurrentLife != fire2.Card.Life {
+	if !sameCardInstance(p0.Units[revivePos.Col][revivePos.Row], fire2) {
+		t.Fatal("wrong fire companion revived")
+	}
+	fire2 = p0.Units[revivePos.Col][revivePos.Row]
+	if fire2.IsHorizontal || fire2.CurrentLife != fire2.Card.Life {
 		t.Fatalf("2121104 should revive selected fire companion vertical at chosen position, pos=%+v horizontal=%v life=%d/%d", fire2.Position, fire2.IsHorizontal, fire2.CurrentLife, fire2.Card.Life)
 	}
 	if !containsCardInstance(p0.Graveyard, fire) || containsCardInstance(p0.Graveyard, fire2) || !containsCardInstance(p0.Graveyard, scroll) {
@@ -11278,7 +11302,7 @@ func TestRoyalConflictHellRoarCanSacrificeFireCompanionForPower(t *testing.T) {
 	if engine.State.PendingSpell == nil || engine.State.PendingSpell.TotalPower != roar.Card.Power+bonus {
 		t.Fatalf("3121104 should add sacrificed companion entry cost to pending power, pending=%+v bonus=%d", engine.State.PendingSpell, bonus)
 	}
-	if p0.Units[0][0] != nil || len(p0.Graveyard) == 0 || p0.Graveyard[len(p0.Graveyard)-1] != sacrifice {
+	if p0.Units[0][0] != nil || len(p0.Graveyard) == 0 || !sameCardInstance(p0.Graveyard[len(p0.Graveyard)-1], sacrifice) {
 		t.Fatalf("3121104 should sacrifice selected fire companion, units=%v grave=%v", p0.Units[0][0], cardsToInfo(p0.Graveyard))
 	}
 

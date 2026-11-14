@@ -33,6 +33,11 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		"is_companion":              ci.Card.IsCompanion(),
 		"is_consumable":             cards.IsConsumable(ci.Card.Number),
 		"is_equipment":              cards.IsEquipment(ci.Card.Number),
+		"is_spell_scroll":           isSpellScrollCard(ci.Card),
+		"equipment_subtype":         restrictedEquipmentSubtype(ci.Card),
+		"is_drive":                  hasCardTag(ci.Card, "驱动"),
+		"boost_grants_pierce":       ci.Card.Number == "3121015",
+		"preparation":               cardPreparationUI(ci),
 		"is_weapon":                 cards.IsWeapon(ci.Card.Number),
 		"can_attack_from_non_front": cardCanAttackFromNonFront(ci),
 		"has_taunt":                 cardHasTaunt(ci),
@@ -62,6 +67,8 @@ func cardToInfo(ci *CardInstance) map[string]any {
 	info["has_per_turn"] = hasPerTurn
 	info["has_prayer"] = cardHasActivePrayer(ci)
 	info["has_ultimate"] = hasUltimate
+	info["per_turn_requires_tap"] = abilityRequiresTap(ci, TriggerPerTurn)
+	info["ultimate_requires_tap"] = abilityRequiresTap(ci, TriggerUltimate)
 	if cardHasActiveSpellReaction(ci) {
 		info["can_react"] = true
 	}
@@ -223,10 +230,13 @@ func turnOrderLabel(playerID int, firstPlayer int) string {
 func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any {
 	info := map[string]any{
 		"player_id":                      ps.PlayerID,
+		"light_wildcard":                 e.playerHasLightWildcard(ps),
+		"light_cost_wildcard":            e.playerHasLightCostWildcard(ps),
 		"player_name":                    ps.PlayerName,
 		"hero":                           e.cardToInfoForPlayer(ps, ps.Hero),
 		"elements":                       ps.Elements,
 		"strict_arcane":                  ps.StrictArcane,
+		"duplicate_equipment_subtypes":   playerCanEquipDuplicateSubtypes(ps),
 		"shield":                         ps.Shield,
 		"cannot_gain_shield":             ps.CannotGainShield,
 		"next_red_moon_duration":         ps.NextRedMoonDuration,
@@ -324,7 +334,36 @@ func (e *Engine) cardToInfoForPlayer(ps *PlayerState, card *CardInstance) map[st
 	if ps == nil || card == nil || card.Card == nil {
 		return info
 	}
+	info["allows_stealth_target"] = e.spellAllowsStealthTarget(card)
+	info["has_stealth"] = e.hasActiveStealth(card)
+	if isEquipmentCard(card.Card) || isCounterTrapCard(card.Card.Number) {
+		replacements := []string{}
+		for _, old := range ps.Equipment {
+			if old == nil {
+				continue
+			}
+			if _, _, err := prepareEquipmentPlacement(ps, card, old.InstanceID); err == nil {
+				replacements = append(replacements, old.InstanceID)
+			}
+		}
+		_, _, err := prepareEquipmentPlacement(ps, card, "")
+		info["can_place_without_replacement"] = err == nil
+		info["equipment_replacement_ids"] = replacements
+	}
+	if validator, ok := behaviorForNumber(card.Card.Number).(ItemUseValidationBehavior); ok {
+		if err := validator.ValidateItemUse(&EffectContext{Engine: e, Source: card, PlayerID: ps.PlayerID, OpponentID: 1 - ps.PlayerID}); err != nil {
+			info["unavailable_reason"] = err.Error()
+		}
+	}
 	if isSpellLikeCard(card.Card) {
+		info["requires_extra_target"] = card.Card.Number == "3321001" || card.Card.Number == "3621107"
+		info["extra_target_can_repeat"] = e.allowsSameSpellExtraTarget(ps, card)
+		if e.validateSkillUsePermissionModifiers(card, skillPurposeDefend) != nil {
+			info["can_defend"] = false
+		}
+		if e.validateSkillUsePermissionModifiers(card, skillPurposeDefenseBoost) != nil {
+			info["can_defense_boost"] = false
+		}
 		info["extra_target_ignore_range"] = e.extraTargetIgnoresRange(ps.PlayerID, card)
 		info["has_pierce"] = e.skillHasPierce(ps.PlayerID, card)
 		info["spell_area"] = e.effectiveSpellArea(card)

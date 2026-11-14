@@ -32,10 +32,10 @@ func TestSlotGrantsComposeAndWithdraw(t *testing.T) {
 	for i, number := range []string{"2021002", "2611102", "2021002", "2021017", "2021105"} {
 		ps.Equipment[i] = NewCardInstance(baseCard(t, number), 0, 1)
 	}
-	if got := baseSkillSlotCapacity(ps); got != BaseSkillSlots+1 {
-		t.Fatalf("duplicate necklace stacked: %d", got)
+	if got := baseSkillSlotCapacity(ps); got != BaseSkillSlots+2 {
+		t.Fatalf("duplicate necklace grants did not stack: %d", got)
 	}
-	if got := skillSlotCapacity(ps); got != min(MaxSkillSlots, BaseSkillSlots+3) {
+	if got := skillSlotCapacity(ps); got != BaseSkillSlots+4 {
 		t.Fatalf("restricted grant lost: %d", got)
 	}
 	ordinary := NewCardInstance(baseCard(t, "3121001"), 0, 1)

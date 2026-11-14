@@ -115,6 +115,9 @@ func (e *Engine) resolveDeathTriggersWithData(unit *CardInstance, ownerID int, d
 
 	// Trigger 遗言 (on death) effects
 	e.triggerEffects(TriggerOnDeath, unit, nil, deathData)
+	if !unit.Card.IsHero() && !unit.Card.IsCompanion() {
+		return
+	}
 
 	// Notify friendly cards about the death
 	e.triggerFieldEffectsWithData(TriggerOnFriendlyDeath, ownerID, unit, deathData)
@@ -163,9 +166,8 @@ func (e *Engine) destroyUnitWithData(unit *CardInstance, ownerID int, deathData 
 	// Printed/generated bound skills live only while their host is on the
 	// battlefield. Learned skills turned into bound skills have their own exile
 	// rule and are handled before clearing the host.
-	e.releaseUnderCardsToGraveyard(ownerID, unit)
-	e.exileTransferredBoundSkills(ownerID, unit)
-	unit.BoundSkills = nil
+	snapshot := unit
+	unit = e.leaveBattlefield(unit)
 
 	// Add to graveyard
 	e.addToGraveyard(ownerID, unit)
@@ -175,14 +177,14 @@ func (e *Engine) destroyUnitWithData(unit *CardInstance, ownerID int, deathData 
 		Player: -1,
 		Data: map[string]any{
 			"player": ownerID,
-			"card":   cardToInfo(unit),
+			"card":   cardToInfo(snapshot),
 		},
 	})
 
 	if e.resolvingDeaths || e.resolutionDepth > 0 {
-		e.queueDeathTriggersWithData(unit, ownerID, deathData)
+		e.queueDeathTriggersWithData(snapshot, ownerID, deathData)
 	} else {
-		e.resolveDeathTriggersWithData(unit, ownerID, deathData)
+		e.resolveDeathTriggersWithData(snapshot, ownerID, deathData)
 	}
 
 	// Check if hero died. During queued death resolution, wait until all pending

@@ -50,7 +50,7 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 		// Replace existing skill
 		for i := 0; i < skillSlotCapacity(ps); i++ {
 			if ps.Skills[i] != nil && ps.Skills[i].InstanceID == replaceID {
-				if ps.Skills[i].IsHorizontal {
+				if !cardCanBeReplaced(ps.Skills[i]) {
 					return fmt.Errorf("can only replace vertical skills")
 				}
 				if !skillAllowedInSlot(ps, skill, i) {
@@ -86,7 +86,7 @@ func (e *Engine) handleLearnSkill(playerID int, action ActionMessage) error {
 	ps.SkillPool = append(ps.SkillPool[:poolIdx], ps.SkillPool[poolIdx+1:]...)
 	if replacedSkill != nil {
 		ps.Skills[slotIdx] = nil
-		returnSkillToPool(replacedSkill)
+		replacedSkill = e.leaveBattlefield(replacedSkill)
 		ps.SkillPool = append(ps.SkillPool, replacedSkill)
 		e.notifyCardStateChanges(CardStateChange{Card: replacedSkill, LeftField: true})
 	}
@@ -140,7 +140,7 @@ func (e *Engine) learnSkillFromPoolWithoutCost(playerID int, instanceID string, 
 	var replacedSkill *CardInstance
 	if replaceID != "" {
 		for i := 0; i < skillSlotCapacity(ps); i++ {
-			if ps.Skills[i] != nil && ps.Skills[i].InstanceID == replaceID && !ps.Skills[i].IsHorizontal {
+			if ps.Skills[i] != nil && ps.Skills[i].InstanceID == replaceID && cardCanBeReplaced(ps.Skills[i]) {
 				if !skillAllowedInSlot(ps, skill, i) {
 					return false
 				}
@@ -164,7 +164,7 @@ func (e *Engine) learnSkillFromPoolWithoutCost(playerID int, instanceID string, 
 	ps.SkillPool = append(ps.SkillPool[:poolIdx], ps.SkillPool[poolIdx+1:]...)
 	if replacedSkill != nil {
 		ps.Skills[slotIdx] = nil
-		returnSkillToPool(replacedSkill)
+		replacedSkill = e.leaveBattlefield(replacedSkill)
 		ps.SkillPool = append(ps.SkillPool, replacedSkill)
 		e.notifyCardStateChanges(CardStateChange{Card: replacedSkill, LeftField: true})
 	}
@@ -205,22 +205,4 @@ func (e *Engine) applyNextLearnedSkillHasteModifier(playerID int, skill *CardIns
 		e.removeTemporaryModifier(playerID, modifier.ID)
 		break
 	}
-}
-
-func returnSkillToPool(skill *CardInstance) {
-	if skill == nil {
-		return
-	}
-	skill.IsHorizontal = true
-	skill.Position = nil
-	skill.SlotIndex = -1
-	skill.EnterTurn = 0
-	skill.UsedThisTurn = 0
-	skill.UltimateUsed = false
-	skill.Statuses = make(map[string]int)
-	skill.ElementsGainBonus = make(map[string]int)
-	skill.ElementsGainSet = nil
-	skill.PowerBonus = 0
-	skill.AttackBonus = 0
-	skill.AttachedBehaviors = nil
 }

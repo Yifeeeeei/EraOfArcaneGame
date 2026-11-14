@@ -15,10 +15,12 @@ func (Card2321106EndlessWindTide) OnSpellHit(ctx *EffectContext) error {
 		return nil
 	}
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
+	source := ctx.Source
 	removed := false
 	for i, skill := range ps.Skills {
 		if skill == ctx.Source {
 			ps.Skills[i] = nil
+			source = ctx.Engine.leaveBattlefield(source)
 			removed = true
 			break
 		}
@@ -29,18 +31,18 @@ func (Card2321106EndlessWindTide) OnSpellHit(ctx *EffectContext) error {
 	if !removed {
 		return nil
 	}
-	ctx.Source.SlotIndex = -1
-	ctx.Source.IsHorizontal = true
-	ctx.Source.PowerBonus += 2
-	ctx.Source.Statuses[endlessWindTideAirCostBonusStatus]++
-	ctx.Source.Statuses[StatusCannotUseSkillUntilTurn] = ctx.Engine.State.TurnNumber
-	ps.Hand = append(ps.Hand, ctx.Source)
+	source.SlotIndex = -1
+	source.IsHorizontal = true
+	source.PowerBonus += 2
+	source.Statuses[endlessWindTideAirCostBonusStatus]++
+	source.Statuses[StatusCannotUseSkillUntilTurn] = ctx.Engine.State.TurnNumber
+	ps.Hand = append(ps.Hand, source)
 	ctx.Engine.emit(GameEvent{
 		Type:   "endless_wind_tide_return",
 		Player: -1,
 		Data: map[string]any{
 			"player": ctx.PlayerID,
-			"card":   cardToInfo(ctx.Source),
+			"card":   cardToInfo(source),
 		},
 	})
 	return nil

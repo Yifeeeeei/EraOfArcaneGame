@@ -17,10 +17,18 @@ func (Card2021006BagOfTricks) OnUltimate(ctx *EffectContext) error {
 			if len(selected) == 0 {
 				return
 			}
+			if !ctx.Engine.canConsumeCard(ctx.Source) {
+				return
+			}
+			ctx.Source.IsHorizontal = true
 			if !ctx.Engine.sacrificeEquipment(ctx.PlayerID, ctx.Source.InstanceID) {
 				return
 			}
 			ctx.Engine.searchDeckToHand(ctx.PlayerID, selected[0])
 		})
 	return nil
+}
+
+func (Card2021006BagOfTricks) AbilityRequiresTap(trigger EffectTrigger) bool {
+	return trigger == TriggerUltimate
 }

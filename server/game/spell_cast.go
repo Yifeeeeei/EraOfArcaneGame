@@ -47,6 +47,10 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		ownerID := int(ownerF)
 		target.OwnerID = &ownerID
 	}
+	target, err = e.spellAreaSelection(skill, target, action)
+	if err != nil {
+		return err
+	}
 	targetUnit := e.spellTargetUnitForCaster(playerID, target)
 
 	options, err := e.prepareSpellOptions(playerID, skill, target, action)
@@ -210,6 +214,11 @@ func (e *Engine) startFreeSpellCastNoBoost(playerID int, skill *CardInstance, ta
 		return err
 	}
 	if err := e.validateSpellTargetWithPierce(playerID, skill, target, e.skillHasPierce(playerID, skill)); err != nil {
+		return err
+	}
+	if handled, err := e.chooseEffectSpellSquare(playerID, skill, target, func(chosen SpellTarget) error {
+		return e.startFreeSpellCastNoBoost(playerID, skill, chosen, extraData)
+	}); handled {
 		return err
 	}
 

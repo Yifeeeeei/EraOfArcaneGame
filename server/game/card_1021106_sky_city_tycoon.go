@@ -36,3 +36,7 @@ func (Card1021106SkyCityTycoon) OnPerTurn(ctx *EffectContext) error {
 		})
 	return nil
 }
+
+func (Card1021106SkyCityTycoon) AbilityRequiresTap(trigger EffectTrigger) bool {
+	return trigger == TriggerPerTurn
+}
