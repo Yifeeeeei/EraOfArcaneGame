@@ -231,6 +231,7 @@ func (e *Engine) playerStateToInfo(ps *PlayerState, isOwner bool) map[string]any
 	info := map[string]any{
 		"player_id":                      ps.PlayerID,
 		"light_wildcard":                 e.playerHasLightWildcard(ps),
+		"light_cost_wildcard":            e.playerHasLightCostWildcard(ps),
 		"player_name":                    ps.PlayerName,
 		"hero":                           e.cardToInfoForPlayer(ps, ps.Hero),
 		"elements":                       ps.Elements,

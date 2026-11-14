@@ -2000,6 +2000,9 @@ func TestRoyalConflictRadiantAngelLetsAnyElementPayLightCosts(t *testing.T) {
 	}
 
 	angel := placeUnit(baseCard(t, "1521109"), 0, 0, 0, engine)
+	if enabled, _ := engine.playerStateToInfo(p0, true)["light_cost_wildcard"].(bool); !enabled {
+		t.Fatal("frontend must see the active any-element-for-light payment rule")
+	}
 	if !engine.canPayCostForCardAction(p0, lightCard, cost, cost, paymentPurposePlay, ActionMessage{}) {
 		t.Fatal("1521109 should let other elements pay light costs")
 	}
@@ -2009,6 +2012,9 @@ func TestRoyalConflictRadiantAngelLetsAnyElementPayLightCosts(t *testing.T) {
 
 	p0.Elements = cloneElements(map[string]int{model.ElementFire: 5})
 	angel.Statuses[StatusPetrify] = 1
+	if enabled, _ := engine.playerStateToInfo(p0, true)["light_cost_wildcard"].(bool); enabled {
+		t.Fatal("frontend must stop offering light-cost alternatives after the source is petrified")
+	}
 	if engine.canPayCostForCardAction(p0, lightCard, cost, cost, paymentPurposePlay, ActionMessage{}) {
 		t.Fatal("petrified 1521109 should not enable other elements as light")
 	}

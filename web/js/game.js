@@ -682,10 +682,11 @@
             }
 
             function calculatePayment(cost) {
-                return calculatePaymentWithAvailable(myState.value.elements || {}, cost);
+                const quote = ArcanePayments.context(myState.value.elements || {}, calculatePaymentWithAvailable, Number(myState.value.strict_arcane || 0));
+                return quote.solve(quote.available, cost);
             }
 
-            function calculatePaymentWithAvailable(availableSource, cost, lightWildcard = hasLightWildcardPayment()) {
+            function calculatePaymentWithAvailable(availableSource, cost, lightWildcard = hasLightWildcardPayment(), lightCostWildcard = !!myState.value.light_cost_wildcard) {
                 const remaining = {};
                 for (const [elem, raw] of Object.entries(cost || {})) {
                     const value = Number(raw) || 0;
@@ -720,7 +721,18 @@
                         pay('光', lightAmount);
                         remaining[elem] -= lightAmount;
                     }
-                    if (remaining[elem] > 0) return null;
+                    if (remaining[elem] > 0 && !(lightCostWildcard && elem === '光')) return null;
+                }
+
+                if (lightCostWildcard && remaining['光'] > 0) {
+                    for (const elem of ELEMENT_ORDER) {
+                        if (elem === '无' || elem === '光') continue;
+                        const amount = Math.min(available[elem] || 0, remaining['光']);
+                        pay(elem, amount);
+                        remaining['光'] -= amount;
+                        if (remaining['光'] <= 0) break;
+                    }
+                    if (remaining['光'] > 0) return null;
                 }
 
                 let arcaneNeed = remaining['无'] || 0;
@@ -760,8 +772,8 @@
                 return units;
             }
 
-            function isExactPaymentForCost(payment, cost) {
-                const spent = calculatePaymentWithAvailable(payment, cost);
+            function isExactPaymentForCost(payment, cost, solve = calculatePaymentWithAvailable) {
+                const spent = solve(payment, cost);
                 if (!spent) return false;
                 for (const elem of ELEMENT_ORDER) {
                     if (Number(spent[elem] || 0) !== Number(payment[elem] || 0)) return false;
@@ -932,33 +944,15 @@
             const devourSelection = ref([]);
             const pendingSummonDevour = ref({});
 
-            function hasArcanePaymentChoice(cost) {
-                if (!cost || Number(cost['无'] || 0) <= 0) return false;
-                return ELEMENT_ORDER.filter(elem => Number(myState.value.elements?.[elem] || 0) > 0).length > 1;
-            }
-
-            function hasLightWildcardPaymentChoice(cost) {
-                if (!cost || !hasLightWildcardPayment() || Number(myState.value.elements?.['光'] || 0) <= 0) return false;
-                if (calculatePaymentWithAvailable(myState.value.elements || {}, cost, false) === null) return false;
-                for (const elem of ELEMENT_ORDER) {
-                    if (elem === '光' || elem === '无' || Number(cost[elem] || 0) <= 0) continue;
-                    const remainingCost = { ...(cost || {}) };
-                    remainingCost[elem] = Number(remainingCost[elem] || 0) - 1;
-                    const remainingAvailable = cloneElements(myState.value.elements || {});
-                    remainingAvailable['光'] = Number(remainingAvailable['光'] || 0) - 1;
-                    if (calculatePaymentWithAvailable(remainingAvailable, remainingCost, true) !== null) return true;
-                }
-                return false;
-            }
-
-            function needsPaymentChoice(cost) {
-                return hasArcanePaymentChoice(cost) || hasLightWildcardPaymentChoice(cost);
-            }
-
             function sendPaidAction(action, data, cost, title, afterSend, available = null) {
-                if (totalCost(cost) === 0) return sendAction(action, data, { onSuccess: afterSend });
+                const quote = ArcanePayments.context(available || myState.value.elements || {}, calculatePaymentWithAvailable, Number(myState.value.strict_arcane || 0));
+                const choice = ArcanePayments.analyze(quote.available, cost, quote.solve);
+                if (choice.kind === 'unique') {
+                    const payload = totalCost(cost) > 0 ? { ...data, payment: choice.payment } : data;
+                    return sendAction(action, payload, { onSuccess: afterSend }, true);
+                }
                 paymentSelection.value = {};
-                paymentRequest.value = { action, data, cost: {...cost}, title, afterSend, available };
+                paymentRequest.value = { action, data, cost: {...cost}, title, afterSend, available: quote.available, solve: quote.solve };
             }
             function paymentAvailable() { return paymentRequest.value?.available || myState.value.elements || {}; }
             function removePayment(elem) { paymentSelection.value = { ...paymentSelection.value, [elem]: Math.max(0, (paymentSelection.value[elem] || 0) - 1) }; }
@@ -988,7 +982,7 @@
             function isPaymentSelectionValid() {
                 if (!paymentRequest.value) return false;
                 if (selectedPaymentTotal() !== totalCost(paymentRequest.value.cost)) return false;
-                return isExactPaymentForCost(paymentSelection.value, paymentRequest.value.cost);
+                return isExactPaymentForCost(paymentSelection.value, paymentRequest.value.cost, paymentRequest.value.solve);
             }
 
             function paymentRemainingText() {

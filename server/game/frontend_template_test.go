@@ -61,12 +61,9 @@ func TestGameHTMLRainbowAngelPaymentChoice(t *testing.T) {
 	}
 	html := string(content)
 	for _, want := range []string{
-		"function hasArcanePaymentChoice(cost)",
-		"function hasLightWildcardPaymentChoice(cost)",
-		"calculatePaymentWithAvailable(myState.value.elements || {}, cost, false) === null",
-		"remainingCost[elem] = Number(remainingCost[elem] || 0) - 1",
-		"remainingAvailable['光'] = Number(remainingAvailable['光'] || 0) - 1",
-		"return hasArcanePaymentChoice(cost) || hasLightWildcardPaymentChoice(cost);",
+		"js/payment-choice.js",
+		"ArcanePayments.analyze",
+		"myState.value.light_cost_wildcard",
 	} {
 		if !strings.Contains(html, want) {
 			t.Fatalf("Rainbow Angel should create explicit payment choices when light can substitute ambiguously, missing %q", want)

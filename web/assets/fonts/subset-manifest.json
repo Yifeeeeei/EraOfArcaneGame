@@ -1,7 +1,7 @@
 {
   "generator": "scripts/subset-ui-fonts.py",
   "fonttools_version": "4.68.0",
-  "text_source_count": 37,
+  "text_source_count": 39,
   "requested_codepoints": 2139,
   "cmap_coverage": "All requested codepoints supported by each original font are retained.",
   "fallback": "Characters outside an original font's cmap require the CSS system fallback.",
