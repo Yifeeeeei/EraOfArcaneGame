@@ -269,7 +269,6 @@
                             class="guide-clear"
                             @click="clearSelection">取消选择</button>
                 </div>
-                <div v-if="waitingNotice" class="waiting-notice">{{ waitingNotice }}</div>
                 <div class="boards-wrapper">
                     <div class="player-board opponent-board">
                         <div class="board-title">
@@ -939,7 +938,6 @@
                 <div v-if="workspaceMode === 'idle'" class="workspace-idle">
                     <div class="eyebrow">{{ isMyTurn ? '行动准备' : '等待交接' }}</div>
                     <h2>{{ guideKicker }}</h2><p>{{ currentHint }}</p>
-                    <p v-if="waitingNotice">{{ waitingNotice }}</p>
                     <button v-if="selectedHandCard || selectedAttacker || selectedSkill" class="btn" @click="clearSelection">取消本地选择</button>
                     <div v-if="selectedSkill" class="local-selection"><strong>{{ selectedSkill.name }}</strong><p>当前费用：{{ costLabel(attackActionCost(selectedSkill, selectedBoostSkills)) }}</p><p>已选强化 {{ selectedBoostSkills.length }} 项；可点击手牌或技能的强化按钮调整。</p><button v-if="!skillNeedsTarget(selectedSkill)" class="btn btn-success" @click="castSpellWithoutTarget">准备施放</button></div>
                     <button v-if="selectedHandCard && selectedHandCard.type === '道具' && !selectedHandCard.is_terrain" class="btn" @click="selectHandCard(selectedHandCard)">准备使用 {{ selectedHandCard.name }}</button>

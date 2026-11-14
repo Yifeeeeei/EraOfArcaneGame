@@ -2988,9 +2988,10 @@
 
             const currentHint = computed(() => {
                 if (!gameState.value) return '等待游戏状态同步。';
-                if (isSpectator) return '观战模式会隐藏双方手牌、技能池和卡组顺序，只显示公开信息。';
-                if (gameState.value.phase === 'mulligan') return '查看起手牌，选择保留或全部重抽。';
+                if (isSpectator) return waitingNotice.value || '观战模式只显示公开信息。';
+                if (gameState.value.phase === 'mulligan') return mulliganSubmitted.value ? '等待对手确认起手...' : '查看起手牌，选择保留或全部重抽。';
                 if (showDefenseWindow.value) return '选择防御技能，或直接不防御。强化技能会叠加防御威力。';
+                if (gameState.value.phase === 'defense_window' && pendingSpellAttackerID() === mySlot.value) return '等待对手选择防御或不防御。';
                 if (showPendingAction.value) return pendingAction.value?.prompt || '请选择要处理的卡牌。';
                 if (gameState.value.phase === 'waiting_action') return '等待对手完成选择。';
                 if (gameState.value.phase === 'game_over') return '对局结束，可以返回大厅重新开局。';

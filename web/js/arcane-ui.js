@@ -33,7 +33,7 @@
     }
   }
   const crest =
-    '<svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="21"/><g class="arcane-weave"><path d="M24 5C34 13 36 24 27 33C23 37 17 39 12 37C23 34 29 25 25 17L20 21L24 5Z"/><path d="M24 5C34 13 36 24 27 33C23 37 17 39 12 37C23 34 29 25 25 17L20 21L24 5Z" transform="rotate(120 24 24)"/><path d="M24 5C34 13 36 24 27 33C23 37 17 39 12 37C23 34 29 25 25 17L20 21L24 5Z" transform="rotate(240 24 24)"/></g></svg>';
+    '<svg class="brand-mark" viewBox="0 0 48 48" aria-hidden="true" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="24" cy="24" r="21"/><g class="arcane-weave"><path d="M35.2 18a11.2 11.2 0 1 1 -22.4 0a11.2 11.2 0 1 1 22.4 0"/><path d="M35.2 18a11.2 11.2 0 1 1 -22.4 0a11.2 11.2 0 1 1 22.4 0" transform="rotate(120 24 24)"/><path d="M35.2 18a11.2 11.2 0 1 1 -22.4 0a11.2 11.2 0 1 1 22.4 0" transform="rotate(240 24 24)"/></g></svg>';
   function toast(message) {
     document.querySelector(".arcane-toast")?.remove();
     const node = document.createElement("div");
