@@ -15,7 +15,7 @@ func (Card1211002Leviathan) ID() string { return "1211002" }
 func (Card1211002Leviathan) Name() string { return "深渊巨口 利维坦" }
 
 func (Card1211002Leviathan) PerTurnLabel(*CardInstance) string {
-	return "消耗"
+	return "消耗消灭伙伴"
 }
 
 func (Card1211002Leviathan) OnPerTurn(ctx *EffectContext) error {
@@ -31,7 +31,7 @@ func (Card1211002Leviathan) OnPerTurn(ctx *EffectContext) error {
 	if len(targets) == 0 {
 		return fmt.Errorf("没有可消灭的敌方伙伴")
 	}
-	ctx.Source.IsHorizontal = true
+	ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, nil, ctx.Source.Card.Number)
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "leviathan_destroy",
 		"利维坦:选择法力范围内1个敌方伙伴消灭", targets, 1, 1,
 		func(selected []string) {

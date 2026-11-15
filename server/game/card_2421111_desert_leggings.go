@@ -10,7 +10,7 @@ func (Card2421111DesertLeggings) ModifyFieldDamageAmount(ctx *EffectContext, amo
 	if ctx == nil || ctx.Source == nil || ctx.Source.UltimateUsed || ctx.Target == nil || ctx.Target.Card == nil || amount < 2 {
 		return amount
 	}
-	if !ctx.Target.Card.IsCompanion() {
+	if !ctx.Target.Card.IsCompanion() && !ctx.Target.Card.IsHero() {
 		return amount
 	}
 	return max(amount-2, 0)

@@ -145,10 +145,10 @@ func (e *Engine) discardSelectedHandCardsMatching(playerID int, selected []strin
 		if predicate != nil && !predicate(card) {
 			continue
 		}
-		if discardedCard := e.discardHandCardAt(playerID, i); discardedCard != nil {
-			discarded = append(discarded, discardedCard)
-		}
+		ps.Hand = append(ps.Hand[:i], ps.Hand[i+1:]...)
+		discarded = append(discarded, card)
 	}
+	e.discardHandCardsToGraveyard(playerID, discarded)
 	return discarded
 }
 
@@ -157,13 +157,10 @@ func (e *Engine) discardAllHandCards(playerID int) int {
 		return 0
 	}
 	ps := e.State.Players[playerID]
-	discarded := 0
-	for len(ps.Hand) > 0 {
-		if e.discardHandCardAt(playerID, len(ps.Hand)-1) != nil {
-			discarded++
-		}
-	}
-	return discarded
+	discarded := append([]*CardInstance{}, ps.Hand...)
+	ps.Hand = nil
+	e.discardHandCardsToGraveyard(playerID, discarded)
+	return len(discarded)
 }
 
 func (e *Engine) resolveDiscardedCardEffects(playerID int, card *CardInstance) {

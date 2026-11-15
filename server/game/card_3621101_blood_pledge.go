@@ -11,6 +11,9 @@ func (Card3621101BloodPledge) ID() string { return "3621101" }
 func (Card3621101BloodPledge) Name() string { return "歃血" }
 
 func (Card3621101BloodPledge) OnSpellHit(ctx *EffectContext) error {
+	if !isOwnSpellHit(ctx) {
+		return nil
+	}
 	if ctx.Source == nil || ctx.ExtraData == nil {
 		return nil
 	}

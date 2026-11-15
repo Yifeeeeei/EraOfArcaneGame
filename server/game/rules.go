@@ -97,10 +97,14 @@ func (e *Engine) effectiveSkillUseCostForPurpose(ps *PlayerState, skill *CardIns
 }
 
 func (e *Engine) effectiveSkillUseCostForPurposeWithData(ps *PlayerState, skill *CardInstance, purpose skillPurpose, extra map[string]any) map[string]int {
+	skill = physicalSpellSource(skill)
 	if skill == nil || skill.Card == nil {
 		return map[string]int{}
 	}
 	cost := copyElementCost(skillUseCost(skill.Card))
+	if cardImmuneToOtherEffects(skill) {
+		return cost
+	}
 	data := map[string]any{"purpose": string(purpose)}
 	for key, value := range extra {
 		data[key] = value
@@ -112,7 +116,7 @@ func (e *Engine) effectiveSkillUseCostForPurposeWithData(ps *PlayerState, skill 
 		OpponentID: 1 - ps.PlayerID,
 		ExtraData:  data,
 	}
-	for _, fieldCard := range e.getAllFieldCards(ps) {
+	for _, fieldCard := range e.ruleSources(ps) {
 		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
 			continue
 		}
@@ -154,10 +158,14 @@ func (e *Engine) effectiveSkillUseCostForPurposeWithData(ps *PlayerState, skill 
 }
 
 func (e *Engine) effectiveCardPlayCost(ps *PlayerState, card *CardInstance) map[string]int {
+	card = physicalSpellSource(card)
 	if card == nil || card.Card == nil {
 		return map[string]int{}
 	}
 	cost := copyElementCost(card.Card.ElementsCost)
+	if cardImmuneToOtherEffects(card) {
+		return cost
+	}
 	if neutral := card.Statuses[StatusEntryCostNeutralAmount]; neutral > 0 {
 		cost = map[string]int{model.ElementArcane: neutral}
 	}
@@ -182,7 +190,7 @@ func (e *Engine) effectiveCardPlayCost(ps *PlayerState, card *CardInstance) map[
 			}
 		}
 	}
-	for _, fieldCard := range e.getAllFieldCards(ps) {
+	for _, fieldCard := range e.ruleSources(ps) {
 		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
 			continue
 		}
@@ -251,7 +259,7 @@ func (e *Engine) validateSkillLearnPermissionModifiers(playerID int, skill *Card
 			return err
 		}
 	}
-	for _, fieldCard := range e.getAllFieldCards(ps) {
+	for _, fieldCard := range e.ruleSources(ps) {
 		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
 			continue
 		}
@@ -293,7 +301,7 @@ func (e *Engine) notifyCardPlayCostPaid(ps *PlayerState, card *CardInstance) {
 		PlayerID:   ps.PlayerID,
 		OpponentID: 1 - ps.PlayerID,
 	}
-	for _, fieldCard := range e.getAllFieldCards(ps) {
+	for _, fieldCard := range e.ruleSources(ps) {
 		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
 			continue
 		}
@@ -388,7 +396,7 @@ func stringsFromAnySlice(values []any) []string {
 	return result
 }
 
-func (e *Engine) collectSkillUses(ps *PlayerState, ids []string, purpose skillPurpose, reserved map[string]bool) ([]*CardInstance, map[string]int, error) {
+func (e *Engine) collectSkillUses(ps *PlayerState, ids []string, purpose skillPurpose, reserved map[string]bool, copies ...map[string]*CardInstance) ([]*CardInstance, map[string]int, error) {
 	skills := make([]*CardInstance, 0, len(ids))
 	totalCost := make(map[string]int)
 	costPlan := newActionCostPlan(ps)
@@ -404,6 +412,9 @@ func (e *Engine) collectSkillUses(ps *PlayerState, ids []string, purpose skillPu
 		seen[id] = true
 
 		skill := e.findSkill(ps, id)
+		if len(copies) > 0 {
+			skill = spellForm(skill, copies[0])
+		}
 		if skill == nil {
 			return nil, nil, fmt.Errorf("skill not found: %s", id)
 		}
@@ -421,13 +432,24 @@ func (e *Engine) collectSkillUses(ps *PlayerState, ids []string, purpose skillPu
 }
 
 func (e *Engine) validateSkillForPurpose(skill *CardInstance, purpose skillPurpose) error {
+	if physical := physicalSpellSource(skill); physical != skill {
+		if err := e.validateReadySkill(physical); err != nil {
+			return err
+		}
+		if e.actionRestricted(RuleUseSkill, physical) {
+			return fmt.Errorf("a field rule prevents skill use")
+		}
+	}
 	if e.actionRestricted(RuleUseSkill, skill) {
 		return fmt.Errorf("a field rule prevents skill use")
 	}
-	if skill.Statuses[StatusCannotUseSkillUntilTurn] >= e.State.TurnNumber {
+	if skill.Statuses[StatusCannotUseSkillUntilTurn] >= e.turnOrdinal() {
 		return fmt.Errorf("skill cannot be used this turn")
 	}
-	if purpose != skillPurposeReaction || skill.Card.IsSkill() {
+	if skill.copySource != nil {
+		// The copied card may be horizontal or cooling down; readiness belongs
+		// to the physical card paying for this use.
+	} else if purpose != skillPurposeReaction || skill.Card.IsSkill() {
 		if err := e.validateReadySkill(skill); err != nil {
 			return err
 		}
@@ -487,7 +509,7 @@ func (e *Engine) validateSkillUsePermissionModifiers(skill *CardInstance, purpos
 			return err
 		}
 	}
-	for _, fieldCard := range e.getAllFieldCards(ps) {
+	for _, fieldCard := range e.ruleSources(ps) {
 		if fieldCard == nil || fieldCard.Card == nil || e.hasEffectiveStatus(fieldCard, StatusPetrify) {
 			continue
 		}
@@ -526,6 +548,7 @@ func (e *Engine) validateReadySkill(skill *CardInstance) error {
 
 func tapSkills(skills []*CardInstance) {
 	for _, skill := range skills {
+		physicalSpellSource(skill).IsHorizontal = true
 		skill.IsHorizontal = true
 	}
 }
@@ -652,10 +675,10 @@ func (e *Engine) effectiveSkillPowerForPurposeWithData(playerID int, skill *Card
 	power += e.spellStatBonusesWithData(playerID, skill, purpose, extra).PowerBonus
 	power += e.genericSpellBonus(playerID, skill, "威")
 	power += e.temporarySpellPowerBonusForPurpose(playerID, skill, purpose)
+	power = e.scaleSpellPower(playerID, skill, power)
 	if weak := skill.Statuses[StatusWeaken]; weak > 0 && e.hasEffectiveStatus(skill, StatusWeaken) {
 		power -= weak
 	}
-	power = e.scaleSpellPower(playerID, skill, power)
 	return max(power, 0)
 }
 
@@ -686,6 +709,9 @@ func (e *Engine) spellStatBonuses(playerID int, skill *CardInstance, purpose ski
 
 func (e *Engine) spellStatBonusesWithData(playerID int, skill *CardInstance, purpose skillPurpose, extra map[string]any) SpellStats {
 	stats := SpellStats{}
+	if cardImmuneToOtherEffects(skill) {
+		return stats
+	}
 	ps := e.State.Players[playerID]
 	data := map[string]any{"purpose": string(purpose)}
 	for key, value := range extra {
@@ -809,7 +835,7 @@ func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance
 
 	opponent := e.State.Players[1-playerID]
 	if opponent.Units[target.Position.Col][target.Position.Row] == nil {
-		if e.effectiveSpellArea(skill) == SpellAreaColumn {
+		if e.spellAreaForTarget(skill, target) == SpellAreaColumn {
 			for row := 0; row < 3; row++ {
 				if opponent.Units[target.Position.Col][row] == nil {
 					continue
@@ -836,7 +862,7 @@ func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance
 		hasPierce = true
 	}
 
-	if e.effectiveSpellArea(skill) == SpellAreaFrontRow {
+	if e.spellAreaForTarget(skill, target) == SpellAreaFrontRow {
 		frontRow := opponent.GetFrontRow()
 		if frontRow >= 0 && target.Position.Row != frontRow {
 			return fmt.Errorf("front-row spell target must be in the actual front row")
@@ -846,13 +872,13 @@ func (e *Engine) validateSpellTargetWithPierce(playerID int, skill *CardInstance
 	if e.hasStealthFromOpponent(playerID, targetUnit) && e.spellAllowsStealthTarget(skill) {
 		return nil
 	}
-	if e.effectiveSpellArea(skill) == SpellAreaSingle && e.hasStealthFromOpponent(playerID, targetUnit) {
+	if e.spellAreaForTarget(skill, target) == SpellAreaSingle && e.hasStealthFromOpponent(playerID, targetUnit) {
 		return fmt.Errorf("single-target spell cannot select a stealthed enemy")
 	}
-	if e.spellTargetGrants(playerID, skill, target).IgnoreRange {
+	if target.ignoreRange || e.spellTargetGrants(playerID, skill, target).IgnoreRange {
 		return nil
 	}
-	if e.effectiveSpellArea(skill) != SpellAreaSingle {
+	if e.spellAreaForTarget(skill, target) != SpellAreaSingle {
 		if e.isAreaCenterInRange(playerID, skill, target, hasPierce) {
 			return nil
 		}

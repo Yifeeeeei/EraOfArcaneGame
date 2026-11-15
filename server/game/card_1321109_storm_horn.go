@@ -21,7 +21,7 @@ func (Card1321109StormHorn) OnUltimate(ctx *EffectContext) error {
 			if ctx.Engine.discardSelectedHandCards(ctx.PlayerID, selected, 1) != 1 {
 				return
 			}
-			searchDeckToHandByPredicate(ctx, "storm_horn_search_air_equipment", "风暴之角:翻取1张大气装备", isAirEquipment)
+			ctx.Engine.flipDeckMatchesToHand(ctx.PlayerID, 1, 0, isAirEquipment)
 		})
 	return nil
 }

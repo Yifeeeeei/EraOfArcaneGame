@@ -59,12 +59,12 @@ func (Card1411101AgedFrankenBaililan) OnLoadLoss(ctx *EffectContext) error {
 	if lossTarget != ctx.Source || !ctx.Engine.cardStillOnField(ctx.Source) {
 		return nil
 	}
-	candidates := ctx.Engine.enemySkills(ctx.PlayerID, nil)
+	candidates := ctx.Engine.enemySkills(ctx.PlayerID, func(card *CardInstance) bool { return isCombatSpellCard(card.Card) })
 	if len(candidates) == 0 {
 		return nil
 	}
 	weakenSkill := func(selection string) {
-		target, _ := ctx.Engine.findFriendlyCandidate(ctx.OpponentID, selection)
+		target := ctx.Engine.findSkill(ctx.Engine.State.Players[ctx.OpponentID], selection)
 		if target == nil || target.Card == nil || !target.Card.IsSkill() {
 			return
 		}

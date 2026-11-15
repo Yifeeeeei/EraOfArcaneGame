@@ -7,7 +7,7 @@ func (Card1121010FireArtist) ID() string { return "1121010" }
 func (Card1121010FireArtist) Name() string { return "火焰艺人" }
 
 func (Card1121010FireArtist) OnUltimate(ctx *EffectContext) error {
-	ctx.Source.IsHorizontal = true
+	ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, nil, ctx.Source.Card.Number)
 	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
 		return card != ctx.Source && isNonHeroFireCard(card)
 	})

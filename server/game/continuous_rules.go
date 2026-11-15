@@ -54,6 +54,9 @@ func (e *Engine) handLimitForPlayer(ps *PlayerState) int {
 }
 
 func (e *Engine) scaleSpellPower(playerID int, skill *CardInstance, power int) int {
+	if cardImmuneToOtherEffects(skill) {
+		return power
+	}
 	seen := map[string]bool{}
 	for _, source := range e.getAllFieldCards(e.State.Players[playerID]) {
 		if source == nil || e.hasEffectiveStatus(source, StatusPetrify) {

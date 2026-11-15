@@ -7,7 +7,7 @@ func (Card3621103BloodSoulSlash) ID() string { return "3621103" }
 func (Card3621103BloodSoulSlash) Name() string { return "血魂斩" }
 
 func (Card3621103BloodSoulSlash) OnSpellCast(ctx *EffectContext) error {
-	if ctx == nil || ctx.Source == nil || !isSpellBeingCast(ctx) {
+	if ctx == nil || ctx.Source == nil || !isSpellBeingCast(ctx) || spellUsePurpose(ctx) != skillPurposeAttack {
 		return nil
 	}
 	hero := ctx.Engine.State.Players[ctx.PlayerID].Hero

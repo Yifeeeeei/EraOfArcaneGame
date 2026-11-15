@@ -22,7 +22,7 @@ func (Card4211102WinterfellWarlockSophia) OnUltimate(ctx *EffectContext) error {
 		}
 		for _, unit := range ps.Units {
 			for _, card := range unit {
-				if card != nil && card.Card != nil && (card.Card.IsHero() || card.Card.IsCompanion()) && card.Statuses[StatusFreeze] > 0 {
+				if card != nil && card.Card != nil && (card.Card.IsHero() || card.Card.IsCompanion()) && card.Statuses[StatusFreeze] > 0 && !ctx.Engine.hasStealthFromOpponent(ctx.PlayerID, card) {
 					candidates = append(candidates, candidateInfo(card, "unit", side))
 				}
 			}

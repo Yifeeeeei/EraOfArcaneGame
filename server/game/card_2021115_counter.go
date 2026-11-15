@@ -21,10 +21,10 @@ func (Card2021115InfusionRuneE) OnDefend(ctx *EffectContext) error {
 	}
 	reset := 0
 	for _, skill := range append(spellInstancesFromData(ctx.ExtraData, "defense_skills"), spellInstancesFromData(ctx.ExtraData, "defense_boosts")...) {
-		if skill == nil || skill.Card == nil || !skill.Card.IsSkill() || skill.OwnerID != ctx.PlayerID {
+		if skill == nil || skill.Card == nil || !skill.Card.IsSkill() || skill.OwnerID != ctx.PlayerID || !ctx.Engine.acceptsCardEffect(ctx.Source, skill) || !ctx.Engine.canResetCard(skill) {
 			continue
 		}
-		skill.IsHorizontal = false
+		ctx.Engine.resetCard(skill)
 		reset++
 	}
 	if reset > 0 {

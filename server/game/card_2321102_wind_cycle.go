@@ -38,7 +38,7 @@ func (Card2321102WindCycle) OnPerTurn(ctx *EffectContext) error {
 			allowed[card.InstanceID] = true
 		}
 	}
-	ctx.Source.IsHorizontal = true
+	ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, nil, ctx.Source.Card.Number)
 	if !ctx.Engine.sacrificeEquipment(ctx.PlayerID, ctx.Source.InstanceID) {
 		return fmt.Errorf("风之轮回必须从装备区献祭")
 	}

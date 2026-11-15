@@ -14,7 +14,7 @@ type OpeningHandBehavior interface {
 
 type EmptyDeckDrawBehavior interface {
 	HasActiveEmptyDeckDraw(*CardInstance) bool
-	DrawFromEmptyDeck(*EffectContext, int) []*CardInstance
+	DrawFromEmptyDeck(*EffectContext, int, func([]*CardInstance))
 }
 
 type HandLimitEnforcementBehavior interface {

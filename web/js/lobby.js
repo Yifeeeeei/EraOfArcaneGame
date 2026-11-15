@@ -5,6 +5,23 @@
   createApp({
     components: { PreconstructedPicker: ArcanePreconstructedPicker },
     setup() {
+      const savedMatches = ref(ArcaneMatchSessions.list());
+      function forgetMatch(seat) {
+        ArcaneMatchSessions.remove(seat.room, seat.player_id);
+        savedMatches.value = ArcaneMatchSessions.list();
+      }
+      async function resumeMatch(seat) {
+        try {
+          const response = await fetch('/api/room/info?id=' + encodeURIComponent(seat.room));
+          if (response.status === 404) {
+            forgetMatch(seat);
+            error.value = '房间已不存在，服务器重启后对局无法恢复。';
+            return;
+          }
+          if (!response.ok) throw Error('无法确认房间状态，请稍后重试');
+          location.href = ArcaneMatchSessions.url(seat);
+        } catch (e) { error.value = e.message; }
+      }
       const playerName = ref(""),
         decks = ref([]),
         selectedId = ref(""),
@@ -178,6 +195,7 @@
         if (e.key === "Escape") inspect.value = null;
       }
       function onStorage(e) {
+        if (e.key === ArcaneMatchSessions.KEY) savedMatches.value = ArcaneMatchSessions.list();
         if (e.key === DS.KEY) {
           try {
             store = DS.load();
@@ -207,6 +225,7 @@
         window.removeEventListener("storage", onStorage);
       });
       return {
+        savedMatches, resumeMatch, forgetMatch,
         crest: UI.crest,
         image: UI.image,
         artAttrs: UI.artAttrs,

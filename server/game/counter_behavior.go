@@ -14,6 +14,10 @@ type CounterResolutionBehavior interface {
 	ResolveCounter(*CounterContext)
 }
 
+type CounterCostBehavior interface {
+	ModifyCounterCost(*CounterContext, map[string]int)
+}
+
 func (AlwaysActive) HasActiveCounter(*CardInstance) bool { return true }
 
 type CounterEvent struct {
@@ -26,6 +30,7 @@ type CounterEvent struct {
 	DefenderID    int
 	LearnedSkill  bool
 	BoostUse      bool
+	Purpose       skillPurpose
 	DefenseSkills []*CardInstance
 	DefenseBoosts []*CardInstance
 	CancelItem    *bool
@@ -60,11 +65,13 @@ func (e *Engine) counterContext(source *CardInstance, trigger EffectTrigger, car
 	cancelItem, _ := data["cancel_item"].(*bool)
 	preventDamage, _ := data["prevent_damage"].(*bool)
 	cancelHit, _ := data["cancel_spell_hit"].(*bool)
+	purpose, _ := data["purpose"].(string)
 	return &CounterContext{Engine: e, Source: source, payload: data, Event: CounterEvent{
 		Trigger: trigger, Card: card, PlayerID: actor,
 		Power: spellPowerFromData(data), Damage: damageFromData(data), DrawCount: drawCountFromData(data),
 		DefenderID: intFromData(data, "defender", -1), LearnedSkill: boolFromData(data, "learned_skill"),
 		BoostUse: boolFromData(data, "boost_use"), DefenseSkills: spellInstancesFromData(data, "defense_skills"),
+		Purpose:       skillPurpose(purpose),
 		DefenseBoosts: spellInstancesFromData(data, "defense_boosts"), CancelItem: cancelItem, CancelHit: cancelHit, PreventDamage: preventDamage,
 	}}
 }

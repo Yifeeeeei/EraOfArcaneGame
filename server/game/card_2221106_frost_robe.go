@@ -20,7 +20,7 @@ func (Card2221106FrostRobe) OnSpellHit(ctx *EffectContext) error {
 	}
 	frozen := 0
 	for _, candidate := range ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
-		return card != nil && card.Position != nil && ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
+		return card != nil && card.Position != nil && ctx.Engine.isPositionInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
 	}) {
 		id, _ := candidate["instance_id"].(string)
 		target := findEnemyCardCandidate(ctx.Engine, ctx.PlayerID, id, []map[string]any{candidate})

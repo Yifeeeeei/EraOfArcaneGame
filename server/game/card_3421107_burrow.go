@@ -10,6 +10,8 @@ func (Card3421107Burrow) Name() string { return "破土而出" }
 
 func (Card3421107Burrow) MasteryMax() int { return 2 }
 
+func (Card3421107Burrow) MasteryThresholds() []int { return []int{1, 2} }
+
 func (Card3421107Burrow) OnMastery(*EffectContext, int) error { return nil }
 
 var _ MasteryBehavior = Card3421107Burrow{}

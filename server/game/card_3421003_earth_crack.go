@@ -8,6 +8,8 @@ func (Card3421003EarthCrack) Name() string { return "裂地重击" }
 
 func (Card3421003EarthCrack) MasteryMax() int { return 3 }
 
+func (Card3421003EarthCrack) MasteryThresholds() []int { return []int{1, 3} }
+
 func (Card3421003EarthCrack) OnMastery(ctx *EffectContext, level int) error {
 	return nil
 }

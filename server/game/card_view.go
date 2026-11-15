@@ -10,6 +10,10 @@ func cardToInfo(ci *CardInstance) map[string]any {
 	if ci == nil {
 		return nil
 	}
+	attack := ci.Card.Attack + ci.AttackBonus
+	if (ci.Card.IsCompanion() || ci.Card.IsHero()) && ci.Card.Attack < 0 && ci.AttackBonus > 0 {
+		attack = ci.AttackBonus
+	}
 	info := map[string]any{
 		"instance_id":               ci.InstanceID,
 		"owner":                     ci.OwnerID,
@@ -19,7 +23,7 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		"category":                  ci.Card.Category,
 		"tag":                       ci.Card.Tag,
 		"description":               ci.Card.Description,
-		"attack":                    ci.Card.Attack + ci.AttackBonus,
+		"attack":                    attack,
 		"life":                      maxLife(ci),
 		"power":                     ci.Card.Power + ci.PowerBonus,
 		"duration":                  ci.Card.Duration,
@@ -43,6 +47,7 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		"has_taunt":                 cardHasTaunt(ci),
 		"has_global_spell_range":    cardHasActiveGlobalSpellRange(ci),
 		"is_counter_trap":           isCounterTrapCard(ci.Card.Number),
+		"can_normal_counter_use":    counterAllowsNormalUse(ci),
 		"is_set_counter":            ci.IsSetCounter,
 		"statuses":                  ci.Statuses,
 		"position":                  ci.Position,
@@ -75,6 +80,7 @@ func cardToInfo(ci *CardInstance) map[string]any {
 
 	if hasPerTurn {
 		info["per_turn_limit"] = perTurnLimit(ci)
+		info["per_turn_unlimited"] = cardHasRepeatableActiveAbility(ci)
 		info["per_turn_label"] = "回合技"
 		behavior := behaviorForNumber(ci.Card.Number)
 		if labeler, ok := behavior.(PerTurnLabelBehavior); ok {
@@ -105,7 +111,11 @@ func cardToInfo(ci *CardInstance) map[string]any {
 		info["can_defense_boost"] = canUseSkillForPurpose(ci.Card, skillPurposeDefenseBoost)
 		info["can_react"] = cardHasActiveSpellReaction(ci)
 		info["can_boost"] = info["can_attack_boost"]
+		info["can_be_boosted"] = canSkillBeBoosted(ci)
 		info["spell_area"] = spellArea(ci)
+	}
+	if ci.copySource != nil {
+		info["copy_source"] = cardToInfo(physicalSpellSource(ci))
 	}
 
 	return info
@@ -123,7 +133,7 @@ func effectiveCurrentAttack(card *CardInstance) int {
 	if card == nil {
 		return 0
 	}
-	return max(card.CurrentAttack+card.AttackBonus, 0)
+	return max(max(card.CurrentAttack, 0)+card.AttackBonus, 0)
 }
 
 func (e *Engine) cardToInfo(ci *CardInstance) map[string]any {
@@ -367,6 +377,7 @@ func (e *Engine) cardToInfoForPlayer(ps *PlayerState, card *CardInstance) map[st
 		info["extra_target_ignore_range"] = e.extraTargetIgnoresRange(ps.PlayerID, card)
 		info["has_pierce"] = e.skillHasPierce(ps.PlayerID, card)
 		info["spell_area"] = e.effectiveSpellArea(card)
+		info["spell_area_choices"] = e.spellAreaChoices(card)
 		info["effective_defense_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeDefend)
 		info["effective_defense_boost_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeDefenseBoost)
 		info["effective_attack_power"] = e.effectiveSkillPowerForPurpose(ps.PlayerID, card, skillPurposeAttack)
@@ -376,6 +387,18 @@ func (e *Engine) cardToInfoForPlayer(ps *PlayerState, card *CardInstance) map[st
 		info["action_base_defense_cost"] = e.actionBaseSkillUseCost(ps, card, skillPurposeDefend)
 		info["action_base_defense_boost_cost"] = e.actionBaseSkillUseCost(ps, card, skillPurposeDefenseBoost)
 		info["action_base_reaction_cost"] = e.actionBaseSkillUseCost(ps, card, skillPurposeReaction)
+	}
+	if _, ok := cardBehavior(card).(SpellCopyBehavior); ok {
+		info["copies_spell"] = true
+		info["needs_target"] = false
+		for _, use := range []struct {
+			key     string
+			purpose skillPurpose
+		}{{"can_attack", skillPurposeAttack}, {"can_defend", skillPurposeDefend}, {"can_attack_boost", skillPurposeAttackBoost}, {"can_defense_boost", skillPurposeDefenseBoost}} {
+			info[use.key] = len(e.spellCopies(card, use.purpose)) > 0
+		}
+		info["can_boost"] = info["can_attack_boost"]
+		info["can_be_boosted"] = true
 	}
 	if len(card.BoundSkills) > 0 {
 		boundSkills := make([]map[string]any, len(card.BoundSkills))

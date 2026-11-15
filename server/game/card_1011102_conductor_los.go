@@ -12,7 +12,7 @@ func (Card1011102ConductorLos) ID() string { return "1011102" }
 func (Card1011102ConductorLos) Name() string { return "\"指挥家\" 洛斯" }
 
 func (Card1011102ConductorLos) OnConsume(ctx *EffectContext) error {
-	if ctx.Source == nil || ctx.Target == nil {
+	if ctx.Source == nil {
 		return nil
 	}
 	ctx.Source.Statuses[conductorConsumedCountStatus]++
@@ -38,17 +38,17 @@ func (Card1011102ConductorLos) OnConsume(ctx *EffectContext) error {
 }
 
 func (Card1011102ConductorLos) PerTurnLabel(*CardInstance) string {
-	return "消耗"
+	return "消耗重置提琴"
 }
 
 func (Card1011102ConductorLos) OnPerTurn(ctx *EffectContext) error {
 	if ctx.Source == nil || !ctx.Engine.canConsumeCard(ctx.Source) || !ctx.Engine.cardStillOnField(ctx.Source) {
 		return fmt.Errorf("\"指挥家\" 洛斯需要在场且竖置才能消耗")
 	}
-	ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, ctx.Engine.effectiveElementsGain(ctx.Source), "1011102")
+	ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, nil, "1011102")
 	for _, equipment := range ctx.Engine.State.Players[ctx.PlayerID].Equipment {
 		if equipment != nil && equipment.Card != nil && equipment.Card.Number == "2001101" {
-			equipment.IsHorizontal = false
+			ctx.Engine.resetCard(equipment)
 		}
 	}
 	return nil
@@ -91,3 +91,5 @@ func (e *Engine) equipGeneratedCard(playerID int, number string) *CardInstance {
 func (Card1011102ConductorLos) AbilityRequiresTap(trigger EffectTrigger) bool {
 	return trigger == TriggerPerTurn
 }
+
+func (Card1011102ConductorLos) RepeatableActiveAbility() bool { return true }

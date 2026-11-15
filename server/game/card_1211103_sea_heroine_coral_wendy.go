@@ -11,11 +11,13 @@ func (Card1211103SeaHeroineCoralWendy) ID() string { return "1211103" }
 
 func (Card1211103SeaHeroineCoralWendy) Name() string { return "海上巾帼 珊瑚 雯迪" }
 
+func (Card1211103SeaHeroineCoralWendy) PerTurnLimit() int { return 2 }
+
 func (Card1211103SeaHeroineCoralWendy) OnSpellCast(ctx *EffectContext) error {
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.Target.Card == nil {
 		return nil
 	}
-	if ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) || !isFriendlySpellCast(ctx) || totalElementCost(ctx.Target.Card.ElementsExpense) >= 3 {
+	if ctx.Source.UsedThisTurn >= perTurnLimit(ctx.Source) || !isFriendlySpellCast(ctx) || !isCombatSpellCard(ctx.Target.Card) || totalElementCost(ctx.Target.Card.ElementsExpense) >= 3 || !ctx.Engine.canResetCard(ctx.Target) {
 		return nil
 	}
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
@@ -33,13 +35,13 @@ func (Card1211103SeaHeroineCoralWendy) OnSpellCast(ctx *EffectContext) error {
 				return fmt.Errorf("invalid coral wendy reset")
 			}
 			target := ctx.Engine.findSkill(ctx.Engine.State.Players[ctx.PlayerID], selected[0])
-			if target == nil || target.Card == nil || !target.IsHorizontal || totalElementCost(target.Card.ElementsExpense) >= 3 {
+			if target == nil || target.Card == nil || !target.IsHorizontal || !ctx.Engine.canResetCard(target) || totalElementCost(target.Card.ElementsExpense) >= 3 {
 				return fmt.Errorf("invalid coral wendy reset")
 			}
 			if !ctx.Engine.payCostForAction(ps, cost, ActionMessage{Data: data}) {
 				return fmt.Errorf("invalid coral wendy payment")
 			}
-			target.IsHorizontal = false
+			ctx.Engine.resetCard(target)
 			ctx.Source.UsedThisTurn++
 			return nil
 		})

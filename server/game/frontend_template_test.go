@@ -44,7 +44,7 @@ func TestGameHTMLPendingActionCostUsesPaymentRequest(t *testing.T) {
 	for _, want := range []string{
 		"sendPaidAction('resolve_action', payload, cost",
 		"paymentRequest.value = {",
-		"const cost = pendingSelected.value.length",
+		"const cost = pendingSelectionCost()",
 		"paymentAvailable()",
 		"sendAction(req.action, { ...req.data, payment: { ...paymentSelection.value } }, {",
 	} {
@@ -215,8 +215,8 @@ func TestGameHTMLCompositeCostsUseSequentialPlannerAndActionAcknowledgement(t *t
 		"function attackActionCost(mainSkill, boostIDs)",
 		"function defenseActionCost()",
 		"ArcaneActionCostPlan.planActionCost(entries, myState.value.temp_modifiers || [])",
-		"missingCostText(attackActionCost(mySkills[i-1], []))",
-		"missingCostText(attackActionCost(skill, []))",
+		"missingCostText(attackActionCost(entry.card, []))",
+		"!canPayCost(attackActionCost(skill, []))",
 		"function reactionActionCost(skill)",
 		"skillUseCost, attackActionCost, reactionActionCost, canLearnSkill",
 		"const session = new ArcaneDecisions.DecisionSession();",

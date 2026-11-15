@@ -144,7 +144,11 @@ func (e *Engine) setPendingAction(playerID int, actionType string, prompt string
 }
 
 func (e *Engine) setPendingActionWithOptions(playerID int, actionType string, prompt string, candidates []map[string]any, minSelect, maxSelect int, cost map[string]int, canOverexert bool, callback func([]string), callbackData func([]string, map[string]any), callbackErr func([]string, map[string]any) error, context map[string]any, available func() bool) *PendingAction {
-	if minSelect > 0 && len(candidates) == 0 {
+	candidates = e.filterEffectCandidates(candidates)
+	if maxSelect > len(candidates) {
+		maxSelect = len(candidates)
+	}
+	if minSelect > len(candidates) {
 		return nil
 	}
 	if available != nil && !available() {

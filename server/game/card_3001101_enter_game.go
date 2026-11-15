@@ -11,6 +11,9 @@ func (Card3001101EnterGame) ID() string { return "3001101" }
 func (Card3001101EnterGame) Name() string { return "入局" }
 
 func (Card3001101EnterGame) OnSpellCast(ctx *EffectContext) error {
+	if !isSpellBeingCast(ctx) {
+		return nil
+	}
 	candidates := enterGamePlayerCandidates(ctx)
 	if len(candidates) == 0 {
 		return nil

@@ -17,16 +17,16 @@ func (Card1321115SkyPainter) OnEnter(ctx *EffectContext) error {
 	if len(candidates) == 0 {
 		return nil
 	}
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "sky_painter_copy_enter",
-		"苍穹描摹者:复制另一个低费大气卡牌的入场效果", candidates, 1, 1,
-		func(selected []string) {
+	ctx.Engine.SetPendingActionWithError(ctx.PlayerID, "sky_painter_copy_enter",
+		"苍穹描摹者:复制另一个入场花费小于6的大气卡牌入场效果", candidates, 1, 1, nil, false,
+		func(selected []string, _ map[string]any) error {
 			target := ctx.Engine.findFriendlyCardIncludingBound(ctx.PlayerID, firstSelected(selected))
 			if !canSkyPainterCopy(ctx.Engine, ctx.Source, target) {
-				return
+				return nil
 			}
-			ctx.Engine.triggerEffects(TriggerOnEnter, target, nil, map[string]any{
-				"copied_by": cardToInfo(ctx.Source),
-			})
+			copied := *ctx
+			copied.ExtraData = map[string]any{"copied_from": cardToInfo(target)}
+			return behaviorForNumber(target.Card.Number).(OnEnterBehavior).OnEnter(&copied)
 		})
 	return nil
 }

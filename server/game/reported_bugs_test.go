@@ -484,7 +484,7 @@ func TestIssue31PlaytestRegressions(t *testing.T) {
 		raven := placeUnit(baseCard(t, "1321001"), 0, 1, 1, engine)
 		info := cardToInfo(raven)
 
-		if info["per_turn_label"] != "消耗" {
+		if info["per_turn_label"] != "消耗抽牌" {
 			t.Fatalf("raven messenger should expose consume label, info=%v", info)
 		}
 	})
@@ -5369,7 +5369,7 @@ func TestIssue27DarkPlaytestRegressions(t *testing.T) {
 		p0 := engine.State.Players[0]
 		target := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
 		friend := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
-		p0.Skills[0] = readySkill(baseCard(t, "3021005"), 0)
+		p0.Skills[0] = readySkill(baseCard(t, "3021101"), 0)
 		p0.Skills[1] = readySkill(baseCard(t, "3621002"), 0)
 		p0.Elements[model.ElementArcane] = 3
 		p0.Elements[model.ElementShadow] = 2
@@ -5381,7 +5381,7 @@ func TestIssue27DarkPlaytestRegressions(t *testing.T) {
 			"target_col":  float64(1),
 			"target_row":  float64(0),
 		}}); err != nil {
-			t.Fatalf("cast boosted arcane arrow: %v", err)
+			t.Fatalf("cast boosted arcane impact: %v", err)
 		}
 		if engine.State.Phase == PhaseDefenseWindow {
 			if err := engine.HandleAction(1, ActionMessage{Action: "no_defend"}); err != nil {

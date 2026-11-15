@@ -25,7 +25,7 @@ func (Card1321105Illusionist) OnUltimate(ctx *EffectContext) error {
 			if target == nil || zone != "unit" || target.Card == nil || !target.Card.IsCompanion() || totalElementCost(target.Card.ElementsCost) >= 6 {
 				return
 			}
-			gain := copyElementAmounts(effectiveElementsGain(target))
+			gain := copyElementAmounts(ctx.Engine.effectiveElementsGain(target))
 			ctx.Engine.returnUnitToHand(target, ctx.PlayerID)
 			ctx.Engine.State.Players[ctx.PlayerID].GainElements(gain)
 		})

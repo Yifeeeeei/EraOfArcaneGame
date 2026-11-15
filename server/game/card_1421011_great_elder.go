@@ -8,6 +8,8 @@ func (Card1421011GreatElder) Name() string { return "大长老" }
 
 func (Card1421011GreatElder) MasteryMax() int { return 3 }
 
+func (Card1421011GreatElder) MasteryThresholds() []int { return []int{1, 3} }
+
 func (Card1421011GreatElder) OnMastery(ctx *EffectContext, level int) error {
 	if level == 1 || level == 3 {
 		ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{

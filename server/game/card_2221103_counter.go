@@ -23,7 +23,7 @@ func (Card2221103IceLockRune) OnCardEnter(ctx *EffectContext) error {
 	if !learned || enteredPlayer == ctx.PlayerID || !ctx.Target.Card.IsSkill() {
 		return nil
 	}
-	ctx.Target.Statuses[StatusCannotUseSkillUntilTurn] = ctx.Engine.State.TurnNumber + 1
+	ctx.Target.Statuses[StatusCannotUseSkillUntilTurn] = ctx.Engine.turnOrdinal() + 1
 	ctx.Engine.emit(GameEvent{
 		Type:   "skill_locked",
 		Player: -1,

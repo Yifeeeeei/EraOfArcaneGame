@@ -26,6 +26,15 @@ func (e *Engine) resolveSketchScrollSkill(playerID int, skillID string) error {
 		return fmt.Errorf("not enough elements")
 	}
 	targets := e.spellTargetCandidates(playerID, skill)
+	filtered := targets[:0]
+	for _, candidate := range targets {
+		id, _ := candidate["instance_id"].(string)
+		unit := e.findUnitByInstanceID(id)
+		if unit != nil && unit.Card != nil && !unit.Card.IsHero() {
+			filtered = append(filtered, candidate)
+		}
+	}
+	targets = filtered
 	if skillNeedsTargetInstance(skill) {
 		if len(targets) == 0 {
 			return nil
@@ -39,9 +48,6 @@ func (e *Engine) resolveSketchScrollSkill(playerID int, skillID string) error {
 				target := selectedUnitFromCandidates(e, selected, targets)
 				if target == nil || target.Position == nil {
 					return fmt.Errorf("invalid sketch scroll target")
-				}
-				if target.Card != nil && target.Card.IsHero() {
-					return fmt.Errorf("sketch scroll cannot target heroes as units")
 				}
 				spellTarget := SpellTarget{Type: "unit", Position: *target.Position}
 				if err := e.validateSpellTarget(playerID, skill, spellTarget); err != nil {
@@ -61,9 +67,6 @@ func (e *Engine) spellTargetCandidates(playerID int, skill *CardInstance) []map[
 		for row := 0; row < 3; row++ {
 			unit := ps.Units[col][row]
 			if unit == nil || unit.Position == nil {
-				continue
-			}
-			if unit.Card != nil && unit.Card.IsHero() {
 				continue
 			}
 			target := SpellTarget{Type: "unit", Position: *unit.Position}
@@ -90,6 +93,7 @@ func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, ta
 	e.applySkillUseCooldownModifiers(ps, skill)
 	e.consumeNextSkillUseModifiers(ps, skill)
 	e.advanceMasteryForUsedSkills(playerID, skill)
+	e.notifySkillUseCommitted(playerID, skill)
 	e.applyCoralBellyFirstSpellAttackBonus(playerID, skill)
 	totalPower := e.effectiveSpellPower(playerID, skill, nil, target)
 	isSorcery := isSorcerySkill(skill.Card)
@@ -103,7 +107,7 @@ func (e *Engine) castSkillFromSketchScroll(playerID int, skill *CardInstance, ta
 		"is_sorcery":  isSorcery,
 		"via":         "sketch_scroll",
 	}
-	e.recordSpellCast(playerID, skill)
+	e.recordSpellAttack(playerID, skill)
 	e.emit(GameEvent{Type: "spell_cast", Player: -1, Data: spellCastData})
 	e.triggerEffects(TriggerOnSpellCast, skill, nil, spellCastData)
 	if isSorcery {

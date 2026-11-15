@@ -52,7 +52,7 @@ func (Card3621106RedMoonDevour) OnSpellHit(ctx *EffectContext) error {
 		return nil
 	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "red_moon_devour_life",
-		fmt.Sprintf("红月吞噬:选择1个友方暗影单位获得+%d血", totalRemainingLife), candidates, 1, 1,
+		fmt.Sprintf("红月吞噬:选择1个友方暗影单位获得+%d血", totalRemainingLife), candidates, 0, 1,
 		func(selected []string) {
 			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, firstSelected(selected))
 			if target == nil || zone != "unit" || target.Card == nil || target.Card.Category != model.ElementShadow {

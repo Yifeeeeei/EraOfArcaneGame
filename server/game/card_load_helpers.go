@@ -140,7 +140,7 @@ func (r royalWaterUseCostReduction) OnEnter(ctx *EffectContext) error {
 
 func (r royalWaterUseCostReduction) prompt(ctx *EffectContext) error {
 	candidates := ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, func(skill *CardInstance) bool {
-		return skill != nil && skill.Card != nil && isSpellLikeCard(skill.Card) && (!r.requireWater || skill.Card.Category == model.ElementWater)
+		return skill != nil && skill.Card != nil && isCombatSpellCard(skill.Card) && (!r.requireWater || skill.Card.Category == model.ElementWater)
 	})
 	if len(candidates) == 0 {
 		return nil
@@ -149,7 +149,7 @@ func (r royalWaterUseCostReduction) prompt(ctx *EffectContext) error {
 		r.name+":选择你的1个法术使用花费-1水", candidates, 1, 1,
 		func(selected []string) {
 			skill := ctx.Engine.findSkill(ctx.Engine.State.Players[ctx.PlayerID], firstSelected(selected))
-			if skill == nil || skill.Card == nil || !isSpellLikeCard(skill.Card) || (r.requireWater && skill.Card.Category != model.ElementWater) {
+			if skill == nil || skill.Card == nil || !isCombatSpellCard(skill.Card) || (r.requireWater && skill.Card.Category != model.ElementWater) {
 				return
 			}
 			skill.Statuses["使用费用"+model.ElementWater+"-1"]++

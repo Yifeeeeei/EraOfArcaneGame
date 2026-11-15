@@ -16,7 +16,7 @@ func (Card1021101PrivateTeacher) OnEnter(ctx *EffectContext) error {
 	allowed := make(map[string]bool)
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	for _, skill := range ps.SkillPool {
-		if skill == nil || skill.Card == nil || !skill.Card.IsSkill() || totalElementCost(skill.Card.ElementsCost) >= 4 {
+		if skill == nil || skill.Card == nil || !isCombatSpellCard(skill.Card) || totalElementCost(skill.Card.ElementsCost) >= 4 {
 			continue
 		}
 		hasEmptySlot := false
@@ -32,7 +32,7 @@ func (Card1021101PrivateTeacher) OnEnter(ctx *EffectContext) error {
 			continue
 		}
 		for slotIdx, learned := range ps.Skills {
-			if learned == nil || learned.IsHorizontal {
+			if learned == nil || cardImmuneToOtherEffects(learned) || !cardCanBeReplaced(learned) {
 				continue
 			}
 			if !skillAllowedInSlot(ps, skill, slotIdx) {

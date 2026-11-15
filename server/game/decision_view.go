@@ -26,12 +26,15 @@ func pendingActionUI(p *PendingAction) map[string]any {
 	switch p.Type {
 	case "water_divination_search", "okoru_observe", "foresight_orb_reorder", "council_guard_reorder", "rose_prophet_reorder":
 		ui["kind"] = "reorder"
+		if p.Type == "council_guard_reorder" {
+			ui["top_only"] = true
+		}
 	case "natural_communion_distribute":
 		ui["kind"] = "load_distribution"
 	case "blood_sand_array_pay", "blood_sand_array_pay_opponent":
 		ui["kind"] = "resource_distribution"
 		ui["max_total"] = 3
-		ui["modes"] = []map[string]string{{"value": "auto", "label": "先负载，后生命"}, {"value": "life", "label": "仅生命"}}
+		ui["choose_load_elements"] = true
 	case "muling_return":
 		ui["unique_by"] = "side"
 	}

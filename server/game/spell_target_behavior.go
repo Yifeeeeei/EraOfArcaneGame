@@ -27,13 +27,18 @@ func (e *Engine) customSpellAffectedUnits(defenderID int, skill *CardInstance, t
 	return nil, false
 }
 
-func (e *Engine) expandSpellTargets(playerID int, target SpellTarget, extra []SpellTarget) []SpellTarget {
+func (e *Engine) expandSpellTargets(playerID int, skill *CardInstance, target SpellTarget, extra []SpellTarget) []SpellTarget {
+	if cardImmuneToOtherEffects(skill) {
+		return extra
+	}
 	for _, source := range e.getAllFieldCards(e.State.Players[playerID]) {
 		if source == nil || e.hasEffectiveStatus(source, StatusPetrify) {
 			continue
 		}
 		if b, ok := cardBehavior(source).(SpellTargetExpansionBehavior); ok && b.HasActiveSpellTargetExpansion(source) {
-			extra = b.ExpandSpellTargets(e.skillContext(playerID, source), target, extra)
+			ctx := e.skillContext(playerID, source)
+			ctx.Target = skill
+			extra = b.ExpandSpellTargets(ctx, target, extra)
 		}
 	}
 	return extra
@@ -57,6 +62,9 @@ func (e *Engine) spellTargetGrants(playerID int, skill *CardInstance, target Spe
 	seen := map[*CardInstance]bool{}
 	for _, source := range sources {
 		if source == nil || seen[source] || e.hasEffectiveStatus(source, StatusPetrify) {
+			continue
+		}
+		if !e.acceptsCardEffect(source, skill) {
 			continue
 		}
 		seen[source] = true

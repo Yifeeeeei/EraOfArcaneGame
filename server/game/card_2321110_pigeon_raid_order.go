@@ -25,14 +25,12 @@ func (Card2321110PigeonRaidOrder) OnUseItem(ctx *EffectContext) error {
 				TargetInstanceID: skill.InstanceID,
 				Amount:           1,
 				RemainingUses:    1,
-				ExpiresTurn:      ctx.Engine.State.TurnNumber + 2,
 			})
 			ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
 				Type:             TempModNextSkillUseAttackBonus,
 				TargetInstanceID: skill.InstanceID,
 				Amount:           1,
 				RemainingUses:    1,
-				ExpiresTurn:      ctx.Engine.State.TurnNumber + 2,
 			})
 		})
 	return nil

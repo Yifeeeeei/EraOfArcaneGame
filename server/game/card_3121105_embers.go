@@ -11,7 +11,7 @@ func (Card3121105Embers) ID() string { return "3121105" }
 
 func (Card3121105Embers) Name() string { return "余火" }
 
-func (Card3121105Embers) OnTurnEnd(ctx *EffectContext) error {
+func (Card3121105Embers) OnTurnEndDeclaration(ctx *EffectContext) error {
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.PlayerID < 0 || ctx.PlayerID >= len(ctx.Engine.State.Players) {
 		return nil
 	}

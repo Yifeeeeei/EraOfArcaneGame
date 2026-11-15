@@ -27,14 +27,6 @@ func (Card1521112CouncilGuard) OnPerTurn(ctx *EffectContext) error {
 			break
 		}
 	}
-	if !hasMark {
-		ctx.Engine.shuffleDeck(ctx.OpponentID)
-		ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
-			"effect":     "council_guard_shuffle",
-			"deck_owner": ctx.OpponentID,
-		}})
-		return nil
-	}
 	candidates := make([]map[string]any, 0, len(looked))
 	for i, card := range looked {
 		info := candidateInfo(card, "deck", "enemy")
@@ -43,9 +35,18 @@ func (Card1521112CouncilGuard) OnPerTurn(ctx *EffectContext) error {
 		candidates = append(candidates, info)
 	}
 	ctx.Engine.SetPendingActionWithData(ctx.PlayerID, "council_guard_reorder",
-		"议庭护法:调整对手牌库顶5张的顺序并放回牌库顶或牌库底", candidates, 0, 0,
+		"议庭护法:查看牌库顶5张；有印记时调整顺序并放回牌库顶，否则洗混牌库", candidates, 0, 0,
 		func(selected []string, data map[string]any) {
-			resolveTopDeckReorder(ctx.Engine, ctx.PlayerID, ctx.OpponentID, looked, data, "council_guard_reorder")
+			if !hasMark {
+				ctx.Engine.shuffleDeck(ctx.OpponentID)
+				return
+			}
+			top := append(stringsFromActionData(data, "top_order"), stringsFromActionData(data, "bottom_order")...)
+			order := make([]any, len(top))
+			for i, id := range top {
+				order[i] = id
+			}
+			resolveTopDeckReorder(ctx.Engine, ctx.PlayerID, ctx.OpponentID, looked, map[string]any{"top_order": order}, "council_guard_reorder")
 		})
 	return nil
 }

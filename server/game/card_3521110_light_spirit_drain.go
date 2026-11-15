@@ -11,6 +11,9 @@ func (Card3521110LightSpiritDrain) ID() string { return "3521110" }
 func (Card3521110LightSpiritDrain) Name() string { return "光灵汲取" }
 
 func (Card3521110LightSpiritDrain) OnSpellHit(ctx *EffectContext) error {
+	if !isOwnSpellHit(ctx) {
+		return nil
+	}
 	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
 		return card != nil && card.Card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementLight
 	})

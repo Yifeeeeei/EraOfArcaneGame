@@ -21,7 +21,7 @@ func (Card2321101ThunderChain) OnPerTurn(ctx *EffectContext) error {
 	if ctx.Source.IsHorizontal {
 		return fmt.Errorf("雷之链需要竖置才能消耗")
 	}
-	ctx.Source.IsHorizontal = true
+	ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, nil, ctx.Source.Card.Number)
 	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
 		Type:                   TempModNextDriveSpellExtraTarget,
 		SourceCardNumber:       ctx.Source.Card.Number,
@@ -37,3 +37,5 @@ var _ PerTurnAbility = Card2321101ThunderChain{}
 func (Card2321101ThunderChain) AbilityRequiresTap(trigger EffectTrigger) bool {
 	return trigger == TriggerPerTurn
 }
+
+func (Card2321101ThunderChain) RepeatableActiveAbility() bool { return true }

@@ -54,13 +54,13 @@ func (Card3221102SummonFloodDragon) OnDefend(ctx *EffectContext) error {
 	if !defenseSucceeded(ctx) {
 		return nil
 	}
-	for _, candidate := range defenseSuccessDamageCandidates(ctx) {
-		id, _ := candidate["instance_id"].(string)
-		target := validDefenseSuccessDamageTarget(ctx, id)
-		if target == nil {
-			continue
+	for _, candidate := range ctx.Engine.enemyUnits(ctx.PlayerID, true, func(unit *CardInstance) bool {
+		return unit.Position != nil && ctx.Engine.isPositionInSpellRange(ctx.PlayerID, unit.Position.Col, unit.Position.Row, false)
+	}) {
+		target := selectedUnitFromCandidates(ctx.Engine, []string{candidate["instance_id"].(string)}, []map[string]any{candidate})
+		if target != nil {
+			ctx.DealDamage(target, 1)
 		}
-		ctx.Engine.ApplyDamage(DamageRequest{Target: target, Amount: 1, Kind: "effect", SourcePlayer: ctx.PlayerID, SourceKnown: true, Source: ctx.Source})
 	}
 	return nil
 }
@@ -123,7 +123,7 @@ func (Card3121102LionGuardian) OnDefend(ctx *EffectContext) error {
 		return nil
 	}
 	for _, skill := range ctx.Engine.State.Players[ctx.PlayerID].Skills {
-		if skill == nil || skill == ctx.Source || skill.Card == nil || skill.Card.Category != "火" {
+		if skill == nil || skill == ctx.Source || skill.Card == nil || skill.Card.Category != "火" || !isCombatSpellCard(skill.Card) || !ctx.Engine.acceptsCardEffect(ctx.Source, skill) {
 			continue
 		}
 		skill.PowerBonus++

@@ -198,6 +198,9 @@ func (e *Engine) applyNextLearnedSkillHasteModifier(playerID int, skill *CardIns
 		if modifier.Type != TempModNextLearnedSkillHaste || modifier.RemainingUses == 0 {
 			continue
 		}
+		if modifier.CombatSpellsOnly && (skill == nil || !isCombatSpellCard(skill.Card)) {
+			continue
+		}
 		if modifier.Element != "" && (skill == nil || skill.Card == nil || skill.Card.Category != modifier.Element) {
 			continue
 		}

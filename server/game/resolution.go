@@ -106,16 +106,20 @@ func (e *Engine) completePendingSpell(spell *SpellCast) bool {
 	e.State.PendingSpell = nil
 	waiters := spell.resolutions
 	spell.resolutions = nil
-	continued := false
+	if e.State.Phase != PhaseGameOver && e.State.PendingAction == nil {
+		e.State.Phase = PhaseMain
+	}
+	e.runResolution("finish spell use", func() {
+		e.finishSkillUses(append(append([]*CardInstance{spell.Skill}, spell.BoostSkills...), spell.usedDefenseSpells...)...)
+	}, func() { e.resumeSpellWaiters(waiters) })
+	return e.State.PendingAction != nil || e.State.PendingSpell != nil || e.State.Phase != PhaseMain || len(waiters) > 0
+}
+
+func (e *Engine) resumeSpellWaiters(waiters []*resolutionFrame) {
 	for _, frame := range waiters {
-		continued = continued || (!frame.done && frame.next < len(frame.steps))
 		frame.waitingSpell = nil
 		e.resumeResolution(frame)
 	}
-	// A frame whose final step started this spell has nothing left to run.
-	// Let spell callers restore main phase in that case, but never overwrite
-	// a replacement spell or game-over established during completion.
-	return continued || e.State.PendingSpell != nil || e.State.Phase == PhaseGameOver
 }
 
 // replacePendingSpell preserves the parent interaction when a counter reflects
@@ -135,10 +139,11 @@ func (e *Engine) replacePendingSpell(start func() error) error {
 	clearFiveRainbowBeamSelection(original.Skill)
 	waiters := original.resolutions
 	original.resolutions = nil
-	for _, frame := range waiters {
-		frame.waitingSpell = nil
-		e.resumeResolution(frame)
-	}
+	uses := append(append([]*CardInstance{original.Skill}, original.BoostSkills...), original.usedDefenseSpells...)
+	frame := e.newResolutionFrame("finish replaced spell use", []func(){func() { e.finishSkillUses(uses...) }})
+	frame.baselineSpell = original
+	e.resumeResolution(frame)
+	e.resumeSpellWaiters(waiters)
 	return nil
 }
 

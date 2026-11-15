@@ -7,6 +7,9 @@ func (Card3021103ArcaneDrain) ID() string { return "3021103" }
 func (Card3021103ArcaneDrain) Name() string { return "奥能汲取" }
 
 func (Card3021103ArcaneDrain) OnSpellCast(ctx *EffectContext) error {
+	if !isSpellBeingCast(ctx) {
+		return nil
+	}
 	if ctx == nil || ctx.Engine == nil {
 		return nil
 	}

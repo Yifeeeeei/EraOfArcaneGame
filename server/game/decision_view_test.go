@@ -135,7 +135,7 @@ func TestDebugMutationsAreAtomicAndVersioned(t *testing.T) {
 	}
 }
 
-func TestExecutedErrorVersionsRealPartialPaymentWithoutRollback(t *testing.T) {
+func TestRejectedBloodSandPaymentPreservesResourcesAndVersionsAttempt(t *testing.T) {
 	e := setupReportedBugEngine(t)
 	e.State.Phase = PhaseMain
 	e.State.CurrentTurn = 0
@@ -148,26 +148,26 @@ func TestExecutedErrorVersionsRealPartialPaymentWithoutRollback(t *testing.T) {
 	}
 	decision := e.State.PendingAction.DecisionID
 	before := e.revision
-	action := ActionMessage{Action: "resolve_action", ExpectedRevision: &before, Data: map[string]any{"selected": []any{unit.InstanceID}, "payments": []any{map[string]any{"instance_id": unit.InstanceID, "amount": float64(2), "mode": "life"}}}}
+	action := ActionMessage{Action: "resolve_action", ExpectedRevision: &before, Data: map[string]any{"selected": []any{unit.InstanceID}, "payments": []any{map[string]any{"instance_id": unit.InstanceID, "amount": float64(3), "mode": "life"}}}}
 	revision, executed, err := e.HandleActionWithRevision(0, action)
-	if err == nil || err.Error() != "cannot pay life from selected unit" {
+	if err == nil || err.Error() != "selected unit cannot pay load or life" {
 		t.Fatalf("original error changed: %v", err)
 	}
-	if !executed || revision != before+1 || unit.CurrentLife != 1 {
-		t.Fatalf("partial mutation not versioned: revision=%d executed=%v life=%d", revision, executed, unit.CurrentLife)
+	if !executed || revision != before+1 || unit.CurrentLife != 2 {
+		t.Fatalf("rejected payment should advance revision without spending: revision=%d executed=%v life=%d", revision, executed, unit.CurrentLife)
 	}
 	if e.State.PendingAction == nil || e.State.PendingAction.DecisionID != decision {
 		t.Fatal("failed decision identity changed")
 	}
 	staleRev, staleExecuted, staleErr := e.HandleActionWithRevision(0, action)
-	if staleErr == nil || staleExecuted || staleRev != revision || unit.CurrentLife != 1 {
-		t.Fatal("old action repeated partial mutation")
+	if staleErr == nil || staleExecuted || staleRev != revision || unit.CurrentLife != 2 {
+		t.Fatal("old action repeated a rejected payment")
 	}
 	// Invalid selection enters the rule handler but does not modify the unit.
 	action.ExpectedRevision = &revision
 	action.Data = map[string]any{"selected": []any{"not-a-candidate"}}
 	next, executed, err := e.HandleActionWithRevision(0, action)
-	if err == nil || err.Error() != "invalid selection" || !executed || next != revision+1 || unit.CurrentLife != 1 {
+	if err == nil || err.Error() != "invalid selection" || !executed || next != revision+1 || unit.CurrentLife != 2 {
 		t.Fatal("unmodified rule rejection must still conservatively advance")
 	}
 	for _, view := range []map[string]any{e.GetStateForPlayer(1), e.GetStateForSpectator()} {

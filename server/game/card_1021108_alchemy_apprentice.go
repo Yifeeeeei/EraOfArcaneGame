@@ -30,7 +30,7 @@ func (Card1021108AlchemyApprentice) OnPerTurn(ctx *EffectContext) error {
 			choices = append(choices, map[string]any{"instance_id": fmt.Sprintf("%s#%d", elem, i), "number": "1021108", "name": elem, "type": "选择", "zone": "choice", "side": "own", "element": elem})
 		}
 	}
-	ctx.Source.IsHorizontal = true
+	ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, nil, ctx.Source.Card.Number)
 	ps.Elements[model.ElementArcane]--
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "alchemy_apprentice_elements",
 		"炼金术学徒:选择2点非奥术元素", choices, 2, 2,
@@ -57,3 +57,5 @@ func (Card1021108AlchemyApprentice) OnPerTurn(ctx *EffectContext) error {
 func (Card1021108AlchemyApprentice) AbilityRequiresTap(trigger EffectTrigger) bool {
 	return trigger == TriggerPerTurn
 }
+
+func (Card1021108AlchemyApprentice) RepeatableActiveAbility() bool { return true }

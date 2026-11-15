@@ -35,7 +35,7 @@ func (Card2321106EndlessWindTide) OnSpellHit(ctx *EffectContext) error {
 	source.IsHorizontal = true
 	source.PowerBonus += 2
 	source.Statuses[endlessWindTideAirCostBonusStatus]++
-	source.Statuses[StatusCannotUseSkillUntilTurn] = ctx.Engine.State.TurnNumber
+	source.Statuses[StatusCannotUseSkillUntilTurn] = ctx.Engine.turnOrdinal()
 	ps.Hand = append(ps.Hand, source)
 	ctx.Engine.emit(GameEvent{
 		Type:   "endless_wind_tide_return",

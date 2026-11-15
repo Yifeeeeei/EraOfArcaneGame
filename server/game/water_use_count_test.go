@@ -146,7 +146,7 @@ func TestWaterCountTreadingLifecycleAndPayments(t *testing.T) {
 		before := p.Elements[model.ElementWater]
 		expectedCost := used.Card.ElementsExpense[model.ElementWater]
 		if i > 1 {
-			expectedCost += i
+			expectedCost += i - 1
 		}
 		waterCast(t, e, used)
 		if got := before - p.Elements[model.ElementWater]; got != expectedCost {
@@ -155,7 +155,7 @@ func TestWaterCountTreadingLifecycleAndPayments(t *testing.T) {
 		if got := wave.Statuses[treadingWaveTriggerCountStatus]; got != i {
 			t.Fatalf("count=%d want=%d", got, i)
 		}
-		if got := e.effectiveSkillUseCost(p, reset)[model.ElementWater]; got != reset.Card.ElementsExpense[model.ElementWater]+i+1 {
+		if got := e.effectiveSkillUseCost(p, reset)[model.ElementWater]; got != reset.Card.ElementsExpense[model.ElementWater]+i {
 			t.Fatalf("trigger %d next cost=%d", i, got)
 		}
 		if reset.IsHorizontal {
@@ -168,7 +168,7 @@ func TestWaterCountTreadingLifecycleAndPayments(t *testing.T) {
 	if err := e.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{"instance_id": b.InstanceID, "target_type": "unit", "target_col": float64(0), "target_row": float64(0)}}); err == nil {
 		t.Fatal("unpaid reuse succeeded")
 	}
-	if wave.Statuses[treadingWaveTriggerCountStatus] != 3 || e.effectiveSkillUseCost(p, b)[model.ElementWater] != b.Card.ElementsExpense[model.ElementWater]+4 {
+	if wave.Statuses[treadingWaveTriggerCountStatus] != 3 || e.effectiveSkillUseCost(p, b)[model.ElementWater] != b.Card.ElementsExpense[model.ElementWater]+3 {
 		t.Fatal("failed use consumed count or surcharge")
 	}
 	if err := e.HandleAction(0, ActionMessage{Action: "end_turn"}); err != nil {
@@ -191,8 +191,8 @@ func TestWaterCountTreadingLifecycleAndPayments(t *testing.T) {
 	if wave.Statuses[treadingWaveTriggerCountStatus] != 1 {
 		t.Fatal("new turn did not restart trigger count")
 	}
-	// Unused prior surcharge survives turn end and adds to the new +2.
-	if got := e.effectiveSkillUseCost(p, b)[model.ElementWater]; got != b.Card.ElementsExpense[model.ElementWater]+6 {
+	// Unused prior surcharge survives turn end and adds to the new +1.
+	if got := e.effectiveSkillUseCost(p, b)[model.ElementWater]; got != b.Card.ElementsExpense[model.ElementWater]+4 {
 		t.Fatalf("next-use surcharge lifetime wrong: %d", got)
 	}
 }
@@ -262,8 +262,8 @@ func TestWaterCountTreadingNoEligibleResetDoesNotCount(t *testing.T) {
 	}
 	waterResolve(t, e)
 	waterCast(t, e, b)
-	if wave.Statuses[treadingWaveTriggerCountStatus] != 1 || e.effectiveSkillUseCost(p, a)[model.ElementWater] != a.Card.ElementsExpense[model.ElementWater]+2 {
-		t.Fatal("first actual reset must add exactly two")
+	if wave.Statuses[treadingWaveTriggerCountStatus] != 1 || e.effectiveSkillUseCost(p, a)[model.ElementWater] != a.Card.ElementsExpense[model.ElementWater]+1 {
+		t.Fatal("first actual reset must add exactly one")
 	}
 	waterResolve(t, e)
 }

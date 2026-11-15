@@ -53,28 +53,38 @@ func (Card3601101BloodFeast) OnPerTurn(ctx *EffectContext) error {
 		return nil
 	}
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
-	if ps.Elements[model.ElementShadow] < 1 {
+	cost := map[string]int{model.ElementShadow: 1}
+	if !ctx.Engine.canPayCost(ps, cost) {
 		return fmt.Errorf("鲜血盛宴需要支付1暗绑定到人物")
 	}
 	hero := ctx.Engine.playerHeroCard(ctx.PlayerID)
 	if hero == nil {
-		return nil
+		return fmt.Errorf("no hero")
 	}
+	slot := -1
 	for i, skill := range ps.Skills {
 		if skill == ctx.Source {
-			ps.Skills[i] = nil
-			ps.Elements[model.ElementShadow]--
-			ctx.Source.SlotIndex = -1
-			markTransferredBoundSkill(ctx.Source)
-			hero.BoundSkills = append(hero.BoundSkills, ctx.Source)
-			ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
-				"source": cardToInfo(ctx.Source),
-				"target": cardToInfo(hero),
-				"effect": "bind_existing_skill",
-			}})
-			return nil
+			slot = i
+			break
 		}
 	}
+	if slot < 0 {
+		return fmt.Errorf("skill is already bound")
+	}
+	ctx.Engine.SetPendingActionWithError(ctx.PlayerID, "blood_feast_bind", "鲜血盛宴:支付1暗绑定到人物", []map[string]any{candidateInfo(hero, "unit", "own")}, 1, 1, cost, false, func(selected []string, data map[string]any) error {
+		if ps.Skills[slot] != ctx.Source || ctx.Engine.playerHeroCard(ctx.PlayerID) != hero {
+			return fmt.Errorf("invalid binding target")
+		}
+		if !ctx.Engine.payCostForAction(ps, cost, ActionMessage{Data: data}) {
+			return fmt.Errorf("invalid payment")
+		}
+		ps.Skills[slot] = nil
+		ctx.Source.SlotIndex = -1
+		markTransferredBoundSkill(ctx.Source)
+		hero.BoundSkills = append(hero.BoundSkills, ctx.Source)
+		ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{"source": cardToInfo(ctx.Source), "target": cardToInfo(hero), "effect": "bind_existing_skill"}})
+		return nil
+	})
 	return nil
 }
 

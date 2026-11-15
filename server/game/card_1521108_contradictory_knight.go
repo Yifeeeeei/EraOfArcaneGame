@@ -7,6 +7,21 @@ func (Card1521108ContradictoryKnight) ID() string { return "1521108" }
 func (Card1521108ContradictoryKnight) Name() string { return "矛盾的骑士" }
 
 func (Card1521108ContradictoryKnight) OnDeath(ctx *EffectContext) error {
+	if ctx.Source == nil || ctx.Source.Card == nil {
+		return nil
+	}
+	if ctx.Source.Card.Life <= 1 {
+		cardCopy := *ctx.Source.Card
+		cardCopy.Life = 0
+		for _, card := range ctx.Engine.State.Players[ctx.PlayerID].Graveyard {
+			if card.InstanceID == ctx.Source.InstanceID {
+				card.Card = &cardCopy
+				card.CurrentLife = 0
+				break
+			}
+		}
+		return nil
+	}
 	opponentID := ctx.OpponentID
 	candidates := ctx.Engine.friendlyEmptyUnitPositions(opponentID)
 	if len(candidates) == 0 {
@@ -26,11 +41,9 @@ func (Card1521108ContradictoryKnight) OnDeath(ctx *EffectContext) error {
 			if !ctx.Engine.removeCardFromGraveyard(ctx.PlayerID, ctx.Source) {
 				return
 			}
-			if ctx.Source.Card.Life > 1 {
-				cardCopy := *ctx.Source.Card
-				cardCopy.Life--
-				ctx.Source.Card = &cardCopy
-			}
+			cardCopy := *ctx.Source.Card
+			cardCopy.Life--
+			ctx.Source.Card = &cardCopy
 			ctx.Source.OwnerID = opponentID
 			ctx.Source.CurrentLife = ctx.Source.Card.Life
 			ctx.Source.CurrentAttack = ctx.Source.Card.Attack

@@ -15,7 +15,7 @@ func (Card2621101BlackPineWand) ModifySkillUseCost(ctx *EffectContext, cost map[
 	if target.Type != "unit" || targetUnit == nil || targetUnit.OwnerID != ctx.PlayerID || ctx.Source.Card.Category == "" {
 		return
 	}
-	reduceCost(cost, ctx.Source.Card.Category, 1)
+	reduceGenericCost(cost, ctx.Source.Card.Category, 1)
 }
 
 var _ SkillUseCostModifier = Card2621101BlackPineWand{}

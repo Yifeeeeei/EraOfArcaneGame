@@ -12,7 +12,6 @@ func (Card1001101AbandonedPawn) OnDeath(ctx *EffectContext) error {
 	}
 	pos := *ctx.Source.Position
 	damaged := adjacentUnits(ctx.Engine.State.Players[ctx.PlayerID], &pos)
-	damaged = append(damaged, adjacentUnits(ctx.Engine.State.Players[ctx.OpponentID], &pos)...)
 	for _, target := range damaged {
 		if target == nil || target.CurrentLife <= 0 {
 			continue

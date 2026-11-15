@@ -8,6 +8,8 @@ func (Card3421001ForestShelter) Name() string { return "森林的庇护" }
 
 func (Card3421001ForestShelter) MasteryMax() int { return 3 }
 
+func (Card3421001ForestShelter) MasteryThresholds() []int { return []int{1, 3} }
+
 func (Card3421001ForestShelter) OnMastery(ctx *EffectContext, level int) error {
 	return nil
 }

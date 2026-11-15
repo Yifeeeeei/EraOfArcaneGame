@@ -146,6 +146,14 @@ type OnTurnEndBehavior interface {
 	OnTurnEnd(*EffectContext) error
 }
 
+// Declaration effects finish before hand-limit discard, reset and mark settlement.
+type OnTurnEndDeclarationBehavior interface {
+	HasActiveTurnEndDeclaration(*CardInstance) bool
+	OnTurnEndDeclaration(*EffectContext) error
+}
+
+func (AlwaysActive) HasActiveTurnEndDeclaration(*CardInstance) bool { return true }
+
 type OnUnitEnterBehavior interface {
 	HasActiveUnitEnter(*CardInstance) bool
 	OnUnitEnter(*EffectContext) error
@@ -586,6 +594,14 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 				return nil
 			}
 			return h.OnTurnStart(ctx)
+		})
+	}
+	if h, ok := behavior.(OnTurnEndDeclarationBehavior); ok {
+		r.Register(id, TriggerOnTurnEndDeclaration, func(ctx *EffectContext) error {
+			if !h.HasActiveTurnEndDeclaration(ctx.Source) {
+				return nil
+			}
+			return h.OnTurnEndDeclaration(ctx)
 		})
 	}
 	if h, ok := behavior.(OnTurnEndBehavior); ok {

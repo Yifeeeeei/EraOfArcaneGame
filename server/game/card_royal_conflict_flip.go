@@ -28,9 +28,6 @@ type Card2521110AngelPrayer struct{ AlwaysActive }
 func (Card2521110AngelPrayer) ID() string   { return "2521110" }
 func (Card2521110AngelPrayer) Name() string { return "天使之祈祷" }
 func (Card2521110AngelPrayer) OnUseItem(ctx *EffectContext) error {
-	drawn := ctx.Engine.flipDeckMatchesToHand(ctx.PlayerID, 1, 0, isLightSpirit)
-	if len(drawn) > 0 {
-		drawn[0].Statuses["入场费用"+model.ElementLight+"-1"]++
-	}
+	ctx.Engine.flipDeckMatchesToHand(ctx.PlayerID, 1, 0, isLightSpirit)
 	return nil
 }

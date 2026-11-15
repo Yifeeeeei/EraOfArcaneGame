@@ -43,3 +43,11 @@ func allLearnedSkillCategoriesDifferent(ctx *EffectContext) bool {
 var _ SkillUseCostModifier = Card3021104SevenGodsBlessing{}
 
 var _ SpellStatModifier = Card3021104SevenGodsBlessing{}
+
+func (Card3021104SevenGodsBlessing) HasActiveSpellStatModifier(card *CardInstance) bool {
+	return abilityDurationActive(card)
+}
+
+func (Card3021104SevenGodsBlessing) HasActiveSkillUseCostModifier(card *CardInstance) bool {
+	return abilityDurationActive(card)
+}

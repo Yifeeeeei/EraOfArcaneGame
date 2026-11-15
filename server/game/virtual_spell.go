@@ -53,13 +53,19 @@ func (e *Engine) startVirtualSpellCastNoBoost(playerID int, skill *CardInstance,
 	}); handled {
 		return err
 	}
+	if skillNeedsTargetInstance(skill) {
+		if err := e.validateSpellTarget(playerID, skill, target); err != nil {
+			return err
+		}
+	}
+	e.notifySkillUseCommitted(playerID, skill)
 	e.applyCoralBellyFirstSpellAttackBonus(playerID, skill)
 	totalPower := e.effectiveSpellPower(playerID, skill, nil, target)
 	powerSources := e.spellPowerSources(playerID, skill, nil, totalPower, target)
 	e.consumeNextSpellPowerBonuses(e.State.Players[playerID], skill)
 
 	isSorcery := isSorcerySkill(skill.Card)
-	e.recordSpellCast(playerID, skill)
+	e.recordSpellAttack(playerID, skill)
 	e.triggerMagicMothAfterFocusSpellCast(playerID, skill)
 	spellCastData := map[string]any{
 		"cast_player":  playerID,
@@ -107,11 +113,20 @@ func (e *Engine) startVirtualSpellCastWithBoosts(playerID int, skill *CardInstan
 	}); handled {
 		return err
 	}
+	if skillNeedsTargetInstance(skill) {
+		if err := e.validateSpellTarget(playerID, skill, target); err != nil {
+			return err
+		}
+	}
+	e.notifySkillUseCommitted(playerID, skill)
+	for _, boost := range boostSkills {
+		e.notifySkillUseCommitted(playerID, boost)
+	}
 	e.applyCoralBellyFirstSpellAttackBonus(playerID, skill)
 	totalPower := e.effectiveSpellPower(playerID, skill, boostSkills, target)
 	powerSources := e.spellPowerSources(playerID, skill, boostSkills, totalPower, target)
 	isSorcery := isSorcerySkill(skill.Card)
-	e.recordSpellCast(playerID, skill)
+	e.recordSpellAttack(playerID, skill)
 	e.triggerMagicMothAfterFocusSpellCast(playerID, skill)
 	spellCastData := map[string]any{
 		"cast_player":  playerID,

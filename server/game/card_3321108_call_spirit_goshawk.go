@@ -12,7 +12,7 @@ func (Card3321108CallSpiritGoshawk) Name() string { return "唤灵术 苍鹰" }
 
 func (Card3321108CallSpiritGoshawk) OnEnter(ctx *EffectContext) error {
 	candidates := ctx.Engine.friendlySkills(ctx.PlayerID, func(skill *CardInstance) bool {
-		return skill != nil && skill.Card != nil && skill.Card.Category == model.ElementAir
+		return skill != nil && skill.Card != nil && skill.Card.Category == model.ElementAir && isCombatSpellCard(skill.Card)
 	})
 	if len(candidates) == 0 {
 		return nil

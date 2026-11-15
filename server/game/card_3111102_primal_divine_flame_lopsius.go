@@ -66,3 +66,6 @@ func (Card3111102PrimalDivineFlameLopsius) OnPerTurn(ctx *EffectContext) error {
 var _ PerTurnAbility = Card3111102PrimalDivineFlameLopsius{}
 
 var _ SkillUsePermissionModifier = Card3111102PrimalDivineFlameLopsius{}
+
+func (Card3111102PrimalDivineFlameLopsius) ImmuneToOtherCardEffects(*CardInstance) bool { return true }
+func (Card3111102PrimalDivineFlameLopsius) HasNegativeStatusImmunity() bool             { return true }

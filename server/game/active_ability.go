@@ -51,7 +51,7 @@ func (e *Engine) handleUseAbility(playerID int, action ActionMessage) error {
 		}
 		// Check if already used this turn (回合技 limit)
 		maxUses := perTurnLimit(card)
-		if card.UsedThisTurn >= maxUses {
+		if !cardHasRepeatableActiveAbility(card) && card.UsedThisTurn >= maxUses {
 			return fmt.Errorf("ability already used this turn")
 		}
 		if err := e.validateAbility(card, TriggerPerTurn); err != nil {

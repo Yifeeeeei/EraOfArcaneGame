@@ -15,3 +15,7 @@ func (Card3321105SweepingWind) OnDamaged(ctx *EffectContext, event DamageEvent) 
 	ctx.Engine.destroyUnit(event.Target, event.Target.OwnerID)
 	return nil
 }
+
+func (Card3321105SweepingWind) HasActiveDamaged(card *CardInstance) bool {
+	return abilityDurationActive(card)
+}

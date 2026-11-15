@@ -12,6 +12,8 @@ func (Card1421004ForestGuard) Name() string { return "森林守卫" }
 
 func (Card1421004ForestGuard) MasteryMax() int { return 5 }
 
+func (Card1421004ForestGuard) MasteryThresholds() []int { return []int{1, 3, 5} }
+
 func (Card1421004ForestGuard) OnMastery(ctx *EffectContext, level int) error {
 	switch level {
 	case 1:

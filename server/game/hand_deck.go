@@ -1,34 +1,50 @@
 package game
 
-import ()
+import "eraofarcane/model"
 
+// Callers that inspect drawn cards must use drawCardsThen: an optional
+// replacement can finish only after the player's choice has resolved.
 func (e *Engine) drawCards(playerID int, n int) []*CardInstance {
+	var result []*CardInstance
+	e.drawCardsThen(playerID, n, func(drawn []*CardInstance) { result = drawn })
+	return result
+}
+func (e *Engine) drawCardsThen(playerID int, n int, complete func([]*CardInstance)) {
 	if n <= 0 {
-		return nil
+		if complete != nil {
+			complete(nil)
+		}
+		return
 	}
 	ps := e.State.Players[playerID]
 	drawn := ps.DrawCards(n)
+	for _, card := range drawn {
+		e.notifyCardDrawn(playerID, card)
+	}
+	finish := func(extra []*CardInstance) {
+		for _, card := range extra {
+			e.notifyCardDrawn(playerID, card)
+		}
+		drawn = append(drawn, extra...)
+		if e.shouldImmediatelyEnforceHandLimit(playerID) {
+			e.promptDiscardToHandLimit(playerID, nil)
+		}
+		if complete != nil {
+			complete(drawn)
+		}
+	}
 	if len(drawn) < n && len(ps.Deck) == 0 {
 		for _, source := range e.getAllFieldCards(ps) {
 			if source == nil || e.hasEffectiveStatus(source, StatusPetrify) {
 				continue
 			}
-			behavior, ok := cardBehavior(source).(EmptyDeckDrawBehavior)
-			if !ok || !behavior.HasActiveEmptyDeckDraw(source) {
-				continue
+			if behavior, ok := cardBehavior(source).(EmptyDeckDrawBehavior); ok && behavior.HasActiveEmptyDeckDraw(source) {
+				behavior.DrawFromEmptyDeck(e.skillContext(playerID, source), n-len(drawn), finish)
+				return
 			}
-			ctx := &EffectContext{Engine: e, Source: source, PlayerID: playerID, OpponentID: 1 - playerID}
-			drawn = append(drawn, behavior.DrawFromEmptyDeck(ctx, n-len(drawn))...)
-			break
 		}
 	}
-	for _, card := range drawn {
-		e.notifyCardDrawn(playerID, card)
-	}
-	if e.shouldImmediatelyEnforceHandLimit(playerID) {
-		e.promptDiscardToHandLimit(playerID, nil)
-	}
-	return drawn
+	finish(nil)
 }
 
 func (e *Engine) addCardToHand(playerID int, card *CardInstance) bool {
@@ -102,6 +118,11 @@ func (e *Engine) notifyCardDrawn(playerID int, card *CardInstance) {
 	}
 	ps.DrawnTurn[card.InstanceID] = e.State.TurnNumber
 	ps.DrawCountThisTurn++
+	for _, modifier := range e.State.Players[1-playerID].TempModifiers {
+		if modifier.Type == TempModRoyalTax {
+			e.State.Players[1-playerID].Elements[model.ElementArcane] += modifier.Amount
+		}
+	}
 	e.emit(GameEvent{
 		Type:   "draw_card",
 		Player: playerID,

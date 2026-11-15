@@ -27,7 +27,7 @@ func (Card2421106AgingPotion) OnUseItem(ctx *EffectContext) error {
 				return
 			}
 			ctx.Engine.reduceCardElementLoadWithTriggers(ctx.PlayerID, target, model.ElementEarth, 1, ctx.Source)
-			ctx.Engine.advanceMastery(target, ctx.PlayerID, 1)
+			ctx.Engine.advanceToNextMastery(target, ctx.PlayerID)
 		})
 	return nil
 }

@@ -44,6 +44,7 @@ const (
 	TriggerPassive                                     // 被动: always active while on field
 	TriggerBeforeDamage                                // Replacement window before damage is committed
 	TriggerBeforeDraw                                  // Owner turn before the normal draw
+	TriggerOnTurnEndDeclaration                        // 宣言回合结束，早于弃牌与重置
 )
 
 // EffectContext provides context for effect execution
@@ -338,7 +339,7 @@ func (e *Engine) triggerFieldEffects(trigger EffectTrigger, playerID int, eventS
 
 func (e *Engine) triggerFieldEffectsWithData(trigger EffectTrigger, playerID int, eventSource *CardInstance, extraData map[string]any) bool {
 	ps := e.State.Players[playerID]
-	allCards := e.getAllFieldCards(ps)
+	allCards := e.ruleSources(ps)
 	counterCandidates := []*CardInstance{}
 	skipCounters := false
 	if extraData != nil {
@@ -355,7 +356,10 @@ func (e *Engine) triggerFieldEffectsWithData(trigger EffectTrigger, playerID int
 			continue
 		}
 		if trigger == TriggerOnDefend && isSpellLikeCard(card.Card) {
-			continue
+			observer, ok := cardBehavior(card).(SpellBattleObserverBehavior)
+			if !ok || !observer.ObservesSpellBattles() || cardInstanceInSlice(spellInstancesFromData(extraData, "defense_skills"), card) {
+				continue
+			}
 		}
 		e.triggerEffects(trigger, card, eventSource, extraData)
 	}
@@ -366,6 +370,14 @@ func (e *Engine) notifyCardEntered(playerID int, card *CardInstance, extraData m
 	if card == nil || playerID < 0 || playerID >= len(e.State.Players) {
 		return
 	}
+	if boolFromData(extraData, "learned_skill") && card != nil && isCombatSpellCard(card.Card) {
+		for _, modifier := range append([]TemporaryModifier(nil), e.State.Players[playerID].TempModifiers...) {
+			if modifier.Type == TempModFutureLearnedSpellPower && (modifier.Element == "" || modifier.Element == card.Card.Category) {
+				e.addTemporaryModifier(playerID, TemporaryModifier{Type: TempModGameSkillPowerBonus, SourceCardNumber: modifier.SourceCardNumber, SourceName: modifier.SourceName, TargetInstanceID: card.InstanceID, Amount: modifier.Amount})
+			}
+		}
+	}
+
 	data := cloneExtraData(extraData)
 	data["entered_player"] = playerID
 	data["entered_card"] = card
@@ -383,6 +395,8 @@ func triggerName(t EffectTrigger) string {
 		return "on_turn_start"
 	case TriggerOnTurnEnd:
 		return "on_turn_end"
+	case TriggerOnTurnEndDeclaration:
+		return "on_turn_end_declaration"
 	case TriggerOnConsume:
 		return "on_consume"
 	case TriggerOnAttack:

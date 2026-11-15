@@ -22,10 +22,16 @@ func (p Position) String() string {
 
 // CardInstance represents a card in play with runtime state
 type CardInstance struct {
-	fieldLife  *fieldLifetime
-	InstanceID string      `json:"instance_id"`
-	Card       *model.Card `json:"card"`
-	OwnerID    int         `json:"owner_id"` // 0 or 1
+	fieldLife           *fieldLifetime
+	copySource          *CardInstance
+	learnPayment        map[string]int
+	usePayment          map[string]int
+	arcaneOnenessReveal *int
+	mindSeaRange        SpellArea
+	mindSeaRangeTurn    int
+	InstanceID          string      `json:"instance_id"`
+	Card                *model.Card `json:"card"`
+	OwnerID             int         `json:"owner_id"` // 0 or 1
 
 	// Runtime state
 	CurrentLife         int                `json:"current_life"`
@@ -148,6 +154,7 @@ type PlayerState struct {
 	NextRedMoonCooldown         int                       `json:"next_red_moon_cooldown,omitempty"`
 	SkipNextDraw                bool                      `json:"skip_next_draw"`
 	TempModifiers               []TemporaryModifier       `json:"temp_modifiers"`
+	SpellAttacksThisTurn        int                       `json:"spell_attacks_this_turn,omitempty"`
 	SpellsCastThisTurn          map[string]int            `json:"spells_cast_this_turn,omitempty"`
 	SpellsCastByNumberThisTurn  map[string]int            `json:"spells_cast_by_number_this_turn,omitempty"`
 	LastLowCostWaterSpell       *CardInstance             `json:"last_low_cost_water_spell,omitempty"`
@@ -167,6 +174,9 @@ type PlayerState struct {
 	FriendlyUnitDamagedLastTurn bool                      `json:"friendly_unit_damaged_last_turn,omitempty"`
 	HeroDamageTakenThisTurn     int                       `json:"hero_damage_taken_this_turn,omitempty"`
 	HeroDamageTakenLastTurn     int                       `json:"hero_damage_taken_last_turn,omitempty"`
+
+	// Includes damage to friendly units that have since left the battlefield.
+	friendlyUnitDamageThisTurn int
 
 	// Legacy charge pool. Do not use this for 精通; mastery is a per-card
 	// instance mark stored in CardInstance.Statuses[StatusMastery].
@@ -451,6 +461,7 @@ type SpellCast struct {
 	ExtraTargets []SpellTarget      `json:"extra_targets,omitempty"`
 	// Number of earlier casts of this card number, excluding this committed cast.
 	priorSameNumberCasts *int
+	usedDefenseSpells    []*CardInstance
 	resolutions          []*resolutionFrame
 }
 
@@ -463,10 +474,12 @@ type SpellPowerSource struct {
 
 // SpellTarget represents the target of a spell
 type SpellTarget struct {
-	AreaOrigin *Position `json:"area_origin,omitempty"`
-	Type       string    `json:"type"`     // "unit" or "area"
-	Position   Position  `json:"position"` // for unit targets
-	OwnerID    *int      `json:"owner_id,omitempty"`
+	Area        SpellArea `json:"area,omitempty"`
+	ignoreRange bool      // Effect-owned grant; never accepted from player JSON.
+	AreaOrigin  *Position `json:"area_origin,omitempty"`
+	Type        string    `json:"type"`     // "unit" or "area"
+	Position    Position  `json:"position"` // for unit targets
+	OwnerID     *int      `json:"owner_id,omitempty"`
 }
 
 // NewGameState creates a new game state

@@ -16,6 +16,9 @@ func (Card2411102RottenAncientTreeHeart) OnSpellCast(ctx *EffectContext) error {
 		return nil
 	}
 	castPlayer, ok := ctx.ExtraData["cast_player"].(int)
+	if boolFromData(ctx.ExtraData, "is_sorcery") {
+		return nil
+	}
 	if !ok || castPlayer < 0 || castPlayer >= len(ctx.Engine.State.Players) {
 		return nil
 	}
@@ -72,6 +75,13 @@ func (Card2411102RottenAncientTreeHeart) OnSpellCast(ctx *EffectContext) error {
 var _ OnSpellCastBehavior = Card2411102RottenAncientTreeHeart{}
 
 const rottenAncientTreeHeartSpellCountPrefix = "rotten_ancient_tree_heart_spell_count_p"
+
+func (Card2411102RottenAncientTreeHeart) OnLoadLoss(ctx *EffectContext) error {
+	if target, _ := ctx.ExtraData["load_loss_target"].(*CardInstance); target == ctx.Source && ctx.Engine.totalLoad(target) == 0 {
+		ctx.Engine.sacrificeEquipment(ctx.PlayerID, target.InstanceID)
+	}
+	return nil
+}
 
 func loadRemovalCandidates(e *Engine, playerID int, side string) []map[string]any {
 	if e == nil || playerID < 0 || playerID >= len(e.State.Players) {

@@ -238,3 +238,6 @@
     margin-top: 18px;
   }
 }
+.saved-matches { margin-bottom: 1rem; border-bottom: 1px solid var(--border, #63513a); padding-bottom: 1rem; }
+.saved-match { display: flex; gap: .5rem; align-items: center; margin: .4rem 0; flex-wrap: wrap; }
+.saved-match > span { flex: 1; }

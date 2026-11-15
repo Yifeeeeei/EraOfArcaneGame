@@ -11,7 +11,7 @@ func (e *Engine) spellAffectedUnits(defenderID int, skill *CardInstance, target 
 		return affected
 	}
 
-	switch e.effectiveSpellArea(skill) {
+	switch e.spellAreaForTarget(skill, target) {
 	case SpellAreaSquare:
 		origin := squareAreaOrigin(target)
 		startCol, startRow := origin.Col, origin.Row

@@ -11,10 +11,10 @@ func (Card2521109PunishmentRune) CounterTriggers() []EffectTrigger {
 
 func (Card2521109PunishmentRune) CanTriggerCounter(ctx *CounterContext) bool {
 	return ctx.Event.Trigger == TriggerOnSpellCast && ctx.Event.PlayerID != ctx.Source.OwnerID && ctx.Event.Card != nil &&
-		ctx.Event.Card.Card.IsSkill() && canUseSkillForPurpose(ctx.Event.Card.Card, skillPurposeAttack) &&
-		totalSpellsCastThisTurn(ctx.Engine.State.Players[ctx.Event.PlayerID]) > 2 &&
+		!ctx.Event.BoostUse && (ctx.Event.Purpose == "" || ctx.Event.Purpose == skillPurposeAttack) && isCombatSpellCard(ctx.Event.Card.Card) && canUseSkillForPurpose(ctx.Event.Card.Card, skillPurposeAttack) &&
+		ctx.Engine.State.Players[ctx.Event.PlayerID].SpellAttacksThisTurn > 2 &&
 		len(ctx.Engine.friendlyUnits(ctx.Event.PlayerID, false, func(unit *CardInstance) bool {
-			return unit != nil && unit.Card != nil && unit.Card.IsCompanion()
+			return unit != nil && !ctx.Engine.hasStealthFromOpponent(ctx.Source.OwnerID, unit) && unit.Card != nil && unit.Card.IsCompanion()
 		})) > 0
 }
 
@@ -29,7 +29,7 @@ func (Card2521109PunishmentRune) OnSpellCast(ctx *EffectContext) error {
 		return nil
 	}
 	candidates := ctx.Engine.friendlyUnits(ctx.Target.OwnerID, false, func(unit *CardInstance) bool {
-		return unit != nil && unit.Card != nil && unit.Card.IsCompanion()
+		return unit != nil && !ctx.Engine.hasStealthFromOpponent(ctx.Source.OwnerID, unit) && unit.Card != nil && unit.Card.IsCompanion()
 	})
 	if len(candidates) == 0 {
 		return nil

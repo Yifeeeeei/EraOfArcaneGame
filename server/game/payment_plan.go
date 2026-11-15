@@ -87,10 +87,19 @@ func (e *Engine) payCostForCardAction(ps *PlayerState, card *CardInstance, stric
 		return false
 	}
 	e.spendPaymentPlan(ps, payment, strictArcane)
+	if card != nil {
+		if purpose == paymentPurposeLearn {
+			card.learnPayment = copyElements(payment)
+		}
+		if purpose == paymentPurposeUse {
+			card.usePayment = copyElements(payment)
+		}
+	}
 	return true
 }
 
 func (e *Engine) cardPaymentPlanForAction(ps *PlayerState, card *CardInstance, strictCost map[string]int, totalCost map[string]int, purpose paymentPurpose, action ActionMessage) (map[string]int, int, bool) {
+	card = physicalSpellSource(card)
 	if payment := paymentFromAction(action); payment != nil {
 		strictArcane, ok := e.strictArcaneUsedByExplicitCardPayment(ps, card, strictCost, totalCost, purpose, payment)
 		return payment, strictArcane, ok

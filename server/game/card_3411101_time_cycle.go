@@ -24,12 +24,15 @@ func (Card3411101TimeCycle) PaymentConstraint(_ *CardInstance, purpose paymentPu
 
 func (Card3411101TimeCycle) RestrictsAction(_ *CardInstance, action RuleAction, card *CardInstance) bool {
 	switch action {
-	case RuleSummon, RuleEquip, RuleUseItem, RulePlaceTerrain, RuleLearnSkill, RuleAttack:
+	case RuleSummon, RuleEquip, RuleUseItem, RulePlaceTerrain, RuleAttack:
 		return true
-	case RuleUseSkill:
-		// The ongoing sorcery must remain usable to spend its remaining duration.
-		return card == nil || card.Card == nil || card.Card.Number != "3411101"
+	case RuleUseSkill, RuleLearnSkill:
+		return card != nil && isCombatSpellCard(card.Card)
 	default:
 		return false
 	}
+}
+
+func (Card3411101TimeCycle) HasActiveActionRestriction(card *CardInstance) bool {
+	return abilityDurationActive(card)
 }

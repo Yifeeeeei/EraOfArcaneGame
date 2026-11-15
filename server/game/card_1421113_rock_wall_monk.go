@@ -17,7 +17,7 @@ func (Card1421113RockWallMonk) OnSpellHitBeforeDamage(ctx *EffectContext) error 
 	if !ok || attacker == ctx.PlayerID {
 		return nil
 	}
-	if playerHasLearnedSkill(ctx.Engine.State.Players[ctx.PlayerID]) {
+	if playerHasLearnedSpell(ctx.Engine.State.Players[ctx.PlayerID]) {
 		return nil
 	}
 	damagePtr, ok := ctx.ExtraData["damage_ptr"].(*int)

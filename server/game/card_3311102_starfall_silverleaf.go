@@ -6,28 +6,47 @@ func (Card3311102StarfallSilverleaf) ID() string { return "3311102" }
 
 func (Card3311102StarfallSilverleaf) Name() string { return "星落之银叶" }
 
-func (Card3311102StarfallSilverleaf) OnDiscard(ctx *EffectContext) error {
-	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.ExtraData == nil {
+func (Card3311102StarfallSilverleaf) OnDiscardBatch(ctx *EffectContext, discarded []*CardInstance) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil {
 		return nil
 	}
-	discardedPlayer, _ := ctx.ExtraData["discarded_player"].(int)
-	if discardedPlayer != ctx.PlayerID || ctx.Target == ctx.Source {
+	candidatesNow := func() []map[string]any {
+		candidates := []map[string]any{}
+		for _, card := range discarded {
+			if card != nil && card != ctx.Source && cardInstanceInSlice(ctx.Engine.State.Players[ctx.PlayerID].Graveyard, card) {
+				candidates = append(candidates, candidateInfo(card, "graveyard", "own"))
+			}
+		}
+		return candidates
+	}
+	candidates := candidatesNow()
+	if len(candidates) == 0 {
 		return nil
 	}
-	discarded := ctx.Target
 	source := ctx.Source
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "starfall_silverleaf_store_discard",
-		"星落之银叶:将弃置的卡牌放在此卡下方", []map[string]any{candidateInfo(discarded, "graveyard", "own")}, 1, 1,
+	action := ctx.Engine.setPendingActionWithOptions(ctx.PlayerID, "starfall_silverleaf_store_discard",
+		"星落之银叶:选择本次弃置的1张卡牌放在此卡下方", candidates, 1, 1, nil, false,
 		func(selected []string) {
 			if !ctx.Engine.cardStillOnField(source) {
 				return
 			}
-			ctx.Engine.placeCardUnder(source, discarded)
+			for _, card := range discarded {
+				if card.InstanceID == firstSelected(selected) && cardInstanceInSlice(ctx.Engine.State.Players[ctx.PlayerID].Graveyard, card) {
+					ctx.Engine.placeCardUnder(source, card)
+					return
+				}
+			}
+		}, nil, nil, nil, func() bool {
+			return ctx.Engine.cardStillOnField(source) && !ctx.Engine.hasEffectiveStatus(source, StatusPetrify) && len(candidatesNow()) > 0
 		})
+	action.Refresh = func(p *PendingAction) { p.Candidates = candidatesNow() }
 	return nil
 }
 
 func (Card3311102StarfallSilverleaf) OnSpellHit(ctx *EffectContext) error {
+	if !isOwnSpellHit(ctx) {
+		return nil
+	}
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Source.Card == nil || ctx.Source.Card.Number != "3311102" || len(ctx.Source.UnderCards) == 0 {
 		return nil
 	}

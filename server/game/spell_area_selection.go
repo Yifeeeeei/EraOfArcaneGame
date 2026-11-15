@@ -5,10 +5,22 @@ import "fmt"
 // Effects that cast another spell choose its square before the shared cast
 // pipeline commits resources, bonuses, or a new defense window.
 func (e *Engine) chooseEffectSpellSquare(playerID int, skill *CardInstance, target SpellTarget, cast func(SpellTarget) error) (bool, error) {
+	if choices := e.spellAreaChoices(skill); len(choices) > 1 && target.Area == "" {
+		candidates := make([]map[string]any, 0, len(choices))
+		labels := map[SpellArea]string{SpellAreaFrontRow: "前排", SpellAreaColumn: "纵列", SpellAreaSquare: "方阵", SpellAreaSplashCross: "溅射"}
+		for _, area := range choices {
+			candidates = append(candidates, map[string]any{"instance_id": string(area), "name": labels[area], "zone": "choice"})
+		}
+		e.SetPendingActionWithError(playerID, "spell_area_choice", "选择"+skill.Card.Name+"的范围", candidates, 1, 1, nil, false, func(selected []string, _ map[string]any) error {
+			target.Area = SpellArea(firstSelected(selected))
+			return cast(target)
+		})
+		return true, nil
+	}
 	if err := e.validateSpellAreaSelection(skill, target); err != nil {
 		return true, err
 	}
-	if target.Type != "unit" || e.effectiveSpellArea(skill) != SpellAreaSquare || target.AreaOrigin != nil {
+	if target.Type != "unit" || e.spellAreaForTarget(skill, target) != SpellAreaSquare || target.AreaOrigin != nil {
 		return false, nil
 	}
 	origins := map[string]Position{}
@@ -51,6 +63,11 @@ func squareAreaOrigin(target SpellTarget) Position {
 }
 
 func (e *Engine) spellAreaSelection(skill *CardInstance, target SpellTarget, action ActionMessage) (SpellTarget, error) {
+	var err error
+	target, err = e.parseSpellAreaChoice(skill, target, action)
+	if err != nil {
+		return target, err
+	}
 	origin, supplied, err := optionalBoardPosition(action.Data, "area_col", "area_row")
 	if err != nil {
 		return target, err
@@ -69,7 +86,7 @@ func (e *Engine) validateSpellAreaSelection(skill *CardInstance, target SpellTar
 		return nil
 	}
 	pos := *target.AreaOrigin
-	if e.effectiveSpellArea(skill) != SpellAreaSquare || target.Type != "unit" || pos.Col < 0 || pos.Col > 1 || pos.Row < 0 || pos.Row > 1 || target.Position.Col < pos.Col || target.Position.Col > pos.Col+1 || target.Position.Row < pos.Row || target.Position.Row > pos.Row+1 {
+	if e.spellAreaForTarget(skill, target) != SpellAreaSquare || target.Type != "unit" || pos.Col < 0 || pos.Col > 1 || pos.Row < 0 || pos.Row > 1 || target.Position.Col < pos.Col || target.Position.Col > pos.Col+1 || target.Position.Row < pos.Row || target.Position.Row > pos.Row+1 {
 		return fmt.Errorf("square area must contain its selected center")
 	}
 	return nil
@@ -94,6 +111,6 @@ func (e *Engine) isAreaCenterInRange(playerID int, skill *CardInstance, target S
 	if unit != nil && (unit.Statuses["引魔"] > 0 || cardHasTaunt(unit)) {
 		return true
 	}
-	front := op.GetFrontRow()
+	front := e.spellRangeFrontRowAgainst(op, playerID)
 	return front < 0 || target.Position.Row <= front
 }

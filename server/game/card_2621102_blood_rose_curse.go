@@ -12,7 +12,7 @@ func (Card2621102BloodRoseCurse) OnUseItem(ctx *EffectContext) error {
 	}
 	opponentID := ctx.OpponentID
 	spellCandidates := ctx.Engine.enemySkills(ctx.PlayerID, func(skill *CardInstance) bool {
-		return skill != nil && skill.Card != nil && isSpellLikeCard(skill.Card)
+		return skill != nil && skill.Card != nil && isCombatSpellCard(skill.Card)
 	})
 	if len(spellCandidates) == 0 {
 		return nil
@@ -28,7 +28,7 @@ func (Card2621102BloodRoseCurse) OnUseItem(ctx *EffectContext) error {
 		func(selected []string) {
 			skillID := firstSelected(selected)
 			skill, skillIndex := findSkillSlotByInstance(ctx.Engine.State.Players[opponentID], skillID)
-			if skill == nil || skill.Card == nil || !isSpellLikeCard(skill.Card) {
+			if skill == nil || skill.Card == nil || !isCombatSpellCard(skill.Card) {
 				return
 			}
 			ctx.Engine.SetPendingAction(opponentID, "blood_rose_curse_host",

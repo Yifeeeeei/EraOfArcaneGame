@@ -11,13 +11,11 @@ func (Card3621109SoulRendingScream) OnDefend(ctx *EffectContext) error {
 		return nil
 	}
 	attackSkill, _ := ctx.ExtraData["attack_skill"].(*CardInstance)
-	if attackSkill != ctx.Source {
+	if attackSkill != ctx.Source && !cardInstanceInSlice(spellInstancesFromData(ctx.ExtraData, "defense_skills"), ctx.Source) {
 		return nil
 	}
-	defenseSkills, _ := ctx.ExtraData["defense_skills"].([]*CardInstance)
-	defenseBoosts, _ := ctx.ExtraData["defense_boosts"].([]*CardInstance)
 	weakened := 0
-	for _, skill := range append(defenseSkills, defenseBoosts...) {
+	for _, skill := range opposingBattleSpells(ctx) {
 		if skill == nil || skill.OwnerID == ctx.PlayerID {
 			continue
 		}

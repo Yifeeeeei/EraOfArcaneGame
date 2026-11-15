@@ -14,6 +14,9 @@ func (Card3021108ArcaneSeal) ID() string { return "3021108" }
 func (Card3021108ArcaneSeal) Name() string { return "奥术封印" }
 
 func (Card3021108ArcaneSeal) OnSpellCast(ctx *EffectContext) error {
+	if !isSpellBeingCast(ctx) {
+		return nil
+	}
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil {
 		return nil
 	}

@@ -12,5 +12,5 @@ func (Card1311103SkyCouncilSpeaker) HandLimitGrant(source *CardInstance, playerI
 	if source.OwnerID == playerID {
 		return HandLimitGrant{}
 	}
-	return HandLimitGrant{Group: "sky_council_speaker", Delta: -1}
+	return HandLimitGrant{Delta: -1}
 }

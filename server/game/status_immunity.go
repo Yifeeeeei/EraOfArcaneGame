@@ -127,20 +127,16 @@ func (e *Engine) temporaryDamageAndNegativeImmunityActive(card *CardInstance) bo
 	if e == nil || card == nil {
 		return false
 	}
-	return card.Statuses[temporaryDamageAndNegativeImmunityUntilStatus] >= e.State.TurnNumber
+	return card.Statuses[temporaryDamageAndNegativeImmunityUntilStatus] >= e.turnOrdinal()
 }
 
+func (e *Engine) canResetCard(card *CardInstance) bool {
+	return card != nil && !e.hasEffectiveStatus(card, StatusFreeze) && card.Statuses[StatusCooldown] <= 0
+}
 func (e *Engine) resetCard(card *CardInstance) {
-	if card == nil {
-		return
+	if e.canResetCard(card) {
+		card.IsHorizontal = false
 	}
-	if e.hasEffectiveStatus(card, StatusFreeze) {
-		return
-	}
-	if card.Statuses[StatusCooldown] > 0 {
-		return
-	}
-	card.IsHorizontal = false
 }
 
 func (e *Engine) canConsumeCard(card *CardInstance) bool {

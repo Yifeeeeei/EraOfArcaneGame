@@ -6,17 +6,16 @@ func (Card3621108Moonshadow) ID() string { return "3621108" }
 
 func (Card3621108Moonshadow) Name() string { return "月影" }
 
+func (Card3621108Moonshadow) ObservesSpellBattles() bool { return true }
+
 func (Card3621108Moonshadow) OnDefend(ctx *EffectContext) error {
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.ExtraData == nil {
 		return nil
 	}
-	attackSkill, _ := ctx.ExtraData["attack_skill"].(*CardInstance)
-	if attackSkill != ctx.Source || !triggeredTurnAvailable(ctx.Source) {
+	if !triggeredTurnAvailable(ctx.Source) {
 		return nil
 	}
-	defenseSkills, _ := ctx.ExtraData["defense_skills"].([]*CardInstance)
-	defenseBoosts, _ := ctx.ExtraData["defense_boosts"].([]*CardInstance)
-	for _, skill := range append(defenseSkills, defenseBoosts...) {
+	for _, skill := range opposingBattleSpells(ctx) {
 		if skill != nil && skill.OwnerID != ctx.PlayerID && skill.Statuses[StatusWeaken] > 0 && ctx.Engine.hasEffectiveStatus(skill, StatusWeaken) {
 			source := ctx.Source
 			reason := skill

@@ -341,10 +341,13 @@ func SearchDeckAndDraw(predicate func(*model.Card) bool) EffectHandler {
 func DiscardRandom(n int) EffectHandler {
 	return func(ctx *EffectContext) error {
 		ps := ctx.Engine.State.Players[ctx.PlayerID]
+		var discarded []*CardInstance
 		for i := 0; i < n && len(ps.Hand) > 0; i++ {
 			idx := ctx.Engine.randomIntn(len(ps.Hand))
-			ctx.Engine.discardHandCardAt(ctx.PlayerID, idx)
+			discarded = append(discarded, ps.Hand[idx])
+			ps.Hand = append(ps.Hand[:idx], ps.Hand[idx+1:]...)
 		}
+		ctx.Engine.discardHandCardsToGraveyard(ctx.PlayerID, discarded)
 		return nil
 	}
 }

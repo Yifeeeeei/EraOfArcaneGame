@@ -10,7 +10,7 @@ func (Card2321108ScatterAway) CounterTriggers() []EffectTrigger {
 
 func (Card2321108ScatterAway) CanTriggerCounter(ctx *CounterContext) bool {
 	return ctx.Event.Trigger == TriggerOnDamaged && ctx.Event.PlayerID == ctx.Source.OwnerID && ctx.Event.Card != nil &&
-		ctx.Event.Card.Card != nil && ctx.Event.Card.Card.IsCompanion() &&
+		ctx.Event.Card.Card != nil && (ctx.Event.Card.Card.IsCompanion() || ctx.Event.Card.Card.IsHero()) &&
 		ctx.Event.Card.Card.Category == model.ElementAir &&
 		ctx.Event.Damage > 0
 }
@@ -27,10 +27,10 @@ func (Card2321108ScatterAway) OnDamaged(ctx *EffectContext, event DamageEvent) e
 	if ctx == nil || ctx.Engine == nil || event.Target == nil || event.Target.Card == nil {
 		return nil
 	}
-	if event.Target.OwnerID != ctx.PlayerID || !event.Target.Card.IsCompanion() || event.Target.Card.Category != model.ElementAir || event.Amount <= 0 {
+	if event.Target.OwnerID != ctx.PlayerID || (!event.Target.Card.IsCompanion() && !event.Target.Card.IsHero()) || event.Target.Card.Category != model.ElementAir || event.Amount <= 0 {
 		return nil
 	}
-	event.Target.Statuses[temporaryDamageAndNegativeImmunityUntilStatus] = ctx.Engine.State.TurnNumber + 1
+	event.Target.Statuses[scatterAwayUntilPlayerStartStatus] = ctx.PlayerID + 1
 	ctx.Engine.emit(GameEvent{
 		Type:   "scatter_away_immunity",
 		Player: -1,
@@ -42,5 +42,7 @@ func (Card2321108ScatterAway) OnDamaged(ctx *EffectContext, event DamageEvent) e
 	})
 	return nil
 }
+
+const scatterAwayUntilPlayerStartStatus = "散去伤害免疫至回合开始"
 
 var _ OnDamagedBehavior = Card2321108ScatterAway{}

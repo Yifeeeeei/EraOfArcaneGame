@@ -40,7 +40,7 @@ func (Card3521104Sin) ModifySkillContribution(ctx *EffectContext, stats *SpellSt
 const sinTargetTagStatusPrefix = "罪责目标种类:"
 
 func companionTagChoices() []map[string]any {
-	tags := []string{"人类", "巫师", "野兽", "精灵", "恶魔", "造物", "植物", "灵体", "龙"}
+	tags := []string{"人类", "巫师", "野兽", "精灵", "恶魔", "造物", "植物", "灵体", "龙", "异兽", "机械"}
 	choices := make([]map[string]any, 0, len(tags))
 	for _, tag := range tags {
 		choices = append(choices, map[string]any{

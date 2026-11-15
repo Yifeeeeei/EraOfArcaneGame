@@ -41,9 +41,9 @@ func (Card3421104NaturalEcho) OnPerTurn(ctx *EffectContext) error {
 			if target == nil || reducibleElementLoad(target, model.ElementEarth) <= 0 {
 				return fmt.Errorf("invalid natural echo target")
 			}
-			reduceCardElementLoad(target, model.ElementEarth, 1)
+			ctx.Engine.reduceCardElementLoadWithTriggers(ctx.PlayerID, target, model.ElementEarth, 1, ctx.Source)
 			ctx.Source.UsedThisTurn++
-			resetCard(ctx.Source)
+			ctx.Engine.resetCard(ctx.Source)
 			ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
 				Type:             TempModSkillPowerBonus,
 				SourceCardNumber: ctx.Source.Card.Number,

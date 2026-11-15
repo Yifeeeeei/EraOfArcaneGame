@@ -259,7 +259,7 @@
                 if (d.target_col !== undefined) lines.push(`目标位置：${d.target_col+1}-${d.target_row+1}${d.target_owner !== undefined ? ` · 玩家${d.target_owner+1}` : ''}`);
                 if (d.extra_target_col !== undefined) lines.push(`追加目标：${d.extra_target_col+1}-${d.extra_target_row+1}`);
                 if (d.col !== undefined) lines.push(`放置位置：${d.col+1}-${d.row+1}`);
-                if (d.payments) for (const p of d.payments) lines.push(`${findVisibleCard(p.instance_id)?.name || p.instance_id}：${p.amount} 点 · ${p.mode === 'life' ? '仅生命' : '先负载，后生命'}`);
+                if (d.payments) for (const p of d.payments) lines.push(`${findVisibleCard(p.instance_id)?.name || p.instance_id}：${p.amount} 点${p.mode === 'life' ? '生命' : p.element+'负载'}`);
                 if (d.allocations) for (const [id,n] of Object.entries(d.allocations)) lines.push(`${findVisibleCard(id)?.name || id}：分配 ${n}`);
                 if (d.keep !== undefined) lines.push(d.keep ? '保留当前全部手牌' : '重抽全部手牌');
                 if (d.accept !== undefined) lines.push(d.accept ? '接受和局，结束对局' : '拒绝和局');
@@ -405,6 +405,20 @@
             const playerName = params.get('player_name');
             const deckCode = params.get('deck_code');
             const isSpectator = params.get('role') === 'spectator';
+            function rememberMatch() {
+                if (isSpectator || !roomID || !playerID || !deckCode) return false;
+                if (gameState.value?.phase === 'game_over') { ArcaneMatchSessions.remove(roomID, playerID); return true; }
+                return ArcaneMatchSessions.save({room:roomID, player_id:playerID, player_name:playerName, deck_code:deckCode});
+            }
+            function returnToLobby() {
+                if (isSpectator || !roomID || !playerID || !deckCode || gameState.value?.phase === 'game_over') { location.href = '/'; return; }
+                const message = rememberMatch() ? '对局仍在继续。可在本浏览器的大厅使用原身份返回。' : '当前浏览器无法保存身份，请保留本页或收藏当前对局地址后再暂离。';
+                ArcaneUI.dialog('暂离对局', '<p>'+message+'</p><div class="dialog-footer"><button class="btn btn-primary" data-stay>继续对局</button><button class="btn" data-leave>暂离到大厅</button></div>', (host, close) => {
+                    host.querySelector('[data-stay]').onclick = close;
+                    host.querySelector('[data-stay]').focus();
+                    host.querySelector('[data-leave]').onclick = () => { rememberMatch(); location.href = '/'; };
+                });
+            }
 
             if (!roomID || !playerID || (!isSpectator && !deckCode)) {
                 error.value = '缺少参数，请从大厅进入';
@@ -1114,7 +1128,7 @@
                 if (source === 'hand') { if (canPlayHandCard(c)) items.push({id:'use',label:c.type === '伙伴' ? '选择召唤位置' : '使用 / 装备'}); }
                 if (source === 'skill_pool' && canLearnSkill(c)) items.push({id:'learn',label:'学习技能'});
                 if (source === 'field' || source === 'skill') {
-                    if (source === 'field' && canConsumeUnit(c)) items.push({id:'consume',label:'消耗'});
+                    if (source === 'field' && canConsumeUnit(c)) items.push({id:'consume',label:'消耗产元素'});
                     if (source === 'field' && canAttackWith(c)) items.push({id:'attack',label:'攻击'});
                     if (canCastSkill(c)) items.push({id:'cast',label:'施放'});
                     if (canUsePerTurn(c)) items.push({id:'per_turn',label:abilityLabel(c,'per_turn')});
@@ -1301,7 +1315,7 @@
                 return myEquipment.value.filter(equipment => equipment && equipmentSubtype(equipment) === subtype);
             }
             function canSetCounterCard(card) {
-                return !!card && card.is_counter_trap && isMyTurn.value && gameState.value.phase === 'main' && (card.can_place_without_replacement || replaceableEquipmentForCard(card).length > 0);
+                return !!card && card.is_counter_trap && isMyTurn.value && gameState.value.phase === 'main' && (card.can_place_without_replacement || replaceableEquipmentForCard(card).length > 0 || (card.can_normal_counter_use && canPayCost(playCost(card))));
             }
             function setCounterCard(card) {
                 if (!canSetCounterCard(card)) {
@@ -1309,9 +1323,9 @@
                     return;
                 }
                 selectedHandCard.value = null;
-                if (!card.can_place_without_replacement) { equipmentReplaceRequest.value = {card, replaceId:''}; return; }
+                if (!card.can_normal_counter_use && !card.can_place_without_replacement) { equipmentReplaceRequest.value = {card, replaceId:''}; return; }
                 sendAction('use_item', { instance_id: card.instance_id }, null, true);
-                addLog(`盖放 ${card.name}`);
+                addLog(`${card.can_normal_counter_use ? '选择使用方式' : '盖放'} ${card.name}`);
             }
             function canEquipCard(card) {
                 if (!isEquippableItem(card) || !isMyTurn.value || gameState.value.phase !== 'main') return false;
@@ -2408,10 +2422,12 @@
                 if (defenseReactionCard.value) return canPaySelectedReaction(defenseReactionCard.value) ? '响应费用就绪' : '响应费用不足';
                 if (!hasDefenseSource()) return '请选择防御法术或卷轴';
                 if (calculatePaymentWithAvailable(defenseAvailableElements.value, totalDefenseCost.value) === null) return '费用不足';
+                if ([...defenseSelected.value,...defenseScrollSelected.value,...defenseBoostSelected.value].some(id=>findVisibleCard(id)?.copies_spell)) return '选择复制法术后确定最终威力';
                 return totalDefensePower.value >= pendingAttackPower() ? '预计可抵御' : '威力不足';
             }
 
             function defenseSummaryClass() {
+                if ([...defenseSelected.value,...defenseScrollSelected.value,...defenseBoostSelected.value].some(id=>findVisibleCard(id)?.copies_spell)) return '';
                 if (defenseReactionCard.value) return canPaySelectedReaction(defenseReactionCard.value) ? 'power-win' : 'power-lose';
                 return hasDefenseSource() && calculatePaymentWithAvailable(defenseAvailableElements.value, totalDefenseCost.value) !== null && totalDefensePower.value >= pendingAttackPower()
                     ? 'power-win'
@@ -2810,14 +2826,15 @@
                 if (pendingAction.value.ui?.kind === 'load_distribution') payload.load_distribution = Object.fromEntries(pendingSelected.value.map(id => [id, loadDistribution.value[id] || {}]));
                 if (pendingAction.value.ui?.kind === 'allocation') payload.allocations = Object.fromEntries(pendingSelected.value.map(id => [id, Number(allocationAmounts.value[id] || 0)]));
                 if (pendingAction.value.ui?.kind === 'resource_distribution') {
-                    payload.payments = pendingSelected.value.map(id => ({instance_id:id, amount:Number(allocationAmounts.value[id] || 1), mode:resourceModes.value[id] || 'auto'}));
+                    payload.payments = pendingSelected.value.flatMap(id => Object.entries(loadDistribution.value[id] || {}).filter(([,n])=>Number(n)>0).map(([resource,n])=>({instance_id:id, amount:Number(n), mode:resource==='life'?'life':'load', ...(resource==='life'?{}:{element:resource})})));
                     const total = payload.payments.reduce((sum,p)=>sum+p.amount,0);
                     if (total > pendingAction.value.ui.max_total || payload.payments.some(p=> !Number.isInteger(p.amount) || p.amount<1)) { decisionError.value = '请检查分配数量，不得超过总上限'; return; }
                     for (const p of payload.payments) {
                         const c = pendingAction.value.candidates.find(c=>c.instance_id===p.instance_id);
-                        const capacity = Math.max(0,Number(c.current_life)-1) + (p.mode==='life' ? 0 : totalCost(c.elements_gain));
+                        const capacity = p.mode==='life' ? Math.max(0,Number(c.current_life)) : Number(c.payable_load?.[p.element] || 0);
                         if (p.amount > capacity) { decisionError.value = '所选单位没有足够的可支付负载或生命'; return; }
                     }
+                    if (pendingSelected.value.some(id=>!payload.payments.some(p=>p.instance_id===id))) { decisionError.value='请为所选单位填写支付资源，或取消选择该单位'; return; }
                 }
                 if (isDeckReorderPending()) {
                     payload.top_order = pendingTopOrder();
@@ -2826,8 +2843,8 @@
                 if (pendingCanOverexert()) {
                     payload.overexert_ids = [...pendingOverexertSelected.value];
                 }
-                const cost = pendingSelected.value.length ? (pendingAction.value.cost || {}) : {};
-                const available = cloneElements(myState.value.elements || {});
+                const cost = pendingSelectionCost();
+                const available = cloneElements(pendingAction.value.context?.payment_available || myState.value.elements || {});
                 for (const id of pendingOverexertSelected.value) {
                     const unit = pendingOverexertUnits.value.find(u => u.instance_id === id);
                     for (const [elem, value] of Object.entries(unit?.elements_gain || {})) available[elem] = (available[elem] || 0) + value;
@@ -2837,7 +2854,16 @@
             }
 
             function pendingRequiresPaymentChoice() {
-                return !!pendingAction.value?.cost && totalCost(pendingAction.value.cost) > 0 && !pendingCanOverexert();
+                return totalCost(pendingSelectionCost()) > 0 && !pendingCanOverexert();
+            }
+
+            function pendingSelectionCost() {
+                if (!pendingSelected.value.length) return {};
+                const costs = pendingSelected.value.map(id=>pendingAction.value.candidates.find(c=>c.instance_id===id)?.payment_cost).filter(Boolean);
+                if (!costs.length) return pendingAction.value.cost || {};
+                const total = {};
+                for (const cost of costs) for (const [elem,n] of Object.entries(cost)) total[elem]=(total[elem]||0)+n;
+                return total;
             }
 
             function zoneLabel(zone) {
@@ -2856,7 +2882,7 @@
                 if (unit.statuses?.['石化'] > 0) return false;
                 if (unit.per_turn_requires_tap && (unit.is_horizontal || unit.statuses?.['眩晕'] > 0 || unit.statuses?.['冷却'] > 0)) return false;
                 const limit = unit.per_turn_limit || 1;
-                return (unit.used_this_turn || 0) < limit;
+                return unit.per_turn_unlimited || (unit.used_this_turn || 0) < limit;
             }
 
             function canUseUltimate(unit) {
@@ -3124,6 +3150,7 @@
 
             function handleMessage(msg) {
                 if (msg.type === 'joined') {
+                    rememberMatch();
                     mySlot.value = msg.data.slot;
                     isTestRoom.value = !!msg.data.room?.test_mode;
                     if (isSpectator || msg.data.role === 'spectator') {
@@ -3165,6 +3192,7 @@
                         try { window.ArcaneEffects?.snapshot(d, gameState.value, mySlot.value, isSpectator); }
                         catch (error) { sendClientLog('warn', 'presentation_snapshot_failed', {error:String(error)}); }
                         gameState.value = d;
+                        rememberMatch();
                         if (detailCard.value?.instance_id) detailCard.value = findVisibleCard(detailCard.value.instance_id) || null;
                         if (hoverCard.value?.instance_id) hoverCard.value = findVisibleCard(hoverCard.value.instance_id) || null;
                         logDefenseWindowStateSync(gameState.value);
@@ -3181,6 +3209,7 @@
                     case 'unit_destroyed': addLog(`${d.card.name} 被摧毁`); break;
                     case 'unit_returned': addLog(`${d.card.name} 返回手牌`); break;
                     case 'game_over':
+                        ArcaneMatchSessions.remove(roomID, playerID);
                         if (d.reason === 'surrender') addLog(`玩家${d.actor+1} 投降，玩家${d.winner+1} 获胜`);
                         else if (d.reason === 'draw_agreement') addLog('双方同意和局');
                         else addLog(d.winner === -2 ? '游戏结束 平局' : `游戏结束 玩家${d.winner+1} 获胜`);
@@ -3350,7 +3379,7 @@
             });
 
             return {
-                crest: ArcaneUI.crest, artAttrs: ArcaneUI.artAttrs, showInspector, defenseReactionCard, resultDismissed, copyRoomLink,
+                crest: ArcaneUI.crest, artAttrs: ArcaneUI.artAttrs, showInspector, defenseReactionCard, resultDismissed, copyRoomLink, returnToLobby,
                 waitingHero, waitingCounts, playerName, resultKind, resultTitle, resultMotto, resultHero, resultSummary, slotStyle, squareAreaCells,
                 fanPage, fanSpread, fanLayout, fanPreviewID, fanPageCount, currentFanPage, fanCards, fanPreviewCard, showFanPreview, previewHand, changeFanPage, activateFanCard, navigateFan, selectedBattleCard,
                 publicEventLog, resourceModes, skillNeedsTarget, castSpellWithoutTarget, railTab, reloadMatch, allocationAmounts, imageFallback, actionDraft, actionBusy, decisionError, workspaceMode, decisionOwnerLabel, draftTitle, draftSummary, commitDraft, cancelDraft, guardInteraction, legacyURL, loadDistribution, setLoadDistribution, paymentAvailable, removePayment,

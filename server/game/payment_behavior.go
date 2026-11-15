@@ -28,6 +28,7 @@ func (e *Engine) notifyOverexertPayment(ps *PlayerState, units []*CardInstance, 
 	if ps == nil || len(units) == 0 {
 		return
 	}
+	e.triggerErebosSoulChainMarkedOverexert(ps.PlayerID, units)
 	event := OverexertPaymentEvent{Units: units, Payment: payment, PoolSpent: poolSpent}
 	for _, source := range e.getAllFieldCards(ps) {
 		if source == nil || e.hasEffectiveStatus(source, StatusPetrify) {

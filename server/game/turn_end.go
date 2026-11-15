@@ -20,7 +20,15 @@ func (e *Engine) handleEndTurn(playerID int, action ActionMessage) error {
 // endTurn processes end-of-turn effects and switches to next player
 func (e *Engine) endTurn() {
 	ps := e.State.Players[e.State.CurrentTurn]
+	e.State.Phase = PhaseTurnEnd
+	e.runResolution("declare turn end",
+		func() { e.triggerFieldEffectsWithData(TriggerOnTurnEndDeclaration, ps.PlayerID, nil, nil) },
+		e.settleTurnDeaths,
+		func() { e.discardAndFinishTurn(ps) },
+	)
+}
 
+func (e *Engine) discardAndFinishTurn(ps *PlayerState) {
 	// Discard to hand limit
 	if e.promptDiscardToHandLimit(e.State.CurrentTurn, func() {
 		e.finishEndTurn(ps)
@@ -58,17 +66,16 @@ func (e *Engine) promptDiscardToHandLimit(playerID int, afterDiscard func()) boo
 				toDiscard[id] = true
 			}
 			remaining := make([]*CardInstance, 0, len(ps.Hand)-len(selected))
+			var discarded []*CardInstance
 			for _, c := range ps.Hand {
 				if toDiscard[c.InstanceID] {
-					e.discardHandCardToGraveyard(playerID, c)
+					discarded = append(discarded, c)
 				} else {
 					remaining = append(remaining, c)
 				}
 			}
 			ps.Hand = remaining
-			if afterDiscard != nil {
-				afterDiscard()
-			}
+			e.runResolution("hand limit discard", func() { e.discardHandCardsToGraveyard(playerID, discarded) }, afterDiscard)
 		})
 	return true
 }

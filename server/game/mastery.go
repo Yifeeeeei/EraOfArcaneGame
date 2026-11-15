@@ -1,5 +1,35 @@
 package game
 
+// Thresholds describe printed mastery milestones; Max alone cannot express
+// sparse progressions such as 1,3,5 or 3,6.
+type MasteryThresholdBehavior interface {
+	MasteryThresholds() []int
+}
+
+func nextMasteryThreshold(card *CardInstance) int {
+	b, ok := masteryBehavior(card)
+	if !ok {
+		return 0
+	}
+	thresholds := []int{b.MasteryMax()}
+	if progression, ok := b.(MasteryThresholdBehavior); ok {
+		thresholds = progression.MasteryThresholds()
+	}
+	next := 0
+	for _, level := range thresholds {
+		if level > card.Statuses[StatusMastery] && (next == 0 || level < next) {
+			next = level
+		}
+	}
+	return next
+}
+
+func (e *Engine) advanceToNextMastery(card *CardInstance, playerID int) {
+	if next := nextMasteryThreshold(card); next > 0 {
+		e.advanceMastery(card, playerID, next-card.Statuses[StatusMastery])
+	}
+}
+
 func masteryBehavior(card *CardInstance) (MasteryBehavior, bool) {
 	if card == nil || card.Card == nil {
 		return nil, false
@@ -12,6 +42,7 @@ func masteryBehavior(card *CardInstance) (MasteryBehavior, bool) {
 }
 
 func (e *Engine) advanceMastery(card *CardInstance, playerID int, amount int) {
+	card = physicalSpellSource(card)
 	if amount <= 0 {
 		return
 	}

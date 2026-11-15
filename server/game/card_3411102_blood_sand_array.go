@@ -19,47 +19,33 @@ func (Card3411102BloodSandArray) OnPerTurn(ctx *EffectContext) error {
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil {
 		return nil
 	}
-	source := ctx.Source
-	firstCandidates := ctx.Engine.bloodSandPaymentCandidates(ctx.PlayerID)
-	ctx.Engine.SetPendingActionWithError(ctx.PlayerID, "blood_sand_array_pay",
-		"蔽天阵 血沙:选择最多3点己方单位负载或生命支付", firstCandidates, 0, min(3, len(firstCandidates)), nil, false,
-		func(selected []string, data map[string]any) error {
-			if !ctx.Engine.cardStillOnField(source) {
-				return nil
+	e, source := ctx.Engine, ctx.Source
+	e.promptBloodSandPayment(ctx.PlayerID, source, "blood_sand_array_pay", func(first int) {
+		e.promptBloodSandPayment(ctx.OpponentID, source, "blood_sand_array_pay_opponent", func(second int) {
+			if !e.cardStillOnField(source) {
+				return
 			}
-			firstPaid, err := ctx.Engine.applyBloodSandPayments(ctx.PlayerID, selected, data, source)
-			if err != nil {
-				return err
-			}
-			opponentID := 1 - ctx.PlayerID
-			secondCandidates := ctx.Engine.bloodSandPaymentCandidates(opponentID)
-			ctx.Engine.SetPendingActionWithError(opponentID, "blood_sand_array_pay_opponent",
-				"蔽天阵 血沙:选择最多3点己方单位负载或生命支付", secondCandidates, 0, min(3, len(secondCandidates)), nil, false,
-				func(opponentSelected []string, opponentData map[string]any) error {
-					if !ctx.Engine.cardStillOnField(source) {
-						return nil
-					}
-					secondPaid, err := ctx.Engine.applyBloodSandPayments(opponentID, opponentSelected, opponentData, source)
-					if err != nil {
-						return err
-					}
-					diff := bloodSandAbsDiff(firstPaid - secondPaid)
-					if diff > 0 {
-						source.Statuses[bloodSandArrayMarkerStatus] += diff
-					}
-					ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{
-						"source":      cardToInfo(source),
-						"effect":      "blood_sand_array_markers",
-						"paid_owner":  firstPaid,
-						"paid_enemy":  secondPaid,
-						"markers_add": diff,
-						"markers":     source.Statuses[bloodSandArrayMarkerStatus],
-					}})
-					return nil
-				})
-			return nil
+			diff := bloodSandAbsDiff(first - second)
+			source.Statuses[bloodSandArrayMarkerStatus] += diff
+			e.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{"source": cardToInfo(source), "effect": "blood_sand_array_markers", "paid_owner": first, "paid_enemy": second, "markers_add": diff, "markers": source.Statuses[bloodSandArrayMarkerStatus]}})
 		})
+	})
 	return nil
+}
+
+func (e *Engine) promptBloodSandPayment(playerID int, source *CardInstance, kind string, after func(int)) {
+	candidates := e.bloodSandPaymentCandidates(playerID)
+	e.SetPendingActionWithError(playerID, kind, "蔽天阵 血沙:选择最多3点己方单位负载或生命支付", candidates, 0, min(3, len(candidates)), nil, false, func(selected []string, data map[string]any) error {
+		if !e.cardStillOnField(source) {
+			return nil
+		}
+		paid, err := e.applyBloodSandPayments(playerID, selected, data, source)
+		if err != nil {
+			return err
+		}
+		e.runResolution("blood sand payment", e.settleTurnDeaths, func() { after(paid) })
+		return nil
+	})
 }
 
 func (Card3411102BloodSandArray) ModifySkillContribution(ctx *EffectContext, stats *SpellStats) {
@@ -92,48 +78,109 @@ func (e *Engine) bloodSandPaymentCandidates(playerID int) []map[string]any {
 		if e.bloodSandPayablePoints(unit) <= 0 {
 			continue
 		}
-		candidates = append(candidates, candidateInfo(unit, "unit", "own"))
+		info := candidateInfo(unit, "unit", "own")
+		info["payable_load"] = dragonBloodTreantReducibleLoad(unit)
+		candidates = append(candidates, info)
 	}
 	return candidates
 }
 
 func (e *Engine) applyBloodSandPayments(playerID int, selected []string, data map[string]any, source *CardInstance) (int, error) {
 	requests := bloodSandPaymentRequests(selected, data)
-	if len(requests) == 0 {
-		return 0, nil
+	selectedIDs := map[string]bool{}
+	for _, id := range selected {
+		if selectedIDs[id] {
+			return 0, fmt.Errorf("duplicate payment target")
+		}
+		selectedIDs[id] = true
 	}
-	total := 0
+	if raw, exists := data["payments"]; exists {
+		entries, ok := raw.([]any)
+		if !ok || len(entries) != len(requests) {
+			return 0, fmt.Errorf("invalid blood sand payments")
+		}
+		for _, entry := range entries {
+			fields, ok := entry.(map[string]any)
+			if !ok {
+				return 0, fmt.Errorf("invalid blood sand payment")
+			}
+			if rawAmount, supplied := fields["amount"]; supplied {
+				if amount, valid := intFromAny(rawAmount); !valid || amount <= 0 || amount > 3 {
+					return 0, fmt.Errorf("invalid blood sand payment amount")
+				}
+			}
+		}
+	}
+	type payment struct {
+		unit    *CardInstance
+		element string
+	}
+	plan := []payment{}
+	life := map[*CardInstance]int{}
+	loads := map[*CardInstance]map[string]int{}
+	usedIDs := map[string]bool{}
 	for _, request := range requests {
-		if total >= 3 {
-			break
+		if !selectedIDs[request.instanceID] || request.amount <= 0 || len(plan)+request.amount > 3 || (request.mode != "" && request.mode != "auto" && request.mode != "load" && request.mode != "life") {
+			return 0, fmt.Errorf("invalid blood sand payment")
 		}
 		unit := e.findOwnUnitByInstanceID(playerID, request.instanceID)
 		if unit == nil {
-			return total, fmt.Errorf("invalid blood sand payment target")
+			return 0, fmt.Errorf("invalid blood sand payment target")
 		}
-		amount := min(request.amount, 3-total)
-		for i := 0; i < amount; i++ {
-			if request.mode == "life" {
-				if !bloodSandPayLife(unit) {
-					return total, fmt.Errorf("cannot pay life from selected unit")
+		usedIDs[request.instanceID] = true
+		if loads[unit] == nil {
+			loads[unit] = copyElements(dragonBloodTreantReducibleLoad(unit))
+			life[unit] = unit.CurrentLife
+		}
+		for i := 0; i < request.amount; i++ {
+			element := ""
+			if request.element != "" {
+				if request.mode == "life" || loads[unit][request.element] <= 0 {
+					return 0, fmt.Errorf("selected load element is unavailable")
 				}
-				total++
-				continue
+				element = request.element
+				loads[unit][element]--
+			} else if request.mode != "life" {
+				for _, elem := range model.AllElements {
+					if loads[unit][elem] > 0 {
+						element = elem
+						loads[unit][elem]--
+						break
+					}
+				}
 			}
-			if e.payOneBloodSandLoad(playerID, unit, source) || bloodSandPayLife(unit) {
-				total++
-				continue
+			if element == "" {
+				if request.mode == "load" || life[unit] <= 0 {
+					return 0, fmt.Errorf("selected unit cannot pay load or life")
+				}
+				life[unit]--
 			}
-			return total, fmt.Errorf("selected unit cannot pay load or life")
+			plan = append(plan, payment{unit, element})
 		}
 	}
-	return total, nil
+	if len(usedIDs) != len(selectedIDs) {
+		return 0, fmt.Errorf("payment targets do not match selection")
+	}
+	for _, p := range plan {
+		if p.element == "" {
+			p.unit.CurrentLife--
+		} else {
+			e.reduceCardElementLoadWithTriggers(playerID, p.unit, p.element, 1, source)
+		}
+	}
+	for unit := range life {
+		if unit.CurrentLife <= 0 && !unit.Card.IsHero() {
+			e.queueDeathWithData(unit, playerID, map[string]any{"death_cause": "life_payment"})
+		}
+	}
+	return len(plan), nil
 }
 
 type bloodSandPaymentRequest struct {
 	instanceID string
 	amount     int
 	mode       string
+	element    string
 }
 
 func bloodSandPaymentRequests(selected []string, data map[string]any) []bloodSandPaymentRequest {
@@ -154,7 +201,8 @@ func bloodSandPaymentRequests(selected []string, data map[string]any) []bloodSan
 					continue
 				}
 				mode, _ := m["mode"].(string)
-				requests = append(requests, bloodSandPaymentRequest{instanceID: id, amount: amount, mode: mode})
+				element, _ := m["element"].(string)
+				requests = append(requests, bloodSandPaymentRequest{instanceID: id, amount: amount, mode: mode, element: element})
 			}
 			return requests
 		}
@@ -187,7 +235,7 @@ func (e *Engine) bloodSandPayablePoints(unit *CardInstance) int {
 	if unit == nil {
 		return 0
 	}
-	return min(3, totalLoad(unit)+max(unit.CurrentLife-1, 0))
+	return min(3, totalElementCost(dragonBloodTreantReducibleLoad(unit))+max(unit.CurrentLife, 0))
 }
 
 func (e *Engine) payOneBloodSandLoad(playerID int, unit *CardInstance, source *CardInstance) bool {
@@ -204,7 +252,7 @@ func (e *Engine) payOneBloodSandLoad(playerID int, unit *CardInstance, source *C
 }
 
 func bloodSandPayLife(unit *CardInstance) bool {
-	if unit == nil || unit.CurrentLife <= 1 {
+	if unit == nil || unit.CurrentLife <= 0 {
 		return false
 	}
 	unit.CurrentLife--

@@ -18,7 +18,7 @@ func (Card1021106SkyCityTycoon) OnPerTurn(ctx *EffectContext) error {
 	if !ctx.Engine.canConsumeCard(ctx.Source) {
 		return fmt.Errorf("云霄城富豪不能被消耗")
 	}
-	ctx.Source.IsHorizontal = true
+	ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, nil, ctx.Source.Card.Number)
 	choices := []map[string]any{
 		{"instance_id": "self_first", "number": "1021106", "name": "你先抽", "type": "选择", "zone": "choice", "side": "own"},
 		{"instance_id": "opponent_first", "number": "1021106", "name": "对手先抽", "type": "选择", "zone": "choice", "side": "own"},
@@ -40,3 +40,5 @@ func (Card1021106SkyCityTycoon) OnPerTurn(ctx *EffectContext) error {
 func (Card1021106SkyCityTycoon) AbilityRequiresTap(trigger EffectTrigger) bool {
 	return trigger == TriggerPerTurn
 }
+
+func (Card1021106SkyCityTycoon) RepeatableActiveAbility() bool { return true }

@@ -94,5 +94,5 @@ func moveSelectedShadowCompanionsFromGraveyardToExile(e *Engine, playerID int, s
 }
 
 func isShadowSpellInstance(card *CardInstance) bool {
-	return card != nil && card.Card != nil && card.Card.Category == model.ElementShadow && isSpellLikeCard(card.Card)
+	return card != nil && card.Card != nil && card.Card.Category == model.ElementShadow && isCombatSpellCard(card.Card)
 }

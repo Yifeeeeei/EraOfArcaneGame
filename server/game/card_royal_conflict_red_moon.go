@@ -47,7 +47,7 @@ func (Card1601101BloodShadowBody) OnPerTurn(ctx *EffectContext) error {
 		SourceCardNumber:       ctx.Source.Card.Number,
 		SourceName:             ctx.Source.Card.Name,
 		RemainingUses:          1,
-		AllowSameTarget:        true,
+		AllowSameTarget:        false,
 		ExtraTargetIgnoreRange: true,
 	})
 	ctx.Engine.emit(GameEvent{
@@ -70,7 +70,7 @@ func (Card3611101RedMoon) HasActiveSpellStatModifier(card *CardInstance) bool {
 	return abilityDurationActive(card)
 }
 func (Card3611101RedMoon) ModifySpellStats(ctx *EffectContext, stats *SpellStats) {
-	if !isAttackPurpose(ctx) || ctx.Target == nil || ctx.Target.Card == nil || ctx.Target.Card.Category != model.ElementShadow {
+	if ctx.Target == nil || ctx.Target.Card == nil || ctx.Target.Card.Category != model.ElementShadow {
 		return
 	}
 	stats.PowerBonus += 2
@@ -87,7 +87,7 @@ func (Card1621110ScarletBeast) HasActiveSpellStatModifier(card *CardInstance) bo
 	return card != nil && card.Statuses[StatusPetrify] <= 0
 }
 func (Card1621110ScarletBeast) ModifySpellStats(ctx *EffectContext, stats *SpellStats) {
-	if !isAttackPurpose(ctx) || !ctx.Engine.redMoonActive(ctx.PlayerID) || ctx.Target == nil || ctx.Target.Card == nil || ctx.Target.Card.Category != model.ElementShadow {
+	if !ctx.Engine.redMoonActive(ctx.PlayerID) || ctx.Target == nil || ctx.Target.Card == nil || ctx.Target.Card.Category != model.ElementShadow {
 		return
 	}
 	stats.PowerBonus += 2
@@ -173,7 +173,7 @@ type Card3621107WillErosion struct{ AlwaysActive }
 func (Card3621107WillErosion) ID() string   { return "3621107" }
 func (Card3621107WillErosion) Name() string { return "意志侵蚀" }
 func (Card3621107WillErosion) ModifySkillContribution(ctx *EffectContext, stats *SpellStats) {
-	if !isAttackPurpose(ctx) || !ctx.Engine.redMoonActive(ctx.PlayerID) {
+	if !ctx.Engine.redMoonActive(ctx.PlayerID) {
 		return
 	}
 	stats.PowerBonus++
@@ -327,3 +327,5 @@ func (e *Engine) redMoonActive(playerID int) bool {
 	}
 	return false
 }
+
+func (Card1601101BloodShadowBody) RepeatableActiveAbility() bool { return true }

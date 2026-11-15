@@ -69,6 +69,9 @@ func (e *Engine) promptCounterTrapIfEligible(counter *CardInstance, trigger Effe
 
 	ownerID := counter.OwnerID
 	cost := e.effectiveCardPlayCost(e.State.Players[ownerID], counter)
+	if modifier, ok := cardBehavior(counter).(CounterCostBehavior); ok {
+		modifier.ModifyCounterCost(e.counterContext(counter, trigger, eventSource, extraData), cost)
+	}
 	candidate := cardToInfo(counter)
 	candidate["zone"] = "equipment"
 	candidate["side"] = "own"

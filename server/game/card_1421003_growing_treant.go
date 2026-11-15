@@ -13,6 +13,8 @@ func (Card1421003GrowingTreant) Name() string { return "成长的树人" }
 
 func (Card1421003GrowingTreant) MasteryMax() int { return 4 }
 
+func (Card1421003GrowingTreant) MasteryThresholds() []int { return []int{2, 4} }
+
 func (Card1421003GrowingTreant) OnMastery(ctx *EffectContext, level int) error {
 	if level != 2 && level != 4 {
 		return nil

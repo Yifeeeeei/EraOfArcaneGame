@@ -16,6 +16,6 @@ func (Card1421108CelticDeer) OnSpellCast(ctx *EffectContext) error {
 	if !useTriggeredTurn(ctx.Source) {
 		return nil
 	}
-	resetCard(ctx.Source)
+	ctx.Engine.resetCard(ctx.Source)
 	return nil
 }

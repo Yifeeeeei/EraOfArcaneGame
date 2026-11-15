@@ -23,6 +23,9 @@ func (Card1111102ExileSotor) ExpandSpellTargets(ctx *EffectContext, target Spell
 		}
 		ownerID := targetOwnerID
 		extra.OwnerID = &ownerID
+		if e.validateSpellTarget(playerID, ctx.Target, extra) != nil {
+			continue
+		}
 		if spellTargetsContain(extraTargets, extra) {
 			continue
 		}

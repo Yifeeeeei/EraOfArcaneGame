@@ -46,7 +46,7 @@ func (e *Engine) triggerMagicMothAfterFocusSpellCast(playerID int, skill *CardIn
 		return
 	}
 	ps := e.State.Players[playerID]
-	for _, card := range ps.Deck {
+	for _, card := range append([]*CardInstance(nil), ps.Deck...) {
 		if card == nil || card.Card == nil || card.Card.Number != "1021113" {
 			continue
 		}
@@ -74,7 +74,6 @@ func (e *Engine) triggerMagicMothAfterFocusSpellCast(playerID int, skill *CardIn
 					return
 				}
 			})
-		return
 	}
 }
 
@@ -102,6 +101,9 @@ func (e *Engine) applyCoralBellyFirstSpellAttackBonus(playerID int, skill *CardI
 			continue
 		}
 		card.Statuses[coralBellyFirstSpellAttackUsedStatus] = 1
+		if !e.acceptsCardEffect(card, skill) {
+			continue
+		}
 		skill.PowerBonus += 3
 		e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
 			"source": cardToInfo(card),

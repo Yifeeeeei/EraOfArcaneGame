@@ -11,6 +11,7 @@
     <script src="assets/card-art-index.js"></script>
     <script src="js/arcane-ui.js"></script>
     <script src="js/deck-store.js"></script>
+    <script src="js/match-sessions.js"></script>
     <script src="js/preconstructed-picker.js"></script>
   </head>
   <body class="lobby-page">
@@ -39,6 +40,14 @@
           <div class="welcome-rule"></div>
           <p class="release-label">基础包 · 王权纷争</p>
           <div class="entry-surface surface">
+            <div v-if="savedMatches.length" class="saved-matches">
+              <div class="section-title"><h2>继续对局</h2></div>
+              <div v-for="seat in savedMatches" :key="seat.room+seat.player_id" class="saved-match">
+                <span>房间 {{ seat.room }} · {{ seat.player_name }}</span>
+                <button class="btn" @click="resumeMatch(seat)">返回对局</button>
+                <button class="mini-btn" @click="forgetMatch(seat)" aria-label="移除对局记录">×</button>
+              </div>
+            </div>
             <label class="field-label" for="player-name">玩家名称</label
             ><input
               id="player-name"

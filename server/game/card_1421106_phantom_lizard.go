@@ -23,7 +23,7 @@ func (Card1421106PhantomLizard) OnSpellCast(ctx *EffectContext) error {
 				return
 			}
 			ctx.Source.UltimateUsed = true
-			ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, ctx.Engine.effectiveElementsGain(ctx.Source), "")
+			ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, nil, "")
 			moveUnitToGraveyardWithoutDeath(ctx.Engine, ctx.PlayerID, ctx.Source)
 			positions := ctx.Engine.friendlyEmptyUnitPositions(ctx.PlayerID)
 			if len(positions) < 2 {

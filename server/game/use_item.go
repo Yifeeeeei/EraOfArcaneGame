@@ -27,9 +27,17 @@ func (e *Engine) handleUseItem(playerID int, action ActionMessage) error {
 	if !card.Card.IsItem() {
 		return fmt.Errorf("card is not an item")
 	}
+	if _, ok := cardBehavior(card).(SpellCopyBehavior); ok {
+		return e.handleCastSpell(playerID, action)
+	}
 	if isCounterTrapCard(card.Card.Number) {
-		replaceID, _ := action.Data["replace_id"].(string)
-		return e.placeCounterTrap(playerID, card, handIdx, replaceID)
+		if !counterAllowsNormalUse(card) {
+			replaceID, _ := action.Data["replace_id"].(string)
+			return e.placeCounterTrap(playerID, card, handIdx, replaceID)
+		}
+		if !boolFromData(action.Data, "normal_use") {
+			return e.promptCounterUseMode(playerID, card)
+		}
 	}
 
 	// Check if this is a terrain card - terrain cards go to battlefield
@@ -102,6 +110,9 @@ func (e *Engine) validateConsumableItemUse(playerID int, card *CardInstance) err
 }
 
 func (e *Engine) handleUseSpellScrollItem(playerID int, action ActionMessage, card *CardInstance, handIdx int) error {
+	return e.useSpellScrollItemWithCost(playerID, action, card, handIdx, nil)
+}
+func (e *Engine) useSpellScrollItemWithCost(playerID int, action ActionMessage, card *CardInstance, handIdx int, costOverride map[string]int) error {
 	ps := e.State.Players[playerID]
 	if isDefenseOnlySkill(card.Card) {
 		return fmt.Errorf("defense spell scroll can only be used during a defense window")
@@ -144,6 +155,9 @@ func (e *Engine) handleUseSpellScrollItem(playerID int, action ActionMessage, ca
 	}
 
 	cost := e.effectiveCardPlayCost(ps, card)
+	if costOverride != nil {
+		cost = copyElementCost(costOverride)
+	}
 	if !e.canPayCost(ps, cost) {
 		return fmt.Errorf("not enough elements")
 	}
@@ -208,7 +222,7 @@ func (e *Engine) startSpellScrollCast(playerID int, scroll *CardInstance, target
 	powerSources := e.spellPowerSources(playerID, scroll, boostSkills, totalPower, target)
 	e.consumeNextSpellPowerBonuses(ps, scroll)
 
-	e.recordSpellCast(playerID, scroll)
+	e.recordSpellAttack(playerID, scroll)
 	spellCastData := map[string]any{
 		"cast_player":  playerID,
 		"attacker":     playerID,

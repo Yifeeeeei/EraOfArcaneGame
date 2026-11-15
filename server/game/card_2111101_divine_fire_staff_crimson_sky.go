@@ -15,7 +15,7 @@ func (Card2111101DivineFireStaffCrimsonSky) OnSpellHit(ctx *EffectContext) error
 		return nil
 	}
 	attacker, _ := ctx.ExtraData["attacker"].(int)
-	if attacker != ctx.PlayerID || ctx.Target.Card.Category != model.ElementFire || !isSpellLikeCard(ctx.Target.Card) || !ctx.Engine.canConsumeCard(ctx.Source) {
+	if attacker != ctx.PlayerID || ctx.Target.Card.Category != model.ElementFire || !isCombatSpellCard(ctx.Target.Card) || !ctx.Engine.acceptsCardEffect(ctx.Source, ctx.Target) || !ctx.Engine.canConsumeCard(ctx.Source) {
 		return nil
 	}
 	staff := ctx.Source
@@ -26,10 +26,10 @@ func (Card2111101DivineFireStaffCrimsonSky) OnSpellHit(ctx *EffectContext) error
 			if len(selected) == 0 || !ctx.Engine.canConsumeCard(staff) || !ctx.Engine.cardStillOnField(staff) {
 				return
 			}
-			if skill == nil || skill.Card == nil || !isSpellLikeCard(skill.Card) || skill.Card.Category != model.ElementFire {
+			if skill == nil || skill.Card == nil || !isCombatSpellCard(skill.Card) || !ctx.Engine.acceptsCardEffect(staff, skill) || skill.Card.Category != model.ElementFire {
 				return
 			}
-			ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, staff, ctx.Engine.effectiveElementsGain(staff), "2111101")
+			ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, staff, nil, "2111101")
 			skill.PowerBonus++
 			skill.Statuses[permanentPierceStatus] = 1
 			ctx.Engine.emit(GameEvent{Type: "effect_trigger", Player: ctx.PlayerID, Data: map[string]any{

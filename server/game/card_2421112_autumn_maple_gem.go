@@ -25,7 +25,7 @@ func (Card2421112AutumnMapleGem) OnPerTurn(ctx *EffectContext) error {
 		return nil
 	}
 	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
-		return card != nil && card.Card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementEarth && card.IsHorizontal
+		return card != nil && card.Card != nil && card.Card.IsCompanion() && card.Card.Category == model.ElementEarth && card.IsHorizontal && ctx.Engine.canResetCard(card)
 	})
 	if len(candidates) == 0 {
 		return nil
@@ -48,7 +48,7 @@ func (Card2421112AutumnMapleGem) OnPerTurn(ctx *EffectContext) error {
 				return
 			}
 			ctx.Source.Statuses[autumnMapleGemCounter]--
-			target.IsHorizontal = false
+			ctx.Engine.resetCard(target)
 		})
 	return nil
 }
@@ -72,6 +72,6 @@ func (e *Engine) hasResettableEarthCompanion(playerID int) bool {
 	return len(e.friendlyUnits(playerID, false, func(card *CardInstance) bool {
 		return card != nil && card.Card != nil && card.Card.IsCompanion() &&
 			card.Card.Category == model.ElementEarth &&
-			card.IsHorizontal
+			card.IsHorizontal && e.canResetCard(card)
 	})) > 0
 }

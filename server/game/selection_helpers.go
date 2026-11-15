@@ -113,7 +113,7 @@ func (e *Engine) friendlySkills(playerID int, predicate func(*CardInstance) bool
 	ps := e.State.Players[playerID]
 	candidates := make([]map[string]any, 0)
 	for _, skill := range ps.Skills {
-		if skill == nil {
+		if skill == nil || cardImmuneToOtherEffects(skill) {
 			continue
 		}
 		if predicate != nil && !predicate(skill) {
@@ -147,14 +147,18 @@ func (e *Engine) friendlySkillsIncludingBound(playerID int, predicate func(*Card
 func (e *Engine) enemySkills(playerID int, predicate func(*CardInstance) bool) []map[string]any {
 	ps := e.State.Players[1-playerID]
 	candidates := make([]map[string]any, 0)
-	for _, skill := range ps.Skills {
-		if skill == nil {
+	for _, skill := range e.ruleSources(ps) {
+		if skill == nil || skill.Card == nil || !skill.Card.IsSkill() || cardImmuneToOtherEffects(skill) {
 			continue
 		}
 		if predicate != nil && !predicate(skill) {
 			continue
 		}
-		candidates = append(candidates, candidateInfo(skill, "skill", "enemy"))
+		zone := "bound_skill"
+		if findSkillSlotCard(ps, skill.InstanceID) != nil {
+			zone = "skill"
+		}
+		candidates = append(candidates, candidateInfo(skill, zone, "enemy"))
 	}
 	return candidates
 }
@@ -408,6 +412,12 @@ func resetCardForPublicSpecialZone(card *CardInstance) {
 		return
 	}
 	card.fieldLife = nil
+	card.copySource = nil
+	card.learnPayment = nil
+	card.usePayment = nil
+	card.arcaneOnenessReveal = nil
+	card.mindSeaRange = ""
+	card.mindSeaRangeTurn = 0
 	card.CurrentLife = card.Card.Life
 	card.CurrentAttack = card.Card.Attack
 	card.DamageTakenThisTurn = 0

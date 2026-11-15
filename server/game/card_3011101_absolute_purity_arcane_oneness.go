@@ -14,14 +14,22 @@ func (Card3011101AbsolutePurityArcaneOneness) ModifySkillContribution(ctx *Effec
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Source.Card == nil || ctx.Source.Card.Number != "3011101" {
 		return
 	}
-	stats.PowerBonus += countTopConsecutiveArcaneCards(ctx.Engine.State.Players[ctx.PlayerID])
+	if ctx.Source.arcaneOnenessReveal != nil {
+		stats.PowerBonus += *ctx.Source.arcaneOnenessReveal
+	}
 }
 
 func (Card3011101AbsolutePurityArcaneOneness) OnSpellCast(ctx *EffectContext) error {
+	if !isSpellBeingCast(ctx) {
+		return nil
+	}
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Source.Card == nil || ctx.Source.Card.Number != "3011101" || !isFriendlySpellCast(ctx) {
 		return nil
 	}
-	count := countTopConsecutiveArcaneCards(ctx.Engine.State.Players[ctx.PlayerID])
+	count := 0
+	if ctx.Source.arcaneOnenessReveal != nil {
+		count = *ctx.Source.arcaneOnenessReveal
+	}
 	if count > 0 || len(ctx.Engine.State.Players[ctx.PlayerID].Deck) > 0 {
 		ctx.Engine.shuffleDeck(ctx.PlayerID)
 	}
@@ -31,6 +39,15 @@ func (Card3011101AbsolutePurityArcaneOneness) OnSpellCast(ctx *EffectContext) er
 		"arcane_count": count,
 	}})
 	return nil
+}
+
+func (Card3011101AbsolutePurityArcaneOneness) OnSkillUseCommitted(ctx *EffectContext) {
+	count := countTopConsecutiveArcaneCards(ctx.Engine.State.Players[ctx.PlayerID])
+	ctx.Source.arcaneOnenessReveal = &count
+}
+
+func (Card3011101AbsolutePurityArcaneOneness) ClearSkillUseState(card *CardInstance) {
+	card.arcaneOnenessReveal = nil
 }
 
 func (Card3011101AbsolutePurityArcaneOneness) PaymentConstraint(_ *CardInstance, purpose paymentPurpose, cost map[string]int) PaymentConstraint {

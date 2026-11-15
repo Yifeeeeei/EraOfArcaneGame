@@ -122,10 +122,32 @@ func (e *Engine) getAllFieldCards(ps *PlayerState) []*CardInstance {
 	return cards
 }
 
+// Rule sources include attached skills without treating them as independent
+// battlefield slots. Zone/placement queries continue using field cards.
+func (e *Engine) ruleSources(ps *PlayerState) []*CardInstance {
+	sources := e.getAllFieldCards(ps)
+	seen := make(map[*CardInstance]bool, len(sources))
+	for _, card := range sources {
+		seen[card] = true
+	}
+	for i := 0; i < len(sources); i++ {
+		for _, bound := range sources[i].BoundSkills {
+			if bound != nil && !seen[bound] {
+				seen[bound] = true
+				sources = append(sources, bound)
+			}
+		}
+	}
+	return sources
+}
+
 // spellModifierSources never inserts a virtual source into game state. Only
 // explicitly opted-in self modifiers join this one evaluation, once by identity.
 func (e *Engine) spellModifierSources(ps *PlayerState, skill *CardInstance) []*CardInstance {
-	sources := e.getAllFieldCards(ps)
+	sources := e.ruleSources(ps)
+	if cardImmuneToOtherEffects(skill) {
+		return []*CardInstance{skill}
+	}
 	if skill == nil || skill.Card == nil || skill.OwnerID != ps.PlayerID {
 		return sources
 	}

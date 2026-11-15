@@ -11,7 +11,7 @@ func (Card1611103RobertBlackPine) ID() string { return "1611103" }
 
 func (Card1611103RobertBlackPine) Name() string { return "鲜血贵公子 罗伯特 黑松" }
 
-func (Card1611103RobertBlackPine) DamageScope() DamageScope { return DamageOtherFriendly }
+func (Card1611103RobertBlackPine) DamageScope() DamageScope { return DamageFriendly }
 
 func (Card1611103RobertBlackPine) OnDamaged(ctx *EffectContext, event DamageEvent) error {
 	if ctx == nil || ctx.Source == nil || event.Target == nil {

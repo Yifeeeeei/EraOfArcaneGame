@@ -22,22 +22,23 @@ func (Card3421101ForestInsight) OnSpellCast(ctx *EffectContext) error {
 	if drawCount <= 0 {
 		return nil
 	}
-	drawn := ctx.Engine.drawCards(ctx.PlayerID, drawCount)
-	shuffleBackCount := len(drawn)
-	if shuffleBackCount <= 0 {
-		return nil
-	}
-	candidates := ctx.Engine.friendlyHandCards(ctx.PlayerID, nil)
-	if len(candidates) < shuffleBackCount {
-		return nil
-	}
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "forest_insight_shuffle_hand",
-		fmt.Sprintf("森之洞察:选择%d张手牌洗回卡组", shuffleBackCount), candidates, shuffleBackCount, shuffleBackCount,
-		func(selected []string) {
-			if moveSelectedHandCardsToDeck(ctx.Engine, ctx.PlayerID, selected, shuffleBackCount) > 0 {
-				ctx.Engine.shuffleDeck(ctx.PlayerID)
-			}
-		})
+	ctx.Engine.drawCardsThen(ctx.PlayerID, drawCount, func(drawn []*CardInstance) {
+		shuffleBackCount := len(drawn)
+		if shuffleBackCount <= 0 {
+			return
+		}
+		candidates := ctx.Engine.friendlyHandCards(ctx.PlayerID, nil)
+		if len(candidates) < shuffleBackCount {
+			return
+		}
+		ctx.Engine.SetPendingAction(ctx.PlayerID, "forest_insight_shuffle_hand",
+			fmt.Sprintf("森之洞察:选择%d张手牌洗回卡组", shuffleBackCount), candidates, shuffleBackCount, shuffleBackCount,
+			func(selected []string) {
+				if moveSelectedHandCardsToDeck(ctx.Engine, ctx.PlayerID, selected, shuffleBackCount) > 0 {
+					ctx.Engine.shuffleDeck(ctx.PlayerID)
+				}
+			})
+	})
 	return nil
 }
 

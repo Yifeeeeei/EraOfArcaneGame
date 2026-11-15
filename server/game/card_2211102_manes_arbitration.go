@@ -18,8 +18,8 @@ func (Card2211102ManesArbitration) OnEquip(ctx *EffectContext) error {
 	choices := []map[string]any{
 		{"instance_id": "all_water_power", "name": "此后学习的所有水纹法术+2威", "zone": "choice", "side": "own"},
 	}
-	waterSkills := ctx.Engine.friendlySkills(ctx.PlayerID, func(skill *CardInstance) bool {
-		return skill != nil && skill.Card != nil && skill.Card.IsSkill() && skill.Card.Category == model.ElementWater
+	waterSkills := ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, func(skill *CardInstance) bool {
+		return skill != nil && skill.Card != nil && isCombatSpellCard(skill.Card) && skill.Card.Category == model.ElementWater
 	})
 	if len(waterSkills) > 0 {
 		choices = append(choices, map[string]any{
@@ -35,15 +35,15 @@ func (Card2211102ManesArbitration) OnEquip(ctx *EffectContext) error {
 			switch firstSelected(selected) {
 			case "all_water_power":
 				ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
-					Type:             TempModSkillPowerBonus,
+					Type:             TempModFutureLearnedSpellPower,
 					SourceCardNumber: "2211102",
 					SourceName:       "玛涅斯之予夺",
 					Element:          model.ElementWater,
 					Amount:           2,
 				})
 			case "one_water_power_attack":
-				currentWaterSkills := ctx.Engine.friendlySkills(ctx.PlayerID, func(skill *CardInstance) bool {
-					return skill != nil && skill.Card != nil && skill.Card.IsSkill() && skill.Card.Category == model.ElementWater
+				currentWaterSkills := ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, func(skill *CardInstance) bool {
+					return skill != nil && skill.Card != nil && isCombatSpellCard(skill.Card) && skill.Card.Category == model.ElementWater
 				})
 				if len(currentWaterSkills) == 0 {
 					return fmt.Errorf("no water skill to empower")
@@ -55,8 +55,8 @@ func (Card2211102ManesArbitration) OnEquip(ctx *EffectContext) error {
 						if skill == nil || skill.Card == nil || skill.Card.Category != model.ElementWater {
 							return fmt.Errorf("invalid Manes target")
 						}
-						skill.PowerBonus += 3
-						skill.AttackBonus++
+						ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModGameSkillPowerBonus, SourceCardNumber: "2211102", SourceName: "玛涅斯之予夺", TargetInstanceID: skill.InstanceID, Amount: 3})
+						ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{Type: TempModGameSkillAttackBonus, SourceCardNumber: "2211102", SourceName: "玛涅斯之予夺", TargetInstanceID: skill.InstanceID, Amount: 1})
 						ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
 							Type:             TempModCannotLearnElementSkill,
 							SourceCardNumber: "2211102",

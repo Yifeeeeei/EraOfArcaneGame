@@ -16,15 +16,17 @@ func (Card1121113LavaFortHellhound) OnConsume(ctx *EffectContext) error {
 	if source, _ := ctx.ExtraData["consume_source"].(string); source == "" || source == ctx.Source.Card.Number {
 		return nil
 	}
-	candidates := companionSpellRangeCandidates(ctx, false)
-	if len(candidates) < 2 {
+	candidates := append(ctx.Engine.friendlyUnits(ctx.PlayerID, true, nil), ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
+		return card.Position != nil && ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
+	})...)
+	if len(candidates) == 0 {
 		return nil
 	}
 	if !useTriggeredTurn(ctx.Source) {
 		return nil
 	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "lava_fort_hellhound_damage",
-		"熔岩堡地狱犬:选择法力范围内2个不同单位各造成1点伤害", candidates, 2, 2,
+		"熔岩堡地狱犬:选择法力范围内2个不同单位各造成1点伤害", candidates, min(2, len(candidates)), min(2, len(candidates)),
 		func(selected []string) {
 			seen := map[string]bool{}
 			for _, id := range selected {
@@ -33,7 +35,7 @@ func (Card1121113LavaFortHellhound) OnConsume(ctx *EffectContext) error {
 				}
 				seen[id] = true
 				target := ctx.Engine.findUnitByInstanceID(id)
-				if target == nil || target.Card == nil || !target.Card.IsCompanion() || target.Position == nil {
+				if target == nil || target.Card == nil || target.Position == nil {
 					continue
 				}
 				if target.OwnerID != ctx.PlayerID && !ctx.Engine.IsInSpellRange(ctx.PlayerID, target.Position.Col, target.Position.Row, false) {

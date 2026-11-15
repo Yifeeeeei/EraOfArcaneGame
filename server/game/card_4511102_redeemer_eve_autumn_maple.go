@@ -30,7 +30,7 @@ func (Card4511102RedeemerEveAutumnMaple) OnUltimate(ctx *EffectContext) error {
 		return fmt.Errorf("救赎者 伊芙 秋枫需要受伤的友方单位")
 	}
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
-	if ps.Elements[model.ElementLight] < woundedCount {
+	if !ctx.Engine.canPayCost(ps, map[string]int{model.ElementLight: woundedCount}) {
 		return fmt.Errorf("救赎者 伊芙 秋枫需要%d点光元素", woundedCount)
 	}
 	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
@@ -39,21 +39,21 @@ func (Card4511102RedeemerEveAutumnMaple) OnUltimate(ctx *EffectContext) error {
 	if len(candidates) == 0 {
 		return fmt.Errorf("救赎者 伊芙 秋枫需要受伤的友方伙伴")
 	}
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "redeemer_eve_autumn_maple_target",
+	ctx.Engine.SetPendingActionWithError(ctx.PlayerID, "redeemer_eve_autumn_maple_target",
 		fmt.Sprintf("救赎者 伊芙 秋枫:支付%d光,选择1个受伤友方伙伴获得+%d血和负载+%d光", woundedCount, woundedCount, woundedCount),
-		candidates, 1, 1,
-		func(selected []string) {
+		candidates, 1, 1, map[string]int{model.ElementLight: woundedCount}, false,
+		func(selected []string, data map[string]any) error {
 			if ctx.Source == nil || !ctx.Engine.cardStillOnField(ctx.Source) {
-				return
+				return fmt.Errorf("invalid Eve target or condition")
 			}
 			target, zone := ctx.Engine.findFriendlyCandidate(ctx.PlayerID, firstSelected(selected))
 			if target == nil || zone != "unit" || target.Card == nil || !target.Card.IsCompanion() || target.Card.IsHero() || target.CurrentLife >= maxLife(target) {
-				return
+				return fmt.Errorf("invalid Eve target or condition")
 			}
 			ownNow := ctx.Engine.friendlyUnits(ctx.PlayerID, true, nil)
 			enemyNow := ctx.Engine.enemyUnits(ctx.PlayerID, true, nil)
 			if len(enemyNow) <= len(ownNow) {
-				return
+				return fmt.Errorf("invalid Eve target or condition")
 			}
 			x := 0
 			forEachPlayerUnit(ctx.Engine.State.Players[ctx.PlayerID], true, func(unit *CardInstance) {
@@ -61,10 +61,12 @@ func (Card4511102RedeemerEveAutumnMaple) OnUltimate(ctx *EffectContext) error {
 					x++
 				}
 			})
-			if x <= 0 || ps.Elements[model.ElementLight] < x {
-				return
+			if x <= 0 || !ctx.Engine.canPayCost(ps, map[string]int{model.ElementLight: x}) {
+				return fmt.Errorf("invalid Eve target or condition")
 			}
-			ps.Elements[model.ElementLight] -= x
+			if !ctx.Engine.payCostForAction(ps, map[string]int{model.ElementLight: x}, ActionMessage{Data: data}) {
+				return fmt.Errorf("invalid payment")
+			}
 			ctx.Engine.gainLife(target, x, ctx.Source)
 			ctx.Engine.addElementsGainBonus(target, ctx.PlayerID, model.ElementLight, x, ctx.Source)
 			ctx.Source.UltimateUsed = true
@@ -78,6 +80,7 @@ func (Card4511102RedeemerEveAutumnMaple) OnUltimate(ctx *EffectContext) error {
 					"amount": x,
 				},
 			})
+			return nil
 		})
 	return nil
 }

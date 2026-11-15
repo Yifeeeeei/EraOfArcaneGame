@@ -18,12 +18,11 @@ func (Card1321106SilverleafRanger) OnPerTurn(ctx *EffectContext) error {
 	if !ctx.Engine.canConsumeCard(ctx.Source) {
 		return fmt.Errorf("银叶游侠不能被消耗")
 	}
-	ctx.Source.IsHorizontal = true
+	ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, nil, ctx.Source.Card.Number)
 	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
 		Type:          TempModSkillAttackBonus,
 		Amount:        1,
 		RemainingUses: 1,
-		ExpiresTurn:   ctx.Engine.State.TurnNumber + 2,
 	})
 	return nil
 }
@@ -31,3 +30,5 @@ func (Card1321106SilverleafRanger) OnPerTurn(ctx *EffectContext) error {
 func (Card1321106SilverleafRanger) AbilityRequiresTap(trigger EffectTrigger) bool {
 	return trigger == TriggerPerTurn
 }
+
+func (Card1321106SilverleafRanger) RepeatableActiveAbility() bool { return true }

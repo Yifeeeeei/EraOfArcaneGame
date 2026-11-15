@@ -36,10 +36,6 @@ func (e *Engine) triggerErebosSoulChainMarkedOverexert(playerID int, units []*Ca
 	if e == nil || playerID < 0 || playerID >= len(e.State.Players) || len(units) == 0 {
 		return
 	}
-	opponentID := 1 - playerID
-	if opponentID < 0 || opponentID >= len(e.State.Players) || !e.playerHasActiveCard(e.State.Players[opponentID], "2611101") {
-		return
-	}
 	for _, unit := range units {
 		e.weakenErebosSoulChainMarkedSpellsForUnit(unit)
 	}

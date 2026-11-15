@@ -70,6 +70,13 @@ func (e *Engine) startGame() {
 // startTurn begins a new turn for the current player
 func (e *Engine) startTurn() {
 	e.clearDamageTakenThisTurn()
+	for _, owner := range e.State.Players {
+		for _, card := range e.getAllFieldCards(owner) {
+			if card.Statuses[scatterAwayUntilPlayerStartStatus] == e.State.CurrentTurn+1 {
+				delete(card.Statuses, scatterAwayUntilPlayerStartStatus)
+			}
+		}
+	}
 
 	ps := e.State.Players[e.State.CurrentTurn]
 	clearSpellCastTracking(ps)
@@ -98,23 +105,26 @@ func (e *Engine) continueStartTurnAfterPreDraw(ps *PlayerState) {
 			},
 		})
 	} else {
-		drawn := e.drawCards(ps.PlayerID, 1)
-		if len(drawn) > 0 {
-			// Notify opponent about the draw (without card info)
-			e.emit(GameEvent{
-				Type:   "opponent_draw",
-				Player: 1 - ps.PlayerID,
-				Data: map[string]any{
-					"count": 1,
-				},
-			})
-		}
-		if e.State.PendingAction != nil {
-			e.continueAfterPendingAction(func() {
-				e.continueStartTurnAfterDraw(ps)
-			})
-			return
-		}
+		e.drawCardsThen(ps.PlayerID, 1, func(drawn []*CardInstance) {
+			if len(drawn) > 0 {
+				// Notify opponent about the draw (without card info)
+				e.emit(GameEvent{
+					Type:   "opponent_draw",
+					Player: 1 - ps.PlayerID,
+					Data: map[string]any{
+						"count": 1,
+					},
+				})
+			}
+			if e.State.PendingAction != nil {
+				e.continueAfterPendingAction(func() {
+					e.continueStartTurnAfterDraw(ps)
+				})
+				return
+			}
+			e.continueStartTurnAfterDraw(ps)
+		})
+		return
 	}
 
 	e.continueStartTurnAfterDraw(ps)
@@ -268,6 +278,7 @@ func (e *Engine) clearDamageTakenThisTurn() {
 		if ps == nil {
 			continue
 		}
+		ps.friendlyUnitDamageThisTurn = 0
 		for _, card := range e.getAllFieldCards(ps) {
 			if card != nil {
 				card.DamageTakenThisTurn = 0

@@ -36,7 +36,6 @@ func (Card4111101ChiefAdvisorFelin) OnUltimate(ctx *EffectContext) error {
 					Element:       elem,
 					Amount:        cost[elem],
 					RemainingUses: 1,
-					ExpiresTurn:   ctx.Engine.State.TurnNumber + 1,
 				})
 			}
 		})

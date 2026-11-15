@@ -20,7 +20,7 @@ func (Card2021006BagOfTricks) OnUltimate(ctx *EffectContext) error {
 			if !ctx.Engine.canConsumeCard(ctx.Source) {
 				return
 			}
-			ctx.Source.IsHorizontal = true
+			ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, nil, ctx.Source.Card.Number)
 			if !ctx.Engine.sacrificeEquipment(ctx.PlayerID, ctx.Source.InstanceID) {
 				return
 			}

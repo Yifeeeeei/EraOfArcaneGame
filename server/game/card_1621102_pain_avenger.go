@@ -12,6 +12,6 @@ func (Card1621102PainAvenger) OnDamaged(ctx *EffectContext, event DamageEvent) e
 	if !useTriggeredTurn(ctx.Source) {
 		return nil
 	}
-	ctx.Source.CurrentAttack++
+	ctx.Source.AttackBonus++
 	return nil
 }

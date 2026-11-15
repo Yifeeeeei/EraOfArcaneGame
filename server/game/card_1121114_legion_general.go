@@ -23,17 +23,19 @@ func (Card1121114LegionGeneral) OnPerTurn(ctx *EffectContext) error {
 			switch firstSelected(selected) {
 			case "power":
 				ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
-					Type:        TempModSkillPowerBonus,
-					Element:     model.ElementFire,
-					Amount:      2,
-					ExpiresTurn: ctx.Engine.State.TurnNumber + 2,
+					Type:              TempModSkillPowerBonus,
+					Element:           model.ElementFire,
+					Amount:            2,
+					ExpiresAtTurnEnd:  true,
+					ExpiresOnPlayerID: ctx.OpponentID,
 				})
 			case "attack":
 				ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
-					Type:        TempModCurrentTurnElementDamage,
-					Element:     model.ElementFire,
-					Amount:      1,
-					ExpiresTurn: ctx.Engine.State.TurnNumber + 2,
+					Type:              TempModCurrentTurnElementDamage,
+					Element:           model.ElementFire,
+					Amount:            1,
+					ExpiresAtTurnEnd:  true,
+					ExpiresOnPlayerID: ctx.OpponentID,
 				})
 			}
 		})

@@ -17,6 +17,7 @@ func (e *Engine) dispatchPreparedSpell(spell *SpellCast, data map[string]any, vi
 					e.removeStoredArchmageStaffSkillAfterUse(playerID, skill)
 					e.notifySorceryResolved(playerID, skill)
 				}
+				e.finishSkillUses(append([]*CardInstance{skill}, spell.BoostSkills...)...)
 			})
 		}
 		if !e.triggerSpellCastFieldEffectsWithContinuation(playerID, skill, data, resolve) {

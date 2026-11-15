@@ -43,8 +43,23 @@ func (Card2421105NaturalCommunion) OnUseItem(ctx *EffectContext) error {
 			if !sameElementCost(totalBefore, totalAfter) {
 				return fmt.Errorf("自然交感的新负载分配必须保持总负载不变")
 			}
-			applyRedistributedLoad(a, aLoad)
-			applyRedistributedLoad(b, bLoad)
+			for _, pair := range []struct {
+				card    *CardInstance
+				desired map[string]int
+			}{{a, aLoad}, {b, bLoad}} {
+				intrinsic := effectiveElementsGainWithStealth(pair.card, ctx.Engine.hasActiveStealth(pair.card))
+				effective := ctx.Engine.effectiveElementsGain(pair.card)
+				for _, elem := range model.AllElements {
+					if pair.desired[elem] < effective[elem]-intrinsic[elem] {
+						return fmt.Errorf("光环提供的负载不能通过分配变为负数")
+					}
+				}
+			}
+			beforeA, beforeB := ctx.Engine.effectiveElementsGain(a), ctx.Engine.effectiveElementsGain(b)
+			ctx.Engine.applyRedistributedEffectiveLoad(a, aLoad)
+			ctx.Engine.applyRedistributedEffectiveLoad(b, bLoad)
+			ctx.Engine.notifyRedistributedLoad(ctx.PlayerID, a, beforeA, aLoad, ctx.Source)
+			ctx.Engine.notifyRedistributedLoad(ctx.PlayerID, b, beforeB, bLoad, ctx.Source)
 			ctx.Engine.emit(GameEvent{
 				Type:   "natural_communion_distribute",
 				Player: -1,
@@ -116,4 +131,37 @@ func applyRedistributedLoad(card *CardInstance, load map[string]int) {
 	}
 	card.ElementsGainBonus = make(map[string]int)
 	setElementsGain(card, load)
+}
+
+func (e *Engine) applyRedistributedEffectiveLoad(card *CardInstance, desired map[string]int) {
+	// Preserve continuous/intrinsic modifiers instead of baking them into the set value.
+	oldSet := card.ElementsGainSet
+	oldBonus := card.ElementsGainBonus
+	card.ElementsGainSet = map[string]int{}
+	card.ElementsGainBonus = nil
+	offset := e.effectiveElementsGain(card)
+	card.ElementsGainSet = oldSet
+	card.ElementsGainBonus = oldBonus
+	base := map[string]int{}
+	for _, elem := range model.AllElements {
+		base[elem] = desired[elem] - offset[elem]
+	}
+	card.ElementsGainBonus = nil
+	setElementsGain(card, base)
+}
+func (e *Engine) notifyRedistributedLoad(playerID int, card *CardInstance, before, after map[string]int, source *CardInstance) {
+	for _, elem := range model.AllElements {
+		delta := after[elem] - before[elem]
+		if delta == 0 {
+			continue
+		}
+		trigger, key, amount := TriggerOnLoadGain, "load_gain", delta
+		if delta < 0 {
+			trigger, key, amount = TriggerOnLoadLoss, "load_loss", -delta
+		}
+		data := map[string]any{key + "_player": playerID, key + "_target": card, key + "_source": source, "element": elem, "amount": amount}
+		e.triggerEffects(trigger, card, source, data)
+		e.triggerFieldEffectsWithData(trigger, playerID, card, data)
+		e.triggerFieldEffectsWithData(trigger, 1-playerID, card, data)
+	}
 }

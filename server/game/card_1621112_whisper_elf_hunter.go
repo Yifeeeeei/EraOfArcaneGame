@@ -9,7 +9,7 @@ func (Card1621112WhisperElfHunter) ID() string { return "1621112" }
 func (Card1621112WhisperElfHunter) Name() string { return "谧语精灵猎手" }
 
 func (Card1621112WhisperElfHunter) OnDeath(ctx *EffectContext) error {
-	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, true, nil)
+	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, true, func(unit *CardInstance) bool { return !ctx.Engine.hasStealthFromOpponent(ctx.PlayerID, unit) })
 	if len(candidates) == 0 {
 		return nil
 	}

@@ -24,23 +24,23 @@ func (Card3221101TreadingWave) OnSpellCast(ctx *EffectContext) error {
 	}
 	candidates := ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, func(skill *CardInstance) bool {
 		return skill != nil && skill != castSkill && skill.Card != nil &&
-			skill.Card.Category == model.ElementWater && !isSorcerySkill(skill.Card) && skill.IsHorizontal
+			skill.Card.Category == model.ElementWater && !isSorcerySkill(skill.Card) && skill.IsHorizontal && ctx.Engine.canResetCard(skill)
 	})
 	if len(candidates) == 0 {
 		return nil
 	}
 	resetSkill := func(selection string) {
 		target := ctx.Engine.findFriendlyCardIncludingBound(ctx.PlayerID, selection)
-		if target == nil || target == castSkill || target.Card == nil || target.Card.Category != model.ElementWater || isSorcerySkill(target.Card) || !target.IsHorizontal {
+		if target == nil || target == castSkill || target.Card == nil || target.Card.Category != model.ElementWater || isSorcerySkill(target.Card) || !target.IsHorizontal || !ctx.Engine.canResetCard(target) {
 			return
 		}
-		if ctx.Source.Statuses[treadingWaveTriggerTurnStatus] != ctx.Engine.State.TurnNumber {
-			ctx.Source.Statuses[treadingWaveTriggerTurnStatus] = ctx.Engine.State.TurnNumber
+		if ctx.Source.Statuses[treadingWaveTriggerTurnStatus] != ctx.Engine.turnOrdinal() {
+			ctx.Source.Statuses[treadingWaveTriggerTurnStatus] = ctx.Engine.turnOrdinal()
 			ctx.Source.Statuses[treadingWaveTriggerCountStatus] = 0
 		}
 		ctx.Source.Statuses[treadingWaveTriggerCountStatus]++
-		bonus := ctx.Source.Statuses[treadingWaveTriggerCountStatus] + 1
-		target.IsHorizontal = false
+		bonus := ctx.Source.Statuses[treadingWaveTriggerCountStatus]
+		ctx.Engine.resetCard(target)
 		target.Statuses[skillUseExtraCostStatus(model.ElementWater, bonus)]++
 		ctx.Engine.emit(GameEvent{
 			Type:   "treading_wave_reset",

@@ -13,6 +13,7 @@ func (Card3321110AirFlow) Name() string { return "气蕴成流" }
 func (Card3321110AirFlow) OnEnter(ctx *EffectContext) error {
 	ctx.Engine.addTemporaryModifier(ctx.PlayerID, TemporaryModifier{
 		Type:             TempModNextLearnedSkillHaste,
+		CombatSpellsOnly: true,
 		SourceCardNumber: ctx.Source.Card.Number,
 		SourceName:       ctx.Source.Card.Name,
 		Element:          model.ElementAir,

@@ -28,7 +28,7 @@ func (Card1121109DivineFireRider) OnUltimate(ctx *EffectContext) error {
 			if bonus <= 0 {
 				return
 			}
-			ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, target, ctx.Engine.effectiveElementsGain(target), "1121109")
+			ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, target, nil, "1121109")
 			ctx.Engine.addNextElementSpellPowerBonus(ctx.PlayerID, model.ElementFire, bonus)
 		})
 	return nil

@@ -8,7 +8,7 @@ func (Card1621114SoulSymbiote) Name() string { return "灵魂共生体" }
 
 func (Card1621114SoulSymbiote) OnDeath(ctx *EffectContext) error {
 	candidates := ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, func(skill *CardInstance) bool {
-		return skill != nil && skill.Card != nil && skill.Card.IsSkill()
+		return skill != nil && skill.Card != nil && isCombatSpellCard(skill.Card)
 	})
 	if len(candidates) == 0 {
 		return nil
@@ -23,7 +23,7 @@ func (Card1621114SoulSymbiote) OnDeath(ctx *EffectContext) error {
 				}
 				seen[id] = true
 				skill := ctx.Engine.findSkill(ctx.Engine.State.Players[ctx.PlayerID], id)
-				if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
+				if skill == nil || skill.Card == nil || !isCombatSpellCard(skill.Card) {
 					continue
 				}
 				addSoulMarkerToSpell(skill)

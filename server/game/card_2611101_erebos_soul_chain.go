@@ -26,7 +26,8 @@ func (Card2611101ErebosSoulChain) OnSpellCast(ctx *EffectContext) error {
 		if unit.Statuses == nil {
 			unit.Statuses = make(map[string]int)
 		}
-		unit.Statuses[erebosSoulChainMarkedUnitStatus] = 1
+		unit.Statuses[erebosSoulChainMarkedUnitStatus]++
+		unit.Statuses[soulChainUnitKey(ctx.Source)] = 1
 		markedUnits++
 	}
 	if markedUnits == 0 {
@@ -34,13 +35,14 @@ func (Card2611101ErebosSoulChain) OnSpellCast(ctx *EffectContext) error {
 	}
 	markedSpells := 0
 	for _, spell := range append([]*CardInstance{ctx.Target}, spellInstancesFromData(ctx.ExtraData, "boost_skills")...) {
-		if spell == nil || spell.Card == nil || spell.OwnerID != castPlayer || !isSpellLikeCard(spell.Card) {
+		if spell == nil || spell.Card == nil || spell.OwnerID != castPlayer || !isCombatSpellCard(spell.Card) {
 			continue
 		}
 		if spell.Statuses == nil {
 			spell.Statuses = make(map[string]int)
 		}
-		spell.Statuses[erebosSoulChainMarkedSpellStatus] = 1
+		spell.Statuses[erebosSoulChainMarkedSpellStatus]++
+		spell.Statuses[soulChainSpellKey(ctx.Source)] = 1
 		markedSpells++
 	}
 	if markedSpells > 0 {
@@ -60,7 +62,7 @@ func (Card2611101ErebosSoulChain) OnConsume(ctx *EffectContext) error {
 	if ctx == nil || ctx.Engine == nil || ctx.Target == nil {
 		return nil
 	}
-	ctx.Engine.weakenErebosSoulChainMarkedSpellsForUnit(ctx.Target)
+	ctx.Engine.weakenSoulChainGroup(ctx.Source, ctx.Target)
 	return nil
 }
 
@@ -68,25 +70,34 @@ var _ OnSpellCastBehavior = Card2611101ErebosSoulChain{}
 
 var _ OnConsumeBehavior = Card2611101ErebosSoulChain{}
 
+func soulChainUnitKey(source *CardInstance) string  { return "soul_chain_unit:" + source.InstanceID }
+func soulChainSpellKey(source *CardInstance) string { return "soul_chain_spell:" + source.InstanceID }
+
 func (e *Engine) weakenErebosSoulChainMarkedSpellsForUnit(unit *CardInstance) int {
-	if e == nil || unit == nil || unit.Statuses[erebosSoulChainMarkedUnitStatus] <= 0 || unit.OwnerID < 0 || unit.OwnerID >= len(e.State.Players) {
+	if e == nil || unit == nil {
 		return 0
 	}
-	weakened := 0
-	for _, card := range e.getAllFieldCards(e.State.Players[unit.OwnerID]) {
-		if card == nil || card.Statuses[erebosSoulChainMarkedSpellStatus] <= 0 || !canInstanceBeWeakened(card) {
-			continue
-		}
-		if e.addStatus(card, StatusWeaken, 1) {
-			weakened++
+	total := 0
+	for _, ps := range e.State.Players {
+		for _, source := range e.ruleSources(ps) {
+			if source.Card != nil && source.Card.Number == "2611101" && !e.hasEffectiveStatus(source, StatusPetrify) {
+				total += e.weakenSoulChainGroup(source, unit)
+			}
 		}
 	}
-	if weakened > 0 {
-		e.emit(GameEvent{Type: "effect_trigger", Player: unit.OwnerID, Data: map[string]any{
-			"effect": "erebos_soul_chain_weaken",
-			"unit":   cardToInfo(unit),
-			"count":  weakened,
-		}})
+	return total
+}
+func (e *Engine) weakenSoulChainGroup(source, unit *CardInstance) int {
+	if source == nil || unit == nil || unit.Statuses[soulChainUnitKey(source)] <= 0 {
+		return 0
 	}
-	return weakened
+	count := 0
+	for _, ps := range e.State.Players {
+		for _, spell := range e.ruleSources(ps) {
+			if spell.Statuses[soulChainSpellKey(source)] > 0 && canInstanceBeWeakened(spell) && e.addStatus(spell, StatusWeaken, 1) {
+				count++
+			}
+		}
+	}
+	return count
 }

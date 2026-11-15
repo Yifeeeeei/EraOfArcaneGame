@@ -20,6 +20,6 @@ func (Card1511102LoneStarSoul) OnDamaged(ctx *EffectContext, event DamageEvent) 
 		return nil
 	}
 	ctx.Engine.gainPlayerShield(ctx.PlayerID, 1)
-	ctx.Source.CurrentAttack++
+	ctx.Source.AttackBonus++
 	return nil
 }

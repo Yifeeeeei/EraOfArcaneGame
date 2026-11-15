@@ -15,7 +15,7 @@ func (Card2421104BloodRoseContract) OnUseItem(ctx *EffectContext) error {
 		return nil
 	}
 	spellCandidates := ctx.Engine.friendlySkills(ctx.PlayerID, func(skill *CardInstance) bool {
-		return skill != nil && skill.Card != nil && isSpellLikeCard(skill.Card)
+		return skill != nil && skill.Card != nil && isCombatSpellCard(skill.Card)
 	})
 	if len(spellCandidates) == 0 {
 		return nil
@@ -32,7 +32,7 @@ func (Card2421104BloodRoseContract) OnUseItem(ctx *EffectContext) error {
 		func(selected []string) {
 			skillID := firstSelected(selected)
 			skill, skillIndex := findSkillSlotByInstance(ctx.Engine.State.Players[ctx.PlayerID], skillID)
-			if skill == nil || skill.Card == nil || !isSpellLikeCard(skill.Card) {
+			if skill == nil || skill.Card == nil || !isCombatSpellCard(skill.Card) {
 				return
 			}
 			ctx.Engine.SetPendingAction(ctx.PlayerID, "blood_rose_contract_host",

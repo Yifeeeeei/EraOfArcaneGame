@@ -13,6 +13,7 @@
     <script src="assets/card-art-index.js"></script>
     <script src="js/arcane-ui.js"></script>
     <script src="js/deck-store.js"></script>
+    <script src="js/match-sessions.js"></script>
     <script src="js/board-view.js"></script>
     <script src="js/battle-presentation.js"></script>
     <script src="js/payment-choice.js"></script>
@@ -20,7 +21,7 @@
 </head>
 <body class="match-page">
     <div id="app" v-cloak>
-        <header class="match-status"><a href="/" class="brand"><span v-html="crest"></span><span><strong>奥术纪元</strong><small>ERA OF ARCANE</small></span></a><span>房间 {{ roomID }}<template v-if="gameState"> · 第 {{ gameState.turn_number }} 回合</template></span><span v-if="gameState && gameState.phase !== 'game_over'">回合：{{ isSpectator ? '玩家' + ((gameState.current_turn || 0) + 1) : isMyTurn ? '己方' : '对方' }}</span><strong>决策：{{ decisionOwnerLabel }}</strong><span class="connection-dot">{{ connected ? '已连接' : '已断线' }}</span><button class="mini-btn" data-open-settings aria-label="界面设置">⚙</button></header>
+        <header class="match-status"><a href="/" class="brand" @click.prevent="returnToLobby"><span v-html="crest"></span><span><strong>奥术纪元</strong><small>ERA OF ARCANE</small></span></a><span>房间 {{ roomID }}<template v-if="gameState"> · 第 {{ gameState.turn_number }} 回合</template></span><span v-if="gameState && gameState.phase !== 'game_over'">回合：{{ isSpectator ? '玩家' + ((gameState.current_turn || 0) + 1) : isMyTurn ? '己方' : '对方' }}</span><strong>决策：{{ decisionOwnerLabel }}</strong><span class="connection-dot">{{ connected ? '已连接' : '已断线' }}</span><button class="mini-btn" data-open-settings aria-label="界面设置">⚙</button></header>
 
         <!-- ═══ CONNECTION OVERLAY ═══ -->
         <div v-if="!connected" class="overlay connection-overlay" role="dialog" aria-modal="true" aria-labelledby="connection-title">
@@ -81,6 +82,7 @@
                     <h3>{{ detailCard.name }}</h3>
                     <div class="card-type">{{ detailCard.type }}<template v-if="detailCard.category && detailCard.category !== '无'"> · {{ detailCard.category }}</template></div>
                     <div v-if="detailCard.tag" class="card-tag">{{ detailCard.tag }}</div>
+                    <p v-if="detailCard.copy_source">本次由「{{ detailCard.copy_source.name }}」复制，实际费用按复制来源支付。</p>
                     <div v-if="effectLabels(detailCard).length" class="effect-labels">
                         <span v-for="label in effectLabels(detailCard)" :key="label">{{ label }}</span>
                     </div>
@@ -466,6 +468,7 @@
                                                     <span v-if="entry.card.is_defense_only" class="badge badge-defense">防御</span>
                                                     <span v-if="entry.card.is_sorcery" class="badge badge-sorcery">咒术</span>
                                                 </div>
+                                                <button v-if="workspaceMode === 'defense'" type="button" class="mini-btn defense-inspect" data-inspect @keydown.stop :aria-label="'查看'+entry.card.name" @click.stop="showCardDetail(entry.card)">查看</button>
                                                 <div class="status-badges compact" v-if="statusEntries(entry.card, 2).length">
                                                     <span v-for="s in statusEntries(entry.card, 2)" :key="s.label" class="status-badge">{{ s.label }}</span>
                                                 </div>
@@ -669,7 +672,10 @@
                 </div>
                 <p v-if="defenseLocateMessage && defenseStep<3" class="defense-location-feedback" role="status">{{ defenseLocateMessage }}</p>
                 <div class="defense-fallback" v-if="defenseFallback.length">
-                    <button v-for="entry in defenseFallback" :key="entry.card.instance_id" :data-instance-id="entry.card.instance_id" :data-defense-action="entry.kind" :aria-pressed="defenseIsSelected(entry.card.instance_id)" @mouseenter="previewCard(entry.card)" @click.stop="pickDefenseCard(entry.card.instance_id)">{{ defenseIsSelected(entry.card.instance_id)?'✓ 已选 · ':'' }}{{ entry.card.name }} · {{ defenseLocation(entry.card) }} · {{ costLabel(defensePaymentCost(entry.card)) }}</button>
+                    <div v-for="entry in defenseFallback" :key="entry.card.instance_id">
+                        <button :data-instance-id="entry.card.instance_id" :data-defense-action="entry.kind" :aria-pressed="defenseIsSelected(entry.card.instance_id)" @mouseenter="previewCard(entry.card)" @click.stop="pickDefenseCard(entry.card.instance_id)">{{ defenseIsSelected(entry.card.instance_id)?'✓ 已选 · ':'' }}{{ entry.card.name }} · {{ defenseLocation(entry.card) }} · {{ costLabel(defensePaymentCost(entry.card)) }}</button>
+                        <button class="mini-btn" data-inspect :aria-label="'查看'+entry.card.name" @click.stop="showCardDetail(entry.card)">查看</button>
+                    </div>
                 </div>
                 <div class="defense-step-actions">
                     <button v-if="defenseStep===0 && availableReactionSkills.length" @click="defensePickMode=defensePickMode==='reaction'?'normal':'reaction'">选择响应牌</button>
@@ -742,7 +748,7 @@
                         <div v-if="isDeckReorderPending()" class="pending-card-tools">
                             <button class="mini-btn" @click.stop="movePendingCandidate(candidate.instance_id, -1)">上移</button>
                             <button class="mini-btn" @click.stop="movePendingCandidate(candidate.instance_id, 1)">下移</button>
-                            <button class="mini-btn" @click.stop="togglePendingBottom(candidate.instance_id)">
+                            <button v-if="!pendingAction.ui?.top_only" class="mini-btn" @click.stop="togglePendingBottom(candidate.instance_id)">
                                 {{ isPendingBottom(candidate.instance_id) ? '放顶' : '放底' }}
                             </button>
                             <span v-if="candidate.can_select === false" class="pending-card-note">不可检索</span>
@@ -751,7 +757,7 @@
                         </div>
                     </div>
                 </div>
-                <div v-if="pendingAction.ui?.kind === 'resource_distribution'" class="load-distribution"><p>总共最多支付 {{ pendingAction.ui.max_total }} 点。每个单位保留至少 1 生命。</p><label v-for="id in pendingSelected">{{ pendingAction.candidates.find(c => c.instance_id === id)?.name }}<input type="number" min="1" :max="pendingAction.ui.max_total" v-model.number="allocationAmounts[id]" placeholder="1"><select v-model="resourceModes[id]"><option :value="undefined">先负载，后生命</option><option v-for="mode in pendingAction.ui.modes" :value="mode.value">{{ mode.label }}</option></select></label></div>
+                <div v-if="pendingAction.ui?.kind === 'resource_distribution'" class="load-distribution"><p>总共最多支付 {{ pendingAction.ui.max_total }} 点。自由选择负载种类，也可支付最后一点生命。</p><div v-for="id in pendingSelected"><strong>{{ pendingAction.candidates.find(c => c.instance_id === id)?.name }}</strong><label>生命<input type="number" min="0" :max="Math.min(pendingAction.ui.max_total, pendingAction.candidates.find(c=>c.instance_id===id)?.current_life || 0)" :value="loadDistribution[id]?.life || 0" @input="setLoadDistribution(id,'life',$event.target.value)"></label><label v-for="(n,elem) in pendingAction.candidates.find(c=>c.instance_id===id)?.payable_load" v-show="n>0">{{ elem }}负载<input type="number" min="0" :max="Math.min(n,pendingAction.ui.max_total)" :value="loadDistribution[id]?.[elem] || 0" @input="setLoadDistribution(id,elem,$event.target.value)"></label></div></div>
                 <div v-if="pendingAction.ui?.kind === 'allocation'" class="load-distribution"><p>分配总量 {{ pendingAction.ui.total }}</p><label v-for="id in pendingSelected">{{ pendingAction.candidates.find(c => c.instance_id === id)?.name }}<input type="number" min="1" :max="pendingAction.ui.total" v-model.number="allocationAmounts[id]"></label></div>
                 <div v-if="pendingAction.ui?.kind === 'load_distribution'" class="load-distribution"><div v-for="id in pendingSelected"><strong>{{ pendingAction.candidates.find(c => c.instance_id === id)?.name }}</strong><label v-for="elem in ELEMENT_ORDER">{{ elemFull(elem) }}<input type="number" min="0" :value="loadDistribution[id]?.[elem] || 0" @input="setLoadDistribution(id, elem, $event.target.value)"></label></div></div>
                 <div class="pending-info">
@@ -983,6 +989,7 @@
                             <span class="fan-card-cost">{{ totalCost(playCost(card)) }}</span>
                             <span class="fan-card-status">{{ selectedHandCard?.instance_id === card.instance_id ? '已选' : selectedBoostSkills.includes(card.instance_id) ? '强化' : card.name }}</span>
                             <small class="fan-card-type">{{ card.type }} · {{ card.category === '无' ? '奥术' : card.category }}</small>
+                            <button v-if="workspaceMode === 'defense'" type="button" class="mini-btn defense-inspect" data-inspect @keydown.stop :aria-label="'查看'+card.name" @click.stop="showCardDetail(card)">查看</button>
                         </div>
                     </div>
                 </div>

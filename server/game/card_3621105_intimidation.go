@@ -11,8 +11,8 @@ func (Card3621105Intimidation) ModifySkillContribution(ctx *EffectContext, stats
 		return
 	}
 	count := 0
-	for _, skill := range ctx.Engine.State.Players[ctx.OpponentID].Skills {
-		if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
+	for _, skill := range ctx.Engine.ruleSources(ctx.Engine.State.Players[ctx.OpponentID]) {
+		if skill == nil || skill.Card == nil || !isCombatSpellCard(skill.Card) {
 			continue
 		}
 		if skill.Statuses[StatusWeaken] > 0 && ctx.Engine.hasEffectiveStatus(skill, StatusWeaken) {

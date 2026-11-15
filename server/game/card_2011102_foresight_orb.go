@@ -26,7 +26,7 @@ func (Card2011102ForesightOrb) OnPerTurn(ctx *EffectContext) error {
 	if lookCount == 0 {
 		return fmt.Errorf("预知宝珠需要牌库中有牌")
 	}
-	ctx.Source.IsHorizontal = true
+	ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, nil, ctx.Source.Card.Number)
 	looked := append([]*CardInstance(nil), ps.Deck[:lookCount]...)
 	candidates := make([]map[string]any, 0, len(looked))
 	for i, card := range looked {
@@ -44,3 +44,5 @@ func (Card2011102ForesightOrb) OnPerTurn(ctx *EffectContext) error {
 }
 
 var _ PerTurnAbility = Card2011102ForesightOrb{}
+
+func (Card2011102ForesightOrb) RepeatableActiveAbility() bool { return true }

@@ -43,6 +43,11 @@ const (
 	TempModNextDriveSpellExtraTarget    ModifierKind = "next_drive_spell_extra_target"
 	TempModNextSpellExtraTarget         ModifierKind = "next_spell_extra_target"
 	TempModCannotLearnElementSkill      ModifierKind = "cannot_learn_element_skill"
+	TempModRoyalTax                     ModifierKind = "royal_tax"
+	TempModNextFireBeastCostMinus       ModifierKind = "next_fire_beast_cost_minus"
+	TempModGameSkillAttackBonus         ModifierKind = "game_skill_attack_bonus"
+	TempModGameSkillPowerBonus          ModifierKind = "game_skill_power_bonus"
+	TempModFutureLearnedSpellPower      ModifierKind = "future_learned_spell_power"
 	TempModLavaArmorYeYanShieldBreak    ModifierKind = "lava_armor_yeyan_shield_break"
 )
 
@@ -61,6 +66,7 @@ type TemporaryModifier struct {
 	ExpiresTurn            int          `json:"expires_turn,omitempty"`
 	ExpiresAtTurnEnd       bool         `json:"expires_at_turn_end,omitempty"`
 	ExpiresOnPlayerID      int          `json:"expires_on_player_id,omitempty"`
+	CombatSpellsOnly       bool         `json:"combat_spells_only,omitempty"`
 	ExtraTargetIgnoreRange bool         `json:"extra_target_ignore_range,omitempty"`
 	AllowSameTarget        bool         `json:"allow_same_target,omitempty"`
 }
@@ -173,6 +179,10 @@ func (e *Engine) temporaryNextCardPlayCostMinus(ps *PlayerState, card *CardInsta
 			if !isConsumableOrSkillCardInstance(card) {
 				continue
 			}
+		case TempModNextFireBeastCostMinus:
+			if !isFireBeastOrMonsterCompanion(card) {
+				continue
+			}
 		case TempModNextFireCardPlayCostMinus:
 			if card.Card.Category != model.ElementFire {
 				continue
@@ -202,7 +212,7 @@ func (e *Engine) consumeNextSkillUseModifiersForPurpose(ps *PlayerState, skill *
 }
 
 func consumeSkillUseCostModifiers(modifiers []TemporaryModifier, skill *CardInstance, purpose skillPurpose) []TemporaryModifier {
-	if skill == nil {
+	if skill == nil || cardImmuneToOtherEffects(skill) {
 		return modifiers
 	}
 	kept := modifiers[:0]
@@ -261,7 +271,7 @@ func (e *Engine) consumeNextCardPlayCostModifiers(ps *PlayerState, card *CardIns
 }
 
 func consumeCardPlayCostModifiers(modifiers []TemporaryModifier, card *CardInstance) []TemporaryModifier {
-	if card == nil || card.Card == nil {
+	if card == nil || card.Card == nil || cardImmuneToOtherEffects(card) {
 		return modifiers
 	}
 	kept := modifiers[:0]
@@ -272,6 +282,8 @@ func consumeCardPlayCostModifiers(modifiers []TemporaryModifier, card *CardInsta
 			switch modifier.Type {
 			case TempModNextItemOrSkillCostMinus:
 				consume = isConsumableOrSkillCardInstance(card)
+			case TempModNextFireBeastCostMinus:
+				consume = isFireBeastOrMonsterCompanion(card)
 			case TempModNextFireCardPlayCostMinus:
 				consume = card.Card.Category == model.ElementFire
 			default:
@@ -295,7 +307,7 @@ func isConsumableOrSkillCardInstance(card *CardInstance) bool {
 
 func (e *Engine) applySkillUseCooldownModifiers(ps *PlayerState, skills ...*CardInstance) {
 	for _, skill := range skills {
-		if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
+		if skill == nil || skill.Card == nil || !skill.Card.IsSkill() || cardImmuneToOtherEffects(skill) {
 			continue
 		}
 		for i := range ps.TempModifiers {
@@ -316,6 +328,9 @@ func (e *Engine) applySkillUseCooldownModifiers(ps *PlayerState, skills ...*Card
 }
 
 func (e *Engine) shouldSkipCooldown(ps *PlayerState, skill *CardInstance) bool {
+	if cardImmuneToOtherEffects(skill) {
+		return false
+	}
 	for i := range ps.TempModifiers {
 		modifier := &ps.TempModifiers[i]
 		if modifier.Type != TempModNextNoCooldown {
@@ -332,7 +347,7 @@ func (e *Engine) shouldSkipCooldown(ps *PlayerState, skill *CardInstance) bool {
 }
 
 func (e *Engine) hasNextDriveSpellExtraTarget(ps *PlayerState, skill *CardInstance) bool {
-	if ps == nil || skill == nil || skill.Card == nil {
+	if ps == nil || skill == nil || skill.Card == nil || cardImmuneToOtherEffects(skill) {
 		return false
 	}
 	for _, modifier := range ps.TempModifiers {
@@ -348,7 +363,7 @@ func (e *Engine) hasNextDriveSpellExtraTarget(ps *PlayerState, skill *CardInstan
 }
 
 func (e *Engine) hasNextSpellExtraTarget(ps *PlayerState, skill *CardInstance) bool {
-	if ps == nil || skill == nil || skill.Card == nil {
+	if ps == nil || skill == nil || skill.Card == nil || cardImmuneToOtherEffects(skill) {
 		return false
 	}
 	for _, modifier := range ps.TempModifiers {
@@ -407,7 +422,17 @@ func (e *Engine) temporarySpellPowerBonus(playerID int, skill *CardInstance) int
 }
 
 func (e *Engine) temporarySpellPowerBonusForPurpose(playerID int, skill *CardInstance, purpose skillPurpose) int {
+	if cardImmuneToOtherEffects(skill) {
+		return 0
+	}
 	total := 0
+	for _, owner := range e.State.Players {
+		for _, modifier := range owner.TempModifiers {
+			if modifier.Type == TempModGameSkillPowerBonus && modifier.TargetInstanceID == skill.InstanceID {
+				total += modifier.Amount
+			}
+		}
+	}
 	for _, modifier := range e.State.Players[playerID].TempModifiers {
 		switch modifier.Type {
 		case TempModSkillPowerBonus:
@@ -435,6 +460,9 @@ func (e *Engine) temporarySpellPowerBonusForPurpose(playerID int, skill *CardIns
 }
 
 func (e *Engine) consumeNextSpellPowerBonuses(ps *PlayerState, skill *CardInstance) {
+	if cardImmuneToOtherEffects(skill) {
+		return
+	}
 	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
 		switch modifier.Type {
 		case TempModSkillPowerBonus:
@@ -473,7 +501,17 @@ func (e *Engine) consumeNextSpellPowerBonuses(ps *PlayerState, skill *CardInstan
 }
 
 func (e *Engine) temporarySpellDamageBonus(playerID int, skill *CardInstance) int {
+	if cardImmuneToOtherEffects(skill) {
+		return 0
+	}
 	total := 0
+	for _, owner := range e.State.Players {
+		for _, modifier := range owner.TempModifiers {
+			if modifier.Type == TempModGameSkillAttackBonus && modifier.TargetInstanceID == skill.InstanceID {
+				total += modifier.Amount
+			}
+		}
+	}
 	for _, modifier := range e.State.Players[playerID].TempModifiers {
 		if modifier.Type == TempModSkillAttackBonus {
 			if modifier.RemainingUses != 0 && (modifier.TargetInstanceID == "" || modifier.TargetInstanceID == skill.InstanceID) {
@@ -507,11 +545,14 @@ func (e *Engine) temporarySpellDamageBonus(playerID int, skill *CardInstance) in
 }
 
 func (e *Engine) consumeNextSpellAttackBonuses(ps *PlayerState, skill *CardInstance) {
+	if cardImmuneToOtherEffects(skill) {
+		return
+	}
 	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
 		if modifier.Type != TempModSkillAttackBonus && modifier.Type != TempModNextSkillUseAttackBonus {
 			continue
 		}
-		if modifier.RemainingUses == 0 {
+		if modifier.RemainingUses <= 0 {
 			continue
 		}
 		if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != skill.InstanceID {
@@ -525,6 +566,9 @@ func (e *Engine) consumeNextSpellAttackBonuses(ps *PlayerState, skill *CardInsta
 }
 
 func (e *Engine) consumeNextElementSpellDamageBonus(ps *PlayerState, skill *CardInstance) {
+	if cardImmuneToOtherEffects(skill) {
+		return
+	}
 	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
 		if modifier.Type != TempModNextElementSpellDamageBonus {
 			continue
@@ -584,7 +628,6 @@ func (e *Engine) addNextElementSpellPowerBonus(playerID int, elem string, amount
 		Status:        elem,
 		Amount:        amount,
 		RemainingUses: 1,
-		ExpiresTurn:   e.State.TurnNumber + 2,
 	})
 }
 
@@ -597,7 +640,6 @@ func (e *Engine) addNextTaggedSpellPowerBonus(playerID int, tag string, amount i
 		Status:        tag,
 		Amount:        amount,
 		RemainingUses: 1,
-		ExpiresTurn:   e.State.TurnNumber + 2,
 	})
 }
 
@@ -610,7 +652,6 @@ func (e *Engine) addNextElementSpellDamageBonus(playerID int, elem string, amoun
 		Status:        elem,
 		Amount:        amount,
 		RemainingUses: 1,
-		ExpiresTurn:   e.State.TurnNumber + 2,
 	})
 }
 

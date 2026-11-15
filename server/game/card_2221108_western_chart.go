@@ -13,7 +13,7 @@ func (Card2221108WesternChart) Name() string { return "西境航海图" }
 
 func (Card2221108WesternChart) OnEnter(ctx *EffectContext) error {
 	candidates := ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, func(skill *CardInstance) bool {
-		return skill != nil && skill.Card != nil && isSpellLikeCard(skill.Card) && skill.Card.Category == model.ElementWater
+		return skill != nil && skill.Card != nil && isCombatSpellCard(skill.Card) && skill.Card.Category == model.ElementWater
 	})
 	if len(candidates) == 0 {
 		return nil
@@ -32,7 +32,7 @@ func (Card2221108WesternChart) OnEnter(ctx *EffectContext) error {
 				return
 			}
 			skill := ctx.Engine.findSkill(ctx.Engine.State.Players[ctx.PlayerID], id)
-			if skill == nil || skill.Card == nil || !isSpellLikeCard(skill.Card) || skill.Card.Category != model.ElementWater {
+			if skill == nil || skill.Card == nil || !isCombatSpellCard(skill.Card) || skill.Card.Category != model.ElementWater {
 				return
 			}
 			for status := range ctx.Source.Statuses {

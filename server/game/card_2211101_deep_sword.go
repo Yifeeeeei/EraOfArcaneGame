@@ -10,7 +10,7 @@ func (Card2211101DeepSword) ID() string { return "2211101" }
 
 func (Card2211101DeepSword) Name() string { return "珊瑚秘宝 深邃之剑" }
 
-func (Card2211101DeepSword) OnDraw(ctx *EffectContext) error {
+func (Card2211101DeepSword) OnSelfDraw(ctx *EffectContext) error {
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil {
 		return nil
 	}
@@ -20,9 +20,9 @@ func (Card2211101DeepSword) OnDraw(ctx *EffectContext) error {
 	if ctx.Engine.currentLearnedSpellPower(ctx.OpponentID) <= ctx.Engine.currentLearnedSpellPower(ctx.PlayerID) {
 		return nil
 	}
-	targets := ctx.Engine.enemyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
-		return card != nil && card.Card != nil && card.Card.IsCompanion() && card.Position != nil &&
-			ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
+	targets := ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
+		return card != nil && card.Card != nil && card.Position != nil &&
+			ctx.Engine.isPositionInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
 	})
 	if len(targets) == 0 {
 		return nil
@@ -38,9 +38,9 @@ func (Card2211101DeepSword) OnDraw(ctx *EffectContext) error {
 				ps.RevealedHand = make(map[string]bool)
 			}
 			ps.RevealedHand[ctx.Source.InstanceID] = true
-			currentTargets := ctx.Engine.enemyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
-				return card != nil && card.Card != nil && card.Card.IsCompanion() && card.Position != nil &&
-					ctx.Engine.IsInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
+			currentTargets := ctx.Engine.enemyUnits(ctx.PlayerID, true, func(card *CardInstance) bool {
+				return card != nil && card.Card != nil && card.Position != nil &&
+					ctx.Engine.isPositionInSpellRange(ctx.PlayerID, card.Position.Col, card.Position.Row, false)
 			})
 			for _, info := range currentTargets {
 				id, _ := info["instance_id"].(string)

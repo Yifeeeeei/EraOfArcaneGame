@@ -11,6 +11,9 @@ func (Card3521108Grace) ID() string { return "3521108" }
 func (Card3521108Grace) Name() string { return "恩典" }
 
 func (Card3521108Grace) OnSpellCast(ctx *EffectContext) error {
+	if !isSpellBeingCast(ctx) {
+		return nil
+	}
 	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
 		return card != nil && card.Card != nil && card.Card.IsCompanion() && card.CurrentLife < maxLife(card)
 	})

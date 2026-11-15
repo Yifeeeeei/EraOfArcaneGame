@@ -28,10 +28,10 @@ func (Card3211102DragonSnowfield) OnSpellHit(ctx *EffectContext) error {
 		"龙吟雪域:选择法力范围内1个单位冻结1", candidates, 1, 1, nil, false,
 		func(selected []string, _ map[string]any) error {
 			target := ctx.Engine.findUnitByInstanceID(firstSelected(selected))
-			if target == nil || target.OwnerID != 1-casterID || target.Position == nil || !ctx.Engine.IsInSpellRange(casterID, target.Position.Col, target.Position.Row, false) {
+			if target == nil || target.Position == nil || (target.OwnerID != casterID && !ctx.Engine.IsInSpellRange(casterID, target.Position.Col, target.Position.Row, false)) {
 				return fmt.Errorf("invalid dragon snowfield freeze target")
 			}
-			target.Statuses[StatusFreeze]++
+			ctx.Engine.addStatus(target, StatusFreeze, 1)
 			source := ctx.Engine.findSkill(ctx.Engine.State.Players[ownerID], sourceID)
 			if source == nil {
 				return nil
@@ -65,11 +65,12 @@ func (e *Engine) dragonSnowfieldFreezeCandidates(casterID int) []map[string]any 
 			candidates = append(candidates, info)
 		}
 	}
+	candidates = append(candidates, e.friendlyUnits(casterID, true, nil)...)
 	return candidates
 }
 
 func (e *Engine) promptDragonSnowfieldSummon(ownerID int, source *CardInstance) {
-	if e == nil || source == nil || source.Statuses[dragonSnowfieldTriggerStatus] < 5 || ownerID < 0 || ownerID >= len(e.State.Players) {
+	if e == nil || source == nil || source.Statuses[dragonSnowfieldTriggerStatus] != 5 || ownerID < 0 || ownerID >= len(e.State.Players) {
 		return
 	}
 	positions := e.friendlyEmptyUnitPositions(ownerID)
@@ -88,13 +89,16 @@ func (e *Engine) promptDragonSnowfieldSummon(ownerID int, source *CardInstance) 
 				return fmt.Errorf("invalid dragon snowfield summon position")
 			}
 			source := e.findSkill(e.State.Players[ownerID], sourceID)
-			if source == nil || source.Statuses[dragonSnowfieldTriggerStatus] < 5 {
+			if source == nil || source.Statuses[dragonSnowfieldTriggerStatus] != 5 {
 				return nil
 			}
 			if e.summonFreshCardAtPosition(ownerID, "1201101", pos, true) == nil {
 				return fmt.Errorf("failed to summon frost dragon")
 			}
-			source.Statuses[dragonSnowfieldTriggerStatus] -= 5
 			return nil
 		})
+}
+
+func (Card3211102DragonSnowfield) HasActiveSpellHit(card *CardInstance) bool {
+	return abilityDurationActive(card)
 }

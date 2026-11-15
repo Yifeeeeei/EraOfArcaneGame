@@ -45,7 +45,7 @@ func (e *Engine) resolveDamage(target *CardInstance, amount int, ownerID int, ex
 	for key, value := range extraData {
 		damageData[key] = value
 	}
-	if e.temporaryDamageAndNegativeImmunityActive(target) {
+	if e.temporaryDamageAndNegativeImmunityActive(target) || target.Statuses[scatterAwayUntilPlayerStartStatus] > 0 {
 		e.emit(GameEvent{
 			Type:   "damage_prevented",
 			Player: -1,
@@ -162,6 +162,9 @@ func (e *Engine) resolveDamage(target *CardInstance, amount int, ownerID int, ex
 func (e *Engine) commitDamage(target *CardInstance, amount int, ownerID int, damageData, extraData map[string]any) {
 	target.CurrentLife -= amount
 	target.DamageTakenThisTurn += amount
+	if ownerID >= 0 && ownerID < len(e.State.Players) {
+		e.State.Players[ownerID].friendlyUnitDamageThisTurn += amount
+	}
 	if target.Card != nil && target.Card.IsHero() && ownerID >= 0 && ownerID < len(e.State.Players) {
 		e.State.Players[ownerID].HeroDamageTakenThisTurn += amount
 	}

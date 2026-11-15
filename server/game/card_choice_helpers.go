@@ -123,7 +123,7 @@ func (r royalInfusionRune) Name() string { return r.name }
 
 func (r royalInfusionRune) OnUseItem(ctx *EffectContext) error {
 	candidates := ctx.Engine.friendlySkillsIncludingBound(ctx.PlayerID, func(skill *CardInstance) bool {
-		return skill != nil && skill.Card != nil && isSpellLikeCard(skill.Card)
+		return skill != nil && skill.Card != nil && isCombatSpellCard(skill.Card)
 	})
 	if len(candidates) == 0 {
 		return nil
@@ -132,7 +132,7 @@ func (r royalInfusionRune) OnUseItem(ctx *EffectContext) error {
 		r.name+":选择你的1个法术永久强化", candidates, 1, 1,
 		func(selected []string) {
 			skill := ctx.Engine.findSkill(ctx.Engine.State.Players[ctx.PlayerID], firstSelected(selected))
-			if skill == nil || skill.Card == nil || !isSpellLikeCard(skill.Card) {
+			if skill == nil || skill.Card == nil || !isCombatSpellCard(skill.Card) {
 				return
 			}
 			skill.PowerBonus += r.powerBonus
@@ -147,8 +147,8 @@ func (e *Engine) promptCounterWindHoleScroll(counter *CardInstance, original *Ca
 		return
 	}
 	ownerID := counter.OwnerID
-	candidates := e.enemyUnits(ownerID, false, func(unit *CardInstance) bool {
-		return unit != nil && unit.Card != nil && unit.Card.IsCompanion()
+	candidates := e.enemyUnits(ownerID, true, func(unit *CardInstance) bool {
+		return unit != nil && unit.Card != nil && !e.hasStealthFromOpponent(ownerID, unit)
 	})
 	if len(candidates) == 0 {
 		return
@@ -163,7 +163,7 @@ func (e *Engine) promptCounterWindHoleScroll(counter *CardInstance, original *Ca
 			}
 			virtual := e.cloneVirtualSpell(original, ownerID, e.State.TurnNumber)
 			boosts := e.cloneSpellInstances(spellInstancesFromData(extraData, "boost_skills"), ownerID, e.State.TurnNumber)
-			target := SpellTarget{Type: "unit", Position: *targetUnit.Position}
+			target := SpellTarget{Type: "unit", Position: *targetUnit.Position, ignoreRange: true}
 			if targetUnit.OwnerID == ownerID {
 				target.OwnerID = &ownerID
 			}

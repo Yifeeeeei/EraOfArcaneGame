@@ -29,7 +29,7 @@ func (e *Engine) pendingSpellAffectedPositions(spell *SpellCast) []map[string]in
 		} else {
 			col := spell.Target.Position.Col
 			row := spell.Target.Position.Row
-			switch e.effectiveSpellArea(spell.Skill) {
+			switch e.spellAreaForTarget(spell.Skill, spell.Target) {
 			case SpellAreaSquare:
 				origin := squareAreaOrigin(spell.Target)
 				startCol, startRow := origin.Col, origin.Row

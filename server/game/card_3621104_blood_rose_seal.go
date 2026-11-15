@@ -15,7 +15,7 @@ func (Card3621104BloodRoseSeal) OnEnter(ctx *EffectContext) error {
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil {
 		return nil
 	}
-	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, false, nil)
+	candidates := ctx.Engine.enemyUnits(ctx.PlayerID, true, func(unit *CardInstance) bool { return !ctx.Engine.hasStealthFromOpponent(ctx.PlayerID, unit) })
 	if len(candidates) == 0 {
 		return nil
 	}
@@ -27,7 +27,11 @@ func (Card3621104BloodRoseSeal) OnEnter(ctx *EffectContext) error {
 				return fmt.Errorf("invalid blood rose seal target")
 			}
 			target.Statuses[bloodRoseSealMarkerStatus(ctx.Source)] = 1
-			ctx.Source.Statuses[bloodRoseSealExpireTurnStatus] = ctx.Engine.State.TurnNumber + 2
+			until := ctx.Engine.turnOrdinal() + 1
+			if ctx.Engine.State.CurrentTurn == ctx.PlayerID {
+				until++
+			}
+			ctx.Source.Statuses[bloodRoseSealExpireTurnStatus] = until
 			ctx.Engine.emit(GameEvent{
 				Type:   "blood_rose_seal_mark",
 				Player: -1,
@@ -46,7 +50,7 @@ func (Card3621104BloodRoseSeal) OnEnemyDeath(ctx *EffectContext) error {
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.Source.Card == nil {
 		return nil
 	}
-	if ctx.Source.Statuses[bloodRoseSealExpireTurnStatus] > 0 && ctx.Engine.State.TurnNumber > ctx.Source.Statuses[bloodRoseSealExpireTurnStatus] {
+	if ctx.Source.Statuses[bloodRoseSealExpireTurnStatus] > 0 && ctx.Engine.turnOrdinal() > ctx.Source.Statuses[bloodRoseSealExpireTurnStatus] {
 		return nil
 	}
 	if ctx.Target.Statuses[bloodRoseSealMarkerStatus(ctx.Source)] <= 0 {
@@ -85,7 +89,7 @@ func (Card3621104BloodRoseSeal) OnTurnEnd(ctx *EffectContext) error {
 		return nil
 	}
 	expires := ctx.Source.Statuses[bloodRoseSealExpireTurnStatus]
-	if expires <= 0 || ctx.Engine.State.TurnNumber < expires {
+	if expires <= 0 || ctx.Engine.turnOrdinal() < expires {
 		return nil
 	}
 	delete(ctx.Source.Statuses, bloodRoseSealExpireTurnStatus)

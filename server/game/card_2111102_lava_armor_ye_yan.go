@@ -1,5 +1,7 @@
 package game
 
+import "fmt"
+
 type Card2111102LavaArmorYeYan struct{ AlwaysActive }
 
 func (Card2111102LavaArmorYeYan) ID() string { return "2111102" }
@@ -85,50 +87,75 @@ func (e *Engine) equipCardFromHandOrDeckFree(playerID int, number string) *CardI
 	if e == nil || number == "" || playerID < 0 || playerID >= len(e.State.Players) {
 		return nil
 	}
-	slot := e.firstFreeEquipmentSlot(playerID)
-	if slot < 0 {
-		return nil
-	}
 	ps := e.State.Players[playerID]
 	var card *CardInstance
-	for i, handCard := range ps.Hand {
-		if handCard != nil && handCard.Card != nil && handCard.Card.Number == number {
-			card = handCard
-			ps.RemoveFromHand(i)
+	for _, candidate := range append(append([]*CardInstance(nil), ps.Hand...), ps.Deck...) {
+		if candidate != nil && candidate.Card != nil && candidate.Card.Number == number && isEquipmentCard(candidate.Card) {
+			card = candidate
 			break
 		}
 	}
 	if card == nil {
-		for i, deckCard := range ps.Deck {
-			if deckCard != nil && deckCard.Card != nil && deckCard.Card.Number == number {
-				card = deckCard
-				ps.Deck = append(ps.Deck[:i], ps.Deck[i+1:]...)
-				break
-			}
-		}
-	}
-	if card == nil || card.Card == nil || !card.Card.IsItem() || !isEquipmentCard(card.Card) {
 		return nil
 	}
-	card.OwnerID = playerID
-	card.Position = nil
-	card.IsSetCounter = false
-	card.IsHorizontal = true
-	card.SlotIndex = slot
-	card.EnterTurn = e.State.TurnNumber
-	ps.Equipment[slot] = card
-	e.emit(GameEvent{
-		Type:   "equip",
-		Player: -1,
-		Data: map[string]any{
-			"player": playerID,
-			"card":   cardToInfo(card),
-			"slot":   slot,
-			"free":   true,
-		},
-	})
-	e.triggerEffects(TriggerOnEquip, card, nil, nil)
-	e.triggerEffects(TriggerOnEnter, card, nil, nil)
-	e.notifyCardEntered(playerID, card, map[string]any{"entered_player": playerID, "equipped": true, "free": true})
-	return card
+	equip := func(replaceID string) error {
+		slot, replaced, err := prepareEquipmentPlacement(ps, card, replaceID)
+		if err != nil {
+			return err
+		}
+		fromDeck := false
+		if current, index := ps.FindHandCard(card.InstanceID); current == card {
+			ps.RemoveFromHand(index)
+		} else {
+			found := false
+			for i, current := range ps.Deck {
+				if current == card {
+					ps.Deck = append(ps.Deck[:i], ps.Deck[i+1:]...)
+					found = true
+					fromDeck = true
+					break
+				}
+			}
+			if !found {
+				return fmt.Errorf("equipment is no longer in hand or deck")
+			}
+		}
+		if replaced != nil {
+			e.moveEquipmentToGraveyard(playerID, slot, replaced)
+		}
+		card.OwnerID = playerID
+		card.Position = nil
+		card.IsSetCounter = false
+		card.IsHorizontal = true
+		card.SlotIndex = slot
+		card.EnterTurn = e.State.TurnNumber
+		ps.Equipment[slot] = card
+		if fromDeck {
+			e.shuffleDeck(playerID)
+		}
+		e.emit(GameEvent{Type: "equip", Player: -1, Data: map[string]any{"player": playerID, "card": cardToInfo(card), "slot": slot, "free": true}})
+		e.triggerEffects(TriggerOnEquip, card, nil, nil)
+		e.triggerEffects(TriggerOnEnter, card, nil, nil)
+		e.notifyCardEntered(playerID, card, map[string]any{"entered_player": playerID, "equipped": true, "free": true})
+		return nil
+	}
+	if _, _, err := prepareEquipmentPlacement(ps, card, ""); err == nil {
+		if equip("") == nil {
+			return card
+		}
+		return nil
+	}
+	candidates := []map[string]any{}
+	for _, equipment := range ps.Equipment {
+		if equipment == nil {
+			continue
+		}
+		if _, _, err := prepareEquipmentPlacement(ps, card, equipment.InstanceID); err == nil {
+			candidates = append(candidates, candidateInfo(equipment, "equipment", "own"))
+		}
+	}
+	if len(candidates) > 0 {
+		e.SetPendingActionWithError(playerID, "free_equip_replacement", "免费装备：选择要替换的竖置装备", candidates, 1, 1, nil, false, func(selected []string, _ map[string]any) error { return equip(firstSelected(selected)) })
+	}
+	return nil
 }

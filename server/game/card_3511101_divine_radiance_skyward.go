@@ -18,6 +18,9 @@ func (Card3511101DivineRadianceSkyward) ModifySkillContribution(ctx *EffectConte
 }
 
 func (Card3511101DivineRadianceSkyward) OnSpellHit(ctx *EffectContext) error {
+	if !isOwnSpellHit(ctx) {
+		return nil
+	}
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Source.Card == nil || ctx.Source.Card.Number != "3511101" {
 		return nil
 	}

@@ -42,7 +42,7 @@ func markTemporaryDamageAndNegativeImmunity(e *Engine, card *CardInstance) {
 	if e == nil || card == nil {
 		return
 	}
-	card.Statuses[temporaryDamageAndNegativeImmunityUntilStatus] = e.State.TurnNumber + 1
+	card.Statuses[temporaryDamageAndNegativeImmunityUntilStatus] = e.turnOrdinal() + 1
 }
 
 func (e *Engine) adjacentEmptyUnitPositions(playerID int, center Position) []map[string]any {
@@ -97,10 +97,10 @@ func (e *Engine) continueSupremeQueenSummons(ctx *EffectContext, selected []stri
 			if card == nil || card.Card == nil || !card.Card.IsCompanion() || card.Card.Category != model.ElementFire {
 				return fmt.Errorf("invalid queen summon card")
 			}
+			markTemporaryDamageAndNegativeImmunity(e, card)
 			if !e.placeExistingCompanionAtPosition(ctx.PlayerID, card, pos, true) {
 				return fmt.Errorf("queen summon failed")
 			}
-			markTemporaryDamageAndNegativeImmunity(e, card)
 			if e.State.PendingAction != nil {
 				e.continueAfterPendingAction(func() {
 					e.continueSupremeQueenSummons(ctx, selected, index+1)

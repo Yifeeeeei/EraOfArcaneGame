@@ -31,9 +31,8 @@ func (Card1221108HeartLotusMirrorMage) OnSpellCast(ctx *EffectContext) error {
 					return
 				}
 				card := drawn[0]
-				if isCounterTrapCard(card.Card.Number) && ctx.Engine.freeEquipmentSlots(ctx.PlayerID) > 0 {
-					makeEntryCostZero(card)
-					ctx.Engine.setHandCounterTrapFree(ctx.PlayerID, card)
+				if isCounterTrapCard(card.Card.Number) {
+					ctx.Engine.promptSetCounterFromHand(ctx.PlayerID, card, true)
 				}
 			})
 			if len(drawn) == 0 {

@@ -41,7 +41,7 @@ func (Card2621107CurseBox) OnPerTurn(ctx *EffectContext) error {
 					continue
 				}
 				seen[id] = true
-				for _, skill := range ctx.Engine.State.Players[ctx.OpponentID].Skills {
+				for _, skill := range ctx.Engine.ruleSources(ctx.Engine.State.Players[ctx.OpponentID]) {
 					if skill != nil && skill.InstanceID == id && canInstanceBeWeakened(skill) {
 						ctx.Engine.addStatus(skill, StatusWeaken, 1)
 						ctx.Source.Statuses[curseBoxMarkerStatus]--
