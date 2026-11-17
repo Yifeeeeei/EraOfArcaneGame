@@ -13,7 +13,7 @@
 </head>
 <body>
     <div id="app" v-cloak>
-        <header class="site-header"><a class="brand" href="/"><span v-html="crest"></span><span><strong>奥术纪元</strong><small>ERA OF ARCANE</small></span></a><nav class="site-nav"><a href="/">大厅</a><a href="/decks.html">卡组与图鉴</a><a href="/stories.html">故事</a><a class="active" href="/card-test.html">测试台</a><button class="btn icon-btn" data-open-settings aria-label="界面设置">⚙</button></nav></header>
+        <header class="site-header"><a class="brand" href="/"><span v-html="crest"></span><span><strong>奥术纪元</strong><small>ERA OF ARCANE</small></span></a><nav class="site-nav"><a href="/">大厅</a><a href="/decks.html">卡组与图鉴</a><a href="https://yifeeeeei.github.io/EraOfArcane/world/" target="_blank" rel="noopener">设定集 ↗</a><a class="active" href="/card-test.html">测试台</a><button class="btn icon-btn" data-open-settings aria-label="界面设置">⚙</button></nav></header>
 
         <div v-if="requestError" class="notice-error workbench-error" role="alert">{{ requestError }} <button class="mini-btn" @click="requestError=''">关闭</button></div>
         <main class="lab">
