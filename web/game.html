@@ -510,7 +510,7 @@
                                                      :class="{horizontal: entry.card.is_horizontal}">
                                                 <div class="equipment-actions" v-if="isMyTurn && gameState.phase === 'main'">
                                                     <button v-if="canConsumeUnit(entry.card)"
-                                                            class="action-btn consume small" @click.stop="consumeCard(entry.card)">消耗</button>
+                                                            class="action-btn consume small" @click.stop="consumeCard(entry.card)">消耗产元素</button>
                                                     <button v-if="canAttackWith(entry.card)"
                                                             class="action-btn attack small" @click.stop="selectAttacker(entry.card)">攻击</button>
                                                     <button v-if="canUsePerTurn(entry.card)"
@@ -658,7 +658,7 @@
             <div class="overlay-content interaction-panel defense-panel"
 
                  @contextmenu.prevent="showInteractionCardContextMenu($event)">
-                <button class="defense-incoming" data-inspect @mouseenter="pendingSpellView?.skill && previewCard(pendingSpellView.skill)" @click="pendingSpellView?.skill && showCardDetail(pendingSpellView.skill)">来袭：{{ pendingSpellView?.skill?.name }} → {{ pendingSpellTargetLabel() }} · 威力 {{ pendingAttackPower() }}{{ pendingSpellExtraTargetLabels().length ? '；追加目标：'+pendingSpellExtraTargetLabels().join('、') : '' }}</button>
+                <button class="defense-incoming" data-inspect @mouseenter="pendingSpellView?.skill && previewCard(pendingSpellView.skill)" @click="pendingSpellView?.skill && showCardDetail(pendingSpellView.skill)">来袭：{{ pendingSpellView?.skill?.name }} → {{ pendingSpellTargetLabel() }} · 威力 {{ pendingAttackPower() }}{{ pendingSpellExtraTargetLabels().length ? '；追加目标：'+pendingSpellExtraTargetLabels().join('、') : '' }} · 查看详情</button>
                 <nav class="defense-steps" aria-label="防御步骤">
                     <button v-for="(label,index) in ['防御','强化','透支','付款']" :aria-current="defenseStep===index?'step':null" :disabled="index>0 && !defenseSelected.length && !defenseScrollSelected.length && !defenseReactionCard" @click="goDefenseStep(index)">{{ index+1 }} · {{ label }}</button>
                 </nav>
