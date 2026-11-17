@@ -163,13 +163,17 @@
           busy.value = false;
         }
       }
-      async function createRoom() {
+      async function createRoom(solo = false) {
         if (busy.value) return;
         error.value = "";
         busy.value = true;
         try {
           if (!(await validate())) return;
-          const room = await UI.request("/api/room/create", { method: "POST" });
+          const room = await UI.request(solo ? "/api/solo/create" : "/api/room/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(solo ? { profile: "royal-fire-aggro-v1" } : {}),
+          });
           joinRoomID.value = room.room_id;
           enter();
         } catch (e) {

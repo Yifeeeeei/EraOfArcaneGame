@@ -61,6 +61,7 @@
                 <div class="result-crest" v-html="crest"></div>
                 <h2 id="result-title" :class="resultKind">{{ resultTitle }}</h2>
                 <div class="result-motto">{{ resultMotto }}</div>
+                <p v-if="gameState.bot_error" class="notice-error" role="alert">{{ gameState.bot_error }}</p>
                 <div class="result-stats"><div><strong>{{ String(gameState.turn_number || 0).padStart(2,'0') }}</strong><small>结束回合</small></div><div v-if="resultHero"><strong>{{ resultHero.current_life }} / {{ resultHero.max_life ?? resultHero.life }}</strong><small>{{ isSpectator ? (gameState.winner === -2 ? '玩家1人物生命' : '获胜人物生命') : '人物剩余生命' }}</small></div><div><strong>{{ roomID }}</strong><small>对局房间</small></div></div>
                 <p class="result-summary">{{ resultSummary }}</p><p class="result-hero-name">{{ resultHero?.name }}</p>
                 <div class="scene-actions"><button class="btn" @click="resultDismissed=true;railTab='events'">查看战场与记录</button><a href="/" class="btn btn-primary">返回大厅 →</a></div>

@@ -210,7 +210,7 @@
                 if (s.phase === 'game_over') return '对局结束';
                 if (s.phase === 'mulligan') return '双方起手';
                 if (isSpectator) return `等待玩家${Number(s.decision_player)+1}`;
-                return s.decision_player === mySlot.value ? '由你决定' : `等待玩家${Number(s.decision_player) + 1}`;
+                return s.decision_player === mySlot.value ? '由你决定' : s.bot_opponent ? 'AI 思考中' : `等待玩家${Number(s.decision_player) + 1}`;
             });
             const workspaceMode = computed(() => {
                 if (actionDraft.value) return 'review';

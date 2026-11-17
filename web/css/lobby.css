@@ -241,3 +241,5 @@
 .saved-matches { margin-bottom: 1rem; border-bottom: 1px solid var(--border, #63513a); padding-bottom: 1rem; }
 .saved-match { display: flex; gap: .5rem; align-items: center; margin: .4rem 0; flex-wrap: wrap; }
 .saved-match > span { flex: 1; }
+/* The practice entry uses the same compact tabletop controls as room entry. */
+.solo-caption { font-size: 12px; line-height: 1.6; margin: 8px 0 14px; }

@@ -126,11 +126,15 @@
             </div>
             <button
               class="btn btn-primary enter-match"
-              @click="createRoom"
+              @click="createRoom(false)"
               :disabled="busy || !selectedDeck"
             >
               {{ busy?'正在准备…':'创建对局' }}
             </button>
+            <button class="btn enter-match" @click="createRoom(true)" :disabled="busy || !selectedDeck" data-solo-start>
+              单人练习 · 对战快攻火 AI
+            </button>
+            <p class="muted solo-caption">王权纷争 · 维兰德。使用当前卡组挑战固定策略对手。</p>
             <div class="join-inline">
               <input
                 class="input-field"
