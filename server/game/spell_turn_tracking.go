@@ -19,7 +19,7 @@ func (e *Engine) recordSpellCast(playerID int, skill *CardInstance) {
 	ps.SpellsCastThisTurn[skill.Card.Category]++
 	ps.SpellsCastByNumberThisTurn[skill.Card.Number]++
 	if skill.Card.Category == model.ElementWater && isSpellLikeCard(skill.Card) && totalElementCost(skillUseCost(skill.Card)) < 3 {
-		ps.LastLowCostWaterSpell = cloneVirtualSpell(skill, playerID, e.State.TurnNumber)
+		ps.LastLowCostWaterSpell = e.cloneVirtualSpell(skill, playerID, e.State.TurnNumber)
 	}
 }
 
@@ -29,6 +29,7 @@ func clearSpellCastTracking(ps *PlayerState) {
 	}
 	ps.SpellsCastThisTurn = make(map[string]int)
 	ps.SpellsCastByNumberThisTurn = make(map[string]int)
+	ps.SpellAttacksThisTurn = 0
 }
 
 func (e *Engine) recordSpellHitStats(playerID int, targetCount, damage int) {
@@ -72,4 +73,11 @@ func totalSpellsCastThisTurn(ps *PlayerState) int {
 		total += count
 	}
 	return total
+}
+
+func (e *Engine) recordSpellAttack(playerID int, skill *CardInstance) {
+	e.recordSpellCast(playerID, skill)
+	if skill != nil && isCombatSpellCard(skill.Card) {
+		e.State.Players[playerID].SpellAttacksThisTurn++
+	}
 }

@@ -2,7 +2,8 @@ package game
 
 type Card3521001Healing struct{ AlwaysActive }
 
-func (Card3521001Healing) ID() string   { return "3521001" }
+func (Card3521001Healing) ID() string { return "3521001" }
+
 func (Card3521001Healing) Name() string { return "治疗术" }
 
 func (Card3521001Healing) AllowsFriendlySpellTarget() bool {

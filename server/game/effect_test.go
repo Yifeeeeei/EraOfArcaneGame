@@ -90,6 +90,7 @@ func TestEffectRegistry(t *testing.T) {
 func TestRegisterAllCardEffectsIsLazy(t *testing.T) {
 	previousRegistry := globalRegistry
 	t.Cleanup(func() { globalRegistry = previousRegistry })
+	globalRegistry = NewEffectRegistry()
 
 	RegisterAllCardEffects()
 
@@ -108,6 +109,7 @@ func TestRegisterAllCardEffectsIsLazy(t *testing.T) {
 func TestCardRuleInfoDoesNotMaterializeLazyBehaviors(t *testing.T) {
 	previousRegistry := globalRegistry
 	t.Cleanup(func() { globalRegistry = previousRegistry })
+	globalRegistry = NewEffectRegistry()
 
 	if cards.CardDB == nil {
 		if err := cards.LoadCards(); err != nil {
@@ -402,7 +404,7 @@ func TestRoyalConflictPublicSpecialZones(t *testing.T) {
 	}
 
 	engine.destroyUnit(host, 0)
-	if len(p0.Graveyard) != 2 || p0.Graveyard[0] != under || p0.Graveyard[1] != host || len(host.UnderCards) != 0 {
+	if len(p0.Graveyard) != 2 || !sameCardInstance(p0.Graveyard[0], under) || !sameCardInstance(p0.Graveyard[1], host) || len(host.UnderCards) != 0 {
 		t.Fatalf("destroying host should release under cards before host, graveyard=%v hostUnder=%v", cardsToInfo(p0.Graveyard), cardsToInfo(host.UnderCards))
 	}
 
@@ -411,7 +413,7 @@ func TestRoyalConflictPublicSpecialZones(t *testing.T) {
 	if !engine.exileCard(0, exiled) {
 		t.Fatal("expected graveyard card to be exiled")
 	}
-	if len(p0.Exile) != 1 || p0.Exile[0] != exiled {
+	if len(p0.Exile) != 1 || !sameCardInstance(p0.Exile[0], exiled) {
 		t.Fatalf("exile zone should contain moved card, exile=%v", cardsToInfo(p0.Exile))
 	}
 	for _, card := range p0.Graveyard {
@@ -537,10 +539,11 @@ func TestRoyalConflictAdditionalSpellBehaviors(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		p0.Skills[0] = readySkill(baseCard(t, "3321105"), 0)
+		p0.Skills[0].Statuses[StatusAbilityDuration] = 1
 		target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
 		target.CurrentLife = 2
 		engine.dealDamageWithExtra(target, 1, 1, map[string]any{"damage_source": "effect", "attacker": 0})
-		if engine.State.Players[1].Units[0][0] != nil || len(engine.State.Players[1].Graveyard) != 1 || engine.State.Players[1].Graveyard[0] != target {
+		if engine.State.Players[1].Units[0][0] != nil || len(engine.State.Players[1].Graveyard) != 1 || !sameCardInstance(engine.State.Players[1].Graveyard[0], target) {
 			t.Fatalf("3321105 should destroy damaged one-life unit, unit=%v grave=%v", cardToInfo(engine.State.Players[1].Units[0][0]), cardsToInfo(engine.State.Players[1].Graveyard))
 		}
 	})
@@ -756,7 +759,7 @@ func TestRoyalConflictEmeraldBarrierScrollCountsSkillDifference(t *testing.T) {
 	engine := setupReportedBugEngine(t)
 	p0 := engine.State.Players[0]
 	p1 := engine.State.Players[1]
-	p0.Skills[0] = readySkill(baseCard(t, "3021005"), 0)
+	p0.Skills[0] = readySkill(baseCard(t, "3121001"), 0)
 	p1.Skills[0] = readySkill(baseCard(t, "3121001"), 1)
 	p1.Skills[1] = readySkill(baseCard(t, "3221001"), 1)
 	p1.Skills[2] = readySkill(baseCard(t, "3321005"), 1)
@@ -769,8 +772,8 @@ func TestRoyalConflictEmeraldBarrierScrollCountsSkillDifference(t *testing.T) {
 		t.Fatalf("2421107 should gain shield equal to enemy skill surplus, got %d", p0.Shield)
 	}
 
-	p0.Skills[1] = readySkill(baseCard(t, "3021005"), 0)
-	p0.Skills[2] = readySkill(baseCard(t, "3021005"), 0)
+	p0.Skills[1] = readySkill(baseCard(t, "3121001"), 0)
+	p0.Skills[2] = readySkill(baseCard(t, "3121001"), 0)
 	p0.Shield = 0
 	if err := (Card2421107EmeraldBarrierScroll{}).OnUseItem(&EffectContext{Engine: engine, Source: scroll, PlayerID: 0, OpponentID: 1}); err != nil {
 		t.Fatalf("emerald barrier scroll tied count: %v", err)
@@ -839,7 +842,7 @@ func TestRoyalConflictDemonChildRequiresShadowCompanionDevour(t *testing.T) {
 	}}); err != nil {
 		t.Fatalf("summon demon child with shadow companion devour: %v", err)
 	}
-	if p0.Units[0][0] != demon || len(p0.Graveyard) != 1 || p0.Graveyard[0] != sacrifice {
+	if p0.Units[0][0] != demon || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], sacrifice) {
 		t.Fatalf("1621108 should enter after devouring shadow companion, unit=%v grave=%v", cardToInfo(p0.Units[0][0]), cardsToInfo(p0.Graveyard))
 	}
 
@@ -945,7 +948,7 @@ func TestRoyalConflictShieldCardBehaviors(t *testing.T) {
 		t.Fatalf("2021113 should be eligible when an enemy spell hits, candidates=%v", candidates)
 	}
 	barrierEngine.executeCounterTrap(barrier, TriggerOnSpellHitBeforeDamage, enemySpell, map[string]any{"attacker": 1})
-	if barrierP0.Shield != 2 || barrierP0.Equipment[0] != nil || len(barrierP0.Graveyard) != 1 || barrierP0.Graveyard[0] != barrier {
+	if barrierP0.Shield != 2 || barrierP0.Equipment[0] != nil || len(barrierP0.Graveyard) != 1 || !sameCardInstance(barrierP0.Graveyard[0], barrier) {
 		t.Fatalf("2021113 should gain shield 2 then be discarded, shield=%d equipment=%v grave=%v", barrierP0.Shield, barrierP0.Equipment, cardsToInfo(barrierP0.Graveyard))
 	}
 
@@ -1373,6 +1376,7 @@ func TestRoyalConflictLightweightSpellAndItemEffects(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		p0.Skills[0] = readySkill(baseCard(t, "3321107"), 0)
+		p0.Skills[0].Statuses[StatusAbilityDuration] = 1
 		airSpell := readySkill(baseCard(t, "3321101"), 0)
 		fireSpell := readySkill(baseCard(t, "3121001"), 0)
 
@@ -1824,7 +1828,7 @@ func TestRoyalConflictLightweightSpellAndItemEffects(t *testing.T) {
 			t.Fatalf("2121110 should ask which fire spell to exile, pending=%+v", engine.State.PendingAction)
 		}
 		resolvePendingSelection(t, engine, 0, exiled.InstanceID)
-		if len(p0.Exile) != 1 || p0.Exile[0] != exiled || p0.Skills[0] != nil {
+		if len(p0.Exile) != 1 || !sameCardInstance(p0.Exile[0], exiled) || p0.Skills[0] != nil {
 			t.Fatalf("2121110 should exile the selected fire spell, exile=%v skills=%v", cardsToInfo(p0.Exile), cardsToInfo(p0.Skills[:]))
 		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "offering_torch_buff" {
@@ -1873,13 +1877,9 @@ func TestRoyalConflictLightweightSpellAndItemEffects(t *testing.T) {
 			t.Fatalf("2121101 should ask which fire skill to exile, pending=%+v", engine.State.PendingAction)
 		}
 		resolvePendingSelection(t, engine, 0, source.InstanceID)
-		if len(p0.Exile) != 1 || p0.Exile[0] != source || len(p0.SkillPool) != 0 {
+		if len(p0.Exile) != 1 || !sameCardInstance(p0.Exile[0], source) || len(p0.SkillPool) != 0 {
 			t.Fatalf("2121101 should exile selected fire skill from field or pool, exile=%v pool=%v", cardsToInfo(p0.Exile), cardsToInfo(p0.SkillPool))
 		}
-		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "lavafort_ashes_search_fire_card" || len(engine.State.PendingAction.Candidates) != 1 {
-			t.Fatalf("2121101 should offer only higher-cost fire deck cards, pending=%+v", engine.State.PendingAction)
-		}
-		resolvePendingSelection(t, engine, 0, target.InstanceID)
 		if len(p0.Hand) != 1 || p0.Hand[0] != target {
 			t.Fatalf("2121101 should search selected fire card to hand, hand=%v", cardsToInfo(p0.Hand))
 		}
@@ -1910,13 +1910,14 @@ func TestRoyalConflictLightweightSpellAndItemEffects(t *testing.T) {
 		enemyA.Statuses[StatusWeaken] = 2
 
 		if err := engine.handleLearnSkill(0, ActionMessage{Action: "learn_skill", Data: map[string]any{"instance_id": claw.InstanceID}}); err == nil {
-			t.Fatal("3611102 should require at least three weakened enemy spell layers to learn")
+			t.Fatal("3611102 should require at least three distinct weakened enemy spells to learn")
 		}
 		enemyB.Statuses[StatusWeaken] = 1
+		enemyC.Statuses[StatusWeaken] = 1
 		if err := engine.handleLearnSkill(0, ActionMessage{Action: "learn_skill", Data: map[string]any{"instance_id": claw.InstanceID}}); err != nil {
-			t.Fatalf("3611102 should learn once enemy spell weaken layers reach three: %v", err)
+			t.Fatalf("3611102 should learn once three distinct enemy spells are weakened: %v", err)
 		}
-		if got := engine.effectiveSpellPower(0, claw, nil); got != claw.Card.Power+3 {
+		if got := engine.effectiveSpellPower(0, claw, nil); got != claw.Card.Power+4 {
 			t.Fatalf("3611102 should gain power for enemy weakened spell layers, got=%d base=%d", got, claw.Card.Power)
 		}
 
@@ -1925,7 +1926,7 @@ func TestRoyalConflictLightweightSpellAndItemEffects(t *testing.T) {
 			t.Fatalf("3611102 should prompt to weaken enemy spells after use, pending=%+v", engine.State.PendingAction)
 		}
 		resolvePendingSelection(t, engine, 0, enemyA.InstanceID, enemyB.InstanceID, enemyC.InstanceID)
-		if enemyA.Statuses[StatusWeaken] != 3 || enemyB.Statuses[StatusWeaken] != 2 || enemyC.Statuses[StatusWeaken] != 1 {
+		if enemyA.Statuses[StatusWeaken] != 3 || enemyB.Statuses[StatusWeaken] != 2 || enemyC.Statuses[StatusWeaken] != 2 {
 			t.Fatalf("3611102 should weaken up to three different enemy spells, a=%v b=%v c=%v", enemyA.Statuses, enemyB.Statuses, enemyC.Statuses)
 		}
 	})
@@ -2000,6 +2001,9 @@ func TestRoyalConflictRadiantAngelLetsAnyElementPayLightCosts(t *testing.T) {
 	}
 
 	angel := placeUnit(baseCard(t, "1521109"), 0, 0, 0, engine)
+	if enabled, _ := engine.playerStateToInfo(p0, true)["light_cost_wildcard"].(bool); !enabled {
+		t.Fatal("frontend must see the active any-element-for-light payment rule")
+	}
 	if !engine.canPayCostForCardAction(p0, lightCard, cost, cost, paymentPurposePlay, ActionMessage{}) {
 		t.Fatal("1521109 should let other elements pay light costs")
 	}
@@ -2009,6 +2013,9 @@ func TestRoyalConflictRadiantAngelLetsAnyElementPayLightCosts(t *testing.T) {
 
 	p0.Elements = cloneElements(map[string]int{model.ElementFire: 5})
 	angel.Statuses[StatusPetrify] = 1
+	if enabled, _ := engine.playerStateToInfo(p0, true)["light_cost_wildcard"].(bool); enabled {
+		t.Fatal("frontend must stop offering light-cost alternatives after the source is petrified")
+	}
 	if engine.canPayCostForCardAction(p0, lightCard, cost, cost, paymentPurposePlay, ActionMessage{}) {
 		t.Fatal("petrified 1521109 should not enable other elements as light")
 	}
@@ -2045,7 +2052,7 @@ func TestRoyalConflictCouncilSpokesmanReducesEnemyHandLimit(t *testing.T) {
 		t.Fatalf("1311103 should force immediate discard after exceeding reduced hand limit, pending=%+v", engine.State.PendingAction)
 	}
 	resolvePendingSelection(t, engine, 1, drawn.InstanceID)
-	if len(p1.Hand) != engine.State.HandLimit-1 || len(p1.Graveyard) != 1 || p1.Graveyard[0] != drawn {
+	if len(p1.Hand) != engine.State.HandLimit-1 || len(p1.Graveyard) != 1 || !sameCardInstance(p1.Graveyard[0], drawn) {
 		t.Fatalf("discard should restore reduced hand limit, hand=%d grave=%v", len(p1.Hand), cardsToInfo(p1.Graveyard))
 	}
 
@@ -2075,7 +2082,7 @@ func TestRoyalConflictCouncilSpokesmanReducesEnemyHandLimit(t *testing.T) {
 		t.Fatalf("1311103 should force discard after searching over hand limit, pending=%+v", searchEngine.State.PendingAction)
 	}
 	resolvePendingSelection(t, searchEngine, 1, searched.InstanceID)
-	if len(searchP1.Hand) != searchEngine.State.HandLimit-1 || len(searchP1.Graveyard) != 1 || searchP1.Graveyard[0] != searched {
+	if len(searchP1.Hand) != searchEngine.State.HandLimit-1 || len(searchP1.Graveyard) != 1 || !sameCardInstance(searchP1.Graveyard[0], searched) {
 		t.Fatalf("searched card should be discarded back to reduced limit, hand=%d grave=%v", len(searchP1.Hand), cardsToInfo(searchP1.Graveyard))
 	}
 
@@ -2143,6 +2150,10 @@ func TestRoyalConflictArcaneImpactGainsStatsForArcaneCosts(t *testing.T) {
 	boost := readySkill(baseCard(t, "3021101"), 0)
 	p0.Skills[0] = main
 	p0.Skills[1] = boost
+	main.learnPayment = map[string]int{model.ElementArcane: 3}
+	main.usePayment = map[string]int{model.ElementArcane: 2}
+	boost.learnPayment = map[string]int{model.ElementArcane: 3}
+	boost.usePayment = map[string]int{model.ElementArcane: 2}
 
 	if got := engine.effectiveSpellPower(0, main, nil); got != main.Card.Power+1 {
 		t.Fatalf("3021101 should gain +1 power as main spell, got %d", got)
@@ -2355,17 +2366,17 @@ func TestRoyalConflictFlipMechanicAndCards(t *testing.T) {
 	if err := (Card2521110AngelPrayer{}).OnUseItem(&EffectContext{Engine: engine, Source: prayer, PlayerID: 0, OpponentID: 1}); err != nil {
 		t.Fatalf("2521110 on use: %v", err)
 	}
-	if len(p0.Hand) != 1 || p0.Hand[0] != angel || angel.Statuses["入场费用光-1"] != 1 {
+	if len(p0.Hand) != 1 || p0.Hand[0] != angel || angel.Statuses["入场费用光-1"] != 0 {
 		t.Fatalf("2521110 should flip light spirit with light discount, hand=%v statuses=%v", cardsToInfo(p0.Hand), angel.Statuses)
 	}
-	if cost := engine.effectiveCardPlayCost(p0, angel); cost[model.ElementLight] != 1 {
-		t.Fatalf("light spirit discount should reduce play cost to 1 light, cost=%v", cost)
+	if cost := engine.effectiveCardPlayCost(p0, angel); cost[model.ElementLight] != 2 {
+		t.Fatalf("normal prayer use should preserve the light spirit entry cost, cost=%v", cost)
 	}
 }
 
 func containsCardInstance(cards []*CardInstance, target *CardInstance) bool {
 	for _, card := range cards {
-		if card == target {
+		if sameCardInstance(card, target) {
 			return true
 		}
 	}
@@ -2393,6 +2404,7 @@ func TestRoyalConflictSoulAndInsightUtilityCards(t *testing.T) {
 		if p0.Elements[model.ElementArcane] != 0 || p0.Elements[model.ElementAir] != 3 {
 			t.Fatalf("1321105 should gain returned companion load before hidden-zone reset, elements=%v", p0.Elements)
 		}
+		target, _ = p0.FindHandCard(target.InstanceID)
 		if target.ElementsGainBonus[model.ElementAir] != 0 || effectiveElementsGain(target)[model.ElementAir] != target.Card.ElementsGain[model.ElementAir] {
 			t.Fatalf("1321105 should reset returned companion state in hand, bonus=%v load=%v", target.ElementsGainBonus, effectiveElementsGain(target))
 		}
@@ -2582,8 +2594,8 @@ func TestRoyalConflictSummonUtilityCards(t *testing.T) {
 			t.Fatalf("1421106 should ask whether to split after spirit skill, pending=%+v", engine.State.PendingAction)
 		}
 		resolvePendingSelection(t, engine, 0, lizard.InstanceID)
-		if !containsCardInstance(p0.Graveyard, lizard) || p0.Elements[model.ElementEarth] != 1 || !lizard.UltimateUsed || lizard.Statuses[StatusBurn] != 1 {
-			t.Fatalf("1421106 should consume for earth, trigger consume watchers, mark ultimate used, and move source to graveyard, grave=%v elements=%v ultimate=%v statuses=%v", cardsToInfo(p0.Graveyard), p0.Elements, lizard.UltimateUsed, lizard.Statuses)
+		if !containsCardInstance(p0.Graveyard, lizard) || p0.Elements[model.ElementEarth] != 0 || !lizard.UltimateUsed || lizard.Statuses[StatusBurn] != 1 {
+			t.Fatalf("1421106 should pay its tap cost without earth, preserve existing consume watchers, mark ultimate used, and move source to graveyard, grave=%v elements=%v ultimate=%v statuses=%v", cardsToInfo(p0.Graveyard), p0.Elements, lizard.UltimateUsed, lizard.Statuses)
 		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "phantom_lizard_first_position" {
 			t.Fatalf("1421106 should ask for first lizard position, pending=%+v", engine.State.PendingAction)
@@ -2793,8 +2805,8 @@ func TestRoyalConflictSpellFollowupUtilityCards(t *testing.T) {
 		bonus := totalElementCost(target.Card.ElementsCost)
 		fireSpell := readySkill(baseCard(t, "3121001"), 0)
 		waterSpell := readySkill(baseCard(t, "3221001"), 0)
-		if !target.IsHorizontal || p0.Elements[model.ElementFire] != target.Card.ElementsGain[model.ElementFire] {
-			t.Fatalf("1121109 should consume target and gain its load, horizontal=%v elements=%v", target.IsHorizontal, p0.Elements)
+		if !target.IsHorizontal || p0.Elements[model.ElementFire] != 0 {
+			t.Fatalf("1121109 should pay the tap cost without gaining its load, horizontal=%v elements=%v", target.IsHorizontal, p0.Elements)
 		}
 		if got := engine.effectiveSpellPower(0, fireSpell, nil); got != fireSpell.Card.Power+bonus {
 			t.Fatalf("1121109 should boost next fire spell by consumed entry cost, got=%d want=%d", got, fireSpell.Card.Power+bonus)
@@ -2863,12 +2875,13 @@ func TestRoyalConflictSpellFollowupUtilityCards(t *testing.T) {
 			t.Fatalf("1221108 should offer optional water item flip, pending=%+v", engine.State.PendingAction)
 		}
 		resolvePendingSelection(t, engine, 0, mage.InstanceID)
-		if len(p0.Hand) != 0 || p0.Equipment[0] != counter || !counter.IsSetCounter || counter.Statuses[entryCostZeroStatus] != 1 || mage.UsedThisTurn != 1 {
+		resolvePendingSelection(t, engine, 0, "set")
+		if len(p0.Hand) != 0 || p0.Equipment[0] != counter || !counter.IsSetCounter || counter.Statuses[entryCostZeroStatus] != 0 || mage.UsedThisTurn != 1 {
 			t.Fatalf("1221108 should flip and freely set water counter, hand=%v equipment=%v statuses=%v used=%d", cardsToInfo(p0.Hand), cardsToInfo(p0.Equipment[:]), counter.Statuses, mage.UsedThisTurn)
 		}
 		counter.Statuses["入场费用"+model.ElementArcane+"-1"] = 0
-		if cost := engine.effectiveCardPlayCost(p0, counter); cost[model.ElementArcane] != 0 {
-			t.Fatalf("1221108 free counter should keep entry cost at zero after modifiers, cost=%v statuses=%v", cost, counter.Statuses)
+		if cost := engine.effectiveCardPlayCost(p0, counter); cost[model.ElementArcane] != 1 {
+			t.Fatalf("1221108 free setting must preserve the reveal cost, cost=%v statuses=%v", cost, counter.Statuses)
 		}
 		costEngine := setupEffectTest(t)
 		costP0 := costEngine.State.Players[0]
@@ -2894,6 +2907,7 @@ func TestRoyalConflictSpellFollowupUtilityCards(t *testing.T) {
 			t.Fatalf("1221108 hand-limit spell cast: %v", err)
 		}
 		resolvePendingSelection(t, limitEngine, 0, limitMage.InstanceID)
+		resolvePendingSelection(t, limitEngine, 0, "set")
 		if limitEngine.State.PendingAction != nil || limitP0.Equipment[0] != limitCounter || containsCardInstance(limitP0.Hand, limitCounter) {
 			t.Fatalf("1221108 should set free counter before immediate hand-limit discard, pending=%+v hand=%v equipment=%v", limitEngine.State.PendingAction, cardsToInfo(limitP0.Hand), cardsToInfo(limitP0.Equipment[:]))
 		}
@@ -2958,10 +2972,6 @@ func TestRoyalConflictSpellFollowupUtilityCards(t *testing.T) {
 		if err := (Card4111102GeneralKelan{}).OnDefend(&EffectContext{Engine: engine, Source: kelan, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"defense_success": true}}); err != nil {
 			t.Fatalf("4111102 successful defense: %v", err)
 		}
-		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "general_kelan_flip_fire_card" {
-			t.Fatalf("4111102 should offer fire flip after successful defense, pending=%+v", engine.State.PendingAction)
-		}
-		resolvePendingSelection(t, engine, 0, kelan.InstanceID)
 		if !containsCardInstance(p0.Hand, flipped) || engine.State.PendingAction == nil || engine.State.PendingAction.Type != "general_kelan_discard" {
 			t.Fatalf("4111102 should flip fire card then ask to discard, hand=%v pending=%+v", cardsToInfo(p0.Hand), engine.State.PendingAction)
 		}
@@ -2984,7 +2994,6 @@ func TestRoyalConflictSpellFollowupUtilityCards(t *testing.T) {
 		if err := (Card4111102GeneralKelan{}).OnDefend(&EffectContext{Engine: limitEngine, Source: limitKelan, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"defense_success": true}}); err != nil {
 			t.Fatalf("4111102 hand-limit successful defense: %v", err)
 		}
-		resolvePendingSelection(t, limitEngine, 0, limitKelan.InstanceID)
 		if limitEngine.State.PendingAction == nil || limitEngine.State.PendingAction.Type != "general_kelan_discard" || !containsCardInstance(limitP0.Hand, limitFlipped) {
 			t.Fatalf("4111102 should ask its own discard before hand-limit discard, pending=%+v hand=%v", limitEngine.State.PendingAction, cardsToInfo(limitP0.Hand))
 		}
@@ -3158,6 +3167,7 @@ func TestRoyalConflictDeckAndTargetKindUtilityCards(t *testing.T) {
 		fireStop := NewCardInstance(baseCard(t, "3121001"), 0, 1)
 		p0.Deck = []*CardInstance{arcaneA, arcaneB, fireStop}
 
+		engine.notifySkillUseCommitted(0, arcaneOneness)
 		stats := engine.skillContributionStats(0, arcaneOneness, nil, skillPurposeAttack)
 		if stats.PowerBonus != arcaneOneness.Card.Power+2 {
 			t.Fatalf("3011101 should gain power for consecutive top arcane cards, got=%d base=%d", stats.PowerBonus, arcaneOneness.Card.Power)
@@ -3200,7 +3210,7 @@ func TestRoyalConflictDeckAndTargetKindUtilityCards(t *testing.T) {
 		p0.Deck = []*CardInstance{draw}
 		beforeHand := len(p0.Hand)
 		hitTarget := placeUnit(baseCard(t, "1021002"), 1, 1, 0, engine)
-		if err := (Card3311102StarfallSilverleaf{}).OnSpellHit(&EffectContext{Engine: engine, Source: silverleaf, Target: hitTarget, PlayerID: 0, OpponentID: 1}); err != nil {
+		if err := (Card3311102StarfallSilverleaf{}).OnSpellHit(&EffectContext{Engine: engine, Source: silverleaf, Target: hitTarget, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"spell_source": silverleaf}}); err != nil {
 			t.Fatalf("3311102 hit: %v", err)
 		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "starfall_silverleaf_recycle_under_card" {
@@ -3231,7 +3241,7 @@ func TestRoyalConflictDeckAndTargetKindUtilityCards(t *testing.T) {
 			t.Fatalf("3511101 should gain power equal to opponent hand size, got=%d base=%d", stats.PowerBonus, skill.Card.Power)
 		}
 		hitTarget := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
-		if err := (Card3511101DivineRadianceSkyward{}).OnSpellHit(&EffectContext{Engine: engine, Source: skill, Target: hitTarget, PlayerID: 0, OpponentID: 1}); err != nil {
+		if err := (Card3511101DivineRadianceSkyward{}).OnSpellHit(&EffectContext{Engine: engine, Source: skill, Target: hitTarget, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"spell_source": skill}}); err != nil {
 			t.Fatalf("3511101 hit: %v", err)
 		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "divine_radiance_reset_hand" {
@@ -3303,6 +3313,7 @@ func TestRoyalConflictDeckAndTargetKindUtilityCards(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("3601101 bind: %v", err)
 		}
+		resolvePendingSelection(t, engine, 0, p0.Hero.InstanceID)
 		if p0.Skills[0] != nil || len(p0.Hero.BoundSkills) != 1 || p0.Hero.BoundSkills[0] != feast || p0.Elements[model.ElementShadow] != 0 {
 			t.Fatalf("3601101 should move from skill slot to hero bound skill, slot=%v bound=%v elements=%v", p0.Skills[0], cardsToInfo(p0.Hero.BoundSkills), p0.Elements)
 		}
@@ -3357,10 +3368,6 @@ func TestRoyalConflictDeckAndTargetKindUtilityCards(t *testing.T) {
 			t.Fatalf("4511101 should wait until friendly damage reaches three, pending=%+v used=%v", engine.State.PendingAction, sival.UltimateUsed)
 		}
 		engine.dealDamageWithExtra(ally, 1, 0, map[string]any{"damage_source": "effect", "attacker": 1})
-		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "protector_sival_prevent_all_damage" {
-			t.Fatalf("4511101 should offer ultimate after three friendly damage, pending=%+v", engine.State.PendingAction)
-		}
-		resolvePendingSelection(t, engine, 0, sival.InstanceID)
 		if !sival.UltimateUsed || sival.Statuses[protectorSivalPreventionUntilStatus] < engine.State.TurnNumber {
 			t.Fatalf("4511101 should arm damage prevention, used=%v statuses=%v", sival.UltimateUsed, sival.Statuses)
 		}
@@ -3389,8 +3396,8 @@ func TestRoyalConflictDeckAndTargetKindUtilityCards(t *testing.T) {
 			t.Fatalf("2111101 should offer to consume after friendly fire spell hit, pending=%+v", engine.State.PendingAction)
 		}
 		resolvePendingSelection(t, engine, 0, staff.InstanceID)
-		if !staff.IsHorizontal || p0.Elements[model.ElementFire] != startFire+staff.Card.ElementsGain[model.ElementFire] {
-			t.Fatalf("2111101 should consume itself and gain its load, horizontal=%v elements=%v", staff.IsHorizontal, p0.Elements)
+		if !staff.IsHorizontal || p0.Elements[model.ElementFire] != startFire {
+			t.Fatalf("2111101 should pay its tap cost without gaining its load, horizontal=%v elements=%v", staff.IsHorizontal, p0.Elements)
 		}
 		if fireball.PowerBonus != startPower+1 || !engine.skillHasPierce(0, fireball) {
 			t.Fatalf("2111101 should permanently give +1 power and pierce, power=%d statuses=%v", fireball.PowerBonus, fireball.Statuses)
@@ -3571,6 +3578,7 @@ func TestRoyalConflictDeckAndTargetKindUtilityCards(t *testing.T) {
 		ally := placeUnit(baseCard(t, "1021001"), 0, 1, 1, engine)
 		enemySpell := readySkill(baseCard(t, "3021005"), 1)
 		p0.Skills[0] = regroup
+		setAllElements(p0, 5)
 		startLife := ally.CurrentLife
 		startLight := effectiveElementsGain(ally)[model.ElementLight]
 
@@ -3701,9 +3709,10 @@ func TestRoyalConflictPrintedBoundSkills(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("replace five rainbow ring: %v", err)
 		}
-		if len(p0.Graveyard) != 1 || p0.Graveyard[0] != oldRing {
+		if len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], oldRing) {
 			t.Fatalf("old ring should move to graveyard, grave=%v", cardsToInfo(p0.Graveyard))
 		}
+		oldRing = p0.Graveyard[0]
 		if len(oldRing.BoundSkills) != 0 {
 			t.Fatalf("bound skills should disappear when equipment host leaves, bound=%v", cardsToInfo(oldRing.BoundSkills))
 		}
@@ -3729,9 +3738,10 @@ func TestRoyalConflictPrintedBoundSkills(t *testing.T) {
 		if !engine.destroyEnemyEquipment(0, ring.InstanceID) {
 			t.Fatal("destroyEnemyEquipment should destroy opponent ring")
 		}
-		if len(p1.Graveyard) != 1 || p1.Graveyard[0] != ring {
+		if len(p1.Graveyard) != 1 || !sameCardInstance(p1.Graveyard[0], ring) {
 			t.Fatalf("destroyed ring should move to opponent graveyard, grave=%v", cardsToInfo(p1.Graveyard))
 		}
+		ring = p1.Graveyard[0]
 		if ring.SlotIndex != -1 || len(ring.BoundSkills) != 0 {
 			t.Fatalf("destroyed equipment should clear slot and bound skills, slot=%d bound=%v", ring.SlotIndex, cardsToInfo(ring.BoundSkills))
 		}
@@ -3881,8 +3891,8 @@ func TestRoyalConflictBloodShadowBodySpendsRedMoonMarkerForExtraTarget(t *testin
 	if redMoon.Statuses[redMoonMarkerStatus] != 0 || len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != TempModNextSpellExtraTarget {
 		t.Fatalf("blood shadow body should spend one marker and arm extra target, markers=%v modifiers=%v", redMoon.Statuses, p0.TempModifiers)
 	}
-	if !p0.TempModifiers[0].AllowSameTarget {
-		t.Fatalf("blood shadow body extra target should allow the same target, modifier=%+v", p0.TempModifiers[0])
+	if p0.TempModifiers[0].AllowSameTarget {
+		t.Fatalf("blood shadow body extra target must require another target, modifier=%+v", p0.TempModifiers[0])
 	}
 
 	if err := engine.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
@@ -3927,11 +3937,11 @@ func TestRoyalConflictBloodShadowBodySpendsRedMoonMarkerForExtraTarget(t *testin
 		"target_row":       float64(sameFront.Position.Row),
 		"extra_target_col": float64(sameFront.Position.Col),
 		"extra_target_row": float64(sameFront.Position.Row),
-	}}); err != nil {
-		t.Fatalf("blood shadow body extra target should allow choosing the same target: %v", err)
+	}}); err == nil {
+		t.Fatal("blood shadow body must reject the same extra target")
 	}
-	if sameTargetEngine.State.PendingSpell == nil || len(sameTargetEngine.State.PendingSpell.ExtraTargets) != 1 {
-		t.Fatalf("blood shadow body should add one same extra target, pending=%+v", sameTargetEngine.State.PendingSpell)
+	if sameSpell.IsHorizontal || sameP0.Elements[model.ElementFire] != 10 || sameTargetEngine.State.PendingSpell != nil {
+		t.Fatal("invalid same target must not spend, tap or open a spell")
 	}
 
 	noExtraEngine := setupReportedBugEngine(t)
@@ -4078,7 +4088,7 @@ func TestRoyalConflictRedMoonPendantExtendsNextRedMoon(t *testing.T) {
 	}}); err != nil {
 		t.Fatalf("use red moon pendant: %v", err)
 	}
-	if p0.Equipment[0] != nil || len(p0.Graveyard) != 1 || p0.Graveyard[0] != pendant {
+	if p0.Equipment[0] != nil || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], pendant) {
 		t.Fatalf("pendant should be sacrificed to graveyard, equipment=%v grave=%v", p0.Equipment[0], cardsToInfo(p0.Graveyard))
 	}
 	if p0.NextRedMoonDuration != 1 {
@@ -4243,7 +4253,7 @@ func TestRoyalConflictSimpleCardEffects(t *testing.T) {
 		if len(p0.Hand) != 2 || p0.Hand[0] != drawA || p0.Hand[1] != drawB {
 			t.Fatalf("reshape should discard hand then draw two, hand=%v", cardsToInfo(p0.Hand))
 		}
-		if len(p0.Graveyard) != 3 || p0.Graveyard[0] != reshape || p0.Graveyard[1] != discardA || p0.Graveyard[2] != discardB {
+		if len(p0.Graveyard) != 3 || !sameCardInstance(p0.Graveyard[0], reshape) || !sameCardInstance(p0.Graveyard[1], discardA) || !sameCardInstance(p0.Graveyard[2], discardB) {
 			t.Fatalf("reshape should place itself and discarded cards in graveyard, grave=%v", cardsToInfo(p0.Graveyard))
 		}
 		if p0.RevealedHand[discardA.InstanceID] {
@@ -4284,7 +4294,7 @@ func TestRoyalConflictSimpleCardEffects(t *testing.T) {
 		if p0.Equipment[0] != nil || len(p0.Hand) != 2 {
 			t.Fatalf("golden dragonbone should sacrifice itself and draw two, equipment=%v hand=%v", p0.Equipment[0], cardsToInfo(p0.Hand))
 		}
-		if len(p0.Graveyard) == 0 || p0.Graveyard[len(p0.Graveyard)-1] != dragonbone {
+		if len(p0.Graveyard) == 0 || !sameCardInstance(p0.Graveyard[len(p0.Graveyard)-1], dragonbone) {
 			t.Fatalf("golden dragonbone should move to graveyard, grave=%v", cardsToInfo(p0.Graveyard))
 		}
 	})
@@ -4321,7 +4331,7 @@ func TestRoyalConflictSimpleConsumableChoiceEffects(t *testing.T) {
 		if len(p0.Hand) != 2 || p0.Hand[0] != kept || p0.Hand[1] != drawB {
 			t.Fatalf("lost silverleaf should discard the selected card, hand=%v", cardsToInfo(p0.Hand))
 		}
-		if len(p0.Graveyard) != 2 || p0.Graveyard[0] != silverleaf || p0.Graveyard[1] != drawA {
+		if len(p0.Graveyard) != 2 || !sameCardInstance(p0.Graveyard[0], silverleaf) || !sameCardInstance(p0.Graveyard[1], drawA) {
 			t.Fatalf("lost silverleaf graveyard order wrong, grave=%v", cardsToInfo(p0.Graveyard))
 		}
 	})
@@ -4632,10 +4642,10 @@ func TestRoyalConflictBloodNourishExilesShadowGraveyardCard(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("resolve blood nourish: %v", err)
 		}
-		if len(p0.Exile) != 1 || p0.Exile[0] != shadow {
+		if len(p0.Exile) != 1 || !sameCardInstance(p0.Exile[0], shadow) {
 			t.Fatalf("blood nourish should exile selected shadow card, exile=%v grave=%v", cardsToInfo(p0.Exile), cardsToInfo(p0.Graveyard))
 		}
-		if len(p0.Graveyard) != 1 || p0.Graveyard[0] != other {
+		if len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], other) {
 			t.Fatalf("blood nourish should leave non-selected graveyard cards, grave=%v", cardsToInfo(p0.Graveyard))
 		}
 		if p0.Elements[model.ElementShadow] != afterPay+2 {
@@ -4688,7 +4698,7 @@ func TestRoyalConflictSimpleEnterBatchTwo(t *testing.T) {
 			t.Fatal("1021104 should reject forged out-of-range selections")
 		}
 		resolvePendingSelection(t, engine, 0, inRange.InstanceID)
-		if len(engine.State.Players[1].Exile) != 1 || engine.State.Players[1].Exile[0] != inRange {
+		if len(engine.State.Players[1].Exile) != 1 || !sameCardInstance(engine.State.Players[1].Exile[0], inRange) {
 			t.Fatalf("1021104 should exile selected enemy companion, exile=%v", cardsToInfo(engine.State.Players[1].Exile))
 		}
 		if engine.State.Players[1].Units[outOfRange.Position.Col][outOfRange.Position.Row] != outOfRange {
@@ -4995,7 +5005,7 @@ func TestRoyalConflictJiuxiaoMarkEffects(t *testing.T) {
 		if p1.Hero.CurrentLife != beforeLife-2 {
 			t.Fatalf("discarding Jiuxiao Mark to hand limit should damage hero by 2, before=%d life=%d", beforeLife, p1.Hero.CurrentLife)
 		}
-		if len(p1.Graveyard) != 1 || p1.Graveyard[0] != mark {
+		if len(p1.Graveyard) != 1 || !sameCardInstance(p1.Graveyard[0], mark) {
 			t.Fatalf("discarded mark should be in graveyard, grave=%v", cardsToInfo(p1.Graveyard))
 		}
 	})
@@ -5124,13 +5134,13 @@ func TestRoyalConflictLoadChoiceEffects(t *testing.T) {
 		soul := placeUnit(baseCard(t, "1511102"), 0, 1, 1, engine)
 
 		engine.dealDamageWithExtra(soul, 1, 0, map[string]any{"attacker": 1})
-		if p0.Shield != 1 || soul.CurrentAttack != soul.Card.Attack+1 {
+		if p0.Shield != 1 || effectiveCurrentAttack(soul) != max(soul.Card.Attack, 0)+1 {
 			t.Fatalf("1511102 should gain shield and attack after enemy damage while isolated, shield=%d attack=%d", p0.Shield, soul.CurrentAttack)
 		}
 
 		p0.Shield = 0
 		engine.dealDamageWithExtra(soul, 1, 0, map[string]any{"attacker": 0})
-		if p0.Shield != 0 || soul.CurrentAttack != soul.Card.Attack+1 {
+		if p0.Shield != 0 || effectiveCurrentAttack(soul) != max(soul.Card.Attack, 0)+1 {
 			t.Fatalf("1511102 should ignore friendly-source damage, shield=%d attack=%d", p0.Shield, soul.CurrentAttack)
 		}
 
@@ -5139,7 +5149,7 @@ func TestRoyalConflictLoadChoiceEffects(t *testing.T) {
 		blockedSoul := placeUnit(baseCard(t, "1511102"), 0, 1, 1, blockedEngine)
 		placeUnit(baseCard(t, "1021001"), 0, 1, 0, blockedEngine)
 		blockedEngine.dealDamageWithExtra(blockedSoul, 1, 0, map[string]any{"attacker": 1})
-		if blockedP0.Shield != 0 || blockedSoul.CurrentAttack != blockedSoul.Card.Attack {
+		if blockedP0.Shield != 0 || effectiveCurrentAttack(blockedSoul) != max(blockedSoul.Card.Attack, 0) {
 			t.Fatalf("1511102 should not trigger with adjacent friendly companions, shield=%d attack=%d", blockedP0.Shield, blockedSoul.CurrentAttack)
 		}
 	})
@@ -5149,7 +5159,7 @@ func TestRoyalConflictRuneAndDiscardEffects(t *testing.T) {
 	t.Run("infusion runes permanently buff friendly spells", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
-		powerSkill := readySkill(baseCard(t, "3021001"), 0)
+		powerSkill := readySkill(baseCard(t, "3121001"), 0)
 		p0.Skills[0] = powerSkill
 		runeA := NewCardInstance(baseCard(t, "2021111"), 0, 1)
 		if err := globalRegistry.GetBehavior("2021111").(OnUseItemBehavior).OnUseItem(&EffectContext{Engine: engine, Source: runeA, PlayerID: 0, OpponentID: 1}); err != nil {
@@ -5164,7 +5174,7 @@ func TestRoyalConflictRuneAndDiscardEffects(t *testing.T) {
 		}
 
 		host := placeUnit(baseCard(t, "1011103"), 0, 0, 0, engine)
-		bound := NewCardInstance(baseCard(t, "3001101"), 0, 1)
+		bound := NewCardInstance(baseCard(t, "3221001"), 0, 1)
 		bound.SlotIndex = -1
 		host.BoundSkills = []*CardInstance{bound}
 		runeB := NewCardInstance(baseCard(t, "2021112"), 0, 1)
@@ -5314,7 +5324,7 @@ func TestRoyalConflictPermanentSkillCostAndGraveyardBurstEffects(t *testing.T) {
 		if len(p0.Exile) != 5 {
 			t.Fatalf("2621111 should exile five shadow companions, exile=%v grave=%v", cardsToInfo(p0.Exile), cardsToInfo(p0.Graveyard))
 		}
-		if len(p0.Graveyard) != 2 || p0.Graveyard[0] != nonShadow || p0.Graveyard[1] != scroll {
+		if len(p0.Graveyard) != 2 || !sameCardInstance(p0.Graveyard[0], nonShadow) || !sameCardInstance(p0.Graveyard[1], scroll) {
 			t.Fatalf("2621111 should leave non-shadow card and itself in graveyard, grave=%v", cardsToInfo(p0.Graveyard))
 		}
 		if p0.Elements[model.ElementShadow] != 10 {
@@ -5363,7 +5373,7 @@ func TestRoyalConflictRaiderSearchItemEffects(t *testing.T) {
 		if engine.State.PendingAction != nil {
 			t.Fatalf("2221105 should not ask for a discount without a raider on field, pending=%+v", engine.State.PendingAction)
 		}
-		if len(p0.Hand) != 1 || p0.Hand[0] != target || len(p0.Graveyard) != 1 || p0.Graveyard[0] != scroll {
+		if len(p0.Hand) != 1 || p0.Hand[0] != target || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], scroll) {
 			t.Fatalf("2221105 should search target to hand and move itself to graveyard, hand=%v grave=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
 		}
 		if target.Statuses["入场费用"+model.ElementWater+"-1"] != 0 || target.Statuses["入场费用"+model.ElementShadow+"-1"] != 0 {
@@ -5443,7 +5453,7 @@ func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
 		if p0.Elements[model.ElementFire] != 6 {
 			t.Fatalf("2121108 should spend 1 fire then gain target entry cost 2 fire, elements=%v", p0.Elements)
 		}
-		if len(p0.Hand) != 0 || len(p0.Graveyard) != 1 || p0.Graveyard[0] != scroll {
+		if len(p0.Hand) != 0 || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], scroll) {
 			t.Fatalf("2121108 should move itself from hand to graveyard, hand=%v grave=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
 		}
 
@@ -5523,7 +5533,7 @@ func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
 		if secondTarget.Statuses["入场费用"+model.ElementShadow+"-1"] != 0 || !containsCardInstance(p0.Deck, secondTarget) {
 			t.Fatalf("2621109 should not reveal or discount later matching cards, deck=%v second_statuses=%v", cardsToInfo(p0.Deck), secondTarget.Statuses)
 		}
-		if len(p0.Graveyard) != 2 || p0.Graveyard[1] != scroll || p0.Elements[model.ElementShadow] != 1 {
+		if len(p0.Graveyard) != 2 || !sameCardInstance(p0.Graveyard[1], scroll) || p0.Elements[model.ElementShadow] != 1 {
 			t.Fatalf("2621109 should spend 1 shadow and move itself to graveyard, grave=%v elements=%v", cardsToInfo(p0.Graveyard), p0.Elements)
 		}
 	})
@@ -5546,7 +5556,7 @@ func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("use 2321102: %v", err)
 		}
-		if p0.Equipment[0] != nil || len(p0.Graveyard) != 4 || p0.Graveyard[3] != cycle {
+		if p0.Equipment[0] != nil || len(p0.Graveyard) != 4 || !sameCardInstance(p0.Graveyard[3], cycle) {
 			t.Fatalf("2321102 should sacrifice itself before selection, equipment=%v grave=%v", p0.Equipment[0], cardsToInfo(p0.Graveyard))
 		}
 		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "wind_cycle_shuffle_air" || len(engine.State.PendingAction.Candidates) != 2 {
@@ -5556,7 +5566,7 @@ func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
 		if countCardsByNumber(p0.Deck, airA.Card.Number) != 1 || countCardsByNumber(p0.Deck, airB.Card.Number) != 1 {
 			t.Fatalf("2321102 should shuffle selected air cards into deck, deck=%v", cardsToInfo(p0.Deck))
 		}
-		if len(p0.Graveyard) != 2 || p0.Graveyard[0] != nonAir || p0.Graveyard[1] != cycle {
+		if len(p0.Graveyard) != 2 || !sameCardInstance(p0.Graveyard[0], nonAir) || !sameCardInstance(p0.Graveyard[1], cycle) {
 			t.Fatalf("2321102 should leave non-selected/non-air cards and itself in graveyard, grave=%v", cardsToInfo(p0.Graveyard))
 		}
 	})
@@ -5571,7 +5581,7 @@ func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("use 2321103: %v", err)
 		}
-		if p0.Elements[model.ElementAir] != 1 || len(p0.Graveyard) != 1 || p0.Graveyard[0] != used {
+		if p0.Elements[model.ElementAir] != 1 || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], used) {
 			t.Fatalf("used 2321103 should gain 1 air and enter graveyard, elements=%v grave=%v", p0.Elements, cardsToInfo(p0.Graveyard))
 		}
 
@@ -5579,7 +5589,7 @@ func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
 		p0.Hand = []*CardInstance{discarded}
 		before := p0.Elements[model.ElementAir]
 		engine.discardHandCardAt(0, 0)
-		if p0.Elements[model.ElementAir] != before+1 || len(p0.Hand) != 0 || p0.Graveyard[len(p0.Graveyard)-1] != discarded {
+		if p0.Elements[model.ElementAir] != before+1 || len(p0.Hand) != 0 || !sameCardInstance(p0.Graveyard[len(p0.Graveyard)-1], discarded) {
 			t.Fatalf("discarded 2321103 should gain 1 air and enter graveyard, elements=%v hand=%v grave=%v", p0.Elements, cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard))
 		}
 	})
@@ -5630,6 +5640,7 @@ func TestRoyalConflictAirAndMoonlightItemEffects(t *testing.T) {
 		frontRow := 0
 		front := placeUnit(baseCard(t, "1021001"), 1, 0, frontRow, stealthEngine)
 		front.Statuses[StatusStealth] = 2
+		placeUnit(baseCard(t, "1021001"), 1, 2, frontRow, stealthEngine) // visible unit establishes the row
 		backRow := 1
 		if backRow == stealthP1.GetFrontRow() {
 			backRow = 0
@@ -5656,7 +5667,7 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		teacher := NewCardInstance(baseCard(t, "1021101"), 0, 1)
-		cheap := NewCardInstance(baseCard(t, "3021005"), 0, 1)
+		cheap := NewCardInstance(baseCard(t, "3121001"), 0, 1)
 		p0.SkillPool = []*CardInstance{cheap}
 		p0.Elements = map[string]int{}
 
@@ -5673,11 +5684,11 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 
 		fullEngine := setupReportedBugEngine(t)
 		fullP0 := fullEngine.State.Players[0]
-		replacement := NewCardInstance(baseCard(t, "3021005"), 0, 1)
+		replacement := NewCardInstance(baseCard(t, "3121001"), 0, 1)
 		fullP0.SkillPool = []*CardInstance{replacement}
 		oldSkill := readySkill(baseCard(t, "3021102"), 0)
 		for i := 0; i < skillSlotCapacity(fullP0); i++ {
-			fullP0.Skills[i] = readySkill(baseCard(t, "3021005"), 0)
+			fullP0.Skills[i] = readySkill(baseCard(t, "3121001"), 0)
 		}
 		fullP0.Skills[2] = oldSkill
 		if err := (Card1021101PrivateTeacher{}).OnEnter(&EffectContext{Engine: fullEngine, Source: teacher, PlayerID: 0, OpponentID: 1}); err != nil {
@@ -6317,6 +6328,7 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
 		blessing := readySkill(baseCard(t, "3021104"), 0)
+		blessing.Statuses[StatusAbilityDuration] = 1
 		fireSpell := readySkill(baseCard(t, "3121001"), 0)
 		waterSorcery := readySkill(baseCard(t, "3221007"), 0)
 		p0.Skills[0] = blessing
@@ -6622,7 +6634,7 @@ func TestRoyalConflictUtilityCompanionAndHeroEffects(t *testing.T) {
 		if len(millP0.Deck) != 1 || len(millP1.Deck) != 1 || len(millP0.Graveyard) != 4 || len(millP1.Graveyard) != 4 {
 			t.Fatalf("dom should mill top four from both decks, p0 deck/grave=%d/%d p1 deck/grave=%d/%d", len(millP0.Deck), len(millP0.Graveyard), len(millP1.Deck), len(millP1.Graveyard))
 		}
-		if millP0.Graveyard[0] != firstP0 || millP1.Graveyard[0] != firstP1 {
+		if !sameCardInstance(millP0.Graveyard[0], firstP0) || !sameCardInstance(millP1.Graveyard[0], firstP1) {
 			t.Fatalf("dom should preserve top-deck mill order, p0 grave=%v p1 grave=%v", cardsToInfo(millP0.Graveyard), cardsToInfo(millP1.Graveyard))
 		}
 	})
@@ -7036,18 +7048,18 @@ func TestRoyalConflictDeathrattleEffects(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		pawn := NewCardInstance(baseCard(t, "1001101"), 0, 1)
 		pawn.Position = &Position{Col: 1, Row: 1}
-		killed := placeUnit(baseCard(t, "1021001"), 1, 1, 0, engine)
+		killed := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
 		killed.CurrentLife = 1
 		survivor := placeUnit(baseCard(t, "1021001"), 0, 0, 1, engine)
 		survivor.CurrentLife = 3
 		if err := (Card1001101AbandonedPawn{}).OnDeath(&EffectContext{Engine: engine, Source: pawn, PlayerID: 0, OpponentID: 1}); err != nil {
 			t.Fatalf("abandoned pawn deathrattle: %v", err)
 		}
-		if engine.State.Players[1].Units[1][0] == nil || engine.State.Players[1].Units[1][0].Card.Number != "1001101" {
-			t.Fatalf("abandoned pawn should replace killed adjacent companion, unit=%v", cardToInfo(engine.State.Players[1].Units[1][0]))
+		if engine.State.Players[0].Units[1][0] == nil || engine.State.Players[0].Units[1][0].Card.Number != "1001101" {
+			t.Fatalf("abandoned pawn should replace killed adjacent companion, unit=%v", cardToInfo(engine.State.Players[0].Units[1][0]))
 		}
-		if len(engine.State.Players[1].Graveyard) != 1 || engine.State.Players[1].Graveyard[0] != killed {
-			t.Fatalf("killed adjacent companion should enter graveyard, grave=%v", cardsToInfo(engine.State.Players[1].Graveyard))
+		if len(engine.State.Players[0].Graveyard) != 1 || !sameCardInstance(engine.State.Players[0].Graveyard[0], killed) {
+			t.Fatalf("killed adjacent companion should enter graveyard, grave=%v", cardsToInfo(engine.State.Players[0].Graveyard))
 		}
 		if survivor.CurrentLife != 2 || engine.State.Players[0].Units[0][1] != survivor {
 			t.Fatalf("surviving adjacent unit should only take damage, life=%d", survivor.CurrentLife)
@@ -7079,7 +7091,7 @@ func TestRoyalConflictDeathrattleEffects(t *testing.T) {
 		}
 		blocker := placeUnit(baseCard(t, "1021001"), 1, 0, 0, staleEngine)
 		resolvePendingSelection(t, staleEngine, 1, positionSelectionID(Position{Col: 0, Row: 0}))
-		if len(staleEngine.State.Players[0].Graveyard) != 1 || staleEngine.State.Players[0].Graveyard[0] != staleKnight || staleKnight.OwnerID != 0 || staleKnight.Card.Life != 4 {
+		if len(staleEngine.State.Players[0].Graveyard) != 1 || !sameCardInstance(staleEngine.State.Players[0].Graveyard[0], staleKnight) || staleKnight.OwnerID != 0 || staleKnight.Card.Life != 4 {
 			t.Fatalf("stale contradictory knight position should leave card in original graveyard, grave=%v owner=%d life=%d", cardsToInfo(staleEngine.State.Players[0].Graveyard), staleKnight.OwnerID, staleKnight.Card.Life)
 		}
 		if staleEngine.State.Players[1].Units[0][0] != blocker {
@@ -7096,7 +7108,6 @@ func TestRoyalConflictDeathrattleEffects(t *testing.T) {
 		if err := (Card1521113RadiantWatchdog{}).OnDeath(&EffectContext{Engine: engine, Source: watchdog, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 1}}); err != nil {
 			t.Fatalf("radiant watchdog deathrattle: %v", err)
 		}
-		resolvePendingSelection(t, engine, 0, target.InstanceID)
 		if len(p0.Hand) != 1 || p0.Hand[0] != target {
 			t.Fatalf("radiant watchdog should search companion to hand, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
 		}
@@ -7117,7 +7128,7 @@ func TestRoyalConflictDeathrattleEffects(t *testing.T) {
 	t.Run("soul symbiote marks up to two friendly spells", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		p0 := engine.State.Players[0]
-		skill := readySkill(baseCard(t, "3021005"), 0)
+		skill := readySkill(baseCard(t, "3121001"), 0)
 		p0.Skills[0] = skill
 		host := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
 		bound := readySkill(baseCard(t, "3221103"), 0)
@@ -7170,11 +7181,7 @@ func TestRoyalConflictSimpleActiveAbilityEffects(t *testing.T) {
 			t.Fatalf("storm horn ultimate: %v", err)
 		}
 		resolvePendingSelection(t, engine, 0, discard.InstanceID)
-		if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "storm_horn_search_air_equipment" {
-			t.Fatalf("storm horn should prompt to search air equipment, pending=%+v", engine.State.PendingAction)
-		}
-		resolvePendingSelection(t, engine, 0, equipment.InstanceID)
-		if len(p0.Graveyard) != 1 || p0.Graveyard[0] != discard || len(p0.Hand) != 1 || p0.Hand[0] != equipment {
+		if len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], discard) || len(p0.Hand) != 1 || p0.Hand[0] != equipment {
 			t.Fatalf("storm horn should discard cost and search equipment, hand=%v grave=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Graveyard), cardsToInfo(p0.Deck))
 		}
 
@@ -7434,7 +7441,7 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 	t.Run("rock wall monk zeros the first enemy spell hit while no skills are learned", func(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		monk := placeUnit(baseCard(t, "1421113"), 0, 0, 0, engine)
-		enemySkill := readySkill(baseCard(t, "3021005"), 1)
+		enemySkill := readySkill(baseCard(t, "3121001"), 1)
 		behavior := Card1421113RockWallMonk{}
 
 		damage := 3
@@ -7476,7 +7483,7 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 			Target:     friendlyMonk,
 			PlayerID:   0,
 			OpponentID: 1,
-			ExtraData:  map[string]any{"attacker": 0, "spell_source": readySkill(baseCard(t, "3021005"), 0), "damage_ptr": &friendlyDamage, "damage": friendlyDamage},
+			ExtraData:  map[string]any{"attacker": 0, "spell_source": readySkill(baseCard(t, "3121001"), 0), "damage_ptr": &friendlyDamage, "damage": friendlyDamage},
 		}); err != nil {
 			t.Fatalf("1421113 friendly spell hit: %v", err)
 		}
@@ -7486,7 +7493,7 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 
 		learnedEngine := setupReportedBugEngine(t)
 		learnedMonk := placeUnit(baseCard(t, "1421113"), 0, 0, 0, learnedEngine)
-		learnedEngine.State.Players[0].Skills[0] = readySkill(baseCard(t, "3021005"), 0)
+		learnedEngine.State.Players[0].Skills[0] = readySkill(baseCard(t, "3121001"), 0)
 		learnedDamage := 3
 		if err := behavior.OnSpellHitBeforeDamage(&EffectContext{
 			Engine:     learnedEngine,
@@ -7677,11 +7684,11 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 		engine := setupReportedBugEngine(t)
 		avenger := placeUnit(baseCard(t, "1621102"), 0, 0, 0, engine)
 		engine.dealDamageWithExtra(avenger, 1, 0, map[string]any{"attacker": 1})
-		if avenger.CurrentAttack != avenger.Card.Attack+1 || avenger.UsedThisTurn != 1 {
+		if effectiveCurrentAttack(avenger) != max(avenger.Card.Attack, 0)+1 || avenger.UsedThisTurn != 1 {
 			t.Fatalf("pain avenger should gain one attack after damage, attack=%d used=%d", avenger.CurrentAttack, avenger.UsedThisTurn)
 		}
 		engine.dealDamageWithExtra(avenger, 1, 0, map[string]any{"attacker": 1})
-		if avenger.CurrentAttack != avenger.Card.Attack+1 {
+		if effectiveCurrentAttack(avenger) != max(avenger.Card.Attack, 0)+1 {
 			t.Fatalf("pain avenger should trigger at most once per turn, attack=%d used=%d", avenger.CurrentAttack, avenger.UsedThisTurn)
 		}
 
@@ -7689,7 +7696,7 @@ func TestRoyalConflictTriggeredPerTurnEffects(t *testing.T) {
 		watcher := placeUnit(baseCard(t, "1621102"), 0, 0, 0, watchEngine)
 		other := placeUnit(baseCard(t, "1021001"), 0, 1, 0, watchEngine)
 		watchEngine.dealDamageWithExtra(other, 1, 0, map[string]any{"attacker": 1})
-		if watcher.CurrentAttack != watcher.Card.Attack || watcher.UsedThisTurn != 0 {
+		if effectiveCurrentAttack(watcher) != max(watcher.Card.Attack, 0) || watcher.UsedThisTurn != 0 {
 			t.Fatalf("pain avenger should not trigger when another unit is damaged, attack=%d used=%d", watcher.CurrentAttack, watcher.UsedThisTurn)
 		}
 	})
@@ -7839,9 +7846,10 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		if err := behavior.OnEnter(&EffectContext{Engine: engine, Source: collector, PlayerID: 0, OpponentID: 1}); err != nil {
 			t.Fatalf("1021105 enter: %v", err)
 		}
-		if collector.Statuses[royalTaxCollectorUntilOpponentTurnEndStatus] != engine.State.TurnNumber {
-			t.Fatalf("1021105 should arm tax window, statuses=%v", collector.Statuses)
+		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != TempModRoyalTax {
+			t.Fatal("missing player-scoped tax")
 		}
+		engine.destroyUnit(collector, 0)
 
 		engine.drawCards(0, 1)
 		if p0.Elements[model.ElementArcane] != 0 || engine.State.PendingAction != nil {
@@ -7852,30 +7860,15 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 			t.Fatalf("1021105 should gain one arcane per opponent draw, elements=%v", p0.Elements)
 		}
 
-		if err := behavior.OnTurnEnd(&EffectContext{
-			Engine:     engine,
-			Source:     collector,
-			PlayerID:   0,
-			OpponentID: 1,
-			ExtraData:  map[string]any{"ended_player": 0},
-		}); err != nil {
-			t.Fatalf("1021105 own turn end: %v", err)
+		engine.clearTemporaryModifiersAtTurnEnd(0)
+		if len(p0.TempModifiers) != 1 {
+			t.Fatal("tax should survive own turn end and source departure")
 		}
-		if collector.Statuses[royalTaxCollectorUntilOpponentTurnEndStatus] == 0 {
-			t.Fatalf("1021105 should stay active through own turn end, statuses=%v", collector.Statuses)
+		engine.clearTemporaryModifiersAtTurnEnd(1)
+		if len(p0.TempModifiers) != 0 {
+			t.Fatal("tax should expire at opponent turn end")
 		}
-		if err := behavior.OnTurnEnd(&EffectContext{
-			Engine:     engine,
-			Source:     collector,
-			PlayerID:   0,
-			OpponentID: 1,
-			ExtraData:  map[string]any{"ended_player": 1},
-		}); err != nil {
-			t.Fatalf("1021105 opponent turn end: %v", err)
-		}
-		if collector.Statuses[royalTaxCollectorUntilOpponentTurnEndStatus] != 0 {
-			t.Fatalf("1021105 should expire at opponent turn end, statuses=%v", collector.Statuses)
-		}
+
 		p1.Deck = []*CardInstance{NewCardInstance(baseCard(t, "1021006"), 1, engine.State.TurnNumber)}
 		engine.drawCards(1, 1)
 		if p0.Elements[model.ElementArcane] != 2 {
@@ -7894,7 +7887,7 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		if err := behavior.OnEnter(&EffectContext{Engine: engine, Source: trainer, PlayerID: 0, OpponentID: 1}); err != nil {
 			t.Fatalf("1121106 enter: %v", err)
 		}
-		if trainer.Statuses[fireBeastTrainerDiscountStatus] != 1 {
+		if len(p0.TempModifiers) != 1 || p0.TempModifiers[0].Type != TempModNextFireBeastCostMinus {
 			t.Fatalf("1121106 should arm one discount, statuses=%v", trainer.Statuses)
 		}
 		if cost := engine.effectiveCardPlayCost(p0, machine); cost[model.ElementFire] != machine.Card.ElementsCost[model.ElementFire] {
@@ -7913,7 +7906,7 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		}}); err != nil {
 			t.Fatalf("1121106 discounted summon: %v", err)
 		}
-		if trainer.Statuses[fireBeastTrainerDiscountStatus] != 0 {
+		if len(p0.TempModifiers) != 0 {
 			t.Fatalf("1121106 discount should be consumed after matching summon, statuses=%v", trainer.Statuses)
 		}
 		nextBeast := NewCardInstance(baseCard(t, "1121101"), 0, engine.State.TurnNumber)
@@ -7945,8 +7938,11 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		if got := engine.effectiveSpellPower(0, waterSkill, nil); got != waterSkill.Card.Power {
 			t.Fatalf("1121114 should not buff non-fire spell power, got=%d", got)
 		}
-		engine.State.TurnNumber += 2
-		engine.clearExpiredTemporaryModifiers(0)
+		engine.clearTemporaryModifiersAtTurnEnd(0)
+		if len(engine.State.Players[0].TempModifiers) == 0 {
+			t.Fatal("prayer expired before the next turn")
+		}
+		engine.clearTemporaryModifiersAtTurnEnd(1)
 		if got := engine.effectiveSpellPower(0, fireSkill, nil); got != fireSkill.Card.Power {
 			t.Fatalf("1121114 power buff should expire by next turn end, got=%d modifiers=%v", got, engine.State.Players[0].TempModifiers)
 		}
@@ -8081,7 +8077,7 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 			t.Fatalf("1321101 should ask which air graveyard cards to recycle, pending=%+v", recycleEngine.State.PendingAction)
 		}
 		resolvePendingSelection(t, recycleEngine, 0, airA.InstanceID, airB.InstanceID)
-		if len(recycleP0.Graveyard) != 1 || recycleP0.Graveyard[0] != nonAir || !containsCardInstance(recycleP0.Deck, airA) || !containsCardInstance(recycleP0.Deck, airB) {
+		if len(recycleP0.Graveyard) != 1 || !sameCardInstance(recycleP0.Graveyard[0], nonAir) || !containsCardInstance(recycleP0.Deck, airA) || !containsCardInstance(recycleP0.Deck, airB) {
 			t.Fatalf("1321101 should move selected air graveyard cards to deck, grave=%v deck=%v", cardsToInfo(recycleP0.Graveyard), cardsToInfo(recycleP0.Deck))
 		}
 	})
@@ -8109,7 +8105,7 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		skill := readySkill(baseCard(t, "3121109"), 0)
 		behavior := Card3121109FlameFlash{}
 
-		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0, "spell_source": skill}}); err != nil {
 			t.Fatalf("3121109 hit: %v", err)
 		}
 		if got := engine.State.Players[0].Elements[model.ElementFire]; got != 3 {
@@ -8210,7 +8206,7 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		if err := behavior.OnDefend(&EffectContext{Engine: engine, Source: guardian, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"defense_success": true}}); err != nil {
 			t.Fatalf("3121102 successful defense: %v", err)
 		}
-		if fireSkill.PowerBonus != 1 || otherFireSkill.PowerBonus != 1 || guardian.PowerBonus != 0 || nonFireSkill.PowerBonus != 0 {
+		if fireSkill.PowerBonus != 1 || otherFireSkill.PowerBonus != 0 || guardian.PowerBonus != 0 || nonFireSkill.PowerBonus != 0 {
 			t.Fatalf("3121102 should buff other fire spells only, guardian=%d fire=%d other=%d nonfire=%d", guardian.PowerBonus, fireSkill.PowerBonus, otherFireSkill.PowerBonus, nonFireSkill.PowerBonus)
 		}
 	})
@@ -8257,7 +8253,7 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		skill := readySkill(baseCard(t, "3221105"), 0)
 		behavior := Card3221105CorrosiveFlow{}
 
-		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0, "spell_source": skill}}); err != nil {
 			t.Fatalf("3221105 hit: %v", err)
 		}
 		if len(p1.Hand) != 1 || len(p1.Graveyard) != 1 {
@@ -8380,7 +8376,7 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		skill := readySkill(baseCard(t, "3421105"), 0)
 		behavior := Card3421105AgingTouch{}
 
-		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, Target: target, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, Target: target, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0, "spell_source": skill}}); err != nil {
 			t.Fatalf("3421105 hit: %v", err)
 		}
 		if totalLoad(target) != 0 {
@@ -8389,7 +8385,7 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 
 		hero := engine.State.Players[1].Hero
 		setElementsGain(hero, map[string]int{model.ElementFire: 2})
-		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, Target: hero, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, Target: hero, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0, "spell_source": skill}}); err != nil {
 			t.Fatalf("3421105 hero hit: %v", err)
 		}
 		if totalLoad(hero) != 2 {
@@ -8403,7 +8399,7 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		skill := readySkill(baseCard(t, "3521110"), 0)
 		behavior := Card3521110LightSpiritDrain{}
 
-		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, Target: engine.State.Players[1].Hero, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+		if err := behavior.OnSpellHit(&EffectContext{Engine: engine, Source: skill, Target: engine.State.Players[1].Hero, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0, "spell_source": skill}}); err != nil {
 			t.Fatalf("3521110 single target hit: %v", err)
 		}
 		if effectiveElementsGain(lightA)[model.ElementLight] != lightA.Card.ElementsGain[model.ElementLight]+1 {
@@ -8415,7 +8411,7 @@ func TestRoyalConflictSimpleSkillEffects(t *testing.T) {
 		lightC := placeUnit(baseCard(t, "1521104"), 0, 1, 0, multiEngine)
 		nonLight := placeUnit(baseCard(t, "1021001"), 0, 2, 0, multiEngine)
 		multiSkill := readySkill(baseCard(t, "3521110"), 0)
-		if err := behavior.OnSpellHit(&EffectContext{Engine: multiEngine, Source: multiSkill, Target: multiEngine.State.Players[1].Hero, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0}}); err != nil {
+		if err := behavior.OnSpellHit(&EffectContext{Engine: multiEngine, Source: multiSkill, Target: multiEngine.State.Players[1].Hero, PlayerID: 0, OpponentID: 1, ExtraData: map[string]any{"attacker": 0, "spell_source": multiSkill}}); err != nil {
 			t.Fatalf("3521110 multi target hit: %v", err)
 		}
 		if multiEngine.State.PendingAction == nil || multiEngine.State.PendingAction.Type != "light_spirit_drain_load" || len(multiEngine.State.PendingAction.Candidates) != 2 {
@@ -8707,7 +8703,7 @@ func TestRoyalConflictPrimalDivineFlameLopsius(t *testing.T) {
 		t.Fatalf("3111102 should offer other fire skills only, pending=%+v", engine.State.PendingAction)
 	}
 	resolvePendingSelection(t, engine, 0, fireSpell.InstanceID)
-	if p0.Skills[1] != nil || len(p0.Exile) != 1 || p0.Exile[0] != fireSpell {
+	if p0.Skills[1] != nil || len(p0.Exile) != 1 || !sameCardInstance(p0.Exile[0], fireSpell) {
 		t.Fatalf("3111102 should exile selected fire skill, skills=%v exile=%v", cardsToInfo(p0.Skills[:]), cardsToInfo(p0.Exile))
 	}
 	if lopsius.AttackBonus != 1 || lopsius.PowerBonus != 2 || lopsius.UsedThisTurn != 1 {
@@ -8741,7 +8737,7 @@ func TestRoyalConflictPrimalDivineFlameLopsius(t *testing.T) {
 		t.Fatalf("3111102 should be marked used after opening pending action, used=%d", actionLopsius.UsedThisTurn)
 	}
 	resolvePendingSelection(t, actionEngine, 0, actionFireSpell.InstanceID)
-	if actionP0.Skills[1] != nil || len(actionP0.Exile) != 1 || actionP0.Exile[0] != actionFireSpell {
+	if actionP0.Skills[1] != nil || len(actionP0.Exile) != 1 || !sameCardInstance(actionP0.Exile[0], actionFireSpell) {
 		t.Fatalf("3111102 handle action path should exile selected fire skill, skills=%v exile=%v", cardsToInfo(actionP0.Skills[:]), cardsToInfo(actionP0.Exile))
 	}
 	if actionLopsius.AttackBonus != 1 || actionLopsius.PowerBonus != 2 || actionLopsius.UsedThisTurn != 1 {
@@ -8765,19 +8761,17 @@ func TestRoyalConflictMindSeaMazeStacksAfterUse(t *testing.T) {
 	if got := engine.effectiveSpellArea(skill); got != SpellAreaSingle {
 		t.Fatalf("3211101 should start single-target, area=%s", got)
 	}
-	if err := behavior.OnSpellCast(ctx); err != nil {
-		t.Fatalf("3211101 first cast: %v", err)
-	}
-	if err := behavior.OnSpellCast(ctx); err != nil {
-		t.Fatalf("3211101 second cast: %v", err)
-	}
+	behavior.OnSkillUseFinished(ctx)
+	resolvePendingSelection(t, engine, 0, string(SpellAreaColumn))
+	behavior.OnSkillUseFinished(ctx)
+	resolvePendingSelection(t, engine, 0, string(SpellAreaSquare))
 	if got := engine.temporarySpellPowerBonus(0, skill); got != 2 {
-		t.Fatalf("3211101 should gain +1 power per use this turn, got=%d modifiers=%+v", got, p0.TempModifiers)
+		t.Fatalf("expected +2 power after two uses, got %d", got)
 	}
-	if got := engine.effectiveSpellArea(skill); got != SpellAreaAll {
-		t.Fatalf("3211101 should become any/all range this turn, area=%s", got)
+	if got := engine.effectiveSpellArea(skill); got != SpellAreaSquare {
+		t.Fatalf("last chosen area should persist, got %s", got)
 	}
-	skill.Statuses[mindSeaMazeAnyRangeUntilStatus] = engine.State.TurnNumber - 1
+	skill.mindSeaRangeTurn = engine.turnOrdinal() - 1
 	if got := engine.effectiveSpellArea(skill); got != SpellAreaSingle {
 		t.Fatalf("3211101 range status should expire by turn, area=%s", got)
 	}
@@ -8787,8 +8781,9 @@ func TestRoyalConflictTreadingWaveResetsOtherWaterSpellWithRisingCost(t *testing
 	engine := setupEffectTest(t)
 	p0 := engine.State.Players[0]
 	treading := readySkill(baseCard(t, "3221101"), 0)
+	treading.Statuses[StatusAbilityDuration] = 1
 	usedWater := readySkill(baseCard(t, "3221001"), 0)
-	resetTarget := readySkill(baseCard(t, "3221104"), 0)
+	resetTarget := readySkill(baseCard(t, "3221109"), 0)
 	resetTarget.IsHorizontal = true
 	p0.Skills[0] = treading
 	p0.Skills[1] = usedWater
@@ -8807,8 +8802,8 @@ func TestRoyalConflictTreadingWaveResetsOtherWaterSpellWithRisingCost(t *testing
 	if resetTarget.IsHorizontal {
 		t.Fatalf("3221101 should reset another horizontal water spell")
 	}
-	if got := engine.effectiveSkillUseCost(p0, resetTarget)[model.ElementWater]; got != resetTarget.Card.ElementsExpense[model.ElementWater]+2 {
-		t.Fatalf("3221101 first trigger should add 2 water to next use, cost=%v", engine.effectiveSkillUseCost(p0, resetTarget))
+	if got := engine.effectiveSkillUseCost(p0, resetTarget)[model.ElementWater]; got != resetTarget.Card.ElementsExpense[model.ElementWater]+1 {
+		t.Fatalf("3221101 first trigger should add 1 water to next use, cost=%v", engine.effectiveSkillUseCost(p0, resetTarget))
 	}
 	engine.consumeNextSkillUseModifiers(p0, resetTarget)
 	if got := engine.effectiveSkillUseCost(p0, resetTarget)[model.ElementWater]; got != resetTarget.Card.ElementsExpense[model.ElementWater] {
@@ -8826,13 +8821,14 @@ func TestRoyalConflictTreadingWaveResetsOtherWaterSpellWithRisingCost(t *testing
 	}); err != nil {
 		t.Fatalf("3221101 second trigger failed: %v", err)
 	}
-	if got := engine.effectiveSkillUseCost(p0, resetTarget)[model.ElementWater]; got != resetTarget.Card.ElementsExpense[model.ElementWater]+3 {
-		t.Fatalf("3221101 second same-turn trigger should add 3 water, cost=%v", engine.effectiveSkillUseCost(p0, resetTarget))
+	if got := engine.effectiveSkillUseCost(p0, resetTarget)[model.ElementWater]; got != resetTarget.Card.ElementsExpense[model.ElementWater]+2 {
+		t.Fatalf("3221101 second same-turn trigger should add 2 water, cost=%v", engine.effectiveSkillUseCost(p0, resetTarget))
 	}
 
 	enemyEngine := setupEffectTest(t)
 	enemyTreading := readySkill(baseCard(t, "3221101"), 0)
-	enemyTarget := readySkill(baseCard(t, "3221104"), 0)
+	enemyTreading.Statuses[StatusAbilityDuration] = 1
+	enemyTarget := readySkill(baseCard(t, "3221109"), 0)
 	enemyTarget.IsHorizontal = true
 	enemyEngine.State.Players[0].Skills[0] = enemyTreading
 	enemyEngine.State.Players[0].Skills[1] = enemyTarget
@@ -9307,7 +9303,7 @@ func TestRoyalConflictRottenAncientTreeHeartRemovesLoadEveryTwoSpells(t *testing
 	if engine.State.PendingAction != nil {
 		resolvePendingSelection(t, engine, 0, heart.InstanceID+"|"+model.ElementEarth)
 	}
-	if p0.Equipment[0] != nil || len(p0.Graveyard) == 0 || p0.Graveyard[len(p0.Graveyard)-1] != heart {
+	if p0.Equipment[0] != nil || len(p0.Graveyard) == 0 || !sameCardInstance(p0.Graveyard[len(p0.Graveyard)-1], heart) {
 		t.Fatalf("2411102 should destroy itself after losing all load, equipment=%v grave=%v", p0.Equipment[0], cardsToInfo(p0.Graveyard))
 	}
 
@@ -9349,6 +9345,10 @@ func TestRoyalConflictRoseWhipGainsShadowLoadAfterFriendlyLoadLoss(t *testing.T)
 	}
 
 	engine.reduceCardElementLoadWithTriggers(0, ally, model.ElementEarth, 1, nil)
+	if whip.ElementsGainBonus[model.ElementShadow] != 1 {
+		t.Fatal("whip triggered twice in one turn")
+	}
+	engine.refreshTurnAbilityUses(p0)
 	engine.reduceCardElementLoadWithTriggers(0, ally, model.ElementEarth, 1, nil)
 	if got := whip.ElementsGainBonus[model.ElementShadow]; got != 2 {
 		t.Fatalf("2421102 gained shadow load should cap at two, got=%d load=%v", got, effectiveElementsGain(whip))
@@ -9483,7 +9483,7 @@ func TestRoyalConflictBloodRoseContractBindsOwnSpellToEarthOrShadowCompanion(t *
 		t.Fatalf("2421104 bound spell should preserve ready state, become slotless, gain host load power, and be marked transferred; slot=%d horizontal=%v power=%d hostLoad=%d statuses=%v", skill.SlotIndex, skill.IsHorizontal, skill.PowerBonus, hostLoad, skill.Statuses)
 	}
 	engine.destroyUnit(host, 0)
-	if len(p0.Graveyard) == 0 || p0.Graveyard[len(p0.Graveyard)-1] != host || len(host.BoundSkills) != 0 || !containsCardInstance(p0.Exile, skill) {
+	if len(p0.Graveyard) == 0 || !sameCardInstance(p0.Graveyard[len(p0.Graveyard)-1], host) || len(host.BoundSkills) != 0 || !containsCardInstance(p0.Exile, skill) {
 		t.Fatalf("2421104 transferred bound spell should be exiled when host dies, grave=%v bound=%v exile=%v", cardsToInfo(p0.Graveyard), cardsToInfo(host.BoundSkills), cardsToInfo(p0.Exile))
 	}
 }
@@ -9714,9 +9714,9 @@ func TestRoyalConflictPunishmentRuneTriggersAfterThirdEnemySpellAttack(t *testin
 	spell := readySkill(baseCard(t, "3121105"), 0)
 	target := placeUnit(baseCard(t, "1021001"), 0, 0, 0, engine)
 	startLife := target.CurrentLife
-	engine.recordSpellCast(0, spell)
-	engine.recordSpellCast(0, spell)
-	engine.recordSpellCast(0, spell)
+	engine.recordSpellAttack(0, spell)
+	engine.recordSpellAttack(0, spell)
+	engine.recordSpellAttack(0, spell)
 	if totalSpellsCastThisTurn(p0) != 3 {
 		t.Fatalf("test setup should record three spell attacks, got %d", totalSpellsCastThisTurn(p0))
 	}
@@ -10019,8 +10019,8 @@ func TestRoyalConflictExileSotorAddsAdjacentSpellTargets(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("cast spell with Sotor aura: %v", err)
 	}
-	if engine.State.PendingSpell == nil || len(engine.State.PendingSpell.ExtraTargets) != 3 {
-		t.Fatalf("Sotor should add three adjacent extra targets, pending=%+v", engine.State.PendingSpell)
+	if engine.State.PendingSpell == nil || len(engine.State.PendingSpell.ExtraTargets) != 2 {
+		t.Fatalf("Sotor should add only the two legal adjacent extra targets, pending=%+v", engine.State.PendingSpell)
 	}
 	heroStartLife := p1.Hero.CurrentLife
 	if err := engine.HandleAction(1, ActionMessage{Action: "no_defend", Data: map[string]any{}}); err != nil {
@@ -10031,8 +10031,8 @@ func TestRoyalConflictExileSotorAddsAdjacentSpellTargets(t *testing.T) {
 			t.Fatalf("Sotor spell should damage main and adjacent targets, unit=%s life=%d", unit.InstanceID, unit.CurrentLife)
 		}
 	}
-	if p1.Hero.CurrentLife != heroStartLife-2 {
-		t.Fatalf("Sotor spell should also damage adjacent hero, life=%d start=%d", p1.Hero.CurrentLife, heroStartLife)
+	if p1.Hero.CurrentLife != heroStartLife {
+		t.Fatalf("Sotor spell must not target an adjacent hero behind the front row, life=%d start=%d", p1.Hero.CurrentLife, heroStartLife)
 	}
 }
 
@@ -10059,7 +10059,11 @@ func TestRoyalConflictBloodThornGardenResummonsAfterFriendlyKill(t *testing.T) {
 		t.Fatalf("blood thorn should ask for resummon position, pending=%+v", engine.State.PendingAction)
 	}
 	resolvePendingSelection(t, engine, 0, positionSelectionID(Position{Col: 0, Row: 0}))
-	if p0.Units[0][0] != thorn || thorn.CurrentLife != thorn.Card.Life || !thorn.IsHorizontal {
+	if !sameCardInstance(p0.Units[0][0], thorn) {
+		t.Fatal("wrong thorn revived")
+	}
+	thorn = p0.Units[0][0]
+	if thorn.CurrentLife != thorn.Card.Life || !thorn.IsHorizontal {
 		t.Fatalf("blood thorn should return fresh at its old position, unit=%v card=%v", p0.Units[0][0], cardToInfo(thorn))
 	}
 	if p0.Elements[model.ElementShadow] != 0 || containsCardInstance(p0.Graveyard, thorn) {
@@ -10111,7 +10115,11 @@ func TestRoyalConflictRebornUnitsCanChooseCurrentEmptyPositions(t *testing.T) {
 		t.Fatalf("bone knight should ask for a current empty position, pending=%+v", engine.State.PendingAction)
 	}
 	resolvePendingSelection(t, engine, 0, positionSelectionID(Position{Col: 2, Row: 2}))
-	if p0.Units[2][2] != bone || bone.Statuses[boneKnightRebornStatus] != 1 || containsCardInstance(p0.Graveyard, bone) {
+	if !sameCardInstance(p0.Units[2][2], bone) {
+		t.Fatal("wrong bone knight revived")
+	}
+	bone = p0.Units[2][2]
+	if bone.Statuses[boneKnightRebornStatus] != 1 || containsCardInstance(p0.Graveyard, bone) {
 		t.Fatalf("bone knight should reborn at chosen current empty position, pos=%v grave=%v statuses=%v", bone.Position, cardsToInfo(p0.Graveyard), bone.Statuses)
 	}
 
@@ -10129,7 +10137,7 @@ func TestRoyalConflictRebornUnitsCanChooseCurrentEmptyPositions(t *testing.T) {
 		t.Fatalf("blood thorn should ask for a current empty position, pending=%+v", engine.State.PendingAction)
 	}
 	resolvePendingSelection(t, engine, 0, positionSelectionID(Position{Col: 2, Row: 1}))
-	if p0.Units[2][1] != thorn || containsCardInstance(p0.Graveyard, thorn) || p0.Elements[model.ElementShadow] != 0 {
+	if !sameCardInstance(p0.Units[2][1], thorn) || containsCardInstance(p0.Graveyard, thorn) || p0.Elements[model.ElementShadow] != 0 {
 		t.Fatalf("blood thorn should spend one shadow and resummon at chosen current empty position, unit=%v blocker=%v grave=%v elements=%v", cardToInfo(p0.Units[2][1]), cardToInfo(blocker), cardsToInfo(p0.Graveyard), p0.Elements)
 	}
 }
@@ -10312,6 +10320,11 @@ func TestRoyalConflictManesArbitrationPermanentWaterPowerChoice(t *testing.T) {
 		t.Fatalf("Manes should ask for permanent mode, pending=%+v", engine.State.PendingAction)
 	}
 	resolvePendingSelection(t, engine, 0, "all_water_power")
+	if got := engine.effectiveSkillPowerForPurpose(0, waterSkill, skillPurposeAttack); got != waterSkill.Card.Power {
+		t.Fatal("existing spells must not receive future-learned reward")
+	}
+	engine.State.Players[0].Skills[0] = waterSkill
+	engine.notifyCardEntered(0, waterSkill, map[string]any{"entered_player": 0, "learned_skill": true})
 	if power := engine.effectiveSkillPowerForPurpose(0, waterSkill, skillPurposeAttack); power != waterSkill.Card.Power+2 {
 		t.Fatalf("Manes all-water mode should add +2 power, got=%d base=%d modifiers=%+v", power, waterSkill.Card.Power, engine.State.Players[0].TempModifiers)
 	}
@@ -10338,7 +10351,7 @@ func TestRoyalConflictManesArbitrationEmpowersOneWaterSkillAndLocksLearning(t *t
 		t.Fatalf("Manes should ask for a learned water skill, pending=%+v", engine.State.PendingAction)
 	}
 	resolvePendingSelection(t, engine, 0, waterSkill.InstanceID)
-	if waterSkill.PowerBonus != 3 || waterSkill.AttackBonus != 1 {
+	if engine.effectiveSkillPowerForPurpose(0, waterSkill, skillPurposeAttack) != waterSkill.Card.Power+3 || engine.temporarySpellDamageBonus(0, waterSkill) != 1 {
 		t.Fatalf("Manes should empower one water skill, power=%d attack=%d", waterSkill.PowerBonus, waterSkill.AttackBonus)
 	}
 	if err := engine.validateSkillLearnPermissionModifiers(0, NewCardInstance(baseCard(t, "3221002"), 0, engine.State.TurnNumber)); err == nil {
@@ -10364,7 +10377,7 @@ func TestRoyalConflictDeepSwordRevealsOnDrawWhenEnemySpellPowerIsHigher(t *testi
 	back.CurrentLife = 5
 	p0.Hand = []*CardInstance{sword}
 
-	if err := (Card2211101DeepSword{}).OnDraw(&EffectContext{
+	if err := (Card2211101DeepSword{}).OnSelfDraw(&EffectContext{
 		Engine:     engine,
 		Source:     sword,
 		PlayerID:   0,
@@ -10398,7 +10411,7 @@ func TestRoyalConflictDeepSwordDoesNotTriggerWithoutEnemySpellPowerLead(t *testi
 	p0.Hand = []*CardInstance{sword}
 	placeUnit(baseCard(t, "1421101"), 1, 0, 0, engine)
 
-	if err := (Card2211101DeepSword{}).OnDraw(&EffectContext{
+	if err := (Card2211101DeepSword{}).OnSelfDraw(&EffectContext{
 		Engine:     engine,
 		Source:     sword,
 		PlayerID:   0,
@@ -10417,6 +10430,7 @@ func TestRoyalConflictTimeCycleLocksPlayerActionsWhileActive(t *testing.T) {
 	p0 := engine.State.Players[0]
 	timeCycle := readySkill(baseCard(t, "3411101"), 0)
 	p0.Skills[0] = timeCycle
+	timeCycle.Statuses[StatusAbilityDuration] = 1
 	companion := NewCardInstance(baseCard(t, "1021001"), 0, engine.State.TurnNumber)
 	equipment := NewCardInstance(baseCard(t, "2211101"), 0, engine.State.TurnNumber)
 	item := NewCardInstance(baseCard(t, "2121002"), 0, engine.State.TurnNumber)
@@ -10429,7 +10443,7 @@ func TestRoyalConflictTimeCycleLocksPlayerActionsWhileActive(t *testing.T) {
 	castSkill := readySkill(baseCard(t, "3121105"), 0)
 	p0.Skills[1] = castSkill
 
-	if !engine.timeCycleLockActive() {
+	if !engine.actionRestricted(RuleSummon, nil) {
 		t.Fatal("time cycle should be active while 3411101 is a non-petrified learned skill")
 	}
 	if err := engine.handleSummon(0, ActionMessage{Data: map[string]any{
@@ -10465,7 +10479,7 @@ func TestRoyalConflictTimeCycleLocksPlayerActionsWhileActive(t *testing.T) {
 	}
 
 	timeCycle.Statuses[StatusPetrify] = 1
-	if engine.timeCycleLockActive() {
+	if engine.actionRestricted(RuleSummon, nil) {
 		t.Fatal("petrified time cycle should stop locking actions")
 	}
 }
@@ -10547,13 +10561,17 @@ func TestRoyalConflictCursedFireFlipsCheapFireSpellScrollForFree(t *testing.T) {
 	if !containsCardInstance(p0.Hand, scroll) || containsCardInstance(p0.Hand, nonScroll) || containsCardInstance(p0.Hand, tooExpensive) {
 		t.Fatalf("3121110 should flip first cheap fire spell scroll only, hand=%v deck=%v", cardsToInfo(p0.Hand), cardsToInfo(p0.Deck))
 	}
-	if cost := engine.effectiveCardPlayCost(p0, scroll); totalElementCost(cost) != 0 {
-		t.Fatalf("3121110 flipped scroll should be free to use, cost=%v statuses=%v", cost, scroll.Statuses)
+	if cost := engine.effectiveCardPlayCost(p0, scroll); !sameElementCost(cost, scroll.Card.ElementsCost) {
+		t.Fatalf("3121110 flipped scroll keeps its printed cost outside the immediate cast, cost=%v statuses=%v", cost, scroll.Statuses)
 	}
 	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "cursed_fire_use_scroll_target" {
 		t.Fatalf("3121110 should offer to immediately use the flipped scroll, pending=%+v", engine.State.PendingAction)
 	}
+	beforePayment := p0.Elements[model.ElementFire]
 	resolvePendingSelection(t, engine, 0, target.InstanceID)
+	if p0.Elements[model.ElementFire] != beforePayment {
+		t.Fatal("immediate cast should be free")
+	}
 	if containsCardInstance(p0.Hand, scroll) || engine.State.PendingSpell == nil || engine.State.PendingSpell.Skill != scroll {
 		t.Fatalf("3121110 accepted immediate use should cast the flipped scroll, hand=%v pending=%+v", cardsToInfo(p0.Hand), engine.State.PendingSpell)
 	}
@@ -10619,7 +10637,7 @@ func TestRoyalConflictScatterAwayProtectsDamagedAirCompanion(t *testing.T) {
 		t.Fatalf("2321108 should trigger after friendly air damage, life=%d/%d pending=%+v", ally.CurrentLife, startLife, engine.State.PendingAction)
 	}
 	resolvePendingSelection(t, engine, 0, counter.InstanceID)
-	if ally.Statuses[temporaryDamageAndNegativeImmunityUntilStatus] == 0 || !containsCardInstance(p0.Graveyard, counter) {
+	if ally.Statuses[scatterAwayUntilPlayerStartStatus] == 0 || !containsCardInstance(p0.Graveyard, counter) {
 		t.Fatalf("2321108 should grant temporary immunity and go to graveyard, statuses=%v grave=%v", ally.Statuses, cardsToInfo(p0.Graveyard))
 	}
 	protectedLife := ally.CurrentLife
@@ -10651,8 +10669,8 @@ func TestRoyalConflictInfusionRuneEResetsDefenseSpells(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("2021115 defend: %v", err)
 	}
-	if defense.IsHorizontal || boost.IsHorizontal {
-		t.Fatalf("2021115 should reset defense and defense-boost spells through cooldown, defense=%v boost=%v", defense.IsHorizontal, boost.IsHorizontal)
+	if !defense.IsHorizontal || !boost.IsHorizontal {
+		t.Fatalf("2021115 must respect cooldown on defense and boost spells, defense=%v boost=%v", defense.IsHorizontal, boost.IsHorizontal)
 	}
 }
 
@@ -10691,7 +10709,11 @@ func TestRoyalConflictFireRebirthScrollRevivesFireCompanionsThatDiedThisTurn(t *
 	}
 	resolvePendingSelection(t, engine, 0, positionSelectionID(revivePos))
 
-	if p0.Units[revivePos.Col][revivePos.Row] != fire2 || fire2.IsHorizontal || fire2.CurrentLife != fire2.Card.Life {
+	if !sameCardInstance(p0.Units[revivePos.Col][revivePos.Row], fire2) {
+		t.Fatal("wrong fire companion revived")
+	}
+	fire2 = p0.Units[revivePos.Col][revivePos.Row]
+	if fire2.IsHorizontal || fire2.CurrentLife != fire2.Card.Life {
 		t.Fatalf("2121104 should revive selected fire companion vertical at chosen position, pos=%+v horizontal=%v life=%d/%d", fire2.Position, fire2.IsHorizontal, fire2.CurrentLife, fire2.Card.Life)
 	}
 	if !containsCardInstance(p0.Graveyard, fire) || containsCardInstance(p0.Graveyard, fire2) || !containsCardInstance(p0.Graveyard, scroll) {
@@ -10915,7 +10937,7 @@ func TestRoyalConflictBloodSandArrayPaymentsCreateMarkersAndModifyStats(t *testi
 	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "blood_sand_array_pay" {
 		t.Fatalf("3411102 should ask owner payment first, pending=%+v", engine.State.PendingAction)
 	}
-	if err := resolvePendingSelectionWithData(engine, 0, nil, map[string]any{
+	if err := resolvePendingSelectionWithData(engine, 0, []string{ally.InstanceID}, map[string]any{
 		"payments": []any{map[string]any{"instance_id": ally.InstanceID, "amount": float64(2), "mode": "load"}},
 	}); err != nil {
 		t.Fatalf("resolve 3411102 owner payment: %v", err)
@@ -10926,7 +10948,7 @@ func TestRoyalConflictBloodSandArrayPaymentsCreateMarkersAndModifyStats(t *testi
 	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "blood_sand_array_pay_opponent" || engine.State.PendingAction.PlayerID != 1 {
 		t.Fatalf("3411102 should ask opponent payment second, pending=%+v", engine.State.PendingAction)
 	}
-	if err := resolvePendingSelectionWithData(engine, 1, nil, map[string]any{
+	if err := resolvePendingSelectionWithData(engine, 1, []string{enemy.InstanceID}, map[string]any{
 		"payments": []any{map[string]any{"instance_id": enemy.InstanceID, "amount": float64(1), "mode": "life"}},
 	}); err != nil {
 		t.Fatalf("resolve 3411102 opponent payment: %v", err)
@@ -11069,7 +11091,7 @@ func TestRoyalConflictCouncilGuardReordersOpponentTopFiveOnlyWithMark(t *testing
 	}}); err != nil {
 		t.Fatalf("resolve 1521112 reorder: %v", err)
 	}
-	if p1.Deck[0] != e || p1.Deck[1] != mark || p1.Deck[2] != c || p1.Deck[3] != rest || p1.Deck[4] != a || p1.Deck[5] != d {
+	if p1.Deck[0] != e || p1.Deck[1] != mark || p1.Deck[2] != a || p1.Deck[3] != d || p1.Deck[4] != c || p1.Deck[5] != rest {
 		t.Fatalf("1521112 opponent deck order wrong, deck=%v", cardsToInfo(p1.Deck))
 	}
 	if len(p0.Hand) != startHandCount {
@@ -11090,8 +11112,8 @@ func TestRoyalConflictCouncilGuardReordersOpponentTopFiveOnlyWithMark(t *testing
 	}}); err != nil {
 		t.Fatalf("use 1521112 no mark ability: %v", err)
 	}
-	if noMarkEngine.State.PendingAction != nil {
-		t.Fatalf("1521112 should not open reorder prompt without a mark, pending=%+v", noMarkEngine.State.PendingAction)
+	if noMarkEngine.State.PendingAction == nil || len(noMarkEngine.State.PendingAction.Candidates) != 3 {
+		t.Fatalf("1521112 must privately show the cards before shuffling, pending=%+v", noMarkEngine.State.PendingAction)
 	}
 }
 
@@ -11195,7 +11217,12 @@ func TestRoyalConflictCloudTopTradingHouseDrawsOpponentDeckAsNeutral(t *testing.
 	p0.Deck = nil
 	p1.Deck = []*CardInstance{stolen}
 
-	drawn := engine.drawCards(0, 1)
+	var drawn []*CardInstance
+	engine.drawCardsThen(0, 1, func(cards []*CardInstance) { drawn = cards })
+	if engine.State.PendingAction == nil || stolen.OwnerID != 1 || len(p1.Deck) != 1 {
+		t.Fatal("opponent draw must wait for the player's optional choice")
+	}
+	resolvePendingSelection(t, engine, 0, "draw:1")
 	if len(drawn) != 1 || drawn[0] != stolen || len(p0.Hand) == 0 || p0.Hand[len(p0.Hand)-1] != stolen {
 		t.Fatalf("1311102 should draw from opponent deck when own deck is empty, drawn=%v hand=%v", cardsToInfo(drawn), cardsToInfo(p0.Hand))
 	}
@@ -11278,7 +11305,7 @@ func TestRoyalConflictHellRoarCanSacrificeFireCompanionForPower(t *testing.T) {
 	if engine.State.PendingSpell == nil || engine.State.PendingSpell.TotalPower != roar.Card.Power+bonus {
 		t.Fatalf("3121104 should add sacrificed companion entry cost to pending power, pending=%+v bonus=%d", engine.State.PendingSpell, bonus)
 	}
-	if p0.Units[0][0] != nil || len(p0.Graveyard) == 0 || p0.Graveyard[len(p0.Graveyard)-1] != sacrifice {
+	if p0.Units[0][0] != nil || len(p0.Graveyard) == 0 || !sameCardInstance(p0.Graveyard[len(p0.Graveyard)-1], sacrifice) {
 		t.Fatalf("3121104 should sacrifice selected fire companion, units=%v grave=%v", p0.Units[0][0], cardsToInfo(p0.Graveyard))
 	}
 
@@ -11457,6 +11484,7 @@ func TestRoyalConflictDragonSnowfieldFreezesAfterSpellHitAndSummonsFrostDragon(t
 	p0 := engine.State.Players[0]
 	snowfield := readySkill(baseCard(t, "3211102"), 0)
 	p0.Skills[0] = snowfield
+	snowfield.Statuses[StatusAbilityDuration] = 1
 	frontTarget := placeUnit(baseCard(t, "1021001"), 0, 1, 0, engine)
 	backTarget := placeUnit(baseCard(t, "1021002"), 0, 1, 1, engine)
 	enemySpell := readySkill(baseCard(t, "3121001"), 1)
@@ -11484,8 +11512,8 @@ func TestRoyalConflictDragonSnowfieldFreezesAfterSpellHitAndSummonsFrostDragon(t
 	}
 	resolvePendingSelection(t, engine, 0, positionSelectionID(pos))
 	summoned := p0.Units[pos.Col][pos.Row]
-	if summoned == nil || summoned.Card == nil || summoned.Card.Number != "1201101" || snowfield.Statuses[dragonSnowfieldTriggerStatus] != 0 {
-		t.Fatalf("3211102 should summon frost dragon and spend five counts, summoned=%v count=%d", cardToInfo(summoned), snowfield.Statuses[dragonSnowfieldTriggerStatus])
+	if summoned == nil || summoned.Card == nil || summoned.Card.Number != "1201101" || snowfield.Statuses[dragonSnowfieldTriggerStatus] != 5 {
+		t.Fatalf("3211102 should summon frost dragon and retain the one-time fifth-trigger count, summoned=%v count=%d", cardToInfo(summoned), snowfield.Statuses[dragonSnowfieldTriggerStatus])
 	}
 }
 
@@ -11552,7 +11580,7 @@ func TestRoyalConflictEmbersCastsForFreeAtTurnEndWithNoFire(t *testing.T) {
 	target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
 	p0.Elements[model.ElementFire] = 0
 
-	if err := (Card3121105Embers{}).OnTurnEnd(&EffectContext{Engine: engine, Source: embers, PlayerID: 0, OpponentID: 1}); err != nil {
+	if err := (Card3121105Embers{}).OnTurnEndDeclaration(&EffectContext{Engine: engine, Source: embers, PlayerID: 0, OpponentID: 1}); err != nil {
 		t.Fatalf("3121105 turn end: %v", err)
 	}
 	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "embers_free_cast_target" ||
@@ -11574,7 +11602,7 @@ func TestRoyalConflictEmbersCastsForFreeAtTurnEndWithNoFire(t *testing.T) {
 	noTriggerP0.Skills[0] = noTrigger
 	noTriggerP0.Elements[model.ElementFire] = 1
 	placeUnit(baseCard(t, "1021001"), 1, 0, 0, noTriggerEngine)
-	if err := (Card3121105Embers{}).OnTurnEnd(&EffectContext{Engine: noTriggerEngine, Source: noTrigger, PlayerID: 0, OpponentID: 1}); err != nil {
+	if err := (Card3121105Embers{}).OnTurnEndDeclaration(&EffectContext{Engine: noTriggerEngine, Source: noTrigger, PlayerID: 0, OpponentID: 1}); err != nil {
 		t.Fatalf("3121105 nonzero fire turn end: %v", err)
 	}
 	if noTriggerEngine.State.PendingAction != nil || noTrigger.IsHorizontal {
@@ -11599,12 +11627,12 @@ func TestRoyalConflictSkyPhantasmCastsAnotherLearnedDriveOrFocusSpell(t *testing
 	}}); err != nil {
 		t.Fatalf("3311101 cast: %v", err)
 	}
-	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "sky_phantasm_spell_choice" ||
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "spell_copy_choice" ||
 		!candidateContains(engine.State.PendingAction.Candidates, drive.InstanceID) {
 		t.Fatalf("3311101 should ask for another learned drive/focus spell, pending=%+v", engine.State.PendingAction)
 	}
 	resolvePendingSelection(t, engine, 0, drive.InstanceID)
-	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "sky_phantasm_target" ||
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "copied_spell_target" ||
 		!candidateContains(engine.State.PendingAction.Candidates, target.InstanceID) {
 		t.Fatalf("3311101 should ask for copied spell target, pending=%+v", engine.State.PendingAction)
 	}
@@ -11652,7 +11680,7 @@ func TestRoyalConflictWaterMirrorScrollCopiesPreviousLowCostWaterSpell(t *testin
 	}}); err != nil {
 		t.Fatalf("2221104 use: %v", err)
 	}
-	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "water_mirror_scroll_target" ||
+	if engine.State.PendingAction == nil || engine.State.PendingAction.Type != "copied_spell_target" ||
 		!candidateContains(engine.State.PendingAction.Candidates, target.InstanceID) {
 		t.Fatalf("2221104 should ask for copied spell target, pending=%+v", engine.State.PendingAction)
 	}
@@ -11682,15 +11710,15 @@ func TestRoyalConflictFlameInfernoBurnsAndRaisesDefenseThreshold(t *testing.T) {
 		Engine:    engine,
 		Source:    inferno,
 		PlayerID:  0,
-		ExtraData: map[string]any{"power": 17, "affected_units": []*CardInstance{targetA, targetB}},
+		ExtraData: map[string]any{"spell_source": inferno, "power": 17, "affected_units": []*CardInstance{targetA, targetB}},
 	}); err != nil {
 		t.Fatalf("3111101 hit: %v", err)
 	}
 	if targetA.Statuses[StatusBurn] != 2 || targetB.Statuses[StatusBurn] != 2 {
 		t.Fatalf("3111101 should add one burn per 8 power, a=%v b=%v", targetA.Statuses, targetB.Statuses)
 	}
-	if got := engine.requiredDefensePowerForSpell(inferno, 16); got != 24 {
-		t.Fatalf("3111101 should require +4 defense per burn layer, got %d", got)
+	if got := engine.requiredDefensePowerForSpell(inferno, 16); got != 16 {
+		t.Fatalf("3111101 should use ordinary power for the attack defense threshold, got %d", got)
 	}
 
 	failEngine := setupEffectTest(t)
@@ -11707,8 +11735,8 @@ func TestRoyalConflictFlameInfernoBurnsAndRaisesDefenseThreshold(t *testing.T) {
 	}
 	startLife := failTarget.CurrentLife
 	failEngine.finishDefenseResolution(1, []*CardInstance{failDefense}, nil, 0, nil, 0)
-	if failTarget.CurrentLife >= startLife || failTarget.Statuses[StatusBurn] != 2 {
-		t.Fatalf("3111101 should still hit when defense meets base power but misses extra burn threshold, life=%d start=%d statuses=%v", failTarget.CurrentLife, startLife, failTarget.Statuses)
+	if failTarget.CurrentLife != startLife || failTarget.Statuses[StatusBurn] != 2 {
+		t.Fatalf("3111101 should block damage but retain burn when only the base power is defended, life=%d start=%d statuses=%v", failTarget.CurrentLife, startLife, failTarget.Statuses)
 	}
 
 	successEngine := setupEffectTest(t)

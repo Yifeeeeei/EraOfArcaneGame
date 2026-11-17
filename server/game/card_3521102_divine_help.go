@@ -2,7 +2,8 @@ package game
 
 type Card3521102DivineHelp struct{ AlwaysActive }
 
-func (Card3521102DivineHelp) ID() string   { return "3521102" }
+func (Card3521102DivineHelp) ID() string { return "3521102" }
+
 func (Card3521102DivineHelp) Name() string { return "神助" }
 
 func (Card3521102DivineHelp) ModifySkillContribution(ctx *EffectContext, stats *SpellStats) {

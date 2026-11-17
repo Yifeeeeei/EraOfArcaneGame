@@ -345,6 +345,8 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 					enemy.Skills[1] = readySkill(cards.PlayableCardDB["3221003"], 1)
 					enemy.Skills[0].Statuses[StatusWeaken] = 2
 					enemy.Skills[1].Statuses[StatusWeaken] = 1
+					enemy.Skills[2] = readySkill(cards.PlayableCardDB["3321005"], 1)
+					enemy.Skills[2].Statuses[StatusWeaken] = 1
 				}
 				if err := engine.HandleAction(0, ActionMessage{
 					Action: "learn_skill",
@@ -363,8 +365,14 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 						t.Fatalf("resolve sin companion kind failed: %v", err)
 					}
 				}
+				if card.Number == "3621104" && engine.State.PendingAction != nil {
+					resolvePendingSelection(t, engine, 0, engine.State.Players[1].Hero.InstanceID)
+				}
 				if canUseSkillForPurpose(card, skillPurposeAttack) {
 					ps.Skills[0].IsHorizontal = false
+					if card.Number == "3311101" {
+						ps.Skills[1] = readySkill(cards.PlayableCardDB["3321002"], 0)
+					}
 					if card.Number == "3511010" {
 						ps.Skills[0].PowerBonus = 8
 					}
@@ -493,7 +501,7 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 					}
 					if card.Number == "2221104" {
 						previous := readySkill(cards.PlayableCardDB["3221001"], 0)
-						ps.LastLowCostWaterSpell = cloneVirtualSpell(previous, 0, engine.State.TurnNumber)
+						ps.LastLowCostWaterSpell = engine.cloneVirtualSpell(previous, 0, engine.State.TurnNumber)
 						enemy := NewCardInstance(cards.PlayableCardDB["1021001"], 1, engine.State.TurnNumber)
 						enemy.Position = &Position{Col: 1, Row: 0}
 						engine.State.Players[1].Units[1][0] = enemy

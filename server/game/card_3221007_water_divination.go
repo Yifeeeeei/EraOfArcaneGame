@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card3221007WaterDivination struct{ AlwaysActive }
 
-func (Card3221007WaterDivination) ID() string   { return "3221007" }
+func (Card3221007WaterDivination) ID() string { return "3221007" }
+
 func (Card3221007WaterDivination) Name() string { return "水占术" }
 
 func (Card3221007WaterDivination) OnSpellCast(ctx *EffectContext) error {

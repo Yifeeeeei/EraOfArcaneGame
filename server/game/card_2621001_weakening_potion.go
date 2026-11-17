@@ -2,7 +2,8 @@ package game
 
 type Card2621001WeakeningPotion struct{ AlwaysActive }
 
-func (Card2621001WeakeningPotion) ID() string   { return "2621001" }
+func (Card2621001WeakeningPotion) ID() string { return "2621001" }
+
 func (Card2621001WeakeningPotion) Name() string { return "虚弱药剂" }
 
 func (Card2621001WeakeningPotion) OnUseItem(ctx *EffectContext) error {

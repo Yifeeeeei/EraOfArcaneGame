@@ -1,7 +1,6 @@
 package game
 
 import (
-	"math/rand"
 	"strings"
 
 	"eraofarcane/cards"
@@ -114,7 +113,7 @@ func (e *Engine) friendlySkills(playerID int, predicate func(*CardInstance) bool
 	ps := e.State.Players[playerID]
 	candidates := make([]map[string]any, 0)
 	for _, skill := range ps.Skills {
-		if skill == nil {
+		if skill == nil || cardImmuneToOtherEffects(skill) {
 			continue
 		}
 		if predicate != nil && !predicate(skill) {
@@ -148,14 +147,18 @@ func (e *Engine) friendlySkillsIncludingBound(playerID int, predicate func(*Card
 func (e *Engine) enemySkills(playerID int, predicate func(*CardInstance) bool) []map[string]any {
 	ps := e.State.Players[1-playerID]
 	candidates := make([]map[string]any, 0)
-	for _, skill := range ps.Skills {
-		if skill == nil {
+	for _, skill := range e.ruleSources(ps) {
+		if skill == nil || skill.Card == nil || !skill.Card.IsSkill() || cardImmuneToOtherEffects(skill) {
 			continue
 		}
 		if predicate != nil && !predicate(skill) {
 			continue
 		}
-		candidates = append(candidates, candidateInfo(skill, "skill", "enemy"))
+		zone := "bound_skill"
+		if findSkillSlotCard(ps, skill.InstanceID) != nil {
+			zone = "skill"
+		}
+		candidates = append(candidates, candidateInfo(skill, zone, "enemy"))
 	}
 	return candidates
 }
@@ -237,6 +240,15 @@ func (e *Engine) discardFriendlyCandidate(playerID int, instanceID string) bool 
 			return true
 		}
 	}
+	for i, card := range ps.Skills {
+		if card != nil && card.InstanceID == instanceID {
+			ps.Skills[i] = nil
+			e.addToGraveyard(playerID, e.leaveBattlefield(card))
+			e.notifyCardStateChanges(CardStateChange{Card: card, LeftField: true})
+			e.queueDeathTriggersWithData(card, playerID, nil)
+			return true
+		}
+	}
 	return false
 }
 
@@ -312,7 +324,7 @@ func (e *Engine) flipDeckMatchesToHandThen(playerID int, count int, limit int, p
 		afterFlip(drawn)
 	}
 	if e.State.PendingAction != nil {
-		e.wrapPendingActionContinuation(func() {
+		e.continueAfterPendingAction(func() {
 			e.enforceImmediateHandLimitAfterHandGain(playerID)
 		})
 	} else {
@@ -332,7 +344,13 @@ func (e *Engine) flipDeckMatchesToHandThen(playerID int, count int, limit int, p
 }
 
 func canFlipOrSearchCard(card *CardInstance) bool {
-	return card != nil && card.Card != nil && card.Card.Number != "2211101"
+	if card == nil || card.Card == nil {
+		return false
+	}
+	if b, ok := cardBehavior(card).(DeckSearchPermissionBehavior); ok {
+		return b.CanBeFlippedOrSearched(card)
+	}
+	return true
 }
 
 func (e *Engine) drawFirstDeckMatch(playerID int, predicate func(*CardInstance) bool) *CardInstance {
@@ -358,7 +376,8 @@ func (e *Engine) moveGraveyardCardToDeckTop(playerID int, instanceID string) boo
 			continue
 		}
 		ps.Graveyard = append(ps.Graveyard[:i], ps.Graveyard[i+1:]...)
-		resetCardForHiddenZone(card)
+		card.IsHorizontal = true
+		delete(card.Statuses, enteredGraveyardTurnStatus)
 		ps.Deck = append([]*CardInstance{card}, ps.Deck...)
 		e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
 			"effect": "graveyard_to_deck_top",
@@ -376,7 +395,8 @@ func (e *Engine) moveGraveyardCardToHand(playerID int, instanceID string) bool {
 			continue
 		}
 		ps.Graveyard = append(ps.Graveyard[:i], ps.Graveyard[i+1:]...)
-		resetCardForHiddenZone(card)
+		card.IsHorizontal = true
+		delete(card.Statuses, enteredGraveyardTurnStatus)
 		e.addCardToHand(playerID, card)
 		e.emit(GameEvent{Type: "effect_trigger", Player: playerID, Data: map[string]any{
 			"effect": "graveyard_to_hand",
@@ -387,18 +407,17 @@ func (e *Engine) moveGraveyardCardToHand(playerID int, instanceID string) bool {
 	return false
 }
 
-func resetCardForHiddenZone(card *CardInstance) {
-	if card == nil || card.Card == nil {
-		return
-	}
-	resetCardForPublicSpecialZone(card)
-	card.IsHorizontal = true
-}
-
 func resetCardForPublicSpecialZone(card *CardInstance) {
 	if card == nil || card.Card == nil {
 		return
 	}
+	card.fieldLife = nil
+	card.copySource = nil
+	card.learnPayment = nil
+	card.usePayment = nil
+	card.arcaneOnenessReveal = nil
+	card.mindSeaRange = ""
+	card.mindSeaRangeTurn = 0
 	card.CurrentLife = card.Card.Life
 	card.CurrentAttack = card.Card.Attack
 	card.DamageTakenThisTurn = 0
@@ -422,9 +441,7 @@ func resetCardForPublicSpecialZone(card *CardInstance) {
 
 func (e *Engine) shuffleDeck(playerID int) {
 	deck := e.State.Players[playerID].Deck
-	rand.Shuffle(len(deck), func(i, j int) {
-		deck[i], deck[j] = deck[j], deck[i]
-	})
+	e.shuffleCards(deck)
 	e.triggerRoseProphetAfterOpponentShuffle(playerID)
 }
 

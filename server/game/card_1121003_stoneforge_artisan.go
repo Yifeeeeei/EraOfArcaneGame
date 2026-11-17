@@ -1,13 +1,21 @@
 package game
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Card1121003StoneforgeArtisan struct{ AlwaysActive }
 
-func (Card1121003StoneforgeArtisan) ID() string   { return "1121003" }
+func (Card1121003StoneforgeArtisan) AbilityRequiresTap(trigger EffectTrigger) bool {
+	return trigger == TriggerPerTurn
+}
+
+func (Card1121003StoneforgeArtisan) ID() string { return "1121003" }
+
 func (Card1121003StoneforgeArtisan) Name() string { return "锻石工匠" }
+
 func (Card1121003StoneforgeArtisan) PerTurnLabel(*CardInstance) string {
-	return "消耗"
+	return "消耗强化法术"
 }
 
 func (Card1121003StoneforgeArtisan) OnPerTurn(ctx *EffectContext) error {
@@ -20,7 +28,7 @@ func (Card1121003StoneforgeArtisan) OnPerTurn(ctx *EffectContext) error {
 	if len(candidates) == 0 {
 		return fmt.Errorf("没有可强化的法术")
 	}
-	ctx.Source.IsHorizontal = true
+	ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, nil, ctx.Source.Card.Number)
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "spell_power_bonus",
 		"选择你的1个法术，本回合获得+2威",
 		candidates, 1, 1,

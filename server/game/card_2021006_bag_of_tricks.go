@@ -2,7 +2,8 @@ package game
 
 type Card2021006BagOfTricks struct{ AlwaysActive }
 
-func (Card2021006BagOfTricks) ID() string   { return "2021006" }
+func (Card2021006BagOfTricks) ID() string { return "2021006" }
+
 func (Card2021006BagOfTricks) Name() string { return "百宝锦囊" }
 
 func (Card2021006BagOfTricks) OnUltimate(ctx *EffectContext) error {
@@ -16,10 +17,18 @@ func (Card2021006BagOfTricks) OnUltimate(ctx *EffectContext) error {
 			if len(selected) == 0 {
 				return
 			}
+			if !ctx.Engine.canConsumeCard(ctx.Source) {
+				return
+			}
+			ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, nil, ctx.Source.Card.Number)
 			if !ctx.Engine.sacrificeEquipment(ctx.PlayerID, ctx.Source.InstanceID) {
 				return
 			}
 			ctx.Engine.searchDeckToHand(ctx.PlayerID, selected[0])
 		})
 	return nil
+}
+
+func (Card2021006BagOfTricks) AbilityRequiresTap(trigger EffectTrigger) bool {
+	return trigger == TriggerUltimate
 }

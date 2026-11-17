@@ -1,14 +1,19 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card3421004Regeneration struct{ AlwaysActive }
 
-func (Card3421004Regeneration) ID() string   { return "3421004" }
+func (Card3421004Regeneration) ID() string { return "3421004" }
+
 func (Card3421004Regeneration) Name() string { return "再生之力" }
+
 func (Card3421004Regeneration) NeedsSpellTarget() bool {
 	return false
 }
+
 func (Card3421004Regeneration) OnSpellHit(ctx *EffectContext) error {
 	if !isOwnSpellHit(ctx) {
 		return nil

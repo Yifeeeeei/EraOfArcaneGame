@@ -2,11 +2,14 @@ package game
 
 type Card3521002HolyFire struct{ AlwaysActive }
 
-func (Card3521002HolyFire) ID() string   { return "3521002" }
+func (Card3521002HolyFire) ID() string { return "3521002" }
+
 func (Card3521002HolyFire) Name() string { return "神圣之火" }
+
 func (Card3521002HolyFire) AllowsFriendlySpellTarget() bool {
 	return true
 }
+
 func (Card3521002HolyFire) SpellDamage(ctx *EffectContext) int {
 	target, _ := ctx.ExtraData["target"].(SpellTarget)
 	if target.Type == "unit" && target.Position.Valid() {
@@ -16,6 +19,7 @@ func (Card3521002HolyFire) SpellDamage(ctx *EffectContext) int {
 	}
 	return ctx.Source.Card.Attack
 }
+
 func (Card3521002HolyFire) OnSpellHit(ctx *EffectContext) error {
 	if !isOwnSpellHit(ctx) {
 		return nil

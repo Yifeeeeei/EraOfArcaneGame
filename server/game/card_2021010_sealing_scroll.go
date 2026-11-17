@@ -1,8 +1,11 @@
 package game
 
+import "fmt"
+
 type Card2021010SealingScroll struct{ AlwaysActive }
 
-func (Card2021010SealingScroll) ID() string   { return "2021010" }
+func (Card2021010SealingScroll) ID() string { return "2021010" }
+
 func (Card2021010SealingScroll) Name() string { return "封印卷轴" }
 
 func (Card2021010SealingScroll) OnUseItem(ctx *EffectContext) error {
@@ -21,5 +24,13 @@ func (Card2021010SealingScroll) OnUseItem(ctx *EffectContext) error {
 				target.Statuses[StatusSeal] = 1
 			}
 		})
+	return nil
+}
+
+func (Card2021010SealingScroll) ValidateItemUse(ctx *EffectContext) error {
+	e, playerID := ctx.Engine, ctx.PlayerID
+	if len(e.enemySkills(playerID, nil)) < 4 {
+		return fmt.Errorf("Sealing Scroll requires the enemy to have at least four skills")
+	}
 	return nil
 }

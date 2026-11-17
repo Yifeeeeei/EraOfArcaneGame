@@ -84,8 +84,8 @@ type Card2421107EmeraldBarrierScroll struct{ AlwaysActive }
 func (Card2421107EmeraldBarrierScroll) ID() string   { return "2421107" }
 func (Card2421107EmeraldBarrierScroll) Name() string { return "翡翠结界卷轴" }
 func (Card2421107EmeraldBarrierScroll) OnUseItem(ctx *EffectContext) error {
-	own := learnedSkillCount(ctx.Engine.State.Players[ctx.PlayerID])
-	enemy := learnedSkillCount(ctx.Engine.State.Players[ctx.OpponentID])
+	own := combatSpellCount(ctx.Engine, ctx.PlayerID)
+	enemy := combatSpellCount(ctx.Engine, ctx.OpponentID)
 	if diff := enemy - own; diff > 0 {
 		ctx.Engine.gainPlayerShield(ctx.PlayerID, diff)
 	}
@@ -116,4 +116,9 @@ func learnedSkillCount(ps *PlayerState) int {
 		}
 	}
 	return count
+}
+
+func (Card2011101ArcaneArmorSky) PreventsShieldDecay(*CardInstance, int) bool { return true }
+func (Card2411101EmeraldImmortality) SuppressesFieldStatus(ctx *EffectContext, target *CardInstance, status string) bool {
+	return target != nil && target.Position != nil && isNegativeStatus(status) && ctx.Engine.State.Players[ctx.PlayerID].Shield > 0
 }

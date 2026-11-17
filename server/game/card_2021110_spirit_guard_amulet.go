@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card2021110SpiritGuardAmulet struct{ AlwaysActive }
 
-func (Card2021110SpiritGuardAmulet) ID() string   { return "2021110" }
+func (Card2021110SpiritGuardAmulet) ID() string { return "2021110" }
+
 func (Card2021110SpiritGuardAmulet) Name() string { return "灵守护符" }
 
 func (Card2021110SpiritGuardAmulet) ModifyElementsGain(ctx *EffectContext, target *CardInstance, gains map[string]int) {

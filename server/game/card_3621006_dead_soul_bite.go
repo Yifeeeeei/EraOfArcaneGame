@@ -2,7 +2,8 @@ package game
 
 type Card3621006DeadSoulBite struct{ AlwaysActive }
 
-func (Card3621006DeadSoulBite) ID() string   { return "3621006" }
+func (Card3621006DeadSoulBite) ID() string { return "3621006" }
+
 func (Card3621006DeadSoulBite) Name() string { return "死魂之噬" }
 
 func (Card3621006DeadSoulBite) OnSpellHit(ctx *EffectContext) error {
@@ -16,8 +17,8 @@ func (Card3621006DeadSoulBite) OnSpellHit(ctx *EffectContext) error {
 	if len(candidates) == 0 {
 		return nil
 	}
-	ctx.Engine.SetPendingAction(ctx.PlayerID, "dead_soul_bite_weaken",
-		"死魂之噬:选择最多3个敌方法术分配3层虚弱", candidates, 1, 3,
+	ctx.Engine.SetAllocatedPendingAction(ctx.PlayerID, "dead_soul_bite_weaken",
+		"死魂之噬:选择最多3个敌方法术分配3层虚弱", candidates, 1, 3, 3,
 		func(selected []string) {
 			if len(selected) == 0 {
 				return

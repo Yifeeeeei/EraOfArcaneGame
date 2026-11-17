@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card2521005RebirthScroll struct{ AlwaysActive }
 
-func (Card2521005RebirthScroll) ID() string   { return "2521005" }
+func (Card2521005RebirthScroll) ID() string { return "2521005" }
+
 func (Card2521005RebirthScroll) Name() string { return "新生卷轴" }
 
 func (Card2521005RebirthScroll) OnUseItem(ctx *EffectContext) error {

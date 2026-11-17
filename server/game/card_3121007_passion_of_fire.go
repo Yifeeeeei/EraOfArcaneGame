@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card3121007PassionOfFire struct{ AlwaysActive }
 
-func (Card3121007PassionOfFire) ID() string   { return "3121007" }
+func (Card3121007PassionOfFire) ID() string { return "3121007" }
+
 func (Card3121007PassionOfFire) Name() string { return "激情之火" }
 
 func (Card3121007PassionOfFire) HasActiveSpellHit(card *CardInstance) bool {

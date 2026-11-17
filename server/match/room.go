@@ -242,7 +242,41 @@ func (r *Room) GetPlayerSlot(playerID string) int {
 
 // IsFull returns true if both player slots are occupied
 func (r *Room) IsFull() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.isFullLocked()
+}
+
+func (r *Room) isFullLocked() bool {
 	return r.Players[0] != nil && r.Players[1] != nil
+}
+
+// ShouldStart reports whether the room has two players and has not started.
+// The check is atomic with respect to JoinRoom and StartGame callers.
+func (r *Room) ShouldStart() bool {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.isFullLocked() && !r.IsStarted
+}
+
+// EngineSnapshot returns the current engine pointer under the room lock. The
+// engine owns its mutable state and its exported state accessors take the
+// engine lock separately.
+func (r *Room) EngineSnapshot() *game.Engine {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.Engine
+}
+
+// StartedEngine returns the engine only when the room has published a started
+// game, avoiding unsynchronized reads of IsStarted and Engine in API handlers.
+func (r *Room) StartedEngine() (*game.Engine, bool) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if !r.IsStarted || r.Engine == nil {
+		return nil, false
+	}
+	return r.Engine, true
 }
 
 // IsReconnection checks if a player is reconnecting to a started game
@@ -265,7 +299,7 @@ func (r *Room) IsReconnection(playerID string) bool {
 func (r *Room) StartGame() error {
 	r.mu.Lock()
 
-	if !r.IsFull() {
+	if !r.isFullLocked() {
 		r.mu.Unlock()
 		return fmt.Errorf("room is not full")
 	}
@@ -473,7 +507,6 @@ func (r *Room) LogPlayerEvent(kind string, player int, playerID string, data map
 		Player:   intPtr(player),
 		PlayerID: playerID,
 		Data:     data,
-		Snapshot: r.stateSnapshot(),
 	})
 }
 
@@ -526,10 +559,9 @@ func (r *Room) LogMalformedClientMessage(player int, playerID string, raw string
 
 func (r *Room) LogGameEvent(event game.GameEvent, targetPlayer int) {
 	r.Logger.Write("game_event", roomLogEntry{
-		Player:   intPtr(event.Player),
-		Target:   intPtr(targetPlayer),
-		Event:    &event,
-		Snapshot: r.stateSnapshot(),
+		Player: intPtr(event.Player),
+		Target: intPtr(targetPlayer),
+		Event:  &event,
 	})
 }
 
@@ -541,82 +573,14 @@ func (r *Room) LogStateSync(player int) {
 }
 
 func (r *Room) stateSnapshot() map[string]any {
-	if r == nil || r.Engine == nil || r.Engine.State == nil {
+	if r == nil {
 		return nil
 	}
-	state := r.Engine.State
-	snapshot := map[string]any{
-		"phase":        state.Phase.String(),
-		"current_turn": state.CurrentTurn,
-		"first_player": state.FirstPlayer,
-		"turn_number":  state.TurnNumber,
-		"winner":       state.Winner,
-		"mulligan":     state.MulliganDone,
-	}
-	if state.PendingAction != nil {
-		snapshot["pending_action"] = map[string]any{
-			"type":             state.PendingAction.Type,
-			"player_id":        state.PendingAction.PlayerID,
-			"prompt":           state.PendingAction.Prompt,
-			"candidate_count":  len(state.PendingAction.Candidates),
-			"min_select":       state.PendingAction.MinSelect,
-			"max_select":       state.PendingAction.MaxSelect,
-			"candidate_sample": state.PendingAction.Candidates,
-		}
-	}
-	if state.PendingSpell != nil {
-		snapshot["pending_spell"] = map[string]any{
-			"attacker_id": state.PendingSpell.AttackerID,
-			"skill":       cardBrief(state.PendingSpell.Skill),
-			"target":      state.PendingSpell.Target,
-			"total_power": state.PendingSpell.TotalPower,
-		}
-	}
-	players := make([]map[string]any, 0, 2)
-	for i := 0; i < 2; i++ {
-		players = append(players, playerSnapshot(state.Players[i]))
-	}
-	snapshot["players"] = players
-	return snapshot
-}
-
-func playerSnapshot(ps *game.PlayerState) map[string]any {
-	if ps == nil {
+	engine := r.EngineSnapshot()
+	if engine == nil {
 		return nil
 	}
-	units := make([]map[string]any, 0)
-	for col := 0; col < 3; col++ {
-		for row := 0; row < 3; row++ {
-			if card := ps.Units[col][row]; card != nil {
-				units = append(units, cardBrief(card))
-			}
-		}
-	}
-	skills := make([]map[string]any, 0, len(ps.Skills))
-	for _, card := range ps.Skills {
-		if card != nil {
-			skills = append(skills, cardBrief(card))
-		}
-	}
-	equipment := make([]map[string]any, 0, len(ps.Equipment))
-	for _, card := range ps.Equipment {
-		if card != nil {
-			equipment = append(equipment, cardBrief(card))
-		}
-	}
-	return map[string]any{
-		"player_id":  ps.PlayerID,
-		"name":       ps.PlayerName,
-		"hero":       cardBrief(ps.Hero),
-		"life":       cardLife(ps.Hero),
-		"elements":   ps.Elements,
-		"hand_count": len(ps.Hand),
-		"deck_count": len(ps.Deck),
-		"graveyard":  cardListBrief(ps.Graveyard),
-		"units":      units,
-		"skills":     skills,
-		"equipment":  equipment,
-	}
+	return engine.GetStateForSpectator()
 }
 
 func cardListBrief(cards []*game.CardInstance) []map[string]any {

@@ -2,7 +2,8 @@ package game
 
 type Card1521009PegasusKnight struct{ AlwaysActive }
 
-func (Card1521009PegasusKnight) ID() string   { return "1521009" }
+func (Card1521009PegasusKnight) ID() string { return "1521009" }
+
 func (Card1521009PegasusKnight) Name() string { return "天马骑士" }
 
 func (Card1521009PegasusKnight) OnEnter(ctx *EffectContext) error {

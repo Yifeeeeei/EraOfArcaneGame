@@ -1,8 +1,17 @@
 package game
 
+func (Card2321002LightningRune) CounterTriggers() []EffectTrigger {
+	return []EffectTrigger{TriggerOnConsume}
+}
+
+func (Card2321002LightningRune) CanTriggerCounter(ctx *CounterContext) bool {
+	return ctx.Event.Trigger == TriggerOnConsume && ctx.Event.PlayerID != ctx.Source.OwnerID && ctx.Event.Card != nil && (ctx.Event.Card.Card.IsHero() || ctx.Event.Card.Card.IsCompanion())
+}
+
 type Card2321002LightningRune struct{ AlwaysActive }
 
-func (Card2321002LightningRune) ID() string   { return "2321002" }
+func (Card2321002LightningRune) ID() string { return "2321002" }
+
 func (Card2321002LightningRune) Name() string { return "闪电符文" }
 
 func (Card2321002LightningRune) OnConsume(ctx *EffectContext) error {

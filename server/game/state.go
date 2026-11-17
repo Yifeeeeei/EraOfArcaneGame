@@ -3,7 +3,7 @@ package game
 import (
 	"eraofarcane/model"
 	"fmt"
-	"math/rand"
+	"sync/atomic"
 )
 
 // Position on the 3x3 unit grid
@@ -22,9 +22,16 @@ func (p Position) String() string {
 
 // CardInstance represents a card in play with runtime state
 type CardInstance struct {
-	InstanceID string      `json:"instance_id"`
-	Card       *model.Card `json:"card"`
-	OwnerID    int         `json:"owner_id"` // 0 or 1
+	fieldLife           *fieldLifetime
+	copySource          *CardInstance
+	learnPayment        map[string]int
+	usePayment          map[string]int
+	arcaneOnenessReveal *int
+	mindSeaRange        SpellArea
+	mindSeaRangeTurn    int
+	InstanceID          string      `json:"instance_id"`
+	Card                *model.Card `json:"card"`
+	OwnerID             int         `json:"owner_id"` // 0 or 1
 
 	// Runtime state
 	CurrentLife         int                `json:"current_life"`
@@ -57,8 +64,12 @@ const StatusEntryCostNeutralAmount = "entry_cost_neutral_amount"
 
 // NewCardInstance creates a new card instance
 func NewCardInstance(card *model.Card, ownerID int, turn int) *CardInstance {
+	return newCardInstanceWithID(card, ownerID, turn, generateID())
+}
+
+func newCardInstanceWithID(card *model.Card, ownerID int, turn int, id string) *CardInstance {
 	ci := &CardInstance{
-		InstanceID:        generateID(),
+		InstanceID:        id,
 		Card:              card,
 		OwnerID:           ownerID,
 		CurrentLife:       card.Life,
@@ -111,9 +122,9 @@ const (
 
 const (
 	BaseSkillSlots     = 5
-	MaxSkillSlots      = 8
+	MaxSkillSlots      = 99
 	BaseEquipmentSlots = 5
-	MaxEquipmentSlots  = 8
+	MaxEquipmentSlots  = 99
 )
 
 // PlayerState holds all state for one player
@@ -143,6 +154,7 @@ type PlayerState struct {
 	NextRedMoonCooldown         int                       `json:"next_red_moon_cooldown,omitempty"`
 	SkipNextDraw                bool                      `json:"skip_next_draw"`
 	TempModifiers               []TemporaryModifier       `json:"temp_modifiers"`
+	SpellAttacksThisTurn        int                       `json:"spell_attacks_this_turn,omitempty"`
 	SpellsCastThisTurn          map[string]int            `json:"spells_cast_this_turn,omitempty"`
 	SpellsCastByNumberThisTurn  map[string]int            `json:"spells_cast_by_number_this_turn,omitempty"`
 	LastLowCostWaterSpell       *CardInstance             `json:"last_low_cost_water_spell,omitempty"`
@@ -162,6 +174,9 @@ type PlayerState struct {
 	FriendlyUnitDamagedLastTurn bool                      `json:"friendly_unit_damaged_last_turn,omitempty"`
 	HeroDamageTakenThisTurn     int                       `json:"hero_damage_taken_this_turn,omitempty"`
 	HeroDamageTakenLastTurn     int                       `json:"hero_damage_taken_last_turn,omitempty"`
+
+	// Includes damage to friendly units that have since left the battlefield.
+	friendlyUnitDamageThisTurn int
 
 	// Legacy charge pool. Do not use this for 精通; mastery is a per-card
 	// instance mark stored in CardInstance.Statuses[StatusMastery].
@@ -195,7 +210,7 @@ func NewPlayerState(id int, name string, deck *model.Deck) *PlayerState {
 }
 
 // InitCards creates all card instances from the deck definition
-func (ps *PlayerState) InitCards(turn int) {
+func (e *Engine) initPlayerCards(ps *PlayerState, turn int) {
 	cardDB := make(map[string]*model.Card)
 	for k, v := range getCardDB() {
 		cardDB[k] = v
@@ -203,7 +218,7 @@ func (ps *PlayerState) InitCards(turn int) {
 
 	// Create hero
 	heroCard := cardDB[ps.DeckDef.HeroID]
-	ps.Hero = NewCardInstance(heroCard, ps.PlayerID, turn)
+	ps.Hero = e.newCardInstance(heroCard, ps.PlayerID, turn)
 	ps.Hero.IsHorizontal = false // hero starts vertical
 	ps.Hero.Position = &Position{Col: 1, Row: 1}
 	ps.Units[1][1] = ps.Hero
@@ -212,18 +227,16 @@ func (ps *PlayerState) InitCards(turn int) {
 	ps.Deck = make([]*CardInstance, 0, len(ps.DeckDef.MainDeck))
 	for _, id := range ps.DeckDef.MainDeck {
 		card := cardDB[id]
-		ci := NewCardInstance(card, ps.PlayerID, 0)
+		ci := e.newCardInstance(card, ps.PlayerID, 0)
 		ps.Deck = append(ps.Deck, ci)
 	}
-	rand.Shuffle(len(ps.Deck), func(i, j int) {
-		ps.Deck[i], ps.Deck[j] = ps.Deck[j], ps.Deck[i]
-	})
+	e.shuffleCards(ps.Deck)
 
 	// Create skill pool cards
 	ps.SkillPool = make([]*CardInstance, 0, len(ps.DeckDef.SkillPool))
 	for _, id := range ps.DeckDef.SkillPool {
 		card := cardDB[id]
-		ci := NewCardInstance(card, ps.PlayerID, 0)
+		ci := e.newCardInstance(card, ps.PlayerID, 0)
 		ps.SkillPool = append(ps.SkillPool, ci)
 	}
 
@@ -231,7 +244,7 @@ func (ps *PlayerState) InitCards(turn int) {
 	ps.ExtraDeck = make([]*CardInstance, 0, len(ps.DeckDef.ExtraDeck))
 	for _, id := range ps.DeckDef.ExtraDeck {
 		card := cardDB[id]
-		ci := NewCardInstance(card, ps.PlayerID, 0)
+		ci := e.newCardInstance(card, ps.PlayerID, 0)
 		ps.ExtraDeck = append(ps.ExtraDeck, ci)
 	}
 
@@ -305,7 +318,7 @@ func (ps *PlayerState) FindEmptyPosition() *Position {
 func (ps *PlayerState) GetFrontRow() int {
 	for row := 0; row < 3; row++ {
 		for col := 0; col < 3; col++ {
-			if ps.Units[col][row] != nil {
+			if unit := ps.Units[col][row]; unit != nil && !(unit.Statuses[StatusStealth] > 0 && unit.Statuses[StatusPetrify] <= 0) {
 				return row
 			}
 		}
@@ -389,20 +402,24 @@ func (p GamePhase) String() string {
 
 // PendingAction represents a player choice that must be resolved
 type PendingAction struct {
-	Type         string                                             `json:"type"`       // "select_target", "select_card", "discard", "select_position"
-	PlayerID     int                                                `json:"player_id"`  // which player must choose
-	Prompt       string                                             `json:"prompt"`     // display text
-	Candidates   []map[string]any                                   `json:"candidates"` // selectable options (cards or positions)
-	MinSelect    int                                                `json:"min_select"` // minimum selections required
-	MaxSelect    int                                                `json:"max_select"` // maximum selections allowed
-	Context      map[string]any                                     `json:"context,omitempty"`
-	Cost         map[string]int                                     `json:"cost,omitempty"`
-	CanOverexert bool                                               `json:"can_overexert,omitempty"`
-	Callback     func(selected []string)                            `json:"-"` // called when resolved
-	CallbackData func(selected []string, data map[string]any)       `json:"-"`
-	CallbackErr  func(selected []string, data map[string]any) error `json:"-"`
-	Available    func() bool                                        `json:"-"` // checked before a queued action is shown
-	OnSkip       func()                                             `json:"-"`
+	effectSource    *fieldLifetime
+	AllocationTotal int                                                `json:"allocation_total,omitempty"`
+	DecisionID      uint64                                             `json:"decision_id"`
+	Type            string                                             `json:"type"`       // "select_target", "select_card", "discard", "select_position"
+	PlayerID        int                                                `json:"player_id"`  // which player must choose
+	Prompt          string                                             `json:"prompt"`     // display text
+	Candidates      []map[string]any                                   `json:"candidates"` // selectable options (cards or positions)
+	MinSelect       int                                                `json:"min_select"` // minimum selections required
+	MaxSelect       int                                                `json:"max_select"` // maximum selections allowed
+	Context         map[string]any                                     `json:"context,omitempty"`
+	Cost            map[string]int                                     `json:"cost,omitempty"`
+	CanOverexert    bool                                               `json:"can_overexert,omitempty"`
+	Callback        func(selected []string)                            `json:"-"` // called when resolved
+	CallbackData    func(selected []string, data map[string]any)       `json:"-"`
+	CallbackErr     func(selected []string, data map[string]any) error `json:"-"`
+	Refresh         func(*PendingAction)                               `json:"-"` // refresh queued choices after earlier effects change the board
+	Available       func() bool                                        `json:"-"` // checked before a queued action is shown
+	resolutions     []*resolutionFrame
 }
 
 // GameState holds the entire game state
@@ -442,7 +459,10 @@ type SpellCast struct {
 	PowerSources []SpellPowerSource `json:"power_sources,omitempty"`
 	BoostSkills  []*CardInstance    `json:"boost_skills"` // skills used to boost
 	ExtraTargets []SpellTarget      `json:"extra_targets,omitempty"`
-	AfterResolve func()             `json:"-"`
+	// Number of earlier casts of this card number, excluding this committed cast.
+	priorSameNumberCasts *int
+	usedDefenseSpells    []*CardInstance
+	resolutions          []*resolutionFrame
 }
 
 type SpellPowerSource struct {
@@ -454,9 +474,12 @@ type SpellPowerSource struct {
 
 // SpellTarget represents the target of a spell
 type SpellTarget struct {
-	Type     string   `json:"type"`     // "unit" or "area"
-	Position Position `json:"position"` // for unit targets
-	OwnerID  *int     `json:"owner_id,omitempty"`
+	Area        SpellArea `json:"area,omitempty"`
+	ignoreRange bool      // Effect-owned grant; never accepted from player JSON.
+	AreaOrigin  *Position `json:"area_origin,omitempty"`
+	Type        string    `json:"type"`     // "unit" or "area"
+	Position    Position  `json:"position"` // for unit targets
+	OwnerID     *int      `json:"owner_id,omitempty"`
 }
 
 // NewGameState creates a new game state
@@ -470,11 +493,10 @@ func NewGameState(gameID string) *GameState {
 	}
 }
 
-var idCounter int
+var idCounter atomic.Uint64
 
 func generateID() string {
-	idCounter++
-	return fmt.Sprintf("ci_%d", idCounter)
+	return fmt.Sprintf("ci_fixture_%d", idCounter.Add(1))
 }
 
 func getCardDB() map[string]*model.Card {

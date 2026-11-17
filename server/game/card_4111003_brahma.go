@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card4111003Brahma struct{ AlwaysActive }
 
-func (Card4111003Brahma) ID() string   { return "4111003" }
+func (Card4111003Brahma) ID() string { return "4111003" }
+
 func (Card4111003Brahma) Name() string { return "大祭司 梵天" }
 
 func (Card4111003Brahma) OnUltimate(ctx *EffectContext) error {

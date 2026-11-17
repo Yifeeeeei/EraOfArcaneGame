@@ -53,13 +53,19 @@ func (e *Engine) ApplyKeywordOnSkillUse(skill *CardInstance) {
 // 屏蔽 (Shielding): blocks enemy pierce
 func (e *Engine) IsInSpellRange(casterID int, targetCol, targetRow int, hasPierce bool) bool {
 	opponent := e.State.Players[1-casterID]
-	caster := e.State.Players[casterID]
 
 	target := opponent.Units[targetCol][targetRow]
 	if target != nil && e.hasStealthFromOpponent(casterID, target) {
 		return false
 	}
 
+	return e.isPositionInSpellRange(casterID, targetCol, targetRow, hasPierce)
+}
+
+func (e *Engine) isPositionInSpellRange(casterID, targetCol, targetRow int, hasPierce bool) bool {
+	opponent := e.State.Players[1-casterID]
+	caster := e.State.Players[casterID]
+	target := opponent.Units[targetCol][targetRow]
 	for _, card := range e.getAllFieldCards(caster) {
 		if card != nil && card.Card != nil && !e.hasEffectiveStatus(card, StatusPetrify) {
 			if cardHasActiveGlobalSpellRange(card) {
@@ -98,7 +104,7 @@ func (e *Engine) IsInSpellRange(casterID int, targetCol, targetRow int, hasPierc
 		return true
 	}
 
-	return targetRow == frontRow
+	return targetRow <= frontRow
 }
 
 // IsInAttackRange checks if a unit can attack a target
@@ -155,19 +161,6 @@ func (e *Engine) HandleShieldDecay(ps *PlayerState) {
 			card.Statuses[StatusStealth]--
 		}
 	}
-}
-
-func (e *Engine) playerShieldDecayPrevented(ps *PlayerState) bool {
-	if ps == nil {
-		return false
-	}
-	if e.playerHasActiveCard(ps, "2011101") {
-		return true
-	}
-	if ps.Shield >= 3 {
-		return false
-	}
-	return e.playerHasActiveCard(ps, "4411101")
 }
 
 func (e *Engine) playerHasActiveCard(ps *PlayerState, number string) bool {

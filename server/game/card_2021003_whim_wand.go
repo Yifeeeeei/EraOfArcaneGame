@@ -2,10 +2,14 @@ package game
 
 type Card2021003WhimWand struct{ AlwaysActive }
 
-func (Card2021003WhimWand) ID() string   { return "2021003" }
+func (Card2021003WhimWand) ID() string { return "2021003" }
+
 func (Card2021003WhimWand) Name() string { return "随心魔杖" }
 
 func (Card2021003WhimWand) OnConsume(ctx *EffectContext) error {
+	if ctx.Target != nil && ctx.Target != ctx.Source {
+		return nil
+	}
 	candidates := ctx.Engine.friendlySkills(ctx.PlayerID, lowCostSkill)
 	if len(candidates) == 0 {
 		return nil

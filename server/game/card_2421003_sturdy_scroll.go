@@ -7,8 +7,10 @@ const (
 
 type Card2421003SturdyScroll struct{ AlwaysActive }
 
-func (Card2421003SturdyScroll) ID() string   { return "2421003" }
+func (Card2421003SturdyScroll) ID() string { return "2421003" }
+
 func (Card2421003SturdyScroll) Name() string { return "坚固卷轴" }
+
 func (Card2421003SturdyScroll) OnUseItem(ctx *EffectContext) error {
 	candidates := ctx.Engine.friendlyUnits(ctx.PlayerID, true, nil)
 	if len(candidates) == 0 {

@@ -1,6 +1,18 @@
 package game
 
 func (e *Engine) applyTurnStartTemporaryModifiers(ps *PlayerState) {
+	// Unqualified "next turn" means the next player's turn, regardless of owner.
+	for ownerID, owner := range e.State.Players {
+		if owner == nil {
+			continue
+		}
+		for _, modifier := range append([]TemporaryModifier(nil), owner.TempModifiers...) {
+			if modifier.Type == TempModDelayedShieldGain {
+				e.gainPlayerShield(ownerID, max(1, modifier.Amount))
+				e.removeTemporaryModifier(ownerID, modifier.ID)
+			}
+		}
+	}
 	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
 		switch modifier.Type {
 		case TempModDelayedElementGain:
@@ -15,13 +27,6 @@ func (e *Engine) applyTurnStartTemporaryModifiers(ps *PlayerState) {
 				"amount":   amount,
 				"elements": ps.Elements,
 			}})
-			e.removeTemporaryModifier(ps.PlayerID, modifier.ID)
-		case TempModDelayedShieldGain:
-			amount := modifier.Amount
-			if amount <= 0 {
-				amount = 1
-			}
-			e.gainPlayerShield(ps.PlayerID, amount)
 			e.removeTemporaryModifier(ps.PlayerID, modifier.ID)
 		default:
 			continue

@@ -1,0 +1,87 @@
+=== go ===
+?   	eraofarcane	[no test files]
+ok  	eraofarcane/api	5.112s
+ok  	eraofarcane/cards	0.013s
+ok  	eraofarcane/cmd/agent-player	0.008s
+?   	eraofarcane/cmd/card-impact	[no test files]
+?   	eraofarcane/cmd/check-card-metadata	[no test files]
+?   	eraofarcane/cmd/extract-supported-cards	[no test files]
+?   	eraofarcane/cmd/generate-card-definitions	[no test files]
+?   	eraofarcane/cmd/snapshot-supported-cards	[no test files]
+ok  	eraofarcane/game	1.022s
+ok  	eraofarcane/internal/cardimpact	0.007s
+ok  	eraofarcane/match	0.007s
+?   	eraofarcane/model	[no test files]
+
+
+=== vet ===
+
+
+=== race ===
+?   	eraofarcane	[no test files]
+ok  	eraofarcane/api	8.483s
+ok  	eraofarcane/cards	1.144s
+ok  	eraofarcane/cmd/agent-player	1.020s
+?   	eraofarcane/cmd/card-impact	[no test files]
+?   	eraofarcane/cmd/check-card-metadata	[no test files]
+?   	eraofarcane/cmd/extract-supported-cards	[no test files]
+?   	eraofarcane/cmd/generate-card-definitions	[no test files]
+?   	eraofarcane/cmd/snapshot-supported-cards	[no test files]
+ok  	eraofarcane/game	3.026s
+ok  	eraofarcane/internal/cardimpact	1.013s
+ok  	eraofarcane/match	1.012s
+?   	eraofarcane/model	[no test files]
+
+
+=== node ===
+decision-session: duplicate, retry, reordered receipt, continuous window, disconnect passed
+executed errors: wait for state, preserve original error, stale drafts and receipts rejected
+✔ web/js/decision-session.test.js (45.42292ms)
+game-costs tests passed
+✔ web/js/game-costs.test.js (42.062015ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 53.69597
+
+
+=== match ===
+PASS smoke: mulligan, consume, learn/payment, cast, defense handoff, discard, end-turn, game-over
+PASS disconnect: unknown-result action is not replayed after reconnect
+PASS continuous choices: two wings, target death refresh, replacement, private wait, retry, duplicate click, narrow desktop
+
+
+=== reactions ===
+PASS two clients: extra target -> counter/payment -> nested choice -> decline next counter -> explicit reaction -> paid defense -> original turn
+
+
+=== quality ===
+PASS quality: equipment replacement, binding inspection, inspection close during draft, end-turn discard/under-card chain, under-card inspection, spectator privacy/turn badge, explicit surrender
+
+
+=== fan ===
+PASS fan: 31+ cards, duplicate instances, stable mouse hit strips, persistent preview, all-card keyboard traversal, disabled/selected cards, no hover/key submission, paging/spread/flat layout, scroll boost toggle, isolated empty-hand fixture; 1440/1366/1024
+
+
+=== primitives ===
+PASS primitives: load redistribution, deck top/bottom ordering, exact damage allocation, resource modes and two-player payment handoff
+
+
+=== failed ===
+PASS failed action: real partial life payment, original errors, revision/decision identity, two-player+observer filtered sync, no-change rule rejection, preflight draft preservation, fresh decision resumes
+
+
+=== usability ===
+PASS usability: own hero hover/enlarge; edge-clamped keyboard menus; escape; direct consume duplicate protection; owner/opponent card backs and hidden identity; 1440/1366/1024
+
+
+=== defense ===
+PASS defense: three simultaneously visible groups; fixed reader/payment/submit; reset no send; payment correction; full spell+boost+overexert payload submitted once; target/menu separation; 1440/1366/1024
+
+
+=== visibility ===
+PASS desktop formation: pinned hand/confirmation, two dense boards, skills/equipment, last hand, inspector; 1440/1366/1024; full card ratios

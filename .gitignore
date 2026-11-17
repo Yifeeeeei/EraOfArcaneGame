@@ -15,3 +15,7 @@ agent-data/
 .idea/
 .vscode/
 *.swp
+
+# Python headless-check bytecode
+__pycache__/
+*.pyc

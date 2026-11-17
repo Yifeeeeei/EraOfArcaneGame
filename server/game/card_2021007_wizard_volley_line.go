@@ -2,8 +2,10 @@ package game
 
 type Card2021007WizardVolleyLine struct{ AlwaysActive }
 
-func (Card2021007WizardVolleyLine) ID() string   { return "2021007" }
+func (Card2021007WizardVolleyLine) ID() string { return "2021007" }
+
 func (Card2021007WizardVolleyLine) Name() string { return "巫师齐射线列" }
+
 func (Card2021007WizardVolleyLine) OnUseItem(ctx *EffectContext) error {
 	companionCount := 0
 	for _, card := range ctx.Engine.getAllFieldCards(ctx.Engine.State.Players[ctx.PlayerID]) {

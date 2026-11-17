@@ -2,7 +2,8 @@ package game
 
 type Card2321008CycloneScroll struct{ AlwaysActive }
 
-func (Card2321008CycloneScroll) ID() string   { return "2321008" }
+func (Card2321008CycloneScroll) ID() string { return "2321008" }
+
 func (Card2321008CycloneScroll) Name() string { return "旋风卷轴" }
 
 func (Card2321008CycloneScroll) OnUseItem(ctx *EffectContext) error {

@@ -3126,3 +3126,10 @@ body::before {
     z-index: 11940;
     background: transparent;
 }
+
+.pending-emergency-card .pending-emergency-detail {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    line-height: 1.4;
+    margin-top: 4px;
+}

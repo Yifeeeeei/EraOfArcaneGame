@@ -1,10 +1,13 @@
 package game
 
-import "fmt"
+import (
+	"fmt"
+)
 
 type Card2121004FireArrowItem struct{ AlwaysActive }
 
-func (Card2121004FireArrowItem) ID() string   { return "2121004" }
+func (Card2121004FireArrowItem) ID() string { return "2121004" }
+
 func (Card2121004FireArrowItem) Name() string { return "火焰箭" }
 
 func (Card2121004FireArrowItem) OnUltimate(ctx *EffectContext) error {
@@ -26,10 +29,10 @@ func fireArrowSelectAndDamage(ctx *EffectContext, sacrificeSelf bool) error {
 				return
 			}
 			if sacrificeSelf {
-				if ctx.Source.IsHorizontal {
+				if !ctx.Engine.canConsumeCard(ctx.Source) {
 					return
 				}
-				ctx.Source.IsHorizontal = true
+				ctx.Engine.consumeCardForEffectWithTriggers(ctx.PlayerID, ctx.Source, nil, ctx.Source.Card.Number)
 			}
 			if sacrificeSelf && !ctx.Engine.sacrificeEquipment(ctx.PlayerID, ctx.Source.InstanceID) {
 				return
@@ -38,7 +41,11 @@ func fireArrowSelectAndDamage(ctx *EffectContext, sacrificeSelf bool) error {
 			if target == nil {
 				return
 			}
-			ctx.Engine.dealDamage(target, 1, ctx.OpponentID)
+			ctx.DealDamage(target, 1)
 		})
 	return nil
+}
+
+func (Card2121004FireArrowItem) AbilityRequiresTap(trigger EffectTrigger) bool {
+	return trigger == TriggerUltimate
 }

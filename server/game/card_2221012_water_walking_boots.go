@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card2221012WaterWalkingBoots struct{ AlwaysActive }
 
-func (Card2221012WaterWalkingBoots) ID() string   { return "2221012" }
+func (Card2221012WaterWalkingBoots) ID() string { return "2221012" }
+
 func (Card2221012WaterWalkingBoots) Name() string { return "水行之靴" }
 
 func (Card2221012WaterWalkingBoots) OnTurnStart(ctx *EffectContext) error {

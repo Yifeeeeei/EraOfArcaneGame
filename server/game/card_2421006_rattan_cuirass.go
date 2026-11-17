@@ -2,7 +2,8 @@ package game
 
 type Card2421006RattanCuirass struct{ AlwaysActive }
 
-func (Card2421006RattanCuirass) ID() string   { return "2421006" }
+func (Card2421006RattanCuirass) ID() string { return "2421006" }
+
 func (Card2421006RattanCuirass) Name() string { return "磐藤胸甲" }
 
 func (Card2421006RattanCuirass) OnEnter(ctx *EffectContext) error {

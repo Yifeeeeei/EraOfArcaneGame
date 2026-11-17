@@ -1,11 +1,15 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card2421002GrowthPotion struct{ AlwaysActive }
 
-func (Card2421002GrowthPotion) ID() string   { return "2421002" }
+func (Card2421002GrowthPotion) ID() string { return "2421002" }
+
 func (Card2421002GrowthPotion) Name() string { return "生长药水" }
+
 func (Card2421002GrowthPotion) OnUseItem(ctx *EffectContext) error {
 	targets := ctx.Engine.friendlyUnits(ctx.PlayerID, false, func(card *CardInstance) bool {
 		return card.Card.IsCompanion() && card.Card.Category == model.ElementEarth

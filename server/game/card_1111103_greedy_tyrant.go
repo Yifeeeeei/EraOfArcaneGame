@@ -1,10 +1,13 @@
 package game
 
-import "eraofarcane/model"
+import (
+	"eraofarcane/model"
+)
 
 type Card1111103GreedyTyrant struct{ AlwaysActive }
 
-func (Card1111103GreedyTyrant) ID() string   { return "1111103" }
+func (Card1111103GreedyTyrant) ID() string { return "1111103" }
+
 func (Card1111103GreedyTyrant) Name() string { return "贪婪暴君 卡姆 弗卡莱诺" }
 
 func (Card1111103GreedyTyrant) ModifyGlobalCardPlayCost(ctx *EffectContext, card *CardInstance, cost map[string]int) {

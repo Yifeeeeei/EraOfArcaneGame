@@ -29,11 +29,7 @@ func (Card1011103Gambler) OnUltimate(ctx *EffectContext) error {
 				if target == nil || target.Card == nil || target.Card.Number != "1001101" {
 					continue
 				}
-				ctx.Engine.dealDamageWithExtra(target, 1, playerID, map[string]any{
-					"damage_source": "effect",
-					"source_card":   ctx.Source.Card.Number,
-					"attacker":      ctx.PlayerID,
-				})
+				ctx.Engine.ApplyDamage(DamageRequest{Target: target, Amount: 1, Kind: "effect", Source: ctx.Source, SourcePlayer: ctx.PlayerID, SourceKnown: true})
 				if target.CurrentLife <= 0 && ctx.Engine.unitInOwnerGrid(target, playerID) {
 					ctx.Engine.destroyUnitWithData(target, playerID, map[string]any{
 						"death_cause": "gambler_ultimate",
@@ -63,14 +59,15 @@ func (Card2511102FiveRainbowRing) OnPerTurn(ctx *EffectContext) error {
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	candidates := []map[string]any{}
 	for _, elem := range []string{model.ElementFire, model.ElementWater, model.ElementEarth, model.ElementAir, model.ElementLight} {
-		if ps.Elements[elem] <= 0 {
+		if !ctx.Engine.canPayCost(ps, map[string]int{elem: 1}) {
 			continue
 		}
 		candidates = append(candidates, map[string]any{
-			"instance_id": elem,
-			"name":        elem,
-			"zone":        "element",
-			"side":        "own",
+			"instance_id":  elem,
+			"name":         elem,
+			"zone":         "element",
+			"side":         "own",
+			"payment_cost": map[string]int{elem: 1},
 		})
 	}
 	if len(candidates) == 0 {
@@ -79,16 +76,18 @@ func (Card2511102FiveRainbowRing) OnPerTurn(ctx *EffectContext) error {
 	sourceID := ctx.Source.InstanceID
 	ctx.Engine.SetPendingActionWithError(ctx.PlayerID, "five_rainbow_ring_marker",
 		"五虹之环:支付1点元素并放置同类标记", candidates, 1, 1, nil, false,
-		func(selected []string, _ map[string]any) error {
+		func(selected []string, data map[string]any) error {
 			elem := firstSelected(selected)
-			if elem == "" || ps.Elements[elem] <= 0 {
+			if elem != model.ElementFire && elem != model.ElementWater && elem != model.ElementAir && elem != model.ElementEarth && elem != model.ElementLight {
 				return fmt.Errorf("invalid rainbow marker element")
 			}
 			source := ctx.Engine.findEquipment(ps, sourceID)
 			if source == nil {
 				return nil
 			}
-			ps.Elements[elem]--
+			if !ctx.Engine.payCostForAction(ps, map[string]int{elem: 1}, ActionMessage{Data: data}) {
+				return fmt.Errorf("invalid rainbow marker payment")
+			}
 			source.Statuses[fiveRainbowMarkerStatus(elem)]++
 			return nil
 		})

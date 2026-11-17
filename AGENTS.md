@@ -65,9 +65,10 @@ Serving:
 - `server/cmd/snapshot-supported-cards/main.go`: regenerates `data/supported_card_infos.json`.
 - `server/cmd/agent-player/main.go`: headless CLI used by Codex agents to initialize local match data, validate decks, create rooms, and play through the backend WebSocket without opening the frontend.
 - `server/game/card_behavior.go`: card behavior interfaces such as `OnEnterBehavior`, `OnDeathBehavior`, `PerTurnAbility`, and `UltimateAbility`.
-- `server/game/card_<number>_<name>.go`: the preferred layout — one file per concrete card with custom behavior. Some cards are instead grouped into shared files (`card_batch_more_base.go`, `card_royal_conflict_simple.go`, and others); see "Card Behavior File Layout" below.
+- `server/game/card_<number>_<name>.go`: the preferred layout — one file per concrete card with custom behavior. Some short effects remain grouped by mechanic; see "Card Behavior File Layout" below.
 - `server/game/card_effects_catalog.go`: registers lazy behavior factories with the engine adapter; it should not instantiate every behavior at startup.
-- `server/game/engine.go`: main game engine and action handling.
+- `server/game/engine.go`: engine ownership and action dispatch. Action implementations live in focused modules such as `summon.go`, `spell_cast.go`, `defense.go`, `pending_action.go`, and `turn_end.go`.
+- `server/game/resolution.go`: explicit sequential-effect frames and choice/spell continuation ownership; see `docs/engine-resolution.md` before changing pause/resume behavior.
 - `server/game/rules.go`: focused rules helpers.
 - `server/game/payment.go`: element payment logic.
 - `server/game/base_cards_smoke_test.go`: smoke coverage for all currently supported cards.
@@ -159,6 +160,8 @@ repository's GitHub Issues.
 
 ## Card Behavior Architecture
 
+Read `docs/engine-architecture.md` for action preparation/commit, typed rule events, shared spell dispatch, continuous grants and impact analysis. Production card damage uses `EffectContext.DealDamage` or `Engine.ApplyDamage(DamageRequest)`; do not construct string-keyed damage payloads. Rule queries must not spend resources or uses.
+
 The game should be understandable from Go code alone. JSON snapshots are reference material only; they are not runtime truth.
 
 - A horizontal card may still use `回合技` / `绝技` unless that specific card text or implementation says otherwise.
@@ -175,18 +178,24 @@ The game should be understandable from Go code alone. JSON snapshots are referen
 - Custom rules live on concrete structs under `server/game`, one file per card, for example `card_1021006_grocer.go` containing `Card1021006Grocer`.
 - Category and trigger behavior is expressed through Go interfaces. A card gets an enter effect by implementing `OnEnter(*EffectContext) error`; an ultimate by implementing `OnUltimate(*EffectContext) error`; and so on.
 - Behavior interfaces are instance-aware. Do not decide that a card "has deathrattle", "has a per-turn ability", "can react", or "has a modifier" from interface conformance alone. The concrete behavior must implement the matching `HasActive...(*CardInstance) bool`, usually by embedding `AlwaysActive`. Rule checks should use active helpers such as `cardHasActiveDeathrattle`, `cardHasActivePerTurn`, and `cardHasActiveSpellReaction` when current card state matters. Example: `白骨骑士` still has the same card number after it returns, but its `HasActiveDeathrattle` becomes false.
+- Damage observers receive `DamageEvent` and declare their scope; source player and damaged target are distinct. Card effects should use `ctx.DealDamage` to preserve attribution. Damage adjustments are pure, and spending reductions belongs in the damage modifier commit plan.
+- Counter windows come from `CounterBehavior`, including a distinct `TriggerBeforeDamage` replacement window. Do not add card-number dispatch lists to core action handlers.
+- Spell-specific preparation belongs in `SpellPreparationBehavior`; prepare validates before payment, while its commit hook cannot fail validation. Ability/item requirements use validation behaviors on the card.
+- A spell remains pending until its complete hit interaction finishes. Check the phase to decide whether defense is open; `PendingSpell != nil` alone does not mean an opponent can defend.
+- Production card creation and randomness must use the owning engine (`newCardInstance`, `randomIntn`, `shuffleCards`). `NewEngineWithSeed` and `DebugResolutionTrace` are private replay/test tools; never expose the seed or private trace in player or spectator state.
 - Runtime-granted abilities should use attached behavior objects on `CardInstance`, not ad hoc `Statuses` string checks. For example, "give a unit deathrattle" should attach an `AttachedDeathrattleBehavior`; then `cardHasActiveDeathrattle` and death resolution will see it like any printed deathrattle.
+- Use `runResolution` for sequential steps that must wait for choices or new spells. `Combine` only composes synchronous handlers. Do not wrap pending-action callbacks or move spell waiters in card code; use `continueAfterPendingAction` and `replacePendingSpell`. Keep simultaneous damage/death batching separate from sequential interaction waits.
 - `EffectRegistry` still exists as an engine adapter, but new work should add or change card behavior structs, not description parsers or string-inferred effects.
 - Behavior registration is lazy. `RegisterAllCardEffects` registers factories only; concrete behavior objects should be constructed only when a card number is queried during play or serialization.
 - Cards from packs outside `cards.SupportedVersionNames` should not be added until the supported scope changes.
 
 ## Card Behavior File Layout
 
-Behavior files under `server/game` do not all follow one convention. Current reality:
+Non-trivial behavior belongs in `card_<number>_<name>.go`, including its validation, counter conditions and modifier hooks. The former `card_batch_*`, `card_base_update_20260619.go` and `card_royal_conflict_simple.go` were split into per-card files. Do not recreate batch/catch-all files.
 
-- `card_<number>_<name>.go` — one card per file. 211 files today (180 `基础包`, 31 `王权纷争`). This is the preferred layout for any card with non-trivial behavior.
-- Grouped files hold the rest. `王权纷争` groups by mechanic (`card_royal_conflict_stealth.go`, `card_royal_conflict_shield.go`, `card_royal_conflict_flip.go`, `card_royal_conflict_bound.go`, `card_royal_conflict_red_moon.go`, `card_royal_conflict_lightweight.go`) with `card_royal_conflict_simple.go` as the catch-all for short effects — it currently holds 189 cards in ~9k lines and is the largest hand-written file in the repo. `基础包` groups by work batch instead (`card_batch_more_base.go`, `card_batch_final_base.go`, `card_base_update_20260619.go`), which carries no semantic meaning and should not be extended.
-- `card_defense_success_base.go` groups by mechanic across both packs, which is fine. Pack identity is already on the card as `VersionName`; it is not a reason to split or merge files.
+Short mechanic groups still exist for stealth, shield, flip, bound skills and red moon. Shared operations live in helper modules; a helper needed only by one card should live beside that card. Pack identity remains data, not a reason to group unrelated effects.
+
+Use `go run ./cmd/card-impact --card <number>` from `server/` for a conservative source/interaction/test-reference report. For a changed engine module, use `--file damage.go` (relative to `game/`). The report is a review aid and does not replace full tests.
 
 ### Card numbers already encode collection metadata
 
@@ -208,7 +217,7 @@ data, not file structure. To list a pack, query the data rather than relying on 
 ls server/game/card_[0-9]*.go | awk -F'card_|_' '$2 ~ /^[0-9]{7}$/ && substr($2,5,1)=="1"'
 ```
 
-When adding a card: prefer a `card_<number>_<name>.go` file. Only add to a grouped file when the effect is a few lines and the group is mechanic-based. Do not add cards to `card_royal_conflict_simple.go` or to any `card_batch_*` file.
+When adding a card: prefer a `card_<number>_<name>.go` file. Only add to a grouped file when the effect is a few lines and the group is mechanic-based. Do not create batch or catch-all behavior files.
 
 ## Rule Clarifications From Prior Corrections
 
@@ -226,7 +235,7 @@ These are rules that previous agents have misunderstood. Treat them as hard cons
 - Cards reset from horizontal to vertical at the end of their owner's turn, not at the beginning of that player's next turn.
 - `消耗:` is a tap payment. It requires the source card to be vertical first. A horizontal card can still use `回合技` or `绝技` if rules allow, but it cannot pay a `消耗:` cost because that cost is turning vertical to horizontal.
 - `奥术`/`无` in a play cost is a wildcard requirement whose exact paid element can be ambiguous. If the player has multiple possible elements that could satisfy an arcane cost, the frontend should ask the player to choose the payment rather than silently picking one.
-- `吞噬:3\气` and similar summon requirements happen before choosing/placing the summoned card on the battlefield. The player must select a valid friendly companion with sufficient load and destroy it as part of summoning. Do not model this as a later optional ability.
+- `吞噬:3\气` and similar summon requirements happen before choosing/placing the summoned card on the battlefield. Select other friendly battlefield cards satisfying the printed requirement (companions, equipment, or learned skills as applicable) and discard them as part of summoning; do not universally restrict devour to companions. Do not model this as a later optional ability.
 - `速攻` means the card can be vertical and usable immediately after entering, according to the card's type/implementation. Apply the keyword generally, not only for one named card.
 - Bound, generated, or temporary cards still need to be visible enough in the frontend for a human to understand why an effect exists. Showing bound skills in the inspector/detail view is appropriate; showing them in the skill pool is wrong.
 - Remaining deck visibility must not reveal order. If exposing deck contents, expose only an unordered summary by card number/name/count, never the ordered deck slice or instance IDs.
@@ -409,3 +418,16 @@ Rules:
 - Only use the supported issue forms: Bug Report, Card Effect, and Frontend UX. Blank issues are disabled intentionally.
 - Every issue must include a version or commit hash. If there is no formal version number yet, use the exact commit tested.
 - Do not require every PR to close an issue; normal iteration PRs are allowed. When a PR does fix a tracked issue, mention it in the PR description.
+
+## Confirmed Rules Update (2026-11-13)
+
+The rule author's rulings in issues #166–#174 supersede older conflicting notes above and in historical tests. Only 基础包 and 王权纷争 are in scope.
+
+- +life raises both current and maximum life and is not healing. Off-field buffs survive entry and off-field moves. Leaving the battlefield clears that visit's instance state, including permanent instance buffs. Preserve last-known information for damage/death resolution separately from the clean card in its new zone. Explicit until-game-end rules are player/game-scoped and survive instance cleanup.
+- End turn: discard, reset orientations, settle marks, resolve end-turn triggers, expire until-end effects/abilities/temporary cards, refresh uses and clear elements, switch player. Finish each phase's choices/spells/deaths before continuing. A lethal mark must not permit the next player's draw.
+- Unqualified next turn means the immediately following turn of either player. Per-turn uses still refresh at their owner's turn end.
+- No defense main spell means no successful defense even at zero attacking power. Existing element pools remain usable during defense/counters; ordinary consume is forbidden there. Stun blocks tap payments, not every active ability.
+- Auras stack unless explicitly stated otherwise. Implementation slot capacity is 99, not a game-rule limit of 8.
+- Stealth does not form a front row. It prevents opposing single-target selection even with pierce; area centers are regions and may contain stealth units.
+- Devour eligibility comes from the printed requirement and can include equipment or learned skills. Player-selected trigger ordering is deferred in #174: keep deterministic order and preserve every legal trigger for now.
+- A departed source does not erase otherwise legal results; skip results requiring the departed battlefield instance. Petrification/effect invalidation can cancel queued source effects and deathrattles. Control transfer also transfers attached bound skills and subsequent zone ownership to the new player.

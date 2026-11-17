@@ -87,6 +87,11 @@ func isSpellLikeCard(card *model.Card) bool {
 	return card != nil && (card.IsSkill() || isSpellScrollCard(card))
 }
 
+// Sorceries share casting machinery but are not targets of effects naming 法术.
+func isCombatSpellCard(card *model.Card) bool {
+	return isSpellLikeCard(card) && !isSorcerySkill(card)
+}
+
 func spellSuppressesOpponentResponses(card *CardInstance) bool {
 	return card != nil && card.Card != nil && card.Card.Number == "2121111"
 }
@@ -118,7 +123,7 @@ func traitsForCardNumber(number string) cardTraits {
 	switch number {
 	case "1011001", "1011002", "1111001", "1111003", "1211003", "1321010", "1511003":
 		t.taunt = true
-	case "1011102", "1011103", "1111103", "1221103", "1221108", "1421104", "1421112", "1521101", "1621110", "1621115":
+	case "1011102", "1011103", "1021110", "1111103", "1121114", "1221103", "1221106", "1221108", "1321112", "1421104", "1421112", "1521101", "1621110", "1621115":
 		t.taunt = true
 	}
 	switch number {
@@ -157,7 +162,7 @@ func traitsForCardNumber(number string) cardTraits {
 		t.area = SpellAreaColumn
 	case "2521009", "3001001", "3121004", "3521008", "3621003":
 		t.area = SpellAreaFrontRow
-	case "3121107", "3221110", "3321103", "3421102", "3421106":
+	case "3511101", "3121107", "3221110", "3321103", "3421102", "3421106":
 		t.area = SpellAreaFrontRow
 	case "2221009", "2621009", "3201002", "3221005":
 		t.area = SpellAreaSplashCross
@@ -172,14 +177,14 @@ func traitsForCardNumber(number string) cardTraits {
 		t.defenseOnly = true
 	}
 	switch number {
-	case "3001001":
+	case "3001001", "3111102":
 		t.noBoost = true
 		t.noBoosted = true
 	case "3421103":
 		t.noBoost = true
 	}
 	switch number {
-	case "3021010", "3221008", "3321008", "3621015":
+	case "3021010", "3221008", "3321008", "3521109", "3621015":
 		t.noAttack = true
 	}
 	switch number {
@@ -526,7 +531,7 @@ func canSkillBeBoosted(skill *CardInstance) bool {
 	if skill == nil || skill.Card == nil || !skill.Card.IsSkill() {
 		return false
 	}
-	return !traitsForCardNumber(skill.Card.Number).noBoosted
+	return !isSorcerySkill(skill.Card) && !traitsForCardNumber(skill.Card.Number).noBoosted
 }
 
 func isDefenseOnlySkill(card *model.Card) bool {
@@ -598,7 +603,7 @@ func ruleInfoForCard(card *model.Card) map[string]any {
 		info["can_attack_boost"] = staticCanUseSkillForPurpose(card, t, skillPurposeAttackBoost)
 		info["can_defense_boost"] = staticCanUseSkillForPurpose(card, t, skillPurposeDefenseBoost)
 		info["can_boost"] = info["can_attack_boost"]
-		info["can_be_boosted"] = !t.noBoosted
+		info["can_be_boosted"] = !t.sorcery && !t.noBoosted
 		info["spell_area"] = t.area
 		info["can_react"] = hasSpellReactionNumber(card.Number)
 	}

@@ -146,6 +146,14 @@ type OnTurnEndBehavior interface {
 	OnTurnEnd(*EffectContext) error
 }
 
+// Declaration effects finish before hand-limit discard, reset and mark settlement.
+type OnTurnEndDeclarationBehavior interface {
+	HasActiveTurnEndDeclaration(*CardInstance) bool
+	OnTurnEndDeclaration(*EffectContext) error
+}
+
+func (AlwaysActive) HasActiveTurnEndDeclaration(*CardInstance) bool { return true }
+
 type OnUnitEnterBehavior interface {
 	HasActiveUnitEnter(*CardInstance) bool
 	OnUnitEnter(*EffectContext) error
@@ -168,7 +176,8 @@ type OnEnemyDeathBehavior interface {
 
 type OnDamagedBehavior interface {
 	HasActiveDamaged(*CardInstance) bool
-	OnDamaged(*EffectContext) error
+	DamageScope() DamageScope
+	OnDamaged(*EffectContext, DamageEvent) error
 }
 
 type OnAttackBehavior interface {
@@ -183,8 +192,12 @@ type AttackCostBehavior interface {
 
 type OnFriendlyDamagedFromHiddenBehavior interface {
 	HasActiveFriendlyDamagedFromHidden(*CardInstance) bool
-	OnFriendlyDamagedFromHidden(*EffectContext) error
+	OnFriendlyDamagedFromHidden(*EffectContext, DamageEvent) error
 }
+
+// HiddenDamageGroupBehavior coalesces identical optional choices from multiple
+// hidden copies for one damage event, without suppressing unrelated windows.
+type HiddenDamageGroupBehavior interface{ HiddenDamageGroup(*CardInstance) string }
 
 type OnSpellCastBehavior interface {
 	HasActiveSpellCast(*CardInstance) bool
@@ -332,6 +345,13 @@ type SpellTargetValidationBehavior interface {
 type SpellAreaBehavior interface {
 	HasActiveSpellArea(*CardInstance) bool
 	SpellArea() SpellArea
+}
+
+// SpellSourceModifier opts a card into its own stat/area calculation even when
+// the source is a virtual or otherwise off-field instance. It grants no aura
+// membership and is consulted only for the spell currently being evaluated.
+type SpellSourceModifier interface {
+	HasSpellSourceModifier()
 }
 
 type SpellAreaModifier interface {
@@ -560,12 +580,28 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 			return h.OnDeath(ctx)
 		})
 	}
+	if h, ok := behavior.(BeforeDrawBehavior); ok {
+		r.Register(id, TriggerBeforeDraw, func(ctx *EffectContext) error {
+			if !h.HasActiveBeforeDraw(ctx.Source) {
+				return nil
+			}
+			return h.OnBeforeDraw(ctx)
+		})
+	}
 	if h, ok := behavior.(OnTurnStartBehavior); ok {
 		r.Register(id, TriggerOnTurnStart, func(ctx *EffectContext) error {
 			if !h.HasActiveTurnStart(ctx.Source) {
 				return nil
 			}
 			return h.OnTurnStart(ctx)
+		})
+	}
+	if h, ok := behavior.(OnTurnEndDeclarationBehavior); ok {
+		r.Register(id, TriggerOnTurnEndDeclaration, func(ctx *EffectContext) error {
+			if !h.HasActiveTurnEndDeclaration(ctx.Source) {
+				return nil
+			}
+			return h.OnTurnEndDeclaration(ctx)
 		})
 	}
 	if h, ok := behavior.(OnTurnEndBehavior); ok {
@@ -610,10 +646,11 @@ func registerBehavior(r *EffectRegistry, behavior CardBehavior) {
 	}
 	if h, ok := behavior.(OnDamagedBehavior); ok {
 		r.Register(id, TriggerOnDamaged, func(ctx *EffectContext) error {
-			if !h.HasActiveDamaged(ctx.Source) {
+			event := damageEventFromContext(ctx)
+			if !h.HasActiveDamaged(ctx.Source) || !event.Matches(ctx.Source, h.DamageScope()) {
 				return nil
 			}
-			return h.OnDamaged(ctx)
+			return h.OnDamaged(ctx, event)
 		})
 	}
 	if h, ok := behavior.(OnAttackBehavior); ok {

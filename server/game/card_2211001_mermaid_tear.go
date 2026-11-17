@@ -2,8 +2,10 @@ package game
 
 type Card2211001MermaidTear struct{ AlwaysActive }
 
-func (Card2211001MermaidTear) ID() string   { return "2211001" }
+func (Card2211001MermaidTear) ID() string { return "2211001" }
+
 func (Card2211001MermaidTear) Name() string { return "人鱼之泪" }
+
 func (Card2211001MermaidTear) OnUltimate(ctx *EffectContext) error {
 	ps := ctx.Engine.State.Players[ctx.PlayerID]
 	candidates := make([]map[string]any, 0)

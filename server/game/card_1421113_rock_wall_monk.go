@@ -2,7 +2,8 @@ package game
 
 type Card1421113RockWallMonk struct{ AlwaysActive }
 
-func (Card1421113RockWallMonk) ID() string   { return "1421113" }
+func (Card1421113RockWallMonk) ID() string { return "1421113" }
+
 func (Card1421113RockWallMonk) Name() string { return "岩壁修道士" }
 
 func (Card1421113RockWallMonk) OnSpellHitBeforeDamage(ctx *EffectContext) error {
@@ -16,7 +17,7 @@ func (Card1421113RockWallMonk) OnSpellHitBeforeDamage(ctx *EffectContext) error 
 	if !ok || attacker == ctx.PlayerID {
 		return nil
 	}
-	if playerHasLearnedSkill(ctx.Engine.State.Players[ctx.PlayerID]) {
+	if playerHasLearnedSpell(ctx.Engine.State.Players[ctx.PlayerID]) {
 		return nil
 	}
 	damagePtr, ok := ctx.ExtraData["damage_ptr"].(*int)

@@ -30,10 +30,9 @@ func (e *Engine) addStatus(card *CardInstance, status string, amount int) bool {
 	if isNegativeStatus(status) && e.rejectsNegativeStatusApplication(card, status) {
 		return false
 	}
+	before := card.Statuses[status]
 	card.Statuses[status] += amount
-	if status == StatusPetrify && card.Card != nil && card.Card.Number == "3611101" {
-		e.refreshRedMoonState(card.OwnerID)
-	}
+	e.notifyCardStateChanges(CardStateChange{Card: card, Status: status, Before: before, After: card.Statuses[status]})
 	if card.OwnerID >= 0 && card.OwnerID < len(e.State.Players) {
 		data := map[string]any{
 			"status_gain_player": card.OwnerID,
@@ -71,7 +70,7 @@ func (e *Engine) negativeStatusIneffective(card *CardInstance, status string) bo
 	if ps != nil && playerIgnoresFriendlyNegativeStatuses(ps) {
 		return true
 	}
-	if ps != nil && card.Position != nil && ps.Shield > 0 && e.playerHasActiveCard(ps, "2411101") {
+	if ps != nil && e.fieldSuppressesStatus(card, status) {
 		return true
 	}
 	if ps == nil || card.Position == nil {
@@ -128,20 +127,16 @@ func (e *Engine) temporaryDamageAndNegativeImmunityActive(card *CardInstance) bo
 	if e == nil || card == nil {
 		return false
 	}
-	return card.Statuses[temporaryDamageAndNegativeImmunityUntilStatus] >= e.State.TurnNumber
+	return card.Statuses[temporaryDamageAndNegativeImmunityUntilStatus] >= e.turnOrdinal()
 }
 
+func (e *Engine) canResetCard(card *CardInstance) bool {
+	return card != nil && !e.hasEffectiveStatus(card, StatusFreeze) && card.Statuses[StatusCooldown] <= 0
+}
 func (e *Engine) resetCard(card *CardInstance) {
-	if card == nil {
-		return
+	if e.canResetCard(card) {
+		card.IsHorizontal = false
 	}
-	if e.hasEffectiveStatus(card, StatusFreeze) {
-		return
-	}
-	if card.Statuses[StatusCooldown] > 0 {
-		return
-	}
-	card.IsHorizontal = false
 }
 
 func (e *Engine) canConsumeCard(card *CardInstance) bool {

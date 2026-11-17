@@ -32,10 +32,13 @@ func (e *Engine) moveEquipmentToGraveyard(playerID int, slot int, card *CardInst
 	if slot >= 0 && slot < len(ps.Equipment) && ps.Equipment[slot] == card {
 		ps.Equipment[slot] = nil
 	}
-	card.SlotIndex = -1
-	e.releaseUnderCardsToGraveyard(playerID, card)
-	e.exileTransferredBoundSkills(playerID, card)
-	card.BoundSkills = nil
+	snapshot := card
+	card = e.leaveBattlefield(card)
 	e.addToGraveyard(playerID, card)
 	e.emit(GameEvent{Type: "discard", Player: playerID, Data: map[string]any{"card": cardToInfo(card)}})
+	if e.resolutionDepth > 0 || e.resolvingDeaths {
+		e.queueDeathTriggersWithData(snapshot, playerID, nil)
+	} else {
+		e.resolveDeathTriggersWithData(snapshot, playerID, nil)
+	}
 }

@@ -22,7 +22,7 @@ func (Card4311101SkyWitchSoland) ValidateSkillLearn(ctx *EffectContext, skill *C
 	if skill == nil || skill.Card == nil {
 		return nil
 	}
-	if hasCardTag(skill.Card, "驱动") || hasCardTag(skill.Card, "聚能") {
+	if !isCombatSpellCard(skill.Card) || hasCardTag(skill.Card, "驱动") || hasCardTag(skill.Card, "聚能") {
 		return nil
 	}
 	return fmt.Errorf("司天魔巫 索兰德只能让你学习驱动或聚能法术")
@@ -80,9 +80,10 @@ func (Card3521101Gospel) OnConsume(ctx *EffectContext) error {
 
 type Card3421106RottingErosion struct{ AlwaysActive }
 
-func (Card3421106RottingErosion) ID() string      { return "3421106" }
-func (Card3421106RottingErosion) Name() string    { return "腐朽侵蚀" }
-func (Card3421106RottingErosion) MasteryMax() int { return 6 }
+func (Card3421106RottingErosion) ID() string               { return "3421106" }
+func (Card3421106RottingErosion) Name() string             { return "腐朽侵蚀" }
+func (Card3421106RottingErosion) MasteryMax() int          { return 6 }
+func (Card3421106RottingErosion) MasteryThresholds() []int { return []int{3, 6} }
 func (Card3421106RottingErosion) OnMastery(ctx *EffectContext, level int) error {
 	if ctx == nil || ctx.Source == nil {
 		return nil
@@ -105,7 +106,7 @@ func (Card3421106RottingErosion) OnSpellHit(ctx *EffectContext) error {
 			}
 		}
 	}
-	ctx.Engine.advanceMastery(ctx.Source, ctx.PlayerID, 1)
+	ctx.Engine.advanceToNextMastery(ctx.Source, ctx.PlayerID)
 	return nil
 }
 
@@ -131,16 +132,10 @@ func enemySpellInstancesIncludingBound(e *Engine, playerID int) []*CardInstance 
 		return nil
 	}
 	result := make([]*CardInstance, 0)
-	for _, skill := range opponent.Skills {
-		if skill != nil {
+	for _, skill := range e.ruleSources(opponent) {
+		if skill != nil && skill.Card != nil && skill.Card.IsSkill() && isCombatSpellCard(skill.Card) {
 			result = append(result, skill)
 		}
-	}
-	for _, card := range e.getAllFieldCards(opponent) {
-		if card == nil {
-			continue
-		}
-		result = append(result, card.BoundSkills...)
 	}
 	return result
 }
@@ -176,10 +171,7 @@ func (Card2621104DevotionContract) OnSpellCast(ctx *EffectContext) error {
 	}
 	hero := ctx.Engine.State.Players[ctx.PlayerID].Hero
 	if hero != nil {
-		ctx.Engine.dealDamageWithExtra(hero, 1, ctx.PlayerID, map[string]any{
-			"damage_source": "devotion_contract",
-			"attacker":      ctx.PlayerID,
-		})
+		ctx.Engine.ApplyDamage(DamageRequest{Target: hero, Amount: 1, Kind: "devotion_contract", SourcePlayer: ctx.PlayerID, SourceKnown: true, Source: ctx.Source})
 	}
 	ctx.Engine.drawCards(ctx.PlayerID, 1)
 	return nil
@@ -220,10 +212,7 @@ func (Card2311101SkyCityZenithStone) OnDraw(ctx *EffectContext) error {
 		}
 	}
 	for _, target := range targets {
-		ctx.Engine.dealDamageWithExtra(target, 1, drawnPlayer, map[string]any{
-			"damage_source": "sky_city_zenith_stone",
-			"attacker":      ctx.PlayerID,
-		})
+		ctx.Engine.ApplyDamage(DamageRequest{Target: target, Amount: 1, Kind: "sky_city_zenith_stone", SourcePlayer: ctx.PlayerID, SourceKnown: true, Source: ctx.Source})
 		ctx.Engine.addStatus(target, StatusStun, 1)
 	}
 	return nil
@@ -233,17 +222,19 @@ const bloodGuMarkerStatus = "血蛊标记物"
 
 type Card2621103BloodGu struct{ AlwaysActive }
 
-func (Card2621103BloodGu) ID() string   { return "2621103" }
-func (Card2621103BloodGu) Name() string { return "血蛊" }
-func (Card2621103BloodGu) OnDamaged(ctx *EffectContext) error {
-	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Target == nil || ctx.ExtraData == nil {
+func (Card2621103BloodGu) ID() string               { return "2621103" }
+func (Card2621103BloodGu) Name() string             { return "血蛊" }
+func (Card2621103BloodGu) DamageScope() DamageScope { return DamageFriendly }
+
+func (Card2621103BloodGu) OnDamaged(ctx *EffectContext, event DamageEvent) error {
+	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || event.Target == nil {
 		return nil
 	}
-	damagedPlayer, ok := ctx.ExtraData["damaged_player"].(int)
-	if !ok || damagedPlayer != ctx.PlayerID || ctx.Target != ctx.Engine.playerHeroCard(ctx.PlayerID) {
+	damagedPlayer := event.Target.OwnerID
+	if damagedPlayer != ctx.PlayerID || event.Target != ctx.Engine.playerHeroCard(ctx.PlayerID) {
 		return nil
 	}
-	damage, _ := ctx.ExtraData["damage"].(int)
+	damage := event.Amount
 	if damage <= 0 {
 		damage = 1
 	}
@@ -481,7 +472,7 @@ type Card3611102ClawOfErebos struct{ AlwaysActive }
 func (Card3611102ClawOfErebos) ID() string   { return "3611102" }
 func (Card3611102ClawOfErebos) Name() string { return "厄瑞波斯之爪" }
 func (Card3611102ClawOfErebos) ValidateSkillLearn(ctx *EffectContext, skill *CardInstance) error {
-	if ctx == nil || ctx.Engine == nil || enemySkillSlotWeakenedSpellLayers(ctx.Engine, ctx.PlayerID) >= 3 {
+	if ctx == nil || ctx.Engine == nil || enemyWeakenedSpellCount(ctx.Engine, ctx.PlayerID) >= 3 {
 		return nil
 	}
 	return fmt.Errorf("敌方需要有三个及以上虚弱法术才能学习厄瑞波斯之爪")
@@ -493,6 +484,9 @@ func (Card3611102ClawOfErebos) ModifySkillContribution(ctx *EffectContext, stats
 	stats.PowerBonus += enemySkillSlotWeakenedSpellLayers(ctx.Engine, ctx.PlayerID)
 }
 func (Card3611102ClawOfErebos) OnSpellCast(ctx *EffectContext) error {
+	if !isSpellBeingCast(ctx) {
+		return nil
+	}
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil || ctx.Source.Card == nil || ctx.Source.Card.Number != "3611102" || !isFriendlySpellCast(ctx) {
 		return nil
 	}
@@ -510,7 +504,7 @@ func (Card3611102ClawOfErebos) OnSpellCast(ctx *EffectContext) error {
 					continue
 				}
 				seen[id] = true
-				for _, skill := range ctx.Engine.State.Players[ctx.OpponentID].Skills {
+				for _, skill := range ctx.Engine.ruleSources(ctx.Engine.State.Players[ctx.OpponentID]) {
 					if skill != nil && skill.InstanceID == id && canInstanceBeWeakened(skill) {
 						ctx.Engine.addStatus(skill, StatusWeaken, 1)
 						break
@@ -530,8 +524,8 @@ func enemySkillSlotWeakenedSpellLayers(e *Engine, playerID int) int {
 	if opponent == nil {
 		return 0
 	}
-	for _, skill := range opponent.Skills {
-		if skill != nil && skill.Statuses[StatusWeaken] > 0 && e.hasEffectiveStatus(skill, StatusWeaken) {
+	for _, skill := range e.ruleSources(opponent) {
+		if skill != nil && skill.Card != nil && isCombatSpellCard(skill.Card) && skill.Statuses[StatusWeaken] > 0 && e.hasEffectiveStatus(skill, StatusWeaken) {
 			total += skill.Statuses[StatusWeaken]
 		}
 	}
@@ -573,7 +567,7 @@ func (Card2521107PanaceaP) OnUseItem(ctx *EffectContext) error {
 			return
 		}
 		ctx.Engine.SetPendingAction(ctx.PlayerID, "panacea_p_heal",
-			"百灵药P型:选择1个友方单位回复1点生命", targets, 0, 1,
+			"百灵药P型:选择1个友方单位回复1点生命", targets, 1, 1,
 			func(selected []string) {
 				target := selectedUnitFromCandidates(ctx.Engine, selected, targets)
 				if target != nil {
@@ -599,10 +593,7 @@ func (Card2521107PanaceaP) OnUseItem(ctx *EffectContext) error {
 		func(selected []string) {
 			target := selectedUnitFromCandidates(ctx.Engine, selected, targets)
 			if target != nil {
-				ctx.Engine.dealDamageWithExtra(target, 1, target.OwnerID, map[string]any{
-					"damage_source": "panacea_p",
-					"attacker":      ctx.PlayerID,
-				})
+				ctx.Engine.ApplyDamage(DamageRequest{Target: target, Amount: 1, Kind: "panacea_p", SourcePlayer: ctx.PlayerID, SourceKnown: true, Source: ctx.Source})
 			}
 			resolveHealAndDraw()
 		})
@@ -683,19 +674,16 @@ func (Card2121101LavafortAshes) OnUseItem(ctx *EffectContext) error {
 				return
 			}
 			sourceCost := totalElementCost(source.Card.ElementsCost)
-			targets := lavaFortAshDeckTargets(ctx.Engine, ctx.PlayerID, sourceCost)
-			if len(targets) == 0 || !ctx.Engine.exileCard(ctx.PlayerID, source) {
+			if !ctx.Engine.exileCard(ctx.PlayerID, source) {
 				return
 			}
-			ctx.Engine.SetPendingAction(ctx.PlayerID, "lavafort_ashes_search_fire_card",
-				"熔岩堡的灰烬:翻取1张更高入场花费的火焰卡牌", targets, 1, 1,
-				func(searchSelected []string) {
-					card := ctx.Engine.searchDeckCardToHand(ctx.PlayerID, firstSelected(searchSelected))
-					if card == nil {
-						return
-					}
+			ctx.Engine.flipDeckMatchesToHandThen(ctx.PlayerID, 1, 0, func(card *CardInstance) bool {
+				return card != nil && card.Card != nil && card.Card.Category == model.ElementFire && totalElementCost(card.Card.ElementsCost) > sourceCost
+			}, func(drawn []*CardInstance) {
+				for _, card := range drawn {
 					card.Statuses["入场费用"+model.ElementFire+"-1"]++
-				})
+				}
+			})
 		})
 	return nil
 }
@@ -816,3 +804,26 @@ var _ SkillContributionModifier = Card3621102Retribution{}
 var _ OnUseItemBehavior = Card2521107PanaceaP{}
 var _ OnUseItemBehavior = Card2121110OfferingTorch{}
 var _ OnUseItemBehavior = Card2121101LavafortAshes{}
+
+func (Card3321107HeldBreath) HasActiveSpellStatModifier(card *CardInstance) bool {
+	return abilityDurationActive(card)
+}
+
+func enemyWeakenedSpellCount(e *Engine, playerID int) int {
+	count := 0
+	for _, skill := range e.ruleSources(e.State.Players[1-playerID]) {
+		if skill.Card != nil && isCombatSpellCard(skill.Card) && e.hasEffectiveStatus(skill, StatusWeaken) {
+			count++
+		}
+	}
+	return count
+}
+func combatSpellCount(e *Engine, playerID int) int {
+	count := 0
+	for _, skill := range e.ruleSources(e.State.Players[playerID]) {
+		if skill.Card != nil && isCombatSpellCard(skill.Card) {
+			count++
+		}
+	}
+	return count
+}

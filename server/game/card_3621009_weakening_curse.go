@@ -2,7 +2,8 @@ package game
 
 type Card3621009WeakeningCurse struct{ AlwaysActive }
 
-func (Card3621009WeakeningCurse) ID() string   { return "3621009" }
+func (Card3621009WeakeningCurse) ID() string { return "3621009" }
+
 func (Card3621009WeakeningCurse) Name() string { return "虚弱诅咒" }
 
 func (Card3621009WeakeningCurse) OnSpellCast(ctx *EffectContext) error {

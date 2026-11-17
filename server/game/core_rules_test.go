@@ -394,7 +394,6 @@ func TestReplacingSkillReturnsOldSkillToPool(t *testing.T) {
 	p0.SkillPool = p0.SkillPool[1:]
 	oldSkill.IsHorizontal = false
 	oldSkill.SlotIndex = 0
-	oldSkill.Statuses[StatusCooldown] = 2
 	oldSkill.PowerBonus = 3
 	p0.Skills[0] = oldSkill
 
@@ -414,8 +413,9 @@ func TestReplacingSkillReturnsOldSkillToPool(t *testing.T) {
 	}
 	foundInPool := false
 	for _, skill := range p0.SkillPool {
-		if skill == oldSkill {
+		if sameCardInstance(skill, oldSkill) {
 			foundInPool = true
+			oldSkill = skill
 			break
 		}
 	}
@@ -457,7 +457,7 @@ func TestReplacingEquipmentSendsOldEquipmentToGraveyard(t *testing.T) {
 	}}); err != nil {
 		t.Fatalf("replace equipment: %v", err)
 	}
-	if p0.Equipment[2] != newEquipment || len(p0.Graveyard) != 1 || p0.Graveyard[0] != replaced {
+	if p0.Equipment[2] != newEquipment || len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], replaced) {
 		t.Fatalf("new equipment should replace selected vertical equipment and send old equipment to graveyard, equipment=%v grave=%v", p0.Equipment[2], cardsToInfo(p0.Graveyard))
 	}
 }
@@ -1050,7 +1050,7 @@ func TestLethalDamageDestroysAfterResolutionScope(t *testing.T) {
 	if p0.Units[0][0] != nil {
 		t.Fatalf("unit should be destroyed after resolution ends")
 	}
-	if len(p0.Graveyard) != 1 || p0.Graveyard[0] != unit {
+	if len(p0.Graveyard) != 1 || !sameCardInstance(p0.Graveyard[0], unit) {
 		t.Fatalf("destroyed unit should enter graveyard after resolution, grave=%v", p0.Graveyard)
 	}
 }
