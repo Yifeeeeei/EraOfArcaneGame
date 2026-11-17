@@ -87,7 +87,8 @@ type state struct {
 			Row   int `json:"row"`
 		} `json:"affected_positions"`
 	} `json:"pending_spell"`
-	DrawOffer int `json:"draw_offer_by"`
+	DrawOffer    int `json:"draw_offer_by"`
+	IncomingBurn int `json:"-"`
 }
 
 type Decision struct {

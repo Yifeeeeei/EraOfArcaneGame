@@ -197,8 +197,13 @@ func (p *Policy) defend(s state, opts map[string]game.DecisionCard) Decision {
 	if !threatensHero {
 		return decline
 	}
-	remaining := s.You.Hero.Life - max(0, damage-s.You.Shield)
-	if remaining > 1 {
+	// Burn stacks are future one-point ticks, not immediate damage. Reserve
+	// life for all outstanding ticks; a successful defense prevents only the
+	// new spell's damage/marks, never the marks already on the hero. Shield
+	// absorbs spell attack damage only, not current or newly applied burn.
+	burn := max(0, s.You.Hero.Statuses[game.StatusBurn])
+	remaining := s.You.Hero.Life - max(0, damage-s.You.Shield) - burn - s.IncomingBurn
+	if remaining > 1 && s.IncomingBurn == 0 {
 		return decline
 	}
 	var spells []*card
@@ -254,7 +259,7 @@ func (p *Policy) defend(s state, opts map[string]game.DecisionCard) Decision {
 		move := action("defend", map[string]any{"skill_ids": ids, "scroll_ids": scrolls, "boost_ids": []string{}, "overexert_ids": overexert, "payment": pay})
 		if penalty < best && !p.blocked[Fingerprint(move)] {
 			best = penalty
-			result = Decision{move, "防御人物致命／濒死伤害，选择最低机会成本方案"}
+			result = Decision{move, "计入点燃后防御人物危险伤害，选择最低机会成本方案"}
 		}
 	}
 	if result.Action.Action != "" {

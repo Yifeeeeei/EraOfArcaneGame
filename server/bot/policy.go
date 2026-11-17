@@ -19,6 +19,7 @@ func (p *Policy) Next(observation game.DecisionObservation) (Decision, bool, err
 	if err := json.Unmarshal(observation.State, &s); err != nil {
 		return Decision{}, false, err
 	}
+	s.IncomingBurn = observation.IncomingBurn
 	if s.Phase == "game_over" {
 		return Decision{}, false, nil
 	}

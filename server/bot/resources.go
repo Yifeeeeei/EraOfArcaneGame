@@ -201,6 +201,15 @@ func defensivePayment(s state, opts map[string]game.DecisionCard, cost map[strin
 		}
 		return sum(sources[i].Gain) < sum(sources[j].Gain)
 	})
+	// A single non-hero source may be cheaper than several small sources.
+	// Keep the hero as a last resort even when it could pay alone.
+	for _, c := range sources {
+		if c.Type != "人物" {
+			if pay, ok := payment(s, plus(s.You.Elements, c.Gain), cost); ok {
+				return pay, []string{c.ID}, true
+			}
+		}
+	}
 	available := plus(s.You.Elements, nil)
 	var ids []string
 	for _, c := range sources {

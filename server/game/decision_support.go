@@ -8,8 +8,9 @@ import (
 // DecisionObservation is a detached, player-permitted snapshot. Controllers
 // receive neither engine pointers nor the other player's hidden zones.
 type DecisionObservation struct {
-	State json.RawMessage         `json:"state"`
-	Cards map[string]DecisionCard `json:"cards"`
+	State        json.RawMessage         `json:"state"`
+	Cards        map[string]DecisionCard `json:"cards"`
+	IncomingBurn int                     `json:"incoming_burn,omitempty"`
 }
 
 type DecisionCard struct {
@@ -49,6 +50,9 @@ func (e *Engine) ObserveDecision(player int) (DecisionObservation, error) {
 	}
 	result := DecisionObservation{State: view, Cards: map[string]DecisionCard{}}
 	ps := e.State.Players[player]
+	if spell := e.State.PendingSpell; spell != nil && e.State.Phase == PhaseDefenseWindow && e.decisionPlayer() == player && !e.rejectsNegativeStatusApplication(ps.Hero, StatusBurn) {
+		result.IncomingBurn = max(0, e.explicitSpellHitStatuses(spell.Skill, ps.Hero)[StatusBurn])
+	}
 	field := e.getAllFieldCards(ps)
 	sources := append(append(append([]*CardInstance{}, field...), ps.Hand...), ps.SkillPool...)
 	for _, host := range field {

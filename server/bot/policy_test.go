@@ -302,3 +302,109 @@ func TestCheapNonLethalDamageDoesNotSpendOffenseOnDefense(t *testing.T) {
 		t.Fatal("spent offense defending minor hero damage")
 	}
 }
+
+func incomingHeroSpell(t *testing.T, e *game.Engine, number string) {
+	t.Helper()
+	e.State.CurrentTurn = 1
+	skill := put(t, e, number, 1, 0, 0)
+	e.State.Players[1].Elements["火"] = 10
+	if err := e.HandleAction(1, action("cast_spell", map[string]any{"instance_id": skill.InstanceID, "target_type": "unit", "target_col": 1, "target_row": 1})); err != nil {
+		t.Fatal(err)
+	}
+	if e.State.Phase != game.PhaseDefenseWindow {
+		t.Fatalf("expected defense window, got %s", e.State.Phase)
+	}
+}
+
+func TestDefenseIncludesOutstandingAndIncomingBurn(t *testing.T) {
+	for _, tc := range []struct {
+		name                                string
+		life, burn, shield                  int
+		spell                               string
+		cheapSource, exhausted, wantDefense bool
+	}{
+		{"existing burn makes one damage lethal", 2, 1, 0, "3121001", false, false, true},
+		{"ray has three total damage", 3, 0, 0, "3121003", false, false, true},
+		{"ray adds to existing burn", 4, 1, 0, "3121003", false, false, true},
+		{"healthy hero blocks efficient ray cheaply", 5, 0, 0, "3121003", true, false, true},
+		{"shield does not absorb ray burn", 2, 0, 1, "3121003", false, false, true},
+		{"safe ray does not justify hero overexertion", 5, 0, 0, "3121003", false, false, false},
+		{"ordinary chip still preserves offense", 5, 0, 0, "3121001", true, false, false},
+		{"exhausted resources cannot defend room 2683", 2, 1, 0, "3121001", false, true, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			e := scenario(t)
+			hero := e.State.Players[0].Hero
+			hero.CurrentLife = tc.life
+			hero.Statuses[game.StatusBurn] = tc.burn
+			hero.IsHorizontal = tc.exhausted
+			e.State.Players[0].Shield = tc.shield
+			put(t, e, tc.spell, 0, 0, 0)
+			if tc.cheapSource {
+				seed := put(t, e, "1121111", 0, 0, 2)
+				seed.ElementsGainBonus["火"] = 1
+				seed.UltimateUsed = true
+				// Room 2683 also had two one-fire sources. Paying with the
+				// two-fire seed alone keeps this defense within the same budget.
+				put(t, e, "1121001", 0, 0, 1)
+				put(t, e, "1121012", 0, 2, 2)
+			}
+			incomingHeroSpell(t, e, tc.spell)
+			d := next(t, e, New(), 0)
+			want := "no_defend"
+			if tc.wantDefense {
+				want = "defend"
+			}
+			if d.Action.Action != want {
+				t.Fatalf("got %s, want %s: %s", d.Action.Action, want, d.Reason)
+			}
+			if err := e.HandleAction(0, d.Action); err != nil {
+				t.Fatalf("decision was not legal: %v", err)
+			}
+			if tc.cheapSource && tc.wantDefense {
+				if !e.State.Players[0].Units[0][2].IsHorizontal || e.State.Players[0].Units[0][1].IsHorizontal || e.State.Players[0].Units[2][2].IsHorizontal || hero.IsHorizontal {
+					t.Fatal("cheap defense must overexert only the two-fire seed")
+				}
+			}
+			if tc.wantDefense && (hero.CurrentLife != tc.life || hero.Statuses[game.StatusBurn] != tc.burn) {
+				t.Fatal("defense must block new damage and burn while preserving existing burn")
+			}
+		})
+	}
+}
+
+func TestIncomingBurnObservationIsPureAndTicksRemainSequential(t *testing.T) {
+	e := scenario(t)
+	hero := e.State.Players[0].Hero
+	hero.CurrentLife = 5
+	incomingHeroSpell(t, e, "3121003")
+	before, _ := json.Marshal(e.GetStateForPlayer(0))
+	for i := 0; i < 2; i++ {
+		obs, err := e.ObserveDecision(0)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if obs.IncomingBurn != 2 {
+			t.Fatalf("ray preview burn=%d, want 2", obs.IncomingBurn)
+		}
+	}
+	after, _ := json.Marshal(e.GetStateForPlayer(0))
+	if string(before) != string(after) {
+		t.Fatal("reading incoming burn changed game state")
+	}
+	if err := e.HandleAction(0, action("no_defend", nil)); err != nil {
+		t.Fatal(err)
+	}
+	if hero.CurrentLife != 4 || hero.Statuses[game.StatusBurn] != 2 {
+		t.Fatal("ray must initially deal one damage and add two burn, not apply three immediate damage")
+	}
+	if err := e.HandleAction(1, action("end_turn", nil)); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.HandleAction(0, action("end_turn", nil)); err != nil {
+		t.Fatal(err)
+	}
+	if hero.CurrentLife != 3 || hero.Statuses[game.StatusBurn] != 1 {
+		t.Fatal("burn must settle one point per owner's turn end")
+	}
+}
