@@ -15,6 +15,10 @@ func (b countingDamageReduction) ModifyDamageAmount(_ *EffectContext, amount int
 }
 
 func TestDamageDeclinedReplacementDoesNotRecalculate(t *testing.T) {
+	// This fixture overrides a supported card; keep it out of the shared catalog.
+	previousRegistry := globalRegistry
+	t.Cleanup(func() { globalRegistry = previousRegistry })
+	globalRegistry = NewEffectRegistry()
 	e := setupReportedBugEngine(t)
 	calls := 0
 	globalRegistry.RegisterBehaviorFactory("1021001", func() CardBehavior { return countingDamageReduction{calls: &calls} })

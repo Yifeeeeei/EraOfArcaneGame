@@ -90,6 +90,7 @@ func TestEffectRegistry(t *testing.T) {
 func TestRegisterAllCardEffectsIsLazy(t *testing.T) {
 	previousRegistry := globalRegistry
 	t.Cleanup(func() { globalRegistry = previousRegistry })
+	globalRegistry = NewEffectRegistry()
 
 	RegisterAllCardEffects()
 
@@ -108,6 +109,7 @@ func TestRegisterAllCardEffectsIsLazy(t *testing.T) {
 func TestCardRuleInfoDoesNotMaterializeLazyBehaviors(t *testing.T) {
 	previousRegistry := globalRegistry
 	t.Cleanup(func() { globalRegistry = previousRegistry })
+	globalRegistry = NewEffectRegistry()
 
 	if cards.CardDB == nil {
 		if err := cards.LoadCards(); err != nil {

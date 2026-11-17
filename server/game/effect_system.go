@@ -86,6 +86,7 @@ type lazyCardBehavior struct {
 }
 
 type EffectRegistry struct {
+	registrationOnce     sync.Once // built-in factories are installed once per registry
 	mu                   sync.RWMutex
 	effects              map[string][]*CardEffect                  // cardNumber -> effects list
 	conditionalAbilities map[string][]*CardAbilityWithPrecondition // cardNumber -> conditional abilities

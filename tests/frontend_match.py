@@ -7,7 +7,7 @@ from pathlib import Path
 from playwright.async_api import async_playwright
 BASE=os.environ.get('ARCANE_URL','http://localhost:9090')
 OUT=Path('agent-data/frontend-review'); OUT.mkdir(parents=True,exist_ok=True)
-DECK='4311003 // '+' '.join(n for n in ['1021001','1021002','1021004','1021005','1021006','1021007','1021008','1021009','1021010','1021011','1021012','1021013','1021014','1021015','1021016'] for _ in range(2))+' // 3321002 3001001 3001002 3021001 3021002 3021003 3021004 3021005 3021006 3021007'
+DECK='4311003 // '+' '.join(n for n in ['1021001','1021002','1021004','1021005','1021006','1021007','1021008','1021009','1021010','1021011','1021012','1021013','1021014','1021015','1021016'] for _ in range(2))+' // 3321002 3321003 3321005 3021001 3021002 3021003 3021004 3021005 3021006 3021007'
 def api(path,data=None):
     req=urllib.request.Request(BASE+path,data=None if data is None else json.dumps(data).encode(),headers={'Content-Type':'application/json'})
     return json.load(urllib.request.urlopen(req))
@@ -60,7 +60,7 @@ async def add(room,player,num,zone,**kwargs):
 async def main():
  from frontend_card_visibility import decision_views
  async with async_playwright() as pw:
-    browser=await pw.chromium.launch(executable_path='/usr/bin/chromium',headless=True,args=['--no-sandbox'])
+    browser=await pw.chromium.launch(executable_path=os.environ.get('ARCANE_CHROMIUM', '/usr/bin/chromium'),headless=True,args=['--no-sandbox'])
     room,pages,errors=await start(browser)
     actor=(await state(pages[0]))['current_turn']; a=pages[actor]; b=pages[1-actor]
     # Consume is selected on the actual battlefield and confirmed in the workspace.
