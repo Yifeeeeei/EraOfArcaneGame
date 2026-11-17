@@ -130,10 +130,27 @@ async function solo(browser) {
   await name.fill('练习旅法师');
   await page.setViewportSize({ width: 1000, height: 900 });
   assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'practice entry overflows minimum lobby width');
+  let soloRequests = 0;
+  page.on('request', request => {
+    if (request.url().endsWith('/api/solo/create')) soloRequests++;
+  });
+  assert(!(await page.locator('[data-solo-start]').isVisible()), 'AI start should be inside single-player mode');
+  await page.locator('[data-solo-open]').click();
+  assert(soloRequests === 0, 'opening single-player mode created a room');
+  assert(await page.locator('#solo-opponent option').count() >= 1, 'no AI opponents are available');
+  await page.locator('#solo-opponent').selectOption('royal-fire-aggro-v1');
+  assert((await page.locator('#solo-opponent option:checked').innerText()).includes('快攻火'), 'fire AI is not a selectable opponent');
+  await page.locator('[data-solo-open]').click();
+  assert(!(await page.locator('[data-solo-start]').isVisible()), 'single-player mode did not collapse');
+  await page.locator('[data-solo-open]').focus();
+  await page.keyboard.press('Enter');
+  await page.locator('[data-solo-start]').waitFor({ state: 'visible' });
+  assert(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth), 'AI selector overflows minimum lobby width');
   await page.screenshot({ path: path.join(out, 'solo-lobby.png') });
   await page.setViewportSize({ width: 1440, height: 1000 });
   await page.locator('[data-solo-start]').click();
   await page.waitForURL('**/game.html?**');
+  assert(soloRequests === 1, 'single-player entry did not submit exactly one request');
   await keep(page);
   await waitOwnMain(page);
   let s = await state(page);

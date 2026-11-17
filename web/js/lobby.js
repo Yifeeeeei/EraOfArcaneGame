@@ -6,6 +6,18 @@
     components: { PreconstructedPicker: ArcanePreconstructedPicker },
     setup() {
       const savedMatches = ref(ArcaneMatchSessions.list());
+      const soloOpponents = Object.freeze([
+        {
+          id: "royal-fire-aggro-v1",
+          name: "快攻火 · 维兰德",
+          version: "王权纷争",
+          description: "前期积累负载，随后以火焰法术连续进攻。",
+        },
+      ]);
+      const selectedSoloId = ref(soloOpponents[0].id);
+      const selectedSoloOpponent = computed(() =>
+        soloOpponents.find((opponent) => opponent.id === selectedSoloId.value),
+      );
       function forgetMatch(seat) {
         ArcaneMatchSessions.remove(seat.room, seat.player_id);
         savedMatches.value = ArcaneMatchSessions.list();
@@ -168,11 +180,15 @@
         error.value = "";
         busy.value = true;
         try {
+          if (solo && !selectedSoloOpponent.value) {
+            error.value = "请选择 AI 对手";
+            return;
+          }
           if (!(await validate())) return;
           const room = await UI.request(solo ? "/api/solo/create" : "/api/room/create", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(solo ? { profile: "royal-fire-aggro-v1" } : {}),
+            body: JSON.stringify(solo ? { profile: selectedSoloOpponent.value.id } : {}),
           });
           joinRoomID.value = room.room_id;
           enter();
@@ -239,6 +255,9 @@
         decks,
         selectedId,
         selectedDeck,
+        soloOpponents,
+        selectedSoloId,
+        selectedSoloOpponent,
         selectedHero,
         selectedCounts,
         selectedGroups,

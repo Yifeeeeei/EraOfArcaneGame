@@ -131,10 +131,20 @@
             >
               {{ busy?'正在准备…':'创建对局' }}
             </button>
-            <button class="btn enter-match" @click="createRoom(true)" :disabled="busy || !selectedDeck" data-solo-start>
-              单人练习 · 对战快攻火 AI
-            </button>
-            <p class="muted solo-caption">王权纷争 · 维兰德。使用当前卡组挑战固定策略对手。</p>
+            <details class="solo-mode" data-solo-menu>
+              <summary class="btn enter-match" data-solo-open>单人模式<span aria-hidden="true">⌄</span></summary>
+              <div class="solo-options">
+                <label class="field-label" for="solo-opponent">选择 AI 对手</label>
+                <select id="solo-opponent" class="input-field" v-model="selectedSoloId" :disabled="busy">
+                  <option v-for="opponent in soloOpponents" :key="opponent.id" :value="opponent.id">{{ opponent.name }} · {{ opponent.version }}</option>
+                </select>
+                <p class="muted solo-caption">{{ selectedSoloOpponent?.description }}</p>
+                <p v-if="!selectedDeck" class="muted solo-caption">请先选择出战卡组。</p>
+                <button class="btn btn-primary solo-start" @click="createRoom(true)" :disabled="busy || !selectedDeck || !selectedSoloOpponent" data-solo-start>
+                  {{ busy ? '正在准备…' : '开始单人对局' }}
+                </button>
+              </div>
+            </details>
             <div class="join-inline">
               <input
                 class="input-field"
