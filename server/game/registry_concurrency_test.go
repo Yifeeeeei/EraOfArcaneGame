@@ -6,6 +6,56 @@ import (
 	"testing"
 )
 
+// Use an isolated registry so this exercises first-time initialization even when
+// earlier tests have already initialized the process-wide production catalog.
+// Global-registry fixtures are sequential; all workers finish before restoration.
+func TestRegisterAllCardEffectsConcurrentInitializationAndReads(t *testing.T) {
+	previous := globalRegistry
+	t.Cleanup(func() { globalRegistry = previous })
+	r := NewEffectRegistry()
+	globalRegistry = r
+
+	start := make(chan struct{})
+	var workers sync.WaitGroup
+	for i := 0; i < 64; i++ {
+		workers.Add(1)
+		go func() {
+			defer workers.Done()
+			<-start
+			RegisterAllCardEffects()
+			if GetEffectRegistry() != r {
+				t.Error("registration replaced the shared registry")
+				return
+			}
+			r.mu.RLock()
+			count := len(r.behaviorFactories)
+			entry := r.behaviorFactories["1021006"]
+			r.mu.RUnlock()
+			if count != len(baseSetBehaviorFactories) || entry == nil {
+				t.Error("registration returned before the complete catalog was available")
+				return
+			}
+			behavior := behaviorForNumber("1021006")
+			for j := 0; j < 10; j++ {
+				RegisterAllCardEffects()
+				if behaviorForNumber("1021006") != behavior || !r.HasEffect("1021006", TriggerOnEnter) || len(r.GetAllEffects("1021006")) != 1 {
+					t.Error("re-registration changed or duplicated a loaded card adapter")
+					return
+				}
+				r.mu.RLock()
+				current := r.behaviorFactories["1021006"]
+				r.mu.RUnlock()
+				if current != entry {
+					t.Error("re-registration replaced a lazy factory entry")
+					return
+				}
+			}
+		}()
+	}
+	close(start)
+	workers.Wait()
+}
+
 func TestRegistryConcurrentLazyPublication(t *testing.T) {
 	r := NewEffectRegistry()
 	var constructed atomic.Int32
