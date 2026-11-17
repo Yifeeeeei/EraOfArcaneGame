@@ -35,7 +35,7 @@ async def run():
   unit=a.locator('.my-board .unit-img[alt="巫师的学徒"]')
   await unit.click(); await a.evaluate('window.__sent=[]')
   before=(await state(a))['revision']
-  await a.get_by_role('menuitem',name='消耗产元素',exact=True).evaluate('(e)=>{e.click();e.click()}')
+  await a.get_by_role('menuitem',name='消耗',exact=True).evaluate('(e)=>{e.click();e.click()}')
   await a.wait_for_function('r=>window.__arcaneDebug.gameState.value.revision>r',arg=before)
   assert await a.evaluate('window.__sent.filter(m=>m.action==="consume").length')==1
   assert await a.locator('.action-review').count()==0

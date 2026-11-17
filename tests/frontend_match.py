@@ -65,7 +65,7 @@ async def main():
     actor=(await state(pages[0]))['current_turn']; a=pages[actor]; b=pages[1-actor]
     # Consume is selected on the actual battlefield and confirmed in the workspace.
     await a.locator('.my-board .unit-img').first.click()
-    await a.locator('.context-menu').get_by_role('menuitem',name='消耗产元素',exact=True).click()
+    await a.locator('.context-menu').get_by_role('menuitem',name='消耗',exact=True).click()
     if await a.get_by_role('button',name='确认消耗',exact=True).count():
         await a.locator('.payment-token').first.click(); await a.get_by_role('button',name='确认消耗',exact=True).click()
     await commit(a)

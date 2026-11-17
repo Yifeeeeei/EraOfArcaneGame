@@ -34,7 +34,7 @@ async def run():
   api('/api/test-room/card-state', dict(room_id=room, player=actor, instance_id=raven['instance_id'], horizontal=False))
   await a.wait_for_function('!window.__arcaneDebug.gameState.value.you.units[0][0].is_horizontal')
   await a.locator('.my-board .unit-img[alt="渡鸦信使"]').click()
-  await a.get_by_role('menuitem', name='消耗产元素', exact=True).wait_for()
+  await a.get_by_role('menuitem', name='消耗', exact=True).wait_for()
   await a.get_by_role('menuitem', name='消耗抽牌', exact=True).wait_for()
   hand_count = len((await state(a))['you']['hand']); revision = (await state(a))['revision']
   await a.get_by_role('menuitem', name='消耗抽牌', exact=True).click()
@@ -46,7 +46,7 @@ async def run():
   await a.wait_for_function('!window.__arcaneDebug.gameState.value.you.units[0][0].is_horizontal')
   await a.locator('.my-board .unit-img[alt="渡鸦信使"]').click()
   revision = (await state(a))['revision']; hand_count = len((await state(a))['you']['hand'])
-  await a.get_by_role('menuitem', name='消耗产元素', exact=True).click()
+  await a.get_by_role('menuitem', name='消耗', exact=True).click()
   await a.wait_for_function('r=>window.__arcaneDebug.gameState.value.revision>r', arg=revision)
   assert len((await state(a))['you']['hand']) == hand_count
   assert await a.evaluate('window.__sent.filter(m=>m.action==="consume").length') == 1

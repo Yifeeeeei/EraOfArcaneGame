@@ -1128,7 +1128,7 @@
                 if (source === 'hand') { if (canPlayHandCard(c)) items.push({id:'use',label:c.type === '伙伴' ? '选择召唤位置' : '使用 / 装备'}); }
                 if (source === 'skill_pool' && canLearnSkill(c)) items.push({id:'learn',label:'学习技能'});
                 if (source === 'field' || source === 'skill') {
-                    if (source === 'field' && canConsumeUnit(c)) items.push({id:'consume',label:'消耗产元素'});
+                    if (source === 'field' && canConsumeUnit(c)) items.push({id:'consume',label:'消耗'});
                     if (source === 'field' && canAttackWith(c)) items.push({id:'attack',label:'攻击'});
                     if (canCastSkill(c)) items.push({id:'cast',label:'施放'});
                     if (canUsePerTurn(c)) items.push({id:'per_turn',label:abilityLabel(c,'per_turn')});
