@@ -166,6 +166,7 @@ func (e *Engine) useSpellScrollItemWithCost(playerID int, action ActionMessage, 
 	if !e.payCostForAction(ps, cost, action) {
 		return fmt.Errorf("invalid payment")
 	}
+	e.commitSpellTapCosts(tapCosts)
 	e.notifyCardPlayCostPaid(ps, card)
 	ps.RemoveFromHand(handIdx)
 	e.addToGraveyard(playerID, card)
@@ -199,7 +200,7 @@ func (e *Engine) useSpellScrollItemWithCost(playerID int, action ActionMessage, 
 		}
 		e.startSpellScrollCast(playerID, card, target)
 	}
-	e.commitSpellTapCosts(playerID, tapCosts,
+	e.resolveSpellTapCosts(playerID, tapCosts,
 		func() {
 			if !e.promptOpponentCounterTrap(playerID, TriggerOnUseItem, card, useData, resolveItem) {
 				resolveItem()

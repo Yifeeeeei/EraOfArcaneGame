@@ -142,6 +142,7 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		if !e.payDefenseCostWithOptions(ps, totalCost, action, overexertUnits, e.playerHasLightWildcard(ps)) {
 			return fmt.Errorf("invalid payment")
 		}
+		e.commitSpellTapCosts(tapCosts)
 		e.recordSpellUsePayments(ps, paymentParts, actualPayment, assignedPayments)
 		e.destroyFuyeDoomedAfterExert(overexertUnits)
 		if defensePowerSacrifice != nil && defensePowerSacrificeBonus > 0 {
@@ -180,7 +181,7 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		}
 		e.finishDefenseResolution(playerID, defenseSources, boostSources, len(overexertUnits), defensePowerSacrificeSource, defensePowerSacrificeBonus)
 	}
-	e.commitSpellTapCosts(playerID, tapCosts, func() {
+	e.resolveSpellTapCosts(playerID, tapCosts, func() {
 		if !e.promptDefenseSpellCastCounters(e.State.PendingSpell.AttackerID, playerID, defenseSources, boostSources, overexertUnits, continueAfterDefenseSpellCounters) {
 			continueAfterDefenseSpellCounters()
 		}

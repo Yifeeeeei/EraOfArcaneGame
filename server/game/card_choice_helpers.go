@@ -36,6 +36,13 @@ func (e *Engine) consumeCardForEffectWithTriggers(playerID int, card *CardInstan
 	card.IsHorizontal = true
 	ps := e.State.Players[playerID]
 	ps.GainElements(gains)
+	e.resolveConsumedCardForEffect(playerID, card, gains, sourceNumber)
+}
+
+// Consumption has already been paid. Do not recheck tap eligibility here:
+// later triggers can stun or move another card whose cost was paid in the batch.
+func (e *Engine) resolveConsumedCardForEffect(playerID int, card *CardInstance, gains map[string]int, sourceNumber string) {
+	ps := e.State.Players[playerID]
 	e.emit(GameEvent{
 		Type:   "consume",
 		Player: -1,

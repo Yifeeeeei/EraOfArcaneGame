@@ -231,3 +231,158 @@ func TestFlameArrayTapCostAppliesToDefenseAndCannotDoublePay(t *testing.T) {
 		})
 	}
 }
+
+func TestReview177TapPaymentsBeforeTriggers(t *testing.T) {
+	e := setupEffectTest(t)
+	attacker, defender := e.State.Players[0], e.State.Players[1]
+	rune := NewCardInstance(baseCard(t, "2321002"), 0, e.State.TurnNumber)
+	attacker.Hand = []*CardInstance{rune}
+	attacker.Elements["气"], attacker.Elements["火"] = 9, 9
+	if err := e.HandleAction(0, ActionMessage{Action: "use_item", Data: map[string]any{"instance_id": rune.InstanceID}}); err != nil {
+		t.Fatal(err)
+	}
+	first := placeUnit(baseCard(t, "1121102"), 1, 0, 0, e)
+	second := placeUnit(baseCard(t, "1121102"), 1, 1, 0, e)
+	scrolls := []*CardInstance{
+		NewCardInstance(baseCard(t, "2121105"), 1, e.State.TurnNumber),
+		NewCardInstance(baseCard(t, "2121105"), 1, e.State.TurnNumber),
+	}
+	defender.Hand = scrolls
+	defender.Elements["火"] = 4
+	spell := readySkill(baseCard(t, "3121001"), 0)
+	attacker.Skills[0] = spell
+	if err := e.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": spell.InstanceID, "target_type": "unit", "target_col": float64(0), "target_row": float64(0),
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if err := e.HandleAction(1, ActionMessage{Action: "defend", Data: map[string]any{
+		"scroll_ids": []any{scrolls[0].InstanceID, scrolls[1].InstanceID},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	for _, unit := range []*CardInstance{first, second} {
+		if e.State.PendingAction == nil || e.State.PendingAction.Type != "spell_tap_cost" {
+			t.Fatal("missing scroll tap-cost choice")
+		}
+		resolvePendingSelection(t, e, 1, unit.InstanceID)
+	}
+	if e.State.PendingAction == nil || e.State.PendingAction.Type != "counter_trigger" || e.State.PendingAction.PlayerID != 0 {
+		t.Fatal("missing lightning rune response to the first consumption")
+	}
+	allPaidBeforeCounter := first.IsHorizontal && second.IsHorizontal
+	resolvePendingSelection(t, e, 0, rune.InstanceID)
+	if e.State.PendingAction == nil || e.State.PendingAction.Type != "lightning_rune_adjacent" {
+		t.Fatal("missing adjacent stun choice")
+	}
+	resolvePendingSelection(t, e, 0, second.InstanceID)
+	if !allPaidBeforeCounter || !first.IsHorizontal || !second.IsHorizontal {
+		t.Fatalf("counter interrupted tap payment: paid before counter=%v first=%v second=%v", allPaidBeforeCounter, first.IsHorizontal, second.IsHorizontal)
+	}
+	if first.Statuses[StatusStun] != 1 || second.Statuses[StatusStun] != 1 {
+		t.Fatal("rune must still stun both paid companions")
+	}
+	consumed := map[string]int{}
+	defensePower := 0
+	for _, event := range e.log {
+		if event.Type == "consume" {
+			id, _ := event.Data["instance_id"].(string)
+			consumed[id]++
+		}
+		if event.Type == "defense_attempt" {
+			defensePower, _ = event.Data["defense_power"].(int)
+		}
+	}
+	if consumed[first.InstanceID] != 1 || consumed[second.InstanceID] != 1 || defensePower != 16 || e.State.Phase != PhaseMain || e.State.PendingSpell != nil {
+		t.Fatalf("paid consume events or defense continuation incorrect: consumed=%v power=%d phase=%s", consumed, defensePower, e.State.Phase)
+	}
+	if defender.Elements["火"] != 0 || len(defender.Hand) != 0 || !containsCardInstance(attacker.Graveyard, rune) {
+		t.Fatal("scroll/counter payment did not finish exactly once")
+	}
+	for _, scroll := range scrolls {
+		if !containsCardInstance(defender.Graveyard, scroll) || scroll.spellTapPowerBonus != 0 {
+			t.Fatal("used scroll or its bonus was not cleaned up")
+		}
+	}
+}
+
+func TestReview177AttackBoostTapPaymentsBeforeTriggers(t *testing.T) {
+	e := setupEffectTest(t)
+	attacker, opponent := e.State.Players[0], e.State.Players[1]
+	rune := NewCardInstance(baseCard(t, "2321002"), 1, e.State.TurnNumber)
+	opponent.Hand = []*CardInstance{rune}
+	opponent.Elements["气"] = 9
+	e.State.CurrentTurn = 1
+	if err := e.HandleAction(1, ActionMessage{Action: "use_item", Data: map[string]any{"instance_id": rune.InstanceID}}); err != nil {
+		t.Fatal(err)
+	}
+	e.State.CurrentTurn = 0
+	first := placeUnit(baseCard(t, "1121102"), 0, 0, 0, e)
+	second := placeUnit(baseCard(t, "1121102"), 0, 1, 0, e)
+	scrolls := []*CardInstance{
+		NewCardInstance(baseCard(t, "2121105"), 0, e.State.TurnNumber),
+		NewCardInstance(baseCard(t, "2121105"), 0, e.State.TurnNumber),
+	}
+	attacker.Hand = scrolls
+	attacker.Elements["火"] = 20
+	spell := readySkill(baseCard(t, "3121001"), 0)
+	attacker.Skills[0] = spell
+	if err := e.HandleAction(0, ActionMessage{Action: "cast_spell", Data: map[string]any{
+		"instance_id": spell.InstanceID, "target_type": "unit", "target_col": float64(1), "target_row": float64(1),
+		"boost_ids":   []any{scrolls[0].InstanceID, scrolls[1].InstanceID},
+		"consume_ids": map[string]any{scrolls[0].InstanceID: first.InstanceID, scrolls[1].InstanceID: second.InstanceID},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if e.State.PendingAction == nil || e.State.PendingAction.Type != "counter_trigger" || !first.IsHorizontal || !second.IsHorizontal {
+		t.Fatal("attack boost did not commit both tap costs before the counter")
+	}
+	resolvePendingSelection(t, e, 1, rune.InstanceID)
+	resolvePendingSelection(t, e, 1, second.InstanceID)
+	if e.State.Phase != PhaseDefenseWindow || e.State.PendingSpell == nil || e.State.PendingSpell.TotalPower != spell.Card.Power+16 || !second.IsHorizontal || second.Statuses[StatusStun] != 1 {
+		t.Fatal("attack boost did not resume with both paid bonuses")
+	}
+	if err := e.HandleAction(1, ActionMessage{Action: "no_defend"}); err != nil {
+		t.Fatal(err)
+	}
+	for _, scroll := range scrolls {
+		if !containsCardInstance(attacker.Graveyard, scroll) || scroll.spellTapPowerBonus != 0 {
+			t.Fatal("boost scroll cleanup failed")
+		}
+	}
+}
+
+func TestReview177FailedElementPaymentDoesNotCommitTapCosts(t *testing.T) {
+	for _, defense := range []bool{false, true} {
+		t.Run(fmt.Sprintf("defense_%v", defense), func(t *testing.T) {
+			e := setupEffectTest(t)
+			p := e.State.Players[0]
+			first := placeUnit(baseCard(t, "1121102"), 0, 0, 0, e)
+			second := placeUnit(baseCard(t, "1121102"), 0, 1, 0, e)
+			scrolls := []*CardInstance{NewCardInstance(baseCard(t, "2121105"), 0, 1), NewCardInstance(baseCard(t, "2121105"), 0, 1)}
+			p.Hand, p.Elements["火"] = scrolls, 10
+			move := ActionMessage{Action: "cast_spell", Data: map[string]any{
+				"payment":     map[string]any{"火": float64(1)},
+				"consume_ids": map[string]any{scrolls[0].InstanceID: first.InstanceID, scrolls[1].InstanceID: second.InstanceID},
+			}}
+			spell := readySkill(baseCard(t, "3121001"), 0)
+			if defense {
+				e.State.CurrentTurn, e.State.Phase = 1, PhaseDefenseWindow
+				e.State.PendingSpell = &SpellCast{AttackerID: 1, Skill: readySkill(baseCard(t, "3121001"), 1), Target: SpellTarget{Type: "unit", Position: Position{Col: 0, Row: 0}}, TotalPower: 3}
+				move.Action, move.Data["scroll_ids"] = "defend", []any{scrolls[0].InstanceID, scrolls[1].InstanceID}
+			} else {
+				p.Skills[0] = spell
+				move.Data["instance_id"], move.Data["target_type"], move.Data["target_col"], move.Data["target_row"] = spell.InstanceID, "unit", float64(1), float64(1)
+				move.Data["boost_ids"] = []any{scrolls[0].InstanceID, scrolls[1].InstanceID}
+			}
+			before, _ := json.Marshal(e.State.Players)
+			if err := e.HandleAction(0, move); err == nil {
+				t.Fatal("invalid element payment accepted")
+			}
+			after, _ := json.Marshal(e.State.Players)
+			if string(before) != string(after) || scrolls[0].spellTapPowerBonus != 0 || scrolls[1].spellTapPowerBonus != 0 {
+				t.Fatal("failed element payment spent tap costs or granted bonuses")
+			}
+		})
+	}
+}

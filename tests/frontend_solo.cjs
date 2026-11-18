@@ -423,10 +423,122 @@ async function scrolls(browser) {
   }
 }
 
+async function scrollTapBatch(browser) {
+  const room = (await api('/api/test-room/create', {})).room_id;
+  const pages = [await newClient(browser, room, 'batch-a'), await newClient(browser, room, 'batch-b')];
+  try {
+    await keep(pages[0]);
+    await keep(pages[1]);
+    await pages[0].waitForFunction(() => window.__arcaneDebug.gameState.value.phase === 'main');
+    const actor = (await state(pages[0])).current_turn,
+      defender = 1 - actor;
+    const a = pages[actor],
+      b = pages[defender];
+    const add = (player, card_number, zone, extra = {}) =>
+      api('/api/test-room/add-card', {
+        room_id: room,
+        player,
+        card_number,
+        zone,
+        count: 1,
+        ...extra,
+      });
+    await add(actor, '2321002', 'hand');
+    await add(actor, '3121001', 'skill_slot');
+    await add(defender, '3121001', 'skill_slot');
+    await add(defender, '2121105', 'hand', { count: 2 });
+    await add(defender, '1121102', 'unit', { col: 0, row: 0 });
+    await add(defender, '1121102', 'unit', { col: 1, row: 0 });
+    await api('/api/test-room/elements', { room_id: room, player: actor, mode: 'set', elements: { 火: 1, 气: 10 } });
+    await api('/api/test-room/elements', { room_id: room, player: defender, mode: 'set', elements: { 火: 5 } });
+    await b.waitForFunction(
+      () =>
+        window.__arcaneDebug.gameState.value.you.elements['火'] === 5 &&
+        window.__arcaneDebug.gameState.value.you.hand.filter((c) => c.number === '2121105').length === 2,
+    );
+    const units = [(await state(b)).you.units[0][0], (await state(b)).you.units[1][0]];
+    const scrolls = (await state(b)).you.hand.filter((c) => c.number === '2121105');
+    const rune = await useHand(a, '2321002');
+    await commit(a);
+    await a.waitForFunction(
+      (id) => window.__arcaneDebug.gameState.value.you.equipment.some((c) => c?.instance_id === id && c.is_set_counter),
+      rune.instance_id,
+    );
+    await castFireball(a, units[0]);
+    await b.waitForFunction(() => window.__arcaneDebug.showDefenseWindow.value);
+    await b.locator('.my-board .slot').filter({ has: b.locator('img[alt="火球术"]') }).click();
+    await b.getByRole('button', { name: '2 · 强化', exact: true }).click();
+    for (const scroll of scrolls) {
+      await b.locator(`.hand-card[data-instance-id="${scroll.instance_id}"]`).click();
+    }
+    await b.getByRole('button', { name: '4 · 付款', exact: true }).click();
+    await b.getByRole('button', { name: '确认防御', exact: true }).click();
+    await commit(b);
+    for (const unit of units) {
+      await b.waitForFunction(() => window.__arcaneDebug.gameState.value.pending_action?.type === 'spell_tap_cost');
+      await b.locator(`.pending-card[data-instance-id="${unit.instance_id}"] .pending-card-name`).click();
+      await b.getByRole('button', { name: '确认选择', exact: true }).click();
+      await commit(b);
+    }
+    await a.waitForFunction(() => window.__arcaneDebug.gameState.value.pending_action?.type === 'counter_trigger');
+    let s = await state(b);
+    assert(
+      s.you.units[0][0].is_horizontal && s.you.units[1][0].is_horizontal,
+      'rune opened before every tap cost was paid',
+    );
+    await a.screenshot({ path: path.join(out, 'atomic-tap-rune-counter.png') });
+    await a.locator(`.pending-card[data-instance-id="${rune.instance_id}"] .pending-card-name`).click();
+    await a.getByRole('button', { name: '确认选择', exact: true }).click();
+    await commit(a);
+    await a.waitForFunction(
+      () => window.__arcaneDebug.gameState.value.pending_action?.type === 'lightning_rune_adjacent',
+    );
+    await a.locator(`.pending-card[data-instance-id="${units[1].instance_id}"] .pending-card-name`).click();
+    await a.getByRole('button', { name: '确认选择', exact: true }).click();
+    await commit(a);
+    await settle(pages);
+    s = await state(b);
+    for (const unit of units) {
+      const paid = s.you.units.flat().find((c) => c?.instance_id === unit.instance_id);
+      assert(
+        paid?.is_horizontal && paid.statuses['眩晕'] === 1 && paid.current_life === unit.current_life,
+        'paid tap or defense was lost after stun',
+      );
+    }
+    assert(
+      s.you.elements['火'] === 0 && scrolls.every((c) => s.you.graveyard.some((g) => g.instance_id === c.instance_id)),
+      'scroll costs did not settle once',
+    );
+    await a.getByRole('button', { name: '求和', exact: true }).click();
+    await commit(a);
+    await b.getByRole('button', { name: '接受和局', exact: true }).click();
+    await commit(b);
+    for (const page of pages) {
+      await page.waitForFunction(() => window.__arcaneDebug.gameState.value.phase === 'game_over');
+      assert((await page.evaluate(() => window.__wireErrors)).length === 0, 'atomic tap UI submitted invalid actions');
+    }
+    console.log(
+      'PASS room ' + room + ': two scroll payments committed before Lightning Rune, stun, defense and game over',
+    );
+    return room;
+  } catch (error) {
+    for (let i = 0; i < pages.length; i++) {
+      await pages[i].screenshot({ path: path.join(out, 'atomic-tap-error-' + i + '.png') });
+      fs.writeFileSync(
+        path.join(out, 'atomic-tap-error-' + i + '.json'),
+        JSON.stringify(await state(pages[i]), null, 2),
+      );
+    }
+    throw error;
+  } finally {
+    for (const page of pages) await page.close();
+  }
+}
+
 (async () => {
   const browser = await chromium.launch({ headless: true, ...(process.env.ARCANE_CHROME ? { executablePath: process.env.ARCANE_CHROME } : {}) });
   try {
-    const rooms = [await solo(browser), await solo(browser, 'royal-thunderlight-midrange-v1'), await multiplayer(browser), await scrolls(browser)];
+    const rooms = [await solo(browser), await solo(browser, 'royal-thunderlight-midrange-v1'), await multiplayer(browser), await scrolls(browser), await scrollTapBatch(browser)];
     assert(errors.length === 0, errors.join('\n'));
     fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ passed: true, rooms, page_errors: errors }, null, 2));
   } finally { await browser.close(); }

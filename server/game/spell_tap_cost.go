@@ -91,7 +91,18 @@ func (e *Engine) prepareSpellTapCosts(player int, sources []*CardInstance, actio
 	return plans, false, nil
 }
 
-func (e *Engine) commitSpellTapCosts(player int, plans []spellTapCost, after func()) {
+// Commit all validated tap payments without emitting events or running effects.
+// Grant bonuses only after the whole batch has been turned horizontal.
+func (e *Engine) commitSpellTapCosts(plans []spellTapCost) {
+	for _, plan := range plans {
+		plan.target.IsHorizontal = true
+	}
+	for _, plan := range plans {
+		plan.source.spellTapPowerBonus = plan.bonus
+	}
+}
+
+func (e *Engine) resolveSpellTapCosts(player int, plans []spellTapCost, after func()) {
 	if len(plans) == 0 {
 		after()
 		return
@@ -99,8 +110,7 @@ func (e *Engine) commitSpellTapCosts(player int, plans []spellTapCost, after fun
 	steps := make([]func(), 0, len(plans)+1)
 	for _, plan := range plans {
 		steps = append(steps, func() {
-			plan.source.spellTapPowerBonus = plan.bonus
-			e.consumeCardForEffectWithTriggers(player, plan.target, nil, plan.source.Card.Number)
+			e.resolveConsumedCardForEffect(player, plan.target, nil, plan.source.Card.Number)
 		})
 	}
 	steps = append(steps, after)

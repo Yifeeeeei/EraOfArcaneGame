@@ -208,6 +208,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	if !e.payCostForCardAction(ps, skill, cost, totalCost, paymentPurposeUse, action) {
 		return fmt.Errorf("invalid payment")
 	}
+	e.commitSpellTapCosts(tapCosts)
 	e.recordSpellUsePayments(ps, paymentParts, actualPayment, assignedPayments)
 	if options.Commit != nil {
 		options.Commit()
@@ -250,7 +251,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 			"boost_count": len(boostSkills),
 			"is_sorcery":  isSorcerySkill(skill.Card),
 		}})
-		options.ResolveInstead()
+		e.resolveSpellTapCosts(playerID, tapCosts, options.ResolveInstead)
 		return nil
 	}
 
@@ -295,25 +296,29 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		e.dispatchPreparedSpell(&SpellCast{AttackerID: playerID, Skill: skill, Target: target,
 			TotalPower: totalPower, PowerSources: powerSources, BoostSkills: boostSources, ExtraTargets: extraTargets}, spellCastData, false)
 	}
-	resolveCast := func() { e.commitSpellTapCosts(playerID, tapCosts, resolveCastAfterTap) }
-	if handSource != nil {
-		cancelled := false
-		useData := map[string]any{"used_player": playerID, "cancel_item": &cancelled, "spell_scroll": true}
-		resolveItem := func() {
-			if !cancelled {
-				e.runResolution("copied item use", func() {
-					e.triggerFieldEffectsWithData(TriggerOnUseItem, playerID, handSource, useData)
-					e.triggerFieldEffectsWithData(TriggerOnUseItem, 1-playerID, handSource, useData)
-				}, resolveCast)
+	continueCast := func() {
+		if handSource != nil {
+			cancelled := false
+			useData := map[string]any{"used_player": playerID, "cancel_item": &cancelled, "spell_scroll": true}
+			resolveItem := func() {
+				if !cancelled {
+					e.runResolution("copied item use", func() {
+						e.triggerFieldEffectsWithData(TriggerOnUseItem, playerID, handSource, useData)
+						e.triggerFieldEffectsWithData(TriggerOnUseItem, 1-playerID, handSource, useData)
+					}, resolveCastAfterTap)
+				} else {
+					e.finishSkillUses(append([]*CardInstance{skill}, boostSources...)...)
+				}
 			}
+			if e.promptOpponentCounterTrap(playerID, TriggerOnUseItem, handSource, useData, resolveItem) {
+				return
+			}
+			resolveItem()
+		} else {
+			resolveCastAfterTap()
 		}
-		if e.promptOpponentCounterTrap(playerID, TriggerOnUseItem, handSource, useData, resolveItem) {
-			return nil
-		}
-		resolveItem()
-	} else {
-		resolveCast()
 	}
+	e.resolveSpellTapCosts(playerID, tapCosts, continueCast)
 	return nil
 }
 
