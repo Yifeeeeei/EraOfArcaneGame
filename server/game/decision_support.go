@@ -81,7 +81,7 @@ func (e *Engine) ObserveDecision(player int) (DecisionObservation, error) {
 		}
 	}
 	if spell := e.State.PendingSpell; spell != nil && e.State.Phase == PhaseDefenseWindow && e.decisionPlayer() == player && !e.rejectsNegativeStatusApplication(ps.Hero, StatusBurn) {
-		result.IncomingBurn = max(0, e.explicitSpellHitStatuses(spell.Skill, ps.Hero)[StatusBurn])
+		result.IncomingBurn = max(0, e.decisionSpellHitStatuses(spell.Skill, ps.Hero)[StatusBurn])
 	}
 	field := e.getAllFieldCards(ps)
 	sources := append(append(append([]*CardInstance{}, field...), ps.Hand...), ps.SkillPool...)

@@ -694,9 +694,12 @@ func (e *Engine) consumeEarthSkillLearnCostModifier(ps *PlayerState, skill *Card
 	}
 }
 
-func (e *Engine) applyTemporarySpellHitStatus(playerID int, skill *CardInstance, affectedUnits []*CardInstance) {
-	if len(affectedUnits) == 0 {
-		return
+// temporarySpellHitModifiers is a pure query; previewing a hit must not spend
+// the next-hit enchantment. Resolution uses the same eligibility rules.
+func (e *Engine) temporarySpellHitModifiers(playerID int, skill *CardInstance) []TemporaryModifier {
+	var result []TemporaryModifier
+	if skill == nil || skill.Card == nil {
+		return result
 	}
 	ps := e.State.Players[playerID]
 	for _, modifier := range append([]TemporaryModifier(nil), ps.TempModifiers...) {
@@ -712,6 +715,16 @@ func (e *Engine) applyTemporarySpellHitStatus(playerID int, skill *CardInstance,
 		if modifier.TargetInstanceID != "" && modifier.TargetInstanceID != skill.InstanceID {
 			continue
 		}
+		result = append(result, modifier)
+	}
+	return result
+}
+
+func (e *Engine) applyTemporarySpellHitStatus(playerID int, skill *CardInstance, affectedUnits []*CardInstance) {
+	if len(affectedUnits) == 0 {
+		return
+	}
+	for _, modifier := range e.temporarySpellHitModifiers(playerID, skill) {
 		amount := modifier.Amount
 		if amount <= 0 {
 			amount = 1

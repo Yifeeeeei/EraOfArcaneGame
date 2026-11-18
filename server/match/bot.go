@@ -140,7 +140,7 @@ func (r *Room) runBot(ctx context.Context, delay time.Duration) {
 			r.botError = decision.Reason
 			r.mu.Unlock()
 		}
-		r.LogRoomEvent("bot_decision", map[string]any{"profile": bot.ProfileID, "reason": decision.Reason})
+		r.LogRoomEvent("bot_decision", map[string]any{"profile": profile, "reason": decision.Reason})
 		r.LogClientAction(1, id, decision.Action)
 		_, _, err = engine.HandleActionWithRevision(1, decision.Action)
 		if err != nil {

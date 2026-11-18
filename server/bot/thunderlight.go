@@ -90,7 +90,7 @@ func (p *Policy) thunderMain(s state, opts map[string]game.DecisionCard) Decisio
 	grow := totalAir < 6 || light+arcane < 2 || independent < 2
 	items, armor := thunderItems(s)
 	beasts := ownCount(s, "1321006")
-	known, airKnown, ready := 0, 0, 0
+	known, airKnown, cheapAirKnown, ready := 0, 0, 0, 0
 	var reserve map[string]int
 	for _, c := range s.You.Skills {
 		if c == nil {
@@ -99,6 +99,9 @@ func (p *Policy) thunderMain(s state, opts map[string]game.DecisionCard) Decisio
 		known++
 		if c.Category == "气" {
 			airKnown++
+			if sum(c.LearnCost) <= 3 {
+				cheapAirKnown++
+			}
 		}
 		if opts[c.ID].CanCast && !c.Sorcery {
 			ready++
@@ -199,6 +202,15 @@ func (p *Policy) thunderMain(s state, opts map[string]game.DecisionCard) Decisio
 			if c.Temporary {
 				score += 35
 			}
+			if !grow && sum(c.Gain) > 0 && sum(c.Cost) <= 3 {
+				// After the initial spell package, cheap load still takes priority
+				// over buying a fourth expensive skill after a costly defense.
+				score = max(score, 350)
+			}
+			if grow && sum(c.Gain) > 0 && sum(c.Cost) <= 3 {
+				// Build renewable load before spending it on a growing skill pool.
+				score += 110
+			}
 			add(action("summon", map[string]any{"instance_id": c.ID, "col": pos.Col, "row": pos.Row, "devour_ids": devour}), c.Cost, score, "雷光发育：部署伙伴并保护气光来源", keep, devour)
 		} else if c.Equipment {
 			score := 365
@@ -258,6 +270,9 @@ func (p *Policy) thunderMain(s state, opts map[string]game.DecisionCard) Decisio
 			continue
 		}
 		for _, target := range opts[c.ID].Targets {
+			if c.Number == "3021101" && !thunderSpareLight(s, opts, target.Cost) {
+				continue
+			}
 			score := p.thunderAttackValue(s, c, target)
 			if score <= 0 {
 				continue
@@ -314,11 +329,24 @@ func (p *Policy) thunderMain(s state, opts map[string]game.DecisionCard) Decisio
 			continue
 		}
 		score := thunderLearnValue(s, c, air, light, arcane, known, beasts)
+		if c.Number == "3021101" && (airKnown < 2 || grow || !thunderSpareLight(s, opts, c.LearnCost)) {
+			continue
+		}
+		// Establish several efficient air spells before buying a large spell.
+		if cheapAirKnown < 2 && sum(c.LearnCost) >= 4 {
+			score -= 240
+		}
+		if known >= 3 {
+			score -= 160
+			if c.Number == "3021101" {
+				score = max(score, 60)
+			}
+		}
 		if ownTurn(s) == 1 {
 			score -= 180
 		}
-		if known == 0 {
-			score += 120
+		if known == 0 && c.Category == "气" && sum(c.LearnCost) <= 3 {
+			score += 30
 		}
 		replace := ""
 		if known >= s.You.SkillSlots {
@@ -429,10 +457,7 @@ func thunderLearnValue(s state, c *card, air, light, arcane, known, beasts int) 
 		}
 		return 150
 	case "3021101":
-		if light+arcane >= 2 && known > 0 {
-			return 425
-		}
-		return 310
+		return 140
 	case "3021008":
 		for _, item := range s.Opponent.Equipment {
 			if item != nil && !item.SetCounter {

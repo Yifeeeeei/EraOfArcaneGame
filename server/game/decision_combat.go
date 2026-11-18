@@ -27,7 +27,13 @@ func (e *Engine) decisionSpellImpacts(player int, skill *CardInstance, raw int, 
 			continue
 		}
 		damage := raw
-		data := (DamageRequest{Source: skill, Target: unit, Amount: raw, Kind: "spell", Element: skill.Card.Category, Spell: skill.Card}).triggerData()
+		area := len(units) > 1
+		// Area resolution spends the player's shield once, before any unit's
+		// damage adjustments. Single-target resolution adjusts first.
+		if area && player != unit.OwnerID {
+			damage = max(0, damage-e.State.Players[unit.OwnerID].Shield)
+		}
+		data := (DamageRequest{Source: skill, Target: unit, Amount: damage, Kind: "spell", Element: skill.Card.Category, Spell: skill.Card, SkipPlayerShield: area}).triggerData()
 		data["damage"] = damage
 		ctx := &EffectContext{Engine: e, Source: unit, Target: unit, PlayerID: unit.OwnerID, OpponentID: 1 - unit.OwnerID, ExtraData: data}
 		prevented := e.temporaryDamageAndNegativeImmunityActive(unit) || unit.Statuses[scatterAwayUntilPlayerStartStatus] > 0
@@ -37,16 +43,17 @@ func (e *Engine) decisionSpellImpacts(player int, skill *CardInstance, raw int, 
 		if e.fieldDamagePreventionSource(unit, unit.OwnerID, data) != nil {
 			prevented = true
 		}
-		if prevented {
+		if prevented || damage <= 0 {
 			damage = 0
 		} else {
 			event := damageEventFromContext(ctx)
 			event.Amount = damage
 			damage = e.adjustedDamage(event)
+			data["damage"] = damage
 			if unit.Statuses[sturdyScrollShieldUntilStatus] >= e.State.TurnNumber {
 				damage = max(0, damage-unit.Statuses[sturdyScrollShieldStatus])
 			}
-			if player != unit.OwnerID {
+			if !area && player != unit.OwnerID {
 				damage = max(0, damage-e.State.Players[unit.OwnerID].Shield)
 			}
 			damage = e.planDamageModifiers(unit, damage, unit.OwnerID, data).Amount
@@ -55,7 +62,7 @@ func (e *Engine) decisionSpellImpacts(player int, skill *CardInstance, raw int, 
 			}
 		}
 		impact := DecisionImpact{InstanceID: unit.InstanceID, Damage: damage}
-		for status, amount := range e.explicitSpellHitStatuses(skill, unit) {
+		for status, amount := range e.decisionSpellHitStatuses(skill, unit) {
 			if e.rejectsNegativeStatusApplication(unit, status) {
 				continue
 			}
@@ -69,6 +76,17 @@ func (e *Engine) decisionSpellImpacts(player int, skill *CardInstance, raw int, 
 		result = append(result, impact)
 	}
 	return result
+}
+
+func (e *Engine) decisionSpellHitStatuses(skill, target *CardInstance) map[string]int {
+	statuses := make(map[string]int)
+	for status, amount := range e.explicitSpellHitStatuses(skill, target) {
+		statuses[status] += amount
+	}
+	for _, modifier := range e.temporarySpellHitModifiers(skill.OwnerID, skill) {
+		statuses[modifier.Status] += max(1, modifier.Amount)
+	}
+	return statuses
 }
 
 func (e *Engine) decisionHasAura(card *CardInstance) bool {

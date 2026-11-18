@@ -40,14 +40,10 @@ func thunderAvailable(s state, opts map[string]game.DecisionCard, exclude string
 
 func (p *Policy) thunderFund(s state, opts map[string]game.DecisionCard, move game.ActionMessage, cost map[string]int) (game.ActionMessage, bool) {
 	if c := s.You.find(text(move.Data["instance_id"])); c != nil && c.Number == "3021101" && sum(cost) == cost["无"] {
-		if s.You.Elements["无"] >= sum(cost) {
-			move.Data["payment"] = map[string]int{"无": sum(cost)}
-			move = action(move.Action, move.Data)
-			return move, !p.blocked[Fingerprint(move)]
+		if !thunderSpareLight(s, opts, cost) {
+			return game.ActionMessage{}, false
 		}
-		if move.Action == "cast_spell" && thunderAvailable(s, opts, "")["光"] >= sum(cost) {
-			cost = map[string]int{"光": sum(cost)}
-		}
+		cost = map[string]int{"光": sum(cost)}
 	}
 	if pay, ok := thunderPay(s, s.You.Elements, cost); ok {
 		move.Data["payment"] = pay
@@ -72,6 +68,23 @@ func (p *Policy) thunderFund(s state, opts map[string]game.DecisionCard, move ga
 		}
 	}
 	return game.ActionMessage{}, false
+}
+
+// Arcane Impact is a low-priority outlet for surplus light. Reserve light for
+// the air spells already learned and the development cards still in hand.
+func thunderSpareLight(s state, opts map[string]game.DecisionCard, cost map[string]int) bool {
+	reserve := 0
+	for _, c := range s.You.Skills {
+		if c != nil && c.Category == "气" {
+			reserve = max(reserve, opts[c.ID].UseCost["光"])
+		}
+	}
+	for _, c := range s.You.Hand {
+		if c != nil && (c.Type == "伙伴" || c.Equipment) {
+			reserve = max(reserve, c.Cost["光"])
+		}
+	}
+	return thunderAvailable(s, opts, "")["光"] >= sum(cost)+reserve
 }
 
 func thunderPlacement(s state, c *card, devour []string) (game.Position, bool) {
