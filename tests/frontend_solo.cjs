@@ -117,7 +117,7 @@ async function waitOwnMain(page) {
   }
   throw Error('AI/human decision made no progress for 30s: ' + JSON.stringify(await state(page)));
 }
-async function solo(browser) {
+async function solo(browser, profile = 'royal-fire-aggro-v1') {
   const page = await browser.newPage({ viewport: { width: 1440, height: 1000 }, ignoreHTTPSErrors: true });
   page.setDefaultTimeout(20000);
   await instrument(page);
@@ -137,9 +137,9 @@ async function solo(browser) {
   assert(!(await page.locator('[data-solo-start]').isVisible()), 'AI start should be inside single-player mode');
   await page.locator('[data-solo-open]').click();
   assert(soloRequests === 0, 'opening single-player mode created a room');
-  assert(await page.locator('#solo-opponent option').count() >= 1, 'no AI opponents are available');
-  await page.locator('#solo-opponent').selectOption('royal-fire-aggro-v1');
-  assert((await page.locator('#solo-opponent option:checked').innerText()).includes('快攻火'), 'fire AI is not a selectable opponent');
+  assert(await page.locator('#solo-opponent option').count() >= 2, 'both AI opponents must be available');
+  await page.locator('#solo-opponent').selectOption(profile);
+  assert((await page.locator('#solo-opponent option:checked').innerText()).includes(profile === 'royal-fire-aggro-v1' ? '快攻火' : '雷光气'), 'wrong selected AI');
   await page.locator('[data-solo-open]').click();
   assert(!(await page.locator('[data-solo-start]').isVisible()), 'single-player mode did not collapse');
   await page.locator('[data-solo-open]').focus();
@@ -155,7 +155,7 @@ async function solo(browser) {
   await waitOwnMain(page);
   let s = await state(page);
   const room = new URL(page.url()).searchParams.get('room');
-  assert(s.bot_opponent && s.opponent.hero.number === '4111002', 'wrong AI opponent');
+  assert(s.bot_opponent && s.opponent.hero.number === (profile === 'royal-fire-aggro-v1' ? '4111002' : '4311101'), 'wrong AI opponent');
   assert(!s.opponent.hand && !s.opponent.skill_pool, 'hidden AI cards leaked');
   await page.screenshot({ path: path.join(out, 'solo-start.png') });
   await consume(page);
@@ -187,7 +187,7 @@ async function solo(browser) {
   assert((await page.evaluate(() => window.__wireErrors)).length === 0, 'solo UI submitted invalid actions');
   await page.screenshot({ path: path.join(out, 'solo-result.png') });
   await page.close();
-  console.log('PASS single player: lobby, AI, mulligan, consume, learn, automatic defense, discard, reconnect, game over');
+  console.log('PASS single player ' + profile + ': lobby, AI, mulligan, consume, learn, automatic defense, discard, reconnect, game over');
   return room;
 }
 async function multiplayer(browser) {
@@ -242,7 +242,7 @@ async function multiplayer(browser) {
 (async () => {
   const browser = await chromium.launch({ headless: true, ...(process.env.ARCANE_CHROME ? { executablePath: process.env.ARCANE_CHROME } : {}) });
   try {
-    const rooms = [await solo(browser), await multiplayer(browser)];
+    const rooms = [await solo(browser), await solo(browser, 'royal-thunderlight-midrange-v1'), await multiplayer(browser)];
     assert(errors.length === 0, errors.join('\n'));
     fs.writeFileSync(path.join(out, 'result.json'), JSON.stringify({ passed: true, rooms, page_errors: errors }, null, 2));
   } finally { await browser.close(); }

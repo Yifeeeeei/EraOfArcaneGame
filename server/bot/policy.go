@@ -20,6 +20,33 @@ func (p *Policy) Next(observation game.DecisionObservation) (Decision, bool, err
 		return Decision{}, false, err
 	}
 	s.IncomingBurn = observation.IncomingBurn
+	s.Suppressed = observation.OffenseSuppressed
+	for _, player := range []*player{&s.You, &s.Opponent} {
+		for _, c := range append(append(append(player.field(), player.Hand...), player.spells()...), player.Pool...) {
+			if c != nil {
+				o := observation.Cards[c.ID]
+				c.Aura = o.HasAura
+				c.Drawn = o.DrawnThisTurn
+				c.Temporary = o.DiscardAtEnd
+			}
+		}
+	}
+	hasAttack, hasDamage := false, false
+	for _, c := range s.You.spells() {
+		if c != nil && observation.Cards[c.ID].CanCast && !c.Sorcery {
+			for _, t := range observation.Cards[c.ID].Targets {
+				hasAttack = true
+				for _, hit := range t.Impacts {
+					if hit.Damage > 0 {
+						hasDamage = true
+					}
+				}
+			}
+		}
+	}
+	if hasAttack && !hasDamage {
+		s.Suppressed = true
+	}
 	if s.Phase == "game_over" {
 		return Decision{}, false, nil
 	}
@@ -31,6 +58,8 @@ func (p *Policy) Next(observation game.DecisionObservation) (Decision, bool, err
 		p.turn = s.Number
 		p.steps = 0
 		p.blocked = map[string]bool{}
+		p.cycled = map[string]bool{}
+		p.attacked = false
 	}
 	var d Decision
 	if s.Phase == "mulligan" {
@@ -60,7 +89,13 @@ func (p *Policy) Next(observation game.DecisionObservation) (Decision, bool, err
 			}
 		}
 		keep := good >= 2 && cost <= 5
+		if p.isThunderlight() {
+			keep = p.thunderMulligan(s)
+		}
 		d = Decision{action("mulligan", map[string]any{"keep": keep}), fmt.Sprintf("起手资源评估：%d 个早期资源权重，保留=%t", good, keep)}
+		if p.isThunderlight() {
+			d.Reason = fmt.Sprintf("雷光起手：按稳定来源、检索和抽滤评估，保留=%t", keep)
+		}
 	} else {
 		if s.Decision != s.You.ID {
 			return Decision{}, false, nil
@@ -71,7 +106,11 @@ func (p *Policy) Next(observation game.DecisionObservation) (Decision, bool, err
 		case "defense_window":
 			d = p.defend(s, observation.Cards)
 		case "main":
-			d = p.main(s, observation.Cards)
+			if p.isThunderlight() {
+				d = p.thunderMain(s, observation.Cards)
+			} else {
+				d = p.main(s, observation.Cards)
+			}
 		default:
 			return Decision{}, false, nil
 		}
@@ -80,6 +119,13 @@ func (p *Policy) Next(observation game.DecisionObservation) (Decision, bool, err
 		return Decision{}, false, nil
 	}
 	p.steps++
+	if d.Action.Action == "cast_spell" || d.Action.Action == "attack" {
+		p.attacked = true
+	}
+	if p.isThunderlight() && d.Action.Action == "learn_skill" {
+		p.cycled[text(d.Action.Data["instance_id"])] = true
+		p.cycled[text(d.Action.Data["replace_id"])] = true
+	}
 	revision := s.Revision
 	d.Action.ExpectedRevision = &revision
 	return d, true, nil
@@ -134,6 +180,9 @@ func (p *Policy) main(s state, opts map[string]game.DecisionCard) Decision {
 		}
 		o := opts[c.ID]
 		if c.Sorcery {
+			if s.Suppressed && (c.Number == "3121007" || c.Number == "3121008") {
+				continue
+			}
 			score := -1000
 			switch c.Number {
 			case "3121007":
@@ -159,6 +208,15 @@ func (p *Policy) main(s state, opts map[string]game.DecisionCard) Decision {
 		for _, target := range o.Targets {
 			unit := s.Opponent.find(target.InstanceID)
 			if unit == nil {
+				continue
+			}
+			productive := false
+			for _, hit := range target.Impacts {
+				if hit.Damage > 0 || hit.Burn > 0 {
+					productive = true
+				}
+			}
+			if !productive {
 				continue
 			}
 			score := targetScore(unit, s, target.Damage, pegasus, c.Number == "3121015")
@@ -203,6 +261,9 @@ func (p *Policy) main(s state, opts map[string]game.DecisionCard) Decision {
 			}
 			if target.Damage == 0 && unit.Statuses["点燃"] > 0 {
 				score -= 80
+			}
+			if s.Suppressed {
+				score -= 170
 			}
 			add(action(map[bool]string{true: "use_item", false: "cast_spell"}[c.Scroll], map[string]any{"instance_id": c.ID, "target_type": target.Type, "target_col": target.Position.Col, "target_row": target.Position.Row, "boost_ids": []string{}}), target.Cost, score, "进攻：人物优先，受保护时清理阻挡／珀伽索斯")
 		}

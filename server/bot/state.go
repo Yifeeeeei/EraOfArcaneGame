@@ -9,6 +9,16 @@ type card struct {
 	ID             string         `json:"instance_id"`
 	Number         string         `json:"number"`
 	Name           string         `json:"name"`
+	Tag            string         `json:"tag"`
+	Count          int            `json:"count"`
+	Taunt          bool           `json:"has_taunt"`
+	HasPerTurn     bool           `json:"has_per_turn"`
+	HasPrayer      bool           `json:"has_prayer"`
+	Aura           bool           `json:"-"`
+	Drawn          bool           `json:"-"`
+	Temporary      bool           `json:"-"`
+	CanDefend      bool           `json:"can_defend"`
+	DefenseCost    map[string]int `json:"action_base_defense_cost"`
 	Type           string         `json:"type"`
 	Category       string         `json:"category"`
 	Life           int            `json:"current_life"`
@@ -53,6 +63,8 @@ type player struct {
 	LightCost  bool           `json:"light_cost_wildcard"`
 	Shield     int            `json:"shield"`
 	SkillSlots int            `json:"skill_slot_capacity"`
+	Deck       []*card        `json:"deck_summary"`
+	Duplicates bool           `json:"duplicate_equipment_subtypes"`
 }
 
 type pending struct {
@@ -87,8 +99,9 @@ type state struct {
 			Row   int `json:"row"`
 		} `json:"affected_positions"`
 	} `json:"pending_spell"`
-	DrawOffer    int `json:"draw_offer_by"`
-	IncomingBurn int `json:"-"`
+	DrawOffer    int  `json:"draw_offer_by"`
+	IncomingBurn int  `json:"-"`
+	Suppressed   bool `json:"-"`
 }
 
 type Decision struct {
@@ -97,9 +110,12 @@ type Decision struct {
 }
 
 type Policy struct {
-	turn    int
-	blocked map[string]bool
-	steps   int
+	profile  string
+	turn     int
+	blocked  map[string]bool
+	steps    int
+	cycled   map[string]bool
+	attacked bool
 }
 
 func New() *Policy { return &Policy{blocked: map[string]bool{}} }

@@ -3,6 +3,7 @@ package api
 import (
 	"bytes"
 	"encoding/json"
+	"eraofarcane/bot"
 	"eraofarcane/game"
 	"net/http"
 	"testing"
@@ -40,6 +41,37 @@ func TestSoloCreateReservesOneBotAndForbidsSeatImpersonation(t *testing.T) {
 	}
 	if room.ShouldStart() {
 		t.Fatal("started without a human")
+	}
+}
+
+func TestSoloCreateSelectsThunderlightDeck(t *testing.T) {
+	server, rm := setupTestServer(t)
+	defer server.Close()
+	response, err := http.Post(server.URL+"/api/solo/create", "application/json", bytes.NewBufferString(`{"profile":"royal-thunderlight-midrange-v1"}`))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer response.Body.Close()
+	var result struct {
+		RoomID   string `json:"room_id"`
+		Profile  string `json:"profile"`
+		Opponent string `json:"opponent"`
+	}
+	if err = json.NewDecoder(response.Body).Decode(&result); err != nil {
+		t.Fatal(err)
+	}
+	if response.StatusCode != 200 || result.Profile != bot.ThunderlightProfileID || result.Opponent != "雷光气 · 索兰德" {
+		t.Fatalf("wrong profile response: %+v", result)
+	}
+	room := rm.GetRoom(result.RoomID)
+	defer rm.RemoveRoom(room.ID)
+	if room.Players[1].Deck.HeroID != "4311101" {
+		t.Fatal("thunderlight profile silently used fire deck")
+	}
+	for _, n := range room.Players[1].Deck.SkillPool {
+		if n == "3511010" {
+			t.Fatal("still uses obsolete Dawn precon")
+		}
 	}
 }
 

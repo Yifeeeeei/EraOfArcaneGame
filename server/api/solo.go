@@ -21,16 +21,17 @@ func handleCreateSoloRoom(rm *match.RoomManager) http.HandlerFunc {
 			jsonError(w, "invalid request body", http.StatusBadRequest)
 			return
 		}
-		if req.Profile != "" && req.Profile != bot.ProfileID {
+		profile, err := bot.LookupProfile(req.Profile)
+		if err != nil {
 			jsonError(w, "unknown AI profile", http.StatusBadRequest)
 			return
 		}
-		room, err := rm.CreateSoloRoom()
+		room, err := rm.CreateSoloRoomWithProfile(profile.ID)
 		if err != nil {
 			jsonError(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		w.Header().Set("Content-Type", "application/json")
-		json.NewEncoder(w).Encode(map[string]any{"room_id": room.ID, "profile": bot.ProfileID, "opponent": bot.Name})
+		json.NewEncoder(w).Encode(map[string]any{"room_id": room.ID, "profile": profile.ID, "opponent": profile.Name})
 	}
 }

@@ -13,6 +13,12 @@
           version: "王权纷争",
           description: "前期积累负载，随后以火焰法术连续进攻。",
         },
+        {
+          id: "royal-thunderlight-midrange-v1",
+          name: "雷光气 · 索兰德",
+          version: "王权纷争",
+          description: "发展气光负载与雷光组件，保护关键伙伴，以大气法术控制战场。",
+        },
       ]);
       const selectedSoloId = ref(soloOpponents[0].id);
       const selectedSoloOpponent = computed(() =>

@@ -21,7 +21,7 @@ func (p *Policy) choose(s state, opts map[string]game.DecisionCard) Decision {
 		var ci card
 		raw, _ := json.Marshal(c)
 		_ = json.Unmarshal(raw, &ci)
-		score := keepValue(&ci, s)
+		score := p.keepValue(&ci, s)
 		if text(c["side"]) == "enemy" || number(c["owner"]) == s.Opponent.ID && c["owner"] != nil {
 			score = targetScore(&ci, s, 1, false, false)
 		}
@@ -32,22 +32,34 @@ func (p *Policy) choose(s state, opts map[string]game.DecisionCard) Decision {
 			score += 100 - ci.Position.Row*40 + ci.Life*3
 		}
 		if pa.Type == "discard" || pa.Type == "discard_hand" {
-			score = -keepValue(&ci, s)
+			score = -p.keepValue(&ci, s)
 		}
 		if pa.Type == "insight_eye_destroy_equipment" {
 			if !ci.SetCounter {
 				score = -1000
 			}
 		}
+		if p.isThunderlight() {
+			score = p.thunderChoiceValue(c, ci, s, score)
+		}
 		return score
 	}
 	sort.SliceStable(candidates, func(i, j int) bool { return value(candidates[i]) > value(candidates[j]) })
 	count := pa.Min
+	if p.isThunderlight() && pa.Type == "thunderlight_warrior_rewards" {
+		return p.thunderWarriorChoice(s)
+	}
 	switch pa.Type {
 	case "embers_free_cast_target", "fire_arrow_damage", "nur_eye_fire_damage", "swordsmanship_teacher_buff":
 		count = max(count, 1)
 	case "spark_moth_reveal":
 		count = min(pa.Max, len(candidates))
+	case "speckled_sparrow_discard_summon":
+		if p.isThunderlight() {
+			if _, ok := payment(s, s.You.Elements, pa.Cost); ok {
+				count = max(count, 1)
+			}
+		}
 	case "counter_trigger":
 		source := asMap(pa.Context["source"])
 		if number(pa.Context["source_player"]) == s.Opponent.ID && source != nil {
@@ -106,7 +118,11 @@ func (p *Policy) choose(s state, opts map[string]game.DecisionCard) Decision {
 		case "load_distribution":
 			distribution := map[string]any{}
 			for _, id := range selected {
-				distribution[id] = map[string]int{"火": 1}
+				element := "火"
+				if p.isThunderlight() {
+					element = "气"
+				}
+				distribution[id] = map[string]int{element: 1}
 			}
 			data["load_distribution"] = distribution
 		case "resource_distribution":
@@ -176,6 +192,9 @@ func (p *Policy) choose(s state, opts map[string]game.DecisionCard) Decision {
 
 func (p *Policy) defend(s state, opts map[string]game.DecisionCard) Decision {
 	decline := Decision{action("no_defend", nil), "快攻保留进攻技能：此次不防御"}
+	if p.isThunderlight() {
+		decline.Reason = "雷光保留下一轮资源：此次不防御"
+	}
 	if s.Spell == nil || s.You.Hero == nil {
 		return decline
 	}
@@ -195,7 +214,9 @@ func (p *Policy) defend(s state, opts map[string]game.DecisionCard) Decision {
 		}
 	}
 	if !threatensHero {
-		return decline
+		if !p.isThunderlight() {
+			return decline
+		}
 	}
 	// Burn stacks are future one-point ticks, not immediate damage. Reserve
 	// life for all outstanding ticks; a successful defense prevents only the
@@ -203,7 +224,34 @@ func (p *Policy) defend(s state, opts map[string]game.DecisionCard) Decision {
 	// absorbs spell attack damage only, not current or newly applied burn.
 	burn := max(0, s.You.Hero.Statuses[game.StatusBurn])
 	remaining := s.You.Hero.Life - max(0, damage-s.You.Shield) - burn - s.IncomingBurn
-	if remaining > 1 && s.IncomingBurn == 0 {
+	impact := opts[s.You.Hero.ID].Incoming
+	if impact != nil {
+		remaining = s.You.Hero.Life - impact.Damage - burn - impact.Burn
+		damage = impact.Damage
+	}
+	critical := false
+	for _, c := range s.You.units() {
+		incoming := opts[c.ID].Incoming
+		if incoming == nil {
+			continue
+		}
+		_, light, arcane, _ := thunderResources(s)
+		keyLight := c.Gain["光"] > 0 && light+arcane-c.Gain["光"] <= 0
+		if p.isThunderlight() && c.Type != "人物" && (c.Number == "1321006" || c.Number == "1321010" || keyLight) && (incoming.Damage+incoming.Burn+c.Statuses[game.StatusBurn] >= c.Life || incoming.Stun > 0 && !c.Horizontal) {
+			critical = true
+		}
+		if c.Type == "人物" && incoming.Stun > 0 && !c.Horizontal {
+			critical = true
+		}
+	}
+	posture := s.Suppressed && impact != nil && (impact.Damage > 0 || impact.Burn > 0)
+	if !threatensHero && !critical {
+		return decline
+	}
+	if remaining > 1 && s.IncomingBurn == 0 && !critical && !posture {
+		return decline
+	}
+	if threatensHero && impact != nil && impact.Damage == 0 && impact.Burn == 0 && !critical {
 		return decline
 	}
 	var spells []*card
@@ -243,7 +291,7 @@ func (p *Policy) defend(s state, opts map[string]game.DecisionCard) Decision {
 		if power < s.Spell.Power {
 			continue
 		}
-		pay, overexert, ok := defensivePayment(s, opts, cost, remaining <= 0)
+		pay, overexert, ok := defensivePayment(s, opts, cost, remaining <= 0 || critical || posture)
 		if !ok {
 			continue
 		}
@@ -253,13 +301,20 @@ func (p *Policy) defend(s state, opts map[string]game.DecisionCard) Decision {
 				penalty += 30
 			}
 		}
-		if remaining > 0 && penalty > 18 {
+		budget := 18
+		if p.isThunderlight() {
+			budget = 26
+		}
+		if critical || posture {
+			budget = 55
+		}
+		if remaining > 0 && penalty > budget {
 			continue
 		}
 		move := action("defend", map[string]any{"skill_ids": ids, "scroll_ids": scrolls, "boost_ids": []string{}, "overexert_ids": overexert, "payment": pay})
 		if penalty < best && !p.blocked[Fingerprint(move)] {
 			best = penalty
-			result = Decision{move, "计入点燃后防御人物危险伤害，选择最低机会成本方案"}
+			result = Decision{move, "计入点燃、核心伙伴与伤害限制，选择最低机会成本防御"}
 		}
 	}
 	if result.Action.Action != "" {

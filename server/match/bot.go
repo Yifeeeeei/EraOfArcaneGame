@@ -7,13 +7,22 @@ import (
 	"encoding/json"
 	"eraofarcane/bot"
 	"eraofarcane/cards"
+	"eraofarcane/model"
 	"time"
 )
 
 // CreateSoloRoom reserves only the AI seat. The human joins through the normal
 // WebSocket path, which starts the game after both seats have been filled.
 func (rm *RoomManager) CreateSoloRoom() (*Room, error) {
-	deck, err := bot.Deck()
+	return rm.CreateSoloRoomWithProfile(bot.ProfileID)
+}
+
+func (rm *RoomManager) CreateSoloRoomWithProfile(id string) (*Room, error) {
+	profile, err := bot.LookupProfile(id)
+	if err != nil {
+		return nil, err
+	}
+	deck, err := model.ParseDeckCode(profile.DeckCode)
 	if err != nil {
 		return nil, err
 	}
@@ -26,9 +35,10 @@ func (rm *RoomManager) CreateSoloRoom() (*Room, error) {
 	}
 	r := rm.CreateRoom()
 	r.mu.Lock()
-	r.Players[1] = &RoomPlayer{ID: "bot_" + hex.EncodeToString(token[:]), Name: "AI · " + bot.Name, Deck: deck, IsConnected: true, IsBot: true}
+	r.botProfile = profile.ID
+	r.Players[1] = &RoomPlayer{ID: "bot_" + hex.EncodeToString(token[:]), Name: "AI · " + profile.Name, Deck: deck, IsConnected: true, IsBot: true}
 	r.mu.Unlock()
-	r.LogRoomEvent("solo_room_created", map[string]any{"profile": bot.ProfileID, "deck_revision": bot.DeckRevision})
+	r.LogRoomEvent("solo_room_created", map[string]any{"profile": profile.ID, "deck_revision": profile.DeckRevision})
 	return r, nil
 }
 
@@ -79,7 +89,13 @@ func (r *Room) stopBot() {
 func (r *Room) runBot(ctx context.Context, delay time.Duration) {
 	ticker := time.NewTicker(delay)
 	defer ticker.Stop()
-	policy := bot.New()
+	r.mu.Lock()
+	profile := r.botProfile
+	r.mu.Unlock()
+	policy, err := bot.NewForProfile(profile)
+	if err != nil {
+		return
+	}
 	// Polling avoids doing any rule queries or submitting actions from an
 	// engine callback (callbacks can run while Engine.mu is held).
 	for {

@@ -7,6 +7,7 @@ import (
 	"eraofarcane/bot"
 	"eraofarcane/cards"
 	"eraofarcane/game"
+	"eraofarcane/model"
 	"flag"
 	"fmt"
 	"log"
@@ -26,6 +27,8 @@ func run() error {
 	limit := flag.Int("max-actions", 2500, "stop and fail if the match does not finish")
 	out := flag.String("out", "../agent-data/bot-matches/latest", "ignored local match directory")
 	gameCommit := flag.String("game-commit", "local-worktree", "exact game commit under test (append +dirty for uncommitted changes)")
+	profileA := flag.String("profile-a", bot.ProfileID, "player 0 policy profile")
+	profileB := flag.String("profile-b", bot.ProfileID, "player 1 policy profile")
 	flag.Parse()
 	if err := os.MkdirAll(*out, 0755); err != nil {
 		return err
@@ -46,18 +49,31 @@ func run() error {
 	}
 	game.SetCardDB(cards.PlayableCardDB)
 	game.RegisterAllCardEffects()
-	deck, err := bot.Deck()
-	if err != nil {
-		return err
-	}
-	if err = deck.Validate(cards.PlayableCardDB); err != nil {
-		return err
+	var profiles [2]bot.Profile
+	var decks [2]*model.Deck
+	var policies [2]*bot.Policy
+	for i, id := range []string{*profileA, *profileB} {
+		profile, err := bot.LookupProfile(id)
+		if err != nil {
+			return err
+		}
+		profiles[i] = profile
+		decks[i], err = model.ParseDeckCode(profile.DeckCode)
+		if err != nil {
+			return err
+		}
+		if err = decks[i].Validate(cards.PlayableCardDB); err != nil {
+			return err
+		}
+		policies[i], err = bot.NewForProfile(id)
+		if err != nil {
+			return err
+		}
 	}
 	engine := game.NewEngineWithSeed("fixed-bot-mirror", nil, *seed)
-	if err = engine.SetupGameWithFirstPlayer("AI A", deck, "AI B", deck, 0); err != nil {
+	if err = engine.SetupGameWithFirstPlayer(profiles[0].Name, decks[0], profiles[1].Name, decks[1], 0); err != nil {
 		return err
 	}
-	policies := [2]*bot.Policy{bot.New(), bot.New()}
 	rejections := 0
 	start := time.Now()
 	encoder := json.NewEncoder(trace)
@@ -73,7 +89,7 @@ func run() error {
 				return err
 			}
 			if view["phase"] == "game_over" {
-				summary := map[string]any{"profile": bot.ProfileID, "deck_revision": bot.DeckRevision, "seed": *seed, "actions": step, "rejections": rejections, "elapsed_ms": time.Since(start).Milliseconds(), "state": engine.GetStateForSpectator()}
+				summary := map[string]any{"profiles": []string{profiles[0].ID, profiles[1].ID}, "deck_revisions": []string{profiles[0].DeckRevision, profiles[1].DeckRevision}, "seed": *seed, "actions": step, "rejections": rejections, "elapsed_ms": time.Since(start).Milliseconds(), "state": engine.GetStateForSpectator()}
 				summary["game_commit"] = *gameCommit
 				return writeSummary(*out, summary)
 			}

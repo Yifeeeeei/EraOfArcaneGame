@@ -22,6 +22,7 @@ type Room struct {
 	botCancel  func()
 	botDone    chan struct{}
 	botError   string
+	botProfile string
 	mu         sync.Mutex
 }
 
