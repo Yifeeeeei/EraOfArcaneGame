@@ -481,6 +481,7 @@ func TestEverySupportedCardHasRunnablePrimaryAction(t *testing.T) {
 					if card.Number == "2121105" {
 						sacrifice := NewCardInstance(cards.PlayableCardDB["1121102"], 0, engine.State.TurnNumber)
 						sacrifice.Position = &Position{Col: 0, Row: 0}
+						sacrifice.IsHorizontal = false
 						ps.Units[0][0] = sacrifice
 						data["sacrifice_id"] = sacrifice.InstanceID
 					}

@@ -109,9 +109,7 @@ func (e *Engine) finishEndTurn(ps *PlayerState) {
 		func() {
 			// Collect the same batch as before; a choice pauses the next step,
 			// not collection of other triggers from this turn-end event.
-			for _, card := range e.getAllFieldCards(ps) {
-				e.triggerEffects(TriggerOnTurnEnd, card, nil, nil)
-			}
+			e.triggerFieldEffectsWithData(TriggerOnTurnEnd, ps.PlayerID, nil, map[string]any{"ended_player": ps.PlayerID})
 			e.triggerFieldEffectsWithData(TriggerOnTurnEnd, 1-ps.PlayerID, nil, map[string]any{"ended_player": ps.PlayerID})
 		},
 		func() { e.settleTurnDeaths() },

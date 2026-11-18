@@ -171,6 +171,10 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 	if err != nil {
 		return err
 	}
+	tapCosts, handled, err := e.prepareSpellTapCosts(playerID, append([]*CardInstance{skill}, boostSources...), action, func(a ActionMessage) error { return e.handleCastSpell(playerID, a) })
+	if handled || err != nil {
+		return err
+	}
 
 	// Pay costs and set cards horizontal only after all validation succeeds.
 	if handSource != nil && len(boostSources) > 0 && !boolFromData(action.Data, "copy_payment_done") {
@@ -250,7 +254,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		return nil
 	}
 
-	resolveCast := func() {
+	resolveCastAfterTap := func() {
 		if powerSacrifice != nil && powerSacrificeBonus > 0 {
 			e.destroyUnitWithCause(powerSacrifice, playerID, DeathCauseSacrifice)
 		}
@@ -291,6 +295,7 @@ func (e *Engine) handleCastSpell(playerID int, action ActionMessage) error {
 		e.dispatchPreparedSpell(&SpellCast{AttackerID: playerID, Skill: skill, Target: target,
 			TotalPower: totalPower, PowerSources: powerSources, BoostSkills: boostSources, ExtraTargets: extraTargets}, spellCastData, false)
 	}
+	resolveCast := func() { e.commitSpellTapCosts(playerID, tapCosts, resolveCastAfterTap) }
 	if handSource != nil {
 		cancelled := false
 		useData := map[string]any{"used_player": playerID, "cancel_item": &cancelled, "spell_scroll": true}

@@ -29,6 +29,8 @@ type CardInstance struct {
 	arcaneOnenessReveal *int
 	mindSeaRange        SpellArea
 	mindSeaRangeTurn    int
+	graveyardFromDeath  bool
+	spellTapPowerBonus  int
 	InstanceID          string      `json:"instance_id"`
 	Card                *model.Card `json:"card"`
 	OwnerID             int         `json:"owner_id"` // 0 or 1

@@ -7925,9 +7925,12 @@ func TestDefenseSpellScrollsCanDefendFromHand(t *testing.T) {
 			if engine.State.Phase != PhaseDefenseWindow {
 				t.Fatalf("expected defense window, got %s", engine.State.Phase)
 			}
-			if err := engine.HandleAction(1, ActionMessage{Action: "defend", Data: map[string]any{
-				"scroll_ids": []any{scroll.InstanceID},
-			}}); err != nil {
+			defenseData := map[string]any{"scroll_ids": []any{scroll.InstanceID}}
+			if card.Number == "2121105" {
+				companion := placeUnit(baseCard(t, "1121102"), 1, 0, 0, engine)
+				defenseData["consume_id"] = companion.InstanceID
+			}
+			if err := engine.HandleAction(1, ActionMessage{Action: "defend", Data: defenseData}); err != nil {
 				t.Fatalf("defend with spell scroll: %v", err)
 			}
 			if len(p1.Hand) != 0 || !containsCardInstance(p1.Graveyard, scroll) {

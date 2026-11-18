@@ -213,25 +213,6 @@ func (e *Engine) validateOracleGlorySupport(playerID int, scroll *CardInstance, 
 	return bonus, nil
 }
 
-func (e *Engine) validateFlameArrayScrollSacrifice(playerID int, scroll *CardInstance, action ActionMessage) (*CardInstance, int, error) {
-	if e == nil || scroll == nil || scroll.Card == nil || scroll.Card.Number != "2121105" {
-		return nil, 0, nil
-	}
-	sacrificeID, _ := action.Data["sacrifice_id"].(string)
-	if sacrificeID == "" {
-		return nil, 0, fmt.Errorf("2121105 requires a friendly fire companion sacrifice")
-	}
-	target, zone := e.findFriendlyCandidate(playerID, sacrificeID)
-	if zone != "unit" || target == nil || target.Card == nil || !target.Card.IsCompanion() || target.Card.Category != model.ElementFire {
-		return nil, 0, fmt.Errorf("2121105 requires a friendly fire companion sacrifice")
-	}
-	bonus := totalElementCost(target.Card.ElementsCost)
-	if bonus <= 4 {
-		return nil, 0, fmt.Errorf("2121105 sacrifice entry cost must be greater than 4")
-	}
-	return target, bonus, nil
-}
-
 func (e *Engine) hasForesightOrbActive(playerID int) bool {
 	if e == nil || playerID < 0 || playerID >= len(e.State.Players) {
 		return false

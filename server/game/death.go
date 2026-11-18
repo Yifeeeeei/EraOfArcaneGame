@@ -171,6 +171,7 @@ func (e *Engine) destroyUnitWithData(unit *CardInstance, ownerID int, deathData 
 
 	// Add to graveyard
 	e.addToGraveyard(ownerID, unit)
+	unit.graveyardFromDeath = true
 
 	e.emit(GameEvent{
 		Type:   "unit_destroyed",

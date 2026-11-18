@@ -101,6 +101,11 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 	if err != nil {
 		return err
 	}
+	tapSources := append(append(append([]*CardInstance{}, defensePowerSources...), defenseScrolls...), boostScrolls...)
+	tapCosts, handled, err := e.prepareSpellTapCosts(playerID, tapSources, action, func(a ActionMessage) error { return e.handleDefend(playerID, a) })
+	if handled || err != nil {
+		return err
+	}
 	if len(defenseSkills)+len(defenseScrolls)+len(boostSkills)+len(boostScrolls) > 0 {
 		actualPayment, _, _ := e.paymentPlanFromAvailableForAction(ps, e.availableElementsWithOverexert(ps, overexertUnits), e.availableStrictArcaneWithOverexert(ps, overexertUnits), totalCost, action, e.playerHasLightWildcard(ps))
 		if actualPayment == nil {
@@ -175,11 +180,11 @@ func (e *Engine) handleDefend(playerID int, action ActionMessage) error {
 		}
 		e.finishDefenseResolution(playerID, defenseSources, boostSources, len(overexertUnits), defensePowerSacrificeSource, defensePowerSacrificeBonus)
 	}
-	if e.promptDefenseSpellCastCounters(e.State.PendingSpell.AttackerID, playerID, defenseSources, boostSources, overexertUnits, continueAfterDefenseSpellCounters) {
-		return nil
-	}
-
-	continueAfterDefenseSpellCounters()
+	e.commitSpellTapCosts(playerID, tapCosts, func() {
+		if !e.promptDefenseSpellCastCounters(e.State.PendingSpell.AttackerID, playerID, defenseSources, boostSources, overexertUnits, continueAfterDefenseSpellCounters) {
+			continueAfterDefenseSpellCounters()
+		}
+	})
 	return nil
 }
 
