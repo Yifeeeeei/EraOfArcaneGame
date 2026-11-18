@@ -14,6 +14,7 @@ func (e *Engine) addToGraveyard(playerID int, card *CardInstance) {
 		card.Statuses = make(map[string]int)
 	}
 	card.Statuses[enteredGraveyardTurnStatus] = e.State.TurnNumber
+	card.graveyardFromDeath = false
 	ps.Graveyard = append(ps.Graveyard, card)
 	e.State.CardEnteredGraveyardThisTurn = true
 }

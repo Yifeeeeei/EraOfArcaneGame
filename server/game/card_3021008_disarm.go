@@ -10,17 +10,31 @@ func (Card3021008Disarm) OnSpellHit(ctx *EffectContext) error {
 	if !isOwnSpellHit(ctx) {
 		return nil
 	}
-	candidates := ctx.Engine.enemyEquipment(ctx.PlayerID, nil)
+	owner := ctx.OpponentID
+	if ctx.Target != nil {
+		owner = ctx.Target.OwnerID
+	}
+	candidates := ctx.Engine.friendlyEquipment(owner, nil)
+	for _, candidate := range candidates {
+		if owner != ctx.PlayerID {
+			candidate["side"] = "enemy"
+		}
+	}
 	if len(candidates) == 0 {
 		return nil
 	}
 	ctx.Engine.SetPendingAction(ctx.PlayerID, "disarm_destroy_equipment",
-		"选择1个敌方装备摧毁", candidates, 1, 1,
+		"选择命中目标控制者的1个装备摧毁", candidates, 1, 1,
 		func(selected []string) {
 			if len(selected) == 0 {
 				return
 			}
-			ctx.Engine.destroyEnemyEquipment(ctx.PlayerID, selected[0])
+			for i, item := range ctx.Engine.State.Players[owner].Equipment {
+				if item != nil && item.InstanceID == selected[0] {
+					ctx.Engine.moveEquipmentToGraveyard(owner, i, item)
+					break
+				}
+			}
 		})
 	return nil
 }

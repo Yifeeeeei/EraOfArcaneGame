@@ -418,6 +418,8 @@ func resetCardForPublicSpecialZone(card *CardInstance) {
 	card.arcaneOnenessReveal = nil
 	card.mindSeaRange = ""
 	card.mindSeaRangeTurn = 0
+	card.graveyardFromDeath = false
+	card.spellTapPowerBonus = 0
 	card.CurrentLife = card.Card.Life
 	card.CurrentAttack = card.Card.Attack
 	card.DamageTakenThisTurn = 0

@@ -184,7 +184,7 @@ func HandleWebSocket(rm *match.RoomManager) http.HandlerFunc {
 				stateEvent := game.GameEvent{
 					Type:   "state_sync",
 					Player: slot,
-					Data:   engine.GetStateForPlayer(slot),
+					Data:   room.PlayerStateView(slot),
 				}
 				room.LogStateSync(slot)
 				sendFn(stateEvent)

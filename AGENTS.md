@@ -40,6 +40,7 @@ Serving:
   - `/api/cards`
   - `/api/deck/validate`
   - `/api/room/create`
+  - `/api/solo/create` (fixed-strategy AI practice; normal engine rules)
   - `/api/room/list`
   - `/api/room/info`
   - `/api/test-room/create`
@@ -55,6 +56,10 @@ Serving:
 ## Important Files
 
 - `server/main.go`: process entrypoint. Loads compiled card definitions, sets playable card DB, registers behavior objects, serves routes on port 9090.
+- `server/bot/`: deterministic Royal Conflict fire-aggro and thunderlight-midrange policies with pinned official preconstructed decks. Profiles are registered in `profile.go`; thunderlight decisions live in `thunderlight*.go`. Both consume detached player-permitted observations; no LLM or AgentLab runtime dependency.
+- `server/game/decision_support.go`: pure decision queries and detached observations; never return the opponent's hidden zones or let queries spend resources.
+- `server/match/bot.go` and `server/api/solo.go`: reserved AI seat, normal action scheduling, disconnect pause and lifecycle cleanup.
+- `server/cmd/bot-match/`: local fixed-policy match diagnostics. Select opponents with `--profile-a` / `--profile-b` (`royal-fire-aggro-v1` or `royal-thunderlight-midrange-v1`). Write output under ignored `agent-data/bot-matches/`, record the tested commit with `--game-commit`, and fail on a stalled match. `tests/frontend_solo.cjs` covers both actual single-player opponents and the two-human Vue flow.
 - `server/cards/definitions_gen.go`: generated Go definitions for all currently supported cards across both packs.
 - `server/cards/interfaces.go` and `server/cards/category_markers_gen.go`: card category interfaces and generated marker methods for hero/companion/skill/item subtypes.
 - `server/cards/loader.go`: declares `SupportedVersionNames` and loads compiled cards into `CardDB` / `BaseCardDB` / `PlayableCardDB`.

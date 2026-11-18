@@ -241,3 +241,24 @@
 .saved-matches { margin-bottom: 1rem; border-bottom: 1px solid var(--border, #63513a); padding-bottom: 1rem; }
 .saved-match { display: flex; gap: .5rem; align-items: center; margin: .4rem 0; flex-wrap: wrap; }
 .saved-match > span { flex: 1; }
+.solo-mode { margin: 24px 0 16px; }
+.solo-mode > summary.enter-match {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0;
+  list-style: none;
+  cursor: pointer;
+}
+.solo-mode > summary::-webkit-details-marker { display: none; }
+.solo-mode > summary > span { transition: transform .15s; }
+.solo-mode[open] > summary > span { transform: rotate(180deg); }
+.solo-options {
+  padding: 16px;
+  border: 1px solid var(--arcane-line);
+  border-top: 0;
+  background: #0b1417;
+}
+.solo-options select { margin-bottom: 0; }
+.solo-start { width: 100%; }
+.solo-caption { font-size: 12px; line-height: 1.6; margin: 8px 0 14px; }

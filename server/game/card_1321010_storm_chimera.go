@@ -18,7 +18,7 @@ func (Card1321010StormChimera) ModifySkillUseCost(ctx *EffectContext, cost map[s
 	if ctx.Source == nil || ctx.Source.Card == nil {
 		return
 	}
-	if ctx.Source.Card.IsSkill() && ctx.Source.Card.Category == model.ElementAir && cost[model.ElementAir] > 0 {
+	if isCombatSpellCard(ctx.Source.Card) && ctx.Source.Card.Category == model.ElementAir && cost[model.ElementAir] > 0 {
 		cost[model.ElementAir]--
 		if cost[model.ElementAir] <= 0 {
 			delete(cost, model.ElementAir)

@@ -46,7 +46,7 @@ func pendingActionUI(p *PendingAction) map[string]any {
 func cardPreparationUI(card *CardInstance) string {
 	switch card.Card.Number {
 	case "2121105":
-		return "fire_sacrifice"
+		return "fire_consume"
 	case "2521111":
 		return "companion_support"
 	case "3121104":

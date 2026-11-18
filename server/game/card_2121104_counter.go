@@ -9,7 +9,7 @@ func (Card2121104FireRebirthScroll) CounterTriggers() []EffectTrigger {
 }
 
 func (Card2121104FireRebirthScroll) CanTriggerCounter(ctx *CounterContext) bool {
-	return ctx.Event.Trigger == TriggerOnTurnEnd && ctx.Event.PlayerID != ctx.Source.OwnerID &&
+	return ctx.Event.Trigger == TriggerOnTurnEnd && ctx.Event.PlayerID == 1-ctx.Source.OwnerID &&
 		len(ctx.Engine.rebirthScrollReviveCandidates(ctx.Source.OwnerID)) > 0 &&
 		len(ctx.Engine.friendlyEmptyUnitPositions(ctx.Source.OwnerID)) > 0
 }
@@ -22,6 +22,11 @@ func (Card2121104FireRebirthScroll) Name() string { return "浴火重生卷轴" 
 
 func (Card2121104FireRebirthScroll) OnTurnEnd(ctx *EffectContext) error {
 	if ctx == nil || ctx.Engine == nil || ctx.Source == nil {
+		return nil
+	}
+	// Only a paid reveal resolves this counter; a set card is never a passive
+	// turn-end effect. The revived companion, rather than the scroll, is free.
+	if ctx.Source.IsSetCounter || intFromData(ctx.ExtraData, "ended_player", ctx.Engine.State.CurrentTurn) != ctx.OpponentID {
 		return nil
 	}
 	candidates := ctx.Engine.rebirthScrollReviveCandidates(ctx.PlayerID)
@@ -114,7 +119,7 @@ func (e *Engine) rebirthScrollReviveCandidates(playerID int) []*CardInstance {
 		if card == nil || card.Card == nil || !card.Card.IsCompanion() || card.Card.Category != model.ElementFire {
 			continue
 		}
-		if card.Statuses[enteredGraveyardTurnStatus] == e.State.TurnNumber {
+		if card.graveyardFromDeath && card.Statuses[enteredGraveyardTurnStatus] == e.State.TurnNumber {
 			candidates = append(candidates, card)
 		}
 	}

@@ -19,6 +19,10 @@ type Room struct {
 	TestMode   bool                      `json:"test_mode"`
 	Logger     *RoomLogger               `json:"-"`
 	isStarting bool
+	botCancel  func()
+	botDone    chan struct{}
+	botError   string
+	botProfile string
 	mu         sync.Mutex
 }
 
@@ -30,6 +34,7 @@ type RoomPlayer struct {
 	Ready       bool                       `json:"ready"`
 	SendFn      func(event game.GameEvent) `json:"-"`
 	IsConnected bool                       `json:"is_connected"`
+	IsBot       bool                       `json:"is_bot"`
 }
 
 // RoomSpectator represents a read-only observer connection in a room.
@@ -127,6 +132,7 @@ func (rm *RoomManager) RemoveRoom(id string) {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 	if room := rm.rooms[id]; room != nil {
+		room.stopBot()
 		room.LogRoomEvent("room_removed", nil)
 		if err := room.Logger.Close(); err != nil {
 			log.Printf("[RoomLog %s] close failed: %v", id, err)
@@ -151,6 +157,11 @@ func (rm *RoomManager) ListRooms() []*Room {
 func (r *Room) JoinRoom(playerID, name string, deck *model.Deck, sendFn func(game.GameEvent)) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	for _, player := range r.Players {
+		if player != nil && player.ID == playerID && player.IsBot {
+			return -1, fmt.Errorf("AI seat is reserved")
+		}
+	}
 
 	// Check if this player is reconnecting to a started game
 	if r.IsStarted || r.isStarting {
@@ -338,12 +349,18 @@ func (r *Room) StartGame() error {
 	r.mu.Unlock()
 
 	r.LogRoomEvent("game_started", r.stateSnapshot())
+	r.startBot()
 	return nil
 }
 
 func (r *Room) sendGameEvent(event game.GameEvent, targetPlayer int) {
 	r.mu.Lock()
 	r.LogGameEvent(event, targetPlayer)
+	var cancelBot func()
+	if event.Type == "game_over" {
+		cancelBot = r.botCancel
+		r.botCancel = nil
+	}
 
 	sendFns := make([]func(game.GameEvent), 0, 3)
 	if targetPlayer == -1 {
@@ -366,6 +383,9 @@ func (r *Room) sendGameEvent(event game.GameEvent, targetPlayer int) {
 	}
 	r.mu.Unlock()
 
+	if cancelBot != nil {
+		cancelBot()
+	}
 	for _, sendFn := range sendFns {
 		sendFn(event)
 	}
@@ -398,7 +418,7 @@ func (r *Room) BroadcastState() {
 		recipient.sendFn(game.GameEvent{
 			Type:   "state_sync",
 			Player: recipient.player,
-			Data:   engine.GetStateForPlayer(recipient.player),
+			Data:   r.PlayerStateView(recipient.player),
 		})
 	}
 	r.sendSpectatorState(engine, spectators)
@@ -459,6 +479,7 @@ func (r *Room) RoomInfo() map[string]any {
 				"name":         r.Players[i].Name,
 				"slot":         i,
 				"is_connected": r.Players[i].IsConnected,
+				"is_bot":       r.Players[i].IsBot,
 			})
 		}
 	}

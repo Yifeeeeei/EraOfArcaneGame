@@ -130,10 +130,13 @@ func (e *Engine) resolveDamage(target *CardInstance, amount int, ownerID int, ex
 	if amount <= 0 {
 		return
 	}
-	if target.Statuses["防止致命"] > 0 && target.CurrentLife-amount <= 0 {
-		target.Statuses["防止致命"]--
-		if target.Statuses["防止致命"] <= 0 {
-			delete(target.Statuses, "防止致命")
+	protected := e.lightShelterActive(target)
+	if (protected || target.Statuses["防止致命"] > 0 && target.Statuses[lightShelterUntilStatus] == 0) && target.CurrentLife-amount <= 0 {
+		if !protected {
+			target.Statuses["防止致命"]--
+			if target.Statuses["防止致命"] <= 0 {
+				delete(target.Statuses, "防止致命")
+			}
 		}
 		e.emit(GameEvent{
 			Type:   "damage_prevented",

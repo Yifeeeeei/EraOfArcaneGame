@@ -18,6 +18,7 @@ func SetupRoutes(mux *http.ServeMux, rm *match.RoomManager) {
 	mux.HandleFunc("/api/cards", handleGetCards)
 	mux.HandleFunc("/api/deck/validate", handleValidateDeck)
 	mux.HandleFunc("/api/room/create", handleCreateRoom(rm))
+	mux.HandleFunc("/api/solo/create", handleCreateSoloRoom(rm))
 	mux.HandleFunc("/api/room/list", handleListRooms(rm))
 	mux.HandleFunc("/api/room/info", handleRoomInfo(rm))
 	mux.HandleFunc("/api/test-room/create", handleCreateTestRoom(rm))

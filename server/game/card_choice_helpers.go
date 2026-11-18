@@ -36,6 +36,13 @@ func (e *Engine) consumeCardForEffectWithTriggers(playerID int, card *CardInstan
 	card.IsHorizontal = true
 	ps := e.State.Players[playerID]
 	ps.GainElements(gains)
+	e.resolveConsumedCardForEffect(playerID, card, gains, sourceNumber)
+}
+
+// Consumption has already been paid. Do not recheck tap eligibility here:
+// later triggers can stun or move another card whose cost was paid in the batch.
+func (e *Engine) resolveConsumedCardForEffect(playerID int, card *CardInstance, gains map[string]int, sourceNumber string) {
+	ps := e.State.Players[playerID]
 	e.emit(GameEvent{
 		Type:   "consume",
 		Player: -1,
@@ -211,25 +218,6 @@ func (e *Engine) validateOracleGlorySupport(playerID int, scroll *CardInstance, 
 		return 0, fmt.Errorf("2521111 support companion life plus load must be greater than 5")
 	}
 	return bonus, nil
-}
-
-func (e *Engine) validateFlameArrayScrollSacrifice(playerID int, scroll *CardInstance, action ActionMessage) (*CardInstance, int, error) {
-	if e == nil || scroll == nil || scroll.Card == nil || scroll.Card.Number != "2121105" {
-		return nil, 0, nil
-	}
-	sacrificeID, _ := action.Data["sacrifice_id"].(string)
-	if sacrificeID == "" {
-		return nil, 0, fmt.Errorf("2121105 requires a friendly fire companion sacrifice")
-	}
-	target, zone := e.findFriendlyCandidate(playerID, sacrificeID)
-	if zone != "unit" || target == nil || target.Card == nil || !target.Card.IsCompanion() || target.Card.Category != model.ElementFire {
-		return nil, 0, fmt.Errorf("2121105 requires a friendly fire companion sacrifice")
-	}
-	bonus := totalElementCost(target.Card.ElementsCost)
-	if bonus <= 4 {
-		return nil, 0, fmt.Errorf("2121105 sacrifice entry cost must be greater than 4")
-	}
-	return target, bonus, nil
 }
 
 func (e *Engine) hasForesightOrbActive(playerID int) bool {

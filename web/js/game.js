@@ -170,7 +170,7 @@
             const selectedAttacker = ref(null);
             const selectedSkill = ref(null);
             const selectedItemSpellScroll = ref(null);
-            const selectedSpellScrollSacrificeId = ref('');
+            const selectedSpellScrollConsumeId = ref('');
             const selectedSpellScrollSupportId = ref('');
             const selectedSpellPowerSacrificeId = ref('');
             const defenseScrollSelected = ref([]);
@@ -210,7 +210,7 @@
                 if (s.phase === 'game_over') return '对局结束';
                 if (s.phase === 'mulligan') return '双方起手';
                 if (isSpectator) return `等待玩家${Number(s.decision_player)+1}`;
-                return s.decision_player === mySlot.value ? '由你决定' : `等待玩家${Number(s.decision_player) + 1}`;
+                return s.decision_player === mySlot.value ? '由你决定' : s.bot_opponent ? 'AI 思考中' : `等待玩家${Number(s.decision_player) + 1}`;
             });
             const workspaceMode = computed(() => {
                 if (actionDraft.value) return 'review';
@@ -224,6 +224,7 @@
                 if (skillReplaceRequest.value) return 'skill';
                 if (equipmentReplaceRequest.value) return 'equipment';
                 if (squareAreaRequest.value) return 'square';
+                if (selectedItemSpellScroll.value?.preparation === 'fire_consume') return 'scroll_consume';
                 return 'idle';
             });
             function findVisibleCard(id) {
@@ -567,7 +568,7 @@
                 return spell.attacker_id;
             }
 
-            const showInspector = computed(() => workspaceMode.value === 'idle' && !selectedHandCard.value && !selectedSkill.value && !selectedAttacker.value && !decisionError.value);
+            const showInspector = computed(() => workspaceMode.value === 'idle' && !selectedHandCard.value && !selectedItemSpellScroll.value && !selectedSkill.value && !selectedAttacker.value && !decisionError.value);
             const activePreviewCard = computed(() =>
                 recentDiscardCard.value ||
                 hoverCard.value ||
@@ -896,7 +897,7 @@
                 selectedAttacker.value = null;
                 selectedSkill.value = null;
                 selectedItemSpellScroll.value = null;
-                selectedSpellScrollSacrificeId.value = '';
+                selectedSpellScrollConsumeId.value = '';
                 selectedSpellScrollSupportId.value = '';
                 selectedSpellPowerSacrificeId.value = '';
                 selectedBoostSkills.value = [];
@@ -1206,10 +1207,10 @@
                             if (isSpellScrollItem(card) && card.needs_target) {
                                 selectedHandCard.value = null;
                                 selectedItemSpellScroll.value = card;
-                                selectedSpellScrollSacrificeId.value = '';
+                                selectedSpellScrollConsumeId.value = '';
                                 selectedSpellScrollSupportId.value = '';
-                                const prefix = card.preparation === 'fire_sacrifice'
-                                    ? `选择 ${card.name}，先点击友方火焰伙伴祭献`
+                                const prefix = card.preparation === 'fire_consume'
+                                    ? `选择 ${card.name}，先在右侧选择要消耗的火焰伙伴`
                                     : card.preparation === 'companion_support'
                                         ? `选择 ${card.name}，先点击友方伙伴支援`
                                         : `选择 ${card.name}，点击法力范围内目标`;
@@ -1365,7 +1366,7 @@
                 selectedAttacker.value = null;
                 selectedSkill.value = null;
                 selectedItemSpellScroll.value = null;
-                selectedSpellScrollSacrificeId.value = '';
+                selectedSpellScrollConsumeId.value = '';
                 selectedSpellScrollSupportId.value = '';
                 selectedSpellPowerSacrificeId.value = '';
                 if (!canPlayHandCard(card)) {
@@ -1380,10 +1381,10 @@
                                 setCounterCard(card);
                             } else if (isSpellScrollItem(card) && card.needs_target) {
                                 selectedItemSpellScroll.value = card;
-                                selectedSpellScrollSacrificeId.value = '';
+                                selectedSpellScrollConsumeId.value = '';
                                 selectedSpellScrollSupportId.value = '';
-                                const prefix = card.preparation === 'fire_sacrifice'
-                                    ? `选择 ${card.name}，先点击友方火焰伙伴祭献`
+                                const prefix = card.preparation === 'fire_consume'
+                                    ? `选择 ${card.name}，先在右侧选择要消耗的火焰伙伴`
                                     : card.preparation === 'companion_support'
                                         ? `选择 ${card.name}，先点击友方伙伴支援`
                                         : `选择 ${card.name}，点击法力范围内目标`;
@@ -1409,10 +1410,10 @@
                     else if (card.type === '道具' && isSpellScrollItem(card) && card.needs_target) {
                         selectedHandCard.value = null;
                         selectedItemSpellScroll.value = card;
-                        selectedSpellScrollSacrificeId.value = '';
+                        selectedSpellScrollConsumeId.value = '';
                         selectedSpellScrollSupportId.value = '';
-                        const prefix = card.preparation === 'fire_sacrifice'
-                            ? `选择 ${card.name}，先点击友方火焰伙伴祭献`
+                        const prefix = card.preparation === 'fire_consume'
+                            ? `选择 ${card.name}，先在右侧选择要消耗的火焰伙伴`
                             : card.preparation === 'companion_support'
                                 ? `选择 ${card.name}，先点击友方伙伴支援`
                                 : `选择 ${card.name}，点击法力范围内目标`;
@@ -1452,11 +1453,6 @@
                 }
                 if (ownerSlot === mySlot.value && selectedHandCard.value && selectedHandCard.value.type === '伙伴') {
                     if (!getMyUnit(col, row)) { summonCard(selectedHandCard.value, col, row); return; }
-                }
-                if (ownerSlot === mySlot.value && selectedItemSpellScroll.value?.preparation === 'fire_sacrifice' && canSacrificeForFlameArray(getMyUnit(col, row))) {
-                    selectedSpellScrollSacrificeId.value = getMyUnit(col, row).instance_id;
-                    addLog(`魔焰阵卷轴：祭献 ${getMyUnit(col, row).name}，再点击敌方目标。`);
-                    return;
                 }
                 if (ownerSlot === mySlot.value && selectedItemSpellScroll.value?.preparation === 'companion_support' && canSupportOracleGlory(getMyUnit(col, row))) {
                     selectedSpellScrollSupportId.value = getMyUnit(col, row).instance_id;
@@ -1696,6 +1692,7 @@
             }
             const hasActiveTargeting = computed(() => !!selectedAttacker.value || !!activeTargetSpell());
             function isValidOpponentTarget(col, row) {
+                if (selectedItemSpellScroll.value?.preparation === 'fire_consume' && !flameArrayConsumeCandidates.value.some(c => c.instance_id === selectedSpellScrollConsumeId.value)) return false;
                 const unit = getOpponentUnit(col, row);
                 if (selectedAttacker.value) return !!unit && !isStealthed(unit) && row === opponentFrontRow.value;
                 const spell = activeTargetSpell();
@@ -1746,8 +1743,8 @@
             function isFriendlySpellTarget(col, row) {
                 const spell = activeTargetSpell();
                 if (!spell || !getMyUnit(col, row)) return false;
-                if (selectedItemSpellScroll.value?.preparation === 'fire_sacrifice' && !selectedSpellScrollSacrificeId.value) {
-                    return canSacrificeForFlameArray(getMyUnit(col, row));
+                if (selectedItemSpellScroll.value?.preparation === 'fire_consume' && !selectedSpellScrollConsumeId.value) {
+                    return false;
                 }
                 if (selectedItemSpellScroll.value?.preparation === 'companion_support' && !selectedSpellScrollSupportId.value) {
                     return canSupportOracleGlory(getMyUnit(col, row));
@@ -1908,8 +1905,8 @@
             function useSpellScrollAt(col, row, targetOwner = 1 - mySlot.value, areaOrigin = null) {
                 if (!selectedItemSpellScroll.value) return;
                 const card = selectedItemSpellScroll.value;
-                if (card.preparation === 'fire_sacrifice' && !selectedSpellScrollSacrificeId.value) {
-                    addLog('魔焰阵卷轴：先选择一个入场费用大于4的友方火焰伙伴作为祭献。');
+                if (card.preparation === 'fire_consume' && !selectedSpellScrollConsumeId.value) {
+                    addLog('魔焰阵卷轴：请在右侧选择一个入场费用大于4、可以横置的友方火焰伙伴。');
                     return;
                 }
                 if (card.preparation === 'companion_support' && !selectedSpellScrollSupportId.value) {
@@ -1927,8 +1924,8 @@
                     target_row: row,
                     target_owner: targetOwner,
                 };
-                if (selectedSpellScrollSacrificeId.value) {
-                    data.sacrifice_id = selectedSpellScrollSacrificeId.value;
+                if (selectedSpellScrollConsumeId.value) {
+                    data.consume_id = selectedSpellScrollConsumeId.value;
                 }
                 if (areaOrigin) {
                     data.area_col = areaOrigin.col;
@@ -1941,7 +1938,7 @@
                     addLog(`使用 ${card.name} → (${col},${row})`);
                     selectedItemSpellScroll.value = null;
                     selectedHandCard.value = null;
-                    selectedSpellScrollSacrificeId.value = '';
+                    selectedSpellScrollConsumeId.value = '';
                     selectedSpellScrollSupportId.value = '';
                 });
             }
@@ -2067,8 +2064,15 @@
                 return ArcaneBattlePresentation.needsTarget(skill);
             }
 
-            function canSacrificeForFlameArray(unit) {
-                return isFireCompanion(unit) && totalCost(playCost(unit)) > 4;
+            function canConsumeForFlameArray(unit) {
+                return isFireCompanion(unit) && canConsumeUnit(unit) && totalCost(unit.elements_cost || {}) > 4;
+            }
+
+            const flameArrayConsumeCandidates = computed(() =>
+                (myState.value.units || []).flat().filter(canConsumeForFlameArray));
+
+            function selectFlameArrayCompanion(unit) {
+                if (canConsumeForFlameArray(unit)) selectedSpellScrollConsumeId.value = unit.instance_id;
             }
 
             function canSacrificeForHellRoar(unit) {
@@ -2422,16 +2426,23 @@
                 if (defenseReactionCard.value) return canPaySelectedReaction(defenseReactionCard.value) ? '响应费用就绪' : '响应费用不足';
                 if (!hasDefenseSource()) return '请选择防御法术或卷轴';
                 if (calculatePaymentWithAvailable(defenseAvailableElements.value, totalDefenseCost.value) === null) return '费用不足';
+                if (defenseNeedsTapCost()) return '确认后需选择消耗的伙伴，再计入额外威力';
                 if ([...defenseSelected.value,...defenseScrollSelected.value,...defenseBoostSelected.value].some(id=>findVisibleCard(id)?.copies_spell)) return '选择复制法术后确定最终威力';
                 return totalDefensePower.value >= pendingAttackPower() ? '预计可抵御' : '威力不足';
             }
 
             function defenseSummaryClass() {
+                if (defenseNeedsTapCost()) return '';
                 if ([...defenseSelected.value,...defenseScrollSelected.value,...defenseBoostSelected.value].some(id=>findVisibleCard(id)?.copies_spell)) return '';
                 if (defenseReactionCard.value) return canPaySelectedReaction(defenseReactionCard.value) ? 'power-win' : 'power-lose';
                 return hasDefenseSource() && calculatePaymentWithAvailable(defenseAvailableElements.value, totalDefenseCost.value) !== null && totalDefensePower.value >= pendingAttackPower()
                     ? 'power-win'
                     : 'power-lose';
+            }
+
+            function defenseNeedsTapCost() {
+                return [...defenseSelected.value, ...defenseScrollSelected.value, ...defenseBoostSelected.value]
+                    .some(id => findVisibleCard(id)?.preparation === 'fire_consume');
             }
 
             function defenseCardById(id) {
@@ -2982,7 +2993,7 @@
                     return;
                 }
                 sendAction('end_turn', {});
-                selectedHandCard.value = null; selectedAttacker.value = null; selectedSkill.value = null; selectedItemSpellScroll.value = null; selectedSpellScrollSacrificeId.value = ''; selectedSpellScrollSupportId.value = ''; selectedSpellPowerSacrificeId.value = ''; hoveredOpponentCell.value = null;
+                selectedHandCard.value = null; selectedAttacker.value = null; selectedSkill.value = null; selectedItemSpellScroll.value = null; selectedSpellScrollConsumeId.value = ''; selectedSpellScrollSupportId.value = ''; selectedSpellPowerSacrificeId.value = ''; hoveredOpponentCell.value = null;
                 addLog('结束回合');
             }
 
@@ -3030,7 +3041,7 @@
                 if (!isMyTurn.value) return '等待对手行动。';
                 if (selectedItemSpellScroll.value) {
                     const name = selectedItemSpellScroll.value.name;
-                    if (selectedItemSpellScroll.value.preparation === 'fire_sacrifice' && !selectedSpellScrollSacrificeId.value) return `先选择友方火焰伙伴祭献，再选择目标使用 ${name}。`;
+                    if (selectedItemSpellScroll.value.preparation === 'fire_consume' && !selectedSpellScrollConsumeId.value) return `在右侧选择要消耗的友方火焰伙伴，再选择敌方目标使用 ${name}。`;
                     if (selectedItemSpellScroll.value.preparation === 'companion_support' && !selectedSpellScrollSupportId.value) return `先选择生命值+负载大于5的友方伙伴支援，再选择目标使用 ${name}。`;
                     return `选择敌方目标使用 ${name}。`;
                 }
@@ -3385,7 +3396,7 @@
                 publicEventLog, resourceModes, skillNeedsTarget, castSpellWithoutTarget, railTab, reloadMatch, allocationAmounts, imageFallback, actionDraft, actionBusy, decisionError, workspaceMode, decisionOwnerLabel, draftTitle, draftSummary, commitDraft, cancelDraft, guardInteraction, legacyURL, loadDistribution, setLoadDistribution, paymentAvailable, removePayment,
                 connected, connectionStatus, error,
                 gameState, mySlot, roomID, isSpectator, mulliganSubmitted, detailCard, hoverCard, recentDiscardCard, graveyardFlash, activePreviewCard,
-                selectedHandCard, selectedAttacker, selectedSkill, selectedItemSpellScroll, selectedSpellScrollSacrificeId, selectedSpellScrollSupportId, selectedSpellPowerSacrificeId, selectedBoostSkills, pileView, actionLog,
+                selectedHandCard, selectedAttacker, selectedSkill, selectedItemSpellScroll, selectedSpellScrollConsumeId, flameArrayConsumeCandidates, selectFlameArrayCompanion, selectedSpellScrollSupportId, selectedSpellPowerSacrificeId, selectedBoostSkills, pileView, actionLog,
                 isTestRoom, testCardNumber, testElement, testElementAmount, ELEMENT_ORDER,
                 myState, opponent, myHand, opponentHandCards, mySkills, myEquipment, mySkillSlotCount, myEquipmentSlotCount, opponentSkillSlotCount, opponentEquipmentSlotCount, allMySkills, allMyBoundSkills,
                 mySkillPages, opponentSkillPages, myEquipmentPages, opponentEquipmentPages, mySkillPage, opponentSkillPage, myEquipmentPage, opponentEquipmentPage, opponentBoundSkills, changeSlotPage,

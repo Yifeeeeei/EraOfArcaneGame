@@ -61,6 +61,7 @@
                 <div class="result-crest" v-html="crest"></div>
                 <h2 id="result-title" :class="resultKind">{{ resultTitle }}</h2>
                 <div class="result-motto">{{ resultMotto }}</div>
+                <p v-if="gameState.bot_error" class="notice-error" role="alert">{{ gameState.bot_error }}</p>
                 <div class="result-stats"><div><strong>{{ String(gameState.turn_number || 0).padStart(2,'0') }}</strong><small>结束回合</small></div><div v-if="resultHero"><strong>{{ resultHero.current_life }} / {{ resultHero.max_life ?? resultHero.life }}</strong><small>{{ isSpectator ? (gameState.winner === -2 ? '玩家1人物生命' : '获胜人物生命') : '人物剩余生命' }}</small></div><div><strong>{{ roomID }}</strong><small>对局房间</small></div></div>
                 <p class="result-summary">{{ resultSummary }}</p><p class="result-hero-name">{{ resultHero?.name }}</p>
                 <div class="scene-actions"><button class="btn" @click="resultDismissed=true;railTab='events'">查看战场与记录</button><a href="/" class="btn btn-primary">返回大厅 →</a></div>
@@ -617,6 +618,31 @@
                     </div><div class="workspace-footer"><button class="btn btn-success" :disabled="actionBusy" @click="commitDraft">确认提交</button>
                     <button class="btn" :disabled="actionBusy" @click="cancelDraft">返回编辑</button>
                 </div></div>
+        <div v-if="workspaceMode === 'scroll_consume'" class="workspace-mechanism">
+            <div class="overlay-content interaction-panel pending-action-panel">
+                <div class="decision-scroll">
+                    <h2>魔焰阵卷轴 · 消耗伙伴</h2>
+                    <p>在此选择要横置的伙伴，再点击敌方战场上的法术目标。伙伴保留在场上。</p>
+                    <div class="pending-candidates">
+                        <div v-for="card in flameArrayConsumeCandidates" :key="card.instance_id" :data-instance-id="card.instance_id"
+                             class="pending-card interaction-card" role="button" tabindex="0"
+                             :class="{selected: selectedSpellScrollConsumeId === card.instance_id}"
+                             :aria-pressed="selectedSpellScrollConsumeId === card.instance_id"
+                             @keydown.enter.prevent="selectFlameArrayCompanion(card)" @keydown.space.prevent="selectFlameArrayCompanion(card)"
+                             @click="selectFlameArrayCompanion(card)" @mouseenter="previewCard(card)"
+                             @contextmenu.prevent.stop="showCardContextMenu($event, card, 'interaction')">
+                            <img :src="getCardImage(card)" @error="imageFallback" class="pending-card-img" :alt="card.name">
+                            <span class="interaction-detail-link" @click.stop="showCardDetail(card)">查看</span>
+                            <div class="pending-card-name">{{ selectedSpellScrollConsumeId === card.instance_id ? '✓ ' : '' }}{{ card.name }}</div>
+                            <div class="pending-card-detail">威力 +{{ totalCost(card.elements_cost || {}) }}</div>
+                        </div>
+                    </div>
+                    <p v-if="!flameArrayConsumeCandidates.length">没有可消耗的伙伴：需要竖置、未受眩晕或冷却影响，且入场花费大于4的火焰伙伴。</p>
+                </div>
+                <div class="workspace-footer"><button class="btn" @click="clearSelection">取消使用</button></div>
+            </div>
+        </div>
+
         <!-- ═══ DRAW OFFER OVERLAY ═══ -->
         <div v-if="workspaceMode === 'draw'" class="workspace-mechanism">
             <div class="overlay-content interaction-panel draw-offer-panel">

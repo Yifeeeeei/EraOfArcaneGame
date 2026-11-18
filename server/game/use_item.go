@@ -149,8 +149,10 @@ func (e *Engine) useSpellScrollItemWithCost(playerID int, action ActionMessage, 
 	if err != nil {
 		return err
 	}
-	flameArraySacrifice, flameArrayBonus, err := e.validateFlameArrayScrollSacrifice(playerID, card, action)
-	if err != nil {
+	tapCosts, handled, err := e.prepareSpellTapCosts(playerID, []*CardInstance{card}, action, func(a ActionMessage) error {
+		return e.useSpellScrollItemWithCost(playerID, a, card, handIdx, costOverride)
+	})
+	if handled || err != nil {
 		return err
 	}
 
@@ -164,6 +166,7 @@ func (e *Engine) useSpellScrollItemWithCost(playerID int, action ActionMessage, 
 	if !e.payCostForAction(ps, cost, action) {
 		return fmt.Errorf("invalid payment")
 	}
+	e.commitSpellTapCosts(tapCosts)
 	e.notifyCardPlayCostPaid(ps, card)
 	ps.RemoveFromHand(handIdx)
 	e.addToGraveyard(playerID, card)
@@ -182,6 +185,7 @@ func (e *Engine) useSpellScrollItemWithCost(playerID int, action ActionMessage, 
 	useData := map[string]any{"used_player": playerID, "cancel_item": &cancelled, "spell_scroll": true}
 	resolveItem := func() {
 		if cancelled {
+			e.finishSkillUses(card)
 			return
 		}
 		if oracleGloryBonus > 0 {
@@ -194,23 +198,15 @@ func (e *Engine) useSpellScrollItemWithCost(playerID int, action ActionMessage, 
 				RemainingUses:    1,
 			})
 		}
-		if flameArraySacrifice != nil {
-			e.destroyUnitWithCause(flameArraySacrifice, playerID, DeathCauseSacrifice)
-			e.addTemporaryModifier(playerID, TemporaryModifier{
-				Type:             TempModNextAttackSpellPowerBonus,
-				SourceCardNumber: card.Card.Number,
-				SourceName:       card.Card.Name,
-				TargetInstanceID: card.InstanceID,
-				Amount:           flameArrayBonus,
-				RemainingUses:    1,
-			})
-		}
 		e.startSpellScrollCast(playerID, card, target)
 	}
-	if e.promptOpponentCounterTrap(playerID, TriggerOnUseItem, card, useData, resolveItem) {
-		return nil
-	}
-	resolveItem()
+	e.resolveSpellTapCosts(playerID, tapCosts,
+		func() {
+			if !e.promptOpponentCounterTrap(playerID, TriggerOnUseItem, card, useData, resolveItem) {
+				resolveItem()
+			}
+		},
+	)
 	return nil
 }
 

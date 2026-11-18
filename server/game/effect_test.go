@@ -576,7 +576,7 @@ func TestRoyalConflictVanillaCardsAreExplicitlyRegistered(t *testing.T) {
 		"2021105": "equipment slot and duplicate subtype rules are global",
 		"2021106": "strict arcane source is handled by payment rules",
 		"2121102": "back-row fire/air targeting is handled by range rules",
-		"2121105": "scroll sacrifice and splash area are handled by spell-use rules",
+		"2121105": "scroll tap cost and splash area are handled by spell-use rules",
 		"2121111": "response suppression is handled by spell traits",
 		"2121112": "column area and burn are handled by spell traits",
 		"2221112": "counter behavior is handled by counter-trap rules",
@@ -10962,24 +10962,24 @@ func TestRoyalConflictBloodSandArrayPaymentsCreateMarkersAndModifyStats(t *testi
 	}
 }
 
-func TestRoyalConflictFlameArrayScrollRequiresFireSacrificeAndAddsPower(t *testing.T) {
+func TestRoyalConflictFlameArrayScrollRequiresFireConsumeAndAddsPower(t *testing.T) {
 	engine := setupEffectTest(t)
 	p0 := engine.State.Players[0]
 	scroll := NewCardInstance(baseCard(t, "2121105"), 0, engine.State.TurnNumber)
 	p0.Hand = []*CardInstance{scroll}
 	setAllElements(p0, 9)
-	sacrifice := placeUnit(baseCard(t, "1121102"), 0, 0, 0, engine)
+	consume := placeUnit(baseCard(t, "1121102"), 0, 0, 0, engine)
 	target := placeUnit(baseCard(t, "1021001"), 1, 0, 0, engine)
-	bonus := totalElementCost(sacrifice.Card.ElementsCost)
+	bonus := totalElementCost(consume.Card.ElementsCost)
 
 	if err := engine.HandleAction(0, ActionMessage{
 		Action: "use_item",
 		Data: map[string]any{
-			"instance_id":  scroll.InstanceID,
-			"target_type":  "unit",
-			"target_col":   float64(target.Position.Col),
-			"target_row":   float64(target.Position.Row),
-			"sacrifice_id": sacrifice.InstanceID,
+			"instance_id": scroll.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(target.Position.Col),
+			"target_row":  float64(target.Position.Row),
+			"consume_id":  consume.InstanceID,
 		},
 	}); err != nil {
 		t.Fatalf("use 2121105: %v", err)
@@ -10992,10 +10992,10 @@ func TestRoyalConflictFlameArrayScrollRequiresFireSacrificeAndAddsPower(t *testi
 		t.Fatalf("2121105 should emit spell_cast, events=%v", engine.log)
 	}
 	if power != scroll.Card.Power+bonus {
-		t.Fatalf("2121105 should add sacrificed entry cost to power, power=%d want=%d", power, scroll.Card.Power+bonus)
+		t.Fatalf("2121105 should add consumed entry cost to power, power=%d want=%d", power, scroll.Card.Power+bonus)
 	}
-	if p0.Units[0][0] != nil || !containsCardInstance(p0.Graveyard, sacrifice) {
-		t.Fatalf("2121105 should sacrifice selected fire companion, unit=%v grave=%v", p0.Units[0][0], cardsToInfo(p0.Graveyard))
+	if p0.Units[0][0] != consume || !consume.IsHorizontal || containsCardInstance(p0.Graveyard, consume) {
+		t.Fatalf("2121105 should tap the selected fire companion and keep it on the field, unit=%v grave=%v", p0.Units[0][0], cardsToInfo(p0.Graveyard))
 	}
 
 	failEngine := setupEffectTest(t)
@@ -11008,17 +11008,17 @@ func TestRoyalConflictFlameArrayScrollRequiresFireSacrificeAndAddsPower(t *testi
 	if err := failEngine.HandleAction(0, ActionMessage{
 		Action: "use_item",
 		Data: map[string]any{
-			"instance_id":  failScroll.InstanceID,
-			"target_type":  "unit",
-			"target_col":   float64(failTarget.Position.Col),
-			"target_row":   float64(failTarget.Position.Row),
-			"sacrifice_id": nonFire.InstanceID,
+			"instance_id": failScroll.InstanceID,
+			"target_type": "unit",
+			"target_col":  float64(failTarget.Position.Col),
+			"target_row":  float64(failTarget.Position.Row),
+			"consume_id":  nonFire.InstanceID,
 		},
 	}); err == nil {
-		t.Fatalf("2121105 should reject non-fire sacrifice")
+		t.Fatalf("2121105 should reject non-fire consume")
 	}
 	if len(failP0.Hand) != 1 || failP0.Units[0][0] != nonFire || len(failP0.Graveyard) != 0 {
-		t.Fatalf("2121105 invalid sacrifice should not spend state, hand=%v unit=%v grave=%v", cardsToInfo(failP0.Hand), cardToInfo(failP0.Units[0][0]), cardsToInfo(failP0.Graveyard))
+		t.Fatalf("2121105 invalid consume should not spend state, hand=%v unit=%v grave=%v", cardsToInfo(failP0.Hand), cardToInfo(failP0.Units[0][0]), cardsToInfo(failP0.Graveyard))
 	}
 }
 

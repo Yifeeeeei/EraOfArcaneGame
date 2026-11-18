@@ -29,9 +29,11 @@ func (e *Engine) applyGenericElementGain(playerID int, skill *CardInstance) {
 	}
 }
 
-func (e *Engine) applyExplicitSpellHitStatuses(skill *CardInstance, target *CardInstance) {
+// explicitSpellHitStatuses is a pure query shared by resolution and decision
+// previews. Reading a spell's printed/instance hit effect never applies it.
+func (e *Engine) explicitSpellHitStatuses(skill *CardInstance, target *CardInstance) map[string]int {
 	if skill == nil || skill.Card == nil || target == nil {
-		return
+		return nil
 	}
 	behavior, ok := globalRegistry.GetBehavior(skill.Card.Number).(SpellHitStatusBehavior)
 	statuses := traitsForCardNumber(skill.Card.Number).statuses
@@ -39,7 +41,11 @@ func (e *Engine) applyExplicitSpellHitStatuses(skill *CardInstance, target *Card
 		ctx := &EffectContext{Engine: e, Source: skill, Target: target, PlayerID: skill.OwnerID, OpponentID: 1 - skill.OwnerID}
 		statuses = behavior.SpellHitStatuses(ctx)
 	}
-	for status, amount := range statuses {
+	return statuses
+}
+
+func (e *Engine) applyExplicitSpellHitStatuses(skill *CardInstance, target *CardInstance) {
+	for status, amount := range e.explicitSpellHitStatuses(skill, target) {
 		if amount <= 0 {
 			continue
 		}

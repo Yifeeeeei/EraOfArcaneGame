@@ -81,6 +81,10 @@ func (e *Engine) pendingSpellAffectedPositions(spell *SpellCast) []map[string]in
 func (e *Engine) GetStateForPlayer(playerID int) map[string]any {
 	e.mu.Lock()
 	defer e.mu.Unlock()
+	return e.stateForPlayerLocked(playerID)
+}
+
+func (e *Engine) stateForPlayerLocked(playerID int) map[string]any {
 
 	state := e.State
 	opponentID := 1 - playerID

@@ -33,7 +33,7 @@ func (Card3511010Dawn) ValidateSkillUse(ctx *EffectContext, skill *CardInstance,
 	}
 	power := skill.Card.Power + skill.PowerBonus
 	if ctx != nil && ctx.Engine != nil {
-		power += ctx.Engine.temporarySpellPowerBonus(skill.OwnerID, skill)
+		power = ctx.Engine.effectiveSpellPower(skill.OwnerID, skill, nil)
 	}
 	if power <= 8 {
 		return fmt.Errorf("Dawn can attack only when its power is greater than 8")
