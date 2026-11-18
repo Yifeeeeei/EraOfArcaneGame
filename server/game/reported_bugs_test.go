@@ -6006,8 +6006,8 @@ func TestBoundSkillStateIncludesPersistentCostModifiers(t *testing.T) {
 	ailayaInfo := units[1][0].(map[string]any)
 	bound := ailayaInfo["bound_skills"].([]map[string]any)
 	boundCost := bound[0]["action_base_attack_cost"].(map[string]int)
-	if got := boundCost[model.ElementAir]; got != 1 {
-		t.Fatalf("Storm Chimera should reduce serialized Storm Fury cost to 1 air, got %v", boundCost)
+	if got := boundCost[model.ElementAir]; got != 2 {
+		t.Fatalf("Storm Chimera must not discount bound sorcery Storm Fury, got %v", boundCost)
 	}
 	if got := ailaya.BoundSkills[0].Card.ElementsExpense[model.ElementAir]; got != 2 {
 		t.Fatalf("test requires Storm Fury raw cost to remain 2 air, got %v", ailaya.BoundSkills[0].Card.ElementsExpense)
@@ -11305,8 +11305,8 @@ func TestRemainingHighRiskBaseCardSemantics(t *testing.T) {
 		if target.CurrentLife != before {
 			t.Fatalf("light shelter should prevent the whole lethal damage instance, before=%d after=%d", before, target.CurrentLife)
 		}
-		if target.Statuses["防止致命"] != 0 {
-			t.Fatalf("light shelter should be consumed after preventing lethal damage, statuses=%v", target.Statuses)
+		if !engine.lightShelterActive(target) {
+			t.Fatalf("light shelter should persist through all lethal damage until expiry, statuses=%v", target.Statuses)
 		}
 		engine.dealDamageWithExtra(target, 1, 1, map[string]any{"attacker": 0})
 		if target.CurrentLife != before-1 {

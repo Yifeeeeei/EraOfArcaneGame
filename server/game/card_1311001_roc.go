@@ -20,19 +20,13 @@ func (Card1311001Roc) OnEnter(ctx *EffectContext) error {
 	ps.Deck = remaining
 	ctx.Engine.appendCardsToHand(ctx.PlayerID, drawn)
 	for _, card := range drawn {
-		ps.DrawCountThisTurn++
 		if ps.DiscardAtTurnEnd == nil {
 			ps.DiscardAtTurnEnd = make(map[string]bool)
 		}
 		ps.DiscardAtTurnEnd[card.InstanceID] = true
-		ctx.Engine.emit(GameEvent{Type: "draw_card", Player: ctx.PlayerID, Data: map[string]any{"card": cardToInfo(card)}})
-		ctx.Engine.triggerFieldEffectsWithData(TriggerOnDraw, ctx.PlayerID, card, map[string]any{
-			"drawn_card":           card,
-			"drawn_player":         ctx.PlayerID,
-			"draw_count_this_turn": ps.DrawCountThisTurn,
-		})
+		ctx.Engine.notifyCardDrawn(ctx.PlayerID, card)
 	}
-	ctx.Engine.enforceImmediateHandLimitAfterHandGain(ctx.PlayerID)
 	ctx.Engine.shuffleDeck(ctx.PlayerID)
+	ctx.Engine.runResolution("roc draw cleanup", func() { ctx.Engine.enforceImmediateHandLimitAfterHandGain(ctx.PlayerID) })
 	return nil
 }

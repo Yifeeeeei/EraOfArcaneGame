@@ -36,6 +36,7 @@ const (
 	TempModLampusSwordDelayedDamage     ModifierKind = "lampus_sword_delayed_damage"
 	TempModNextEarthSkillLearnCostMinus ModifierKind = "next_earth_skill_learn_cost_minus"
 	TempModAllSpellDamageZero           ModifierKind = "all_spell_attack_zero"
+	TempModAllSpellDamageZeroUntilEnd   ModifierKind = "all_spell_attack_zero_until_end"
 	TempModFriendlySpellDamageMinus     ModifierKind = "friendly_spell_damage_minus"
 	TempModSkillUseCooldownAdd          ModifierKind = "skill_use_cooldown_add"
 	TempModFriendlyNegativeStatusIgnore ModifierKind = "friendly_negative_status_ignore"
@@ -64,6 +65,7 @@ type TemporaryModifier struct {
 	Amount                 int          `json:"amount,omitempty"`
 	RemainingUses          int          `json:"remaining_uses,omitempty"`
 	ExpiresTurn            int          `json:"expires_turn,omitempty"`
+	ExpiresAtOrdinal       int          `json:"expires_at_ordinal,omitempty"`
 	ExpiresAtTurnEnd       bool         `json:"expires_at_turn_end,omitempty"`
 	ExpiresOnPlayerID      int          `json:"expires_on_player_id,omitempty"`
 	CombatSpellsOnly       bool         `json:"combat_spells_only,omitempty"`
@@ -116,7 +118,7 @@ func (e *Engine) clearTemporaryModifiersAtTurnEnd(endedPlayerID int) {
 		}
 		kept := ps.TempModifiers[:0]
 		for _, modifier := range ps.TempModifiers {
-			if modifier.expiresAfterPlayerTurn(endedPlayerID) {
+			if modifier.expiresAfterPlayerTurn(endedPlayerID) || modifier.ExpiresAtOrdinal > 0 && modifier.ExpiresAtOrdinal <= e.turnOrdinal() {
 				continue
 			}
 			kept = append(kept, modifier)

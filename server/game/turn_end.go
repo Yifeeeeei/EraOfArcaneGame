@@ -134,6 +134,7 @@ func (e *Engine) finishEndTurnAfterOpponentTemp(ps *PlayerState) {
 	// Until-end effects last through reset, marks, and turn-end triggers.
 	e.destroyAndisGiftDoomedUnits(ps)
 	e.HandleTemporaryUnits(ps)
+	e.expireTimedDamageProtection()
 }
 
 func (e *Engine) advanceTurnAfterCleanup(ps *PlayerState) {

@@ -762,7 +762,7 @@ func (e *Engine) spellStatBonusesWithData(playerID int, skill *CardInstance, pur
 	}
 	for _, owner := range []*PlayerState{ps, opponent} {
 		for _, modifier := range owner.TempModifiers {
-			if modifier.Type == TempModAllSpellDamageZero && modifier.RemainingUses != 0 && data["stat"] == "damage" {
+			if (modifier.Type == TempModAllSpellDamageZero && modifier.RemainingUses != 0 || modifier.Type == TempModAllSpellDamageZeroUntilEnd) && data["stat"] == "damage" {
 				if modifier.TargetInstanceID != "" && (skill == nil || modifier.TargetInstanceID != skill.InstanceID) {
 					continue
 				}
