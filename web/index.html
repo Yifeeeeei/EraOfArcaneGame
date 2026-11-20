@@ -33,13 +33,37 @@
           </button>
         </nav>
       </header>
-      <main class="lobby-layout">
+      <main v-if="!mode" class="mode-home">
+        <div class="eyebrow">ERA OF ARCANE</div>
+        <h1>奥术纪元</h1>
+        <div class="welcome-rule"></div>
+        <p class="release-label">基础包 · 王权纷争</p>
+        <nav class="mode-choices" aria-label="选择游戏模式">
+          <button class="mode-choice" data-mode="multiplayer" @click="openMode('multiplayer')">
+            <span class="mode-number" aria-hidden="true">I</span>
+            <span class="mode-copy"><small>DUEL</small><strong>多人对战</strong><span>创建对局 · 加入房间 · 观战</span></span>
+            <span class="mode-arrow" aria-hidden="true">→</span>
+          </button>
+          <button class="mode-choice" data-mode="solo" data-solo-open @click="openMode('solo')">
+            <span class="mode-number" aria-hidden="true">II</span>
+            <span class="mode-copy"><small>PRACTICE</small><strong>单人模式</strong><span>选择预组对手，磨炼你的卡组</span></span>
+            <span class="mode-arrow" aria-hidden="true">→</span>
+          </button>
+          <button class="mode-choice" data-mode="tutorial" @click="openMode('tutorial')">
+            <span class="mode-number" aria-hidden="true">III</span>
+            <span class="mode-copy"><small>FIRST STEPS</small><strong>新手教程</strong><span>从第一张牌开始，完成一场真正的对局</span></span>
+            <span class="mode-arrow" aria-hidden="true">→</span>
+          </button>
+        </nav>
+      </main>
+      <main v-else class="lobby-layout" :class="{'lobby-layout--tutorial':mode==='tutorial'}">
         <section class="lobby-welcome">
+          <button class="mode-back" @click="openMode('')">← 返回大厅</button>
           <div class="eyebrow">ERA OF ARCANE</div>
-          <h1>奥术纪元</h1>
+          <h1>{{ modeTitle }}</h1>
           <div class="welcome-rule"></div>
           <p class="release-label">基础包 · 王权纷争</p>
-          <div class="entry-surface surface">
+          <div v-if="mode!=='tutorial'" class="entry-surface surface">
             <div v-if="savedMatches.length" class="saved-matches">
               <div class="section-title"><h2>继续对局</h2></div>
               <div v-for="seat in savedMatches" :key="seat.room+seat.player_id" class="saved-match">
@@ -125,27 +149,14 @@
               {{ error }}
             </div>
             <button
+              v-if="mode==='multiplayer'"
               class="btn btn-primary enter-match"
               @click="createRoom(false)"
               :disabled="busy || !selectedDeck"
             >
               {{ busy?'正在准备…':'创建对局' }}
             </button>
-            <details class="solo-mode" data-solo-menu>
-              <summary class="btn enter-match" data-solo-open>单人模式<span aria-hidden="true">⌄</span></summary>
-              <div class="solo-options">
-                <label class="field-label" for="solo-opponent">选择 AI 对手</label>
-                <select id="solo-opponent" class="input-field" v-model="selectedSoloId" :disabled="busy">
-                  <option v-for="opponent in soloOpponents" :key="opponent.id" :value="opponent.id">{{ opponent.name }} · {{ opponent.version }}</option>
-                </select>
-                <p class="muted solo-caption">{{ selectedSoloOpponent?.description }}</p>
-                <p v-if="!selectedDeck" class="muted solo-caption">请先选择出战卡组。</p>
-                <button class="btn btn-primary solo-start" @click="createRoom(true)" :disabled="busy || !selectedDeck || !selectedSoloOpponent" data-solo-start>
-                  {{ busy ? '正在准备…' : '开始单人对局' }}
-                </button>
-              </div>
-            </details>
-            <div class="join-inline">
+            <div v-if="mode==='multiplayer'" class="join-inline">
               <input
                 class="input-field"
                 v-model.trim="joinRoomID"
@@ -167,8 +178,17 @@
               </button>
             </div>
           </div>
+          <section v-else class="tutorial-entry surface" data-tutorial-menu>
+            <div class="eyebrow">YOUR FIRST DUEL</div>
+            <h2>认识你的第一场对局</h2>
+            <p>从牌面、元素和负载开始，亲手召唤伙伴、学习技能、进行法术攻防，直到击败敌方人物。</p>
+            <ol class="tutorial-outline"><li>认识战场与卡牌</li><li>取得元素，建立自己的场面</li><li>学习法术，完成进攻与防御</li><li>掌握回合流程，赢得对局</li></ol>
+            <p class="muted">按提示逐步操作，无需准备卡组。</p>
+            <div v-if="error" class="notice-error" role="alert">{{ error }}</div>
+            <button class="btn btn-primary enter-match" data-tutorial-start @click="startTutorial" :disabled="busy">{{ busy ? '正在准备…' : '开始教程' }}</button>
+          </section>
         </section>
-        <section class="room-browser surface">
+        <section v-if="mode==='multiplayer'" class="room-browser surface">
           <div class="section-title">
             <div>
               <div class="eyebrow">MATCH ROOMS</div>
@@ -229,6 +249,17 @@
             <a href="/decks.html?import=1">导入卡组</a
             ><a href="/card-test.html">卡牌测试台 ↗</a>
           </footer>
+        </section>
+        <section v-if="mode==='solo'" class="solo-browser surface" data-solo-menu>
+          <div class="eyebrow">PRACTICE OPPONENT</div>
+          <h2>选择你的对手</h2>
+          <label class="field-label" for="solo-opponent">AI 对手</label>
+          <select id="solo-opponent" class="input-field" v-model="selectedSoloId" :disabled="busy">
+            <option v-for="opponent in soloOpponents" :key="opponent.id" :value="opponent.id">{{ opponent.name }} · {{ opponent.version }}</option>
+          </select>
+          <p class="solo-description">{{ selectedSoloOpponent?.description }}</p>
+          <p v-if="!selectedDeck" class="muted solo-caption">请先在左侧选择出战卡组。</p>
+          <button class="btn btn-primary enter-match" @click="createRoom(true)" :disabled="busy || !selectedDeck || !selectedSoloOpponent" data-solo-start>{{ busy ? '正在准备…' : '开始单人对局' }}</button>
         </section>
       </main>
       <preconstructed-picker

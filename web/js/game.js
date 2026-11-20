@@ -114,6 +114,7 @@
     const { createApp, ref, computed, watch, onMounted, onUnmounted, nextTick } = Vue;
 
     createApp({
+        components: { CardKeywordNotes: ArcaneCardKeywords.component, TutorialGuide: ArcaneTutorial.component },
         setup() {
             const connected = ref(false);
             const connectionStatus = ref('连接中...');
@@ -121,6 +122,32 @@
             let ws = null;
 
             const gameState = ref(null);
+            const tutorial = computed(() => gameState.value?.tutorial || null);
+            function tutorialAllows(action, card = null) { return ArcaneTutorial.permits(tutorial.value, action, card?.instance_id); }
+            const tutorialPool = computed(() => (myState.value.skill_pool || []).filter(card => !tutorial.value || tutorial.value.lesson_skill_ids?.includes(card.instance_id)));
+            const tutorialArchivedHand = computed(() => !tutorial.value ? [] : myHand.value.filter(card => card.instance_id !== tutorial.value.card_id));
+            const tutorialUnusedSkills = computed(() => !tutorial.value ? [] : (myState.value.skill_pool || []).filter(card => !tutorial.value.lesson_skill_ids?.includes(card.instance_id)));
+            async function restartTutorial() {
+                if (actionBusy.value) return;
+                try {
+                    const room = await ArcaneUI.request('/api/tutorial/create', {method:'POST'});
+                    ArcaneMatchSessions.remove(roomID, playerID);
+                    location.href = '/game.html?' + new URLSearchParams({room:room.room_id,player_id:room.player_id,player_name:playerName || '新旅法师',deck_code:room.deck_code});
+                } catch (error) { decisionError.value = error.message; }
+            }
+            function continueTutorial() { sendAction('tutorial_continue', {}, null, true); }
+            async function locateTutorial(scroll = true) {
+                const course = tutorial.value;
+                if (!course) return;
+                if (course.focus === 'skills') railTab.value = 'skills';
+                else if (course.focus === 'hand' || ['summon','equip'].includes(course.allowed?.action)) railTab.value = 'hand';
+                const card = findVisibleCard(tutorialDefenseHint.value?.cardId || course.card_id);
+                if (card) previewCard(card);
+                await nextTick();
+                ArcaneTutorial.highlight(course, tutorialDefenseHint.value);
+                const focus = (tutorialDefenseHint.value?.selector && document.querySelector(tutorialDefenseHint.value.selector)) || [...document.querySelectorAll('.tutorial-focus')].find(node => node.getClientRects().length);
+                if (scroll) focus?.scrollIntoView({block:'nearest',inline:'nearest'});
+            }
             const mySlot = ref(-1);
             const mulliganSubmitted = ref(false);
             const resultDismissed = ref(false);
@@ -213,6 +240,7 @@
                 return s.decision_player === mySlot.value ? '由你决定' : s.bot_opponent ? 'AI 思考中' : `等待玩家${Number(s.decision_player) + 1}`;
             });
             const workspaceMode = computed(() => {
+                if (tutorial.value && (tutorial.value.reading || tutorial.value.waiting)) return 'idle';
                 if (actionDraft.value) return 'review';
                 if (incomingDrawOffer.value) return 'draw';
                 if (paymentRequest.value) return 'payment';
@@ -431,7 +459,7 @@
             const myHand = computed(() => myState.value.hand || []);
             const fanPageCount = computed(() => Math.max(1, Math.ceil(myHand.value.length / 7)));
             const currentFanPage = computed(() => Math.min(fanPage.value, fanPageCount.value - 1));
-            const fanCards = computed(() => myHand.value.slice(currentFanPage.value * 7, currentFanPage.value * 7 + 7));
+            const fanCards = computed(() => tutorial.value ? myHand.value.filter(card => card.instance_id === tutorial.value.card_id) : myHand.value.slice(currentFanPage.value * 7, currentFanPage.value * 7 + 7));
             const fanPreviewCard = computed(() => myHand.value.find(c => c.instance_id === fanPreviewID.value) || null);
             const selectedBattleCard = computed(() => allMyFieldCards().find(c => c.instance_id === selectedBattleID.value) || null);
             const showFanPreview = computed(() => workspaceMode.value === 'idle' && !!fanPreviewCard.value && !hasActiveTargeting.value && !selectedHandCard.value && !selectedSkill.value && !selectedAttacker.value);
@@ -522,7 +550,7 @@
             });
             const incomingDrawOffer = computed(() => !isSpectator && gameState.value?.phase !== 'game_over' && drawOfferBy.value === 1 - currentPlayerSlot());
             const outgoingDrawOffer = computed(() => !isSpectator && gameState.value?.phase !== 'game_over' && drawOfferBy.value === currentPlayerSlot());
-            const canUseMatchActions = computed(() => !isSpectator && gameState.value && gameState.value.phase !== 'game_over');
+            const canUseMatchActions = computed(() => !tutorial.value && !isSpectator && gameState.value && gameState.value.phase !== 'game_over');
 
             function getMyTerrain(col, row) { return myState.value.terrain?.[col]?.[row] || null; }
             function getOpponentTerrain(col, row) { return opponent.value.terrain?.[col]?.[row] || null; }
@@ -984,6 +1012,7 @@
             }
 
             function canAddPayment(elem) {
+                if (tutorial.value && Number(paymentSelection.value[elem] || 0) >= Number(tutorial.value.allowed?.data?.payment?.[elem] || 0)) return false;
                 if (!paymentRequest.value) return false;
                 if (selectedPaymentTotal() >= totalCost(paymentRequest.value.cost)) return false;
                 return Number(paymentSelection.value[elem] || 0) < Number(paymentAvailable()[elem] || 0);
@@ -1239,6 +1268,7 @@
             // Explicit simple controls finalize immediately; target-based and destructive actions retain one review.
             // All writes still pass through the same revision/in-flight gate in commitDraft.
             function sendAction(action, data = {}, callbacks = null, finalize = ['consume','mulligan','resolve_action','no_defend','end_turn','use_ability','learn_skill'].includes(action) && !(action === 'use_ability' && data.ability_type === 'ultimate')) {
+                if (!tutorialAllows(action)) { decisionError.value = '请按当前教学提示完成指定操作。'; return false; }
                 if (isSpectator || actionBusy.value || actionDraft.value) return false;
                 actionDraft.value = { action, data: JSON.parse(JSON.stringify(data)), callbacks, revision: gameState.value?.revision };
                 decisionError.value = '';
@@ -1329,6 +1359,7 @@
                 addLog(`${card.can_normal_counter_use ? '选择使用方式' : '盖放'} ${card.name}`);
             }
             function canEquipCard(card) {
+                if (!tutorialAllows('equip', card)) return false;
                 if (!isEquippableItem(card) || !isMyTurn.value || gameState.value.phase !== 'main') return false;
                 if (!canPayCost(playCost(card))) return false;
                 if (card.can_place_without_replacement !== undefined) return card.can_place_without_replacement || replaceableEquipmentForCard(card).length > 0;
@@ -1429,6 +1460,7 @@
             }
 
             function canSummonAt(col, row) {
+                if (tutorial.value && (!tutorialAllows('summon', selectedHandCard.value) || col !== tutorial.value.allowed?.data?.col || row !== tutorial.value.allowed?.data?.row)) return false;
                 if (!selectedHandCard.value || !isHandCompanionCard(selectedHandCard.value)) return false;
                 const unit = getMyUnit(col, row);
                 if (!unit) return true;
@@ -1444,6 +1476,10 @@
             }
 
             function handleCellClick(ownerSlot, col, row) {
+                if (tutorial.value && activeTargetSpell()) {
+                    const d = tutorial.value.allowed?.data || {};
+                    if (ownerSlot !== d.target_owner || col !== d.target_col || row !== d.target_row) return;
+                }
                 if (ownerSlot === mySlot.value && selectedHandCard.value && isHandCompanionCard(selectedHandCard.value) && canSummonAt(col, row)) {
                     summonCard(selectedHandCard.value, col, row);
                     return;
@@ -1651,6 +1687,7 @@
             }
 
             function canConsumeUnit(unit) {
+                if (!tutorialAllows('consume', unit)) return false;
                 if (!unit || unit.is_horizontal) return false;
                 if (unit.statuses?.['眩晕'] > 0 || unit.statuses?.['冷却'] > 0) return false;
                 return isMyTurn.value && gameState.value.phase === 'main';
@@ -1675,6 +1712,7 @@
             }
 
             function canAttackWith(unit) {
+                if (tutorial.value) return false;
                 if (!isMyTurn.value || gameState.value.phase !== 'main') return false;
                 if (!unit || unit.is_horizontal) return false;
                 if ((unit.current_attack ?? unit.attack) <= 0) return false;
@@ -1794,6 +1832,7 @@
             }
 
             function canCastSkill(skill) {
+                if (!tutorialAllows('cast_spell', skill)) return false;
                 if (!isMyTurn.value || gameState.value.phase !== 'main' || !skill || skill.is_horizontal) return false;
                 if (skill.statuses?.['冷却'] > 0 || skill.statuses?.['石化'] > 0) return false;
                 if (!skill.can_attack) return false;
@@ -1813,6 +1852,7 @@
                     !skill.is_horizontal && !canCastSkill(skill) && !canPayCost(attackActionCost(skill, []));
             }
             function selectSkillToCast(skill) {
+                if (!tutorialAllows('cast_spell', skill)) return;
                 selectedHandCard.value = null; selectedAttacker.value = null;
                 selectedSkill.value = selectedSkill.value === skill ? null : skill;
                 selectedBoostSkills.value = [];
@@ -1827,6 +1867,7 @@
             const pendingExtraTargetCast = ref(null);
 
             function canBoostWith(skill) {
+                if (tutorial.value) return false;
                 if (!selectedSkill.value || !skill) return false;
                 if (selectedSkill.value.can_be_boosted === false) return false;
                 if (skill.instance_id === selectedSkill.value.instance_id) return false;
@@ -2097,6 +2138,15 @@
 
             const defenseReactionCard = ref(null);
             const defenseStep = ref(0);
+            const tutorialDefenseHint = computed(() => ArcaneTutorial.defenseHint(tutorial.value, defenseStep.value, defenseSelected.value, defenseOverexertSelected.value));
+            watch(tutorialDefenseHint, async (hint, previous) => {
+                await nextTick();
+                ArcaneTutorial.highlight(tutorial.value, tutorialDefenseHint.value);
+                if (hint && hint.step !== previous?.step) {
+                    const panel = document.querySelector('.defense-panel .decision-scroll');
+                    if (panel) panel.scrollTop = 0;
+                }
+            });
             const defensePickMode = ref('normal');
             const locatedDefenseID = ref(''), defenseLocateMessage = ref('');
             watch([defenseStep, defensePickMode, showDefenseWindow], () => {locatedDefenseID.value='';defenseLocateMessage.value='';});
@@ -2155,6 +2205,7 @@
             }
             function goDefenseStep(step) {
                 if (actionBusy.value || (step>0 && !hasDefenseSource() && !defenseReactionCard.value)) return;
+                if (tutorialDefenseHint.value && step === 3 && !tutorialDefenseHint.value.canReview) return;
                 defensePickMode.value='normal'; defenseStep.value=step; revalidateDefenseDraft();
                 locatedDefenseID.value=''; defenseLocateMessage.value='';
             }
@@ -2251,6 +2302,7 @@
             }
 
             function canOverexertForDefense(unit) {
+                if (tutorial.value && !tutorial.value.allowed?.data?.overexert_ids?.includes(unit?.instance_id)) return false;
                 return !!unit && !unit.is_horizontal &&
                     !(unit.statuses?.['眩晕'] > 0) &&
                     !(unit.statuses?.['冷却'] > 0);
@@ -2332,6 +2384,7 @@
             }
 
             function canUseSkillAsDefense(skill) {
+                if (tutorial.value && !tutorial.value.allowed?.data?.skill_ids?.includes(skill?.instance_id)) return false;
                 if (!isSkillReady(skill)) return false;
 
                 return !!skill.can_defend;
@@ -2370,6 +2423,7 @@
             }
 
             function canUseSkillAsDefenseBoost(skill) {
+                if (tutorial.value) return false;
                 if (!isSkillReady(skill)) return false;
 
                 return !!skill.can_defense_boost;
@@ -2715,6 +2769,7 @@
             }
 
             function pendingOrderedCandidates() {
+                if (tutorial.value && tutorial.value.allowed?.action === 'resolve_action') return (pendingAction.value?.candidates || []).filter(card => tutorial.value.allowed.data.selected?.includes(card.instance_id));
                 if (!isDeckReorderPending()) return pendingAction.value?.candidates || [];
                 ensurePendingDeckOrder();
                 const ordered = pendingDeckOrder.value
@@ -2802,6 +2857,7 @@
             }
 
             function togglePendingSelect(candidate) {
+                if (tutorial.value && !tutorial.value.allowed?.data?.selected?.includes(candidate?.instance_id)) return;
                 if (candidate.can_select === false) return;
                 const id = candidate.instance_id;
                 const idx = pendingSelected.value.indexOf(id);
@@ -2889,6 +2945,7 @@
 
             // Ability functions
             function canUsePerTurn(unit) {
+                if (tutorial.value) return false;
                 if (!unit || !unit.has_per_turn) return false;
                 if (unit.statuses?.['石化'] > 0) return false;
                 if (unit.per_turn_requires_tap && (unit.is_horizontal || unit.statuses?.['眩晕'] > 0 || unit.statuses?.['冷却'] > 0)) return false;
@@ -2897,6 +2954,7 @@
             }
 
             function canUseUltimate(unit) {
+                if (tutorial.value) return false;
                 if (!unit || !unit.has_ultimate) return false;
                 if (unit.statuses?.['石化'] > 0) return false;
                 if (unit.ultimate_requires_tap && (unit.is_horizontal || unit.statuses?.['眩晕'] > 0 || unit.statuses?.['冷却'] > 0)) return false;
@@ -2949,6 +3007,7 @@
                 sendLearnSkill(card, '');
             }
             function canLearnSkill(card) {
+                if (!tutorialAllows('learn_skill', card)) return false;
                 const hasEmptySkillSlot = mySkills.value.some(skill => !skill);
                 const canReplace = replaceableSkills.value.length > 0;
                 return !!card && (hasEmptySkillSlot || canReplace) && isMyTurn.value && gameState.value.phase === 'main' && canPayCost(learnCost(card));
@@ -2964,6 +3023,7 @@
                 sendLearnSkill(skillReplaceRequest.value.card, skillReplaceRequest.value.replaceId);
             }
             function canPlayHandCard(card) {
+                if (tutorial.value && !tutorialAllows(card?.type === '伙伴' ? 'summon' : 'equip', card)) return false;
                 if (!card || !isMyTurn.value || gameState.value.phase !== 'main') return false;
                 if (card.type === '技能') return false;
                 if (card.unavailable_reason) return false;
@@ -3203,6 +3263,7 @@
                         try { window.ArcaneEffects?.snapshot(d, gameState.value, mySlot.value, isSpectator); }
                         catch (error) { sendClientLog('warn', 'presentation_snapshot_failed', {error:String(error)}); }
                         gameState.value = d;
+                        if (d.phase === 'mulligan') mulliganSubmitted.value = !!d.mulligan_done?.[mySlot.value];
                         rememberMatch();
                         if (detailCard.value?.instance_id) detailCard.value = findVisibleCard(detailCard.value.instance_id) || null;
                         if (hoverCard.value?.instance_id) hoverCard.value = findVisibleCard(hoverCard.value.instance_id) || null;
@@ -3333,6 +3394,16 @@
                 else if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
             }
 
+            watch(() => gameState.value?.tutorial?.index, async () => {
+                document.body.classList.toggle('tutorial-mode', !!tutorial.value);
+                if (!tutorial.value) return;
+                hideContextMenu();
+                if (tutorial.value.completed) {
+                    try { localStorage.setItem('eraofarcane.tutorial.first-duel-v1', 'complete'); } catch {}
+                    return;
+                }
+                await locateTutorial(innerWidth >= 1100);
+            });
             onMounted(() => {
                 loadWaitingProfile();
                 if (typeof window !== 'undefined') {
@@ -3390,6 +3461,7 @@
             });
 
             return {
+                tutorial, tutorialDefenseHint, tutorialAllows, tutorialPool, tutorialUnusedSkills, tutorialArchivedHand, continueTutorial, locateTutorial, restartTutorial,
                 crest: ArcaneUI.crest, artAttrs: ArcaneUI.artAttrs, showInspector, defenseReactionCard, resultDismissed, copyRoomLink, returnToLobby,
                 waitingHero, waitingCounts, playerName, resultKind, resultTitle, resultMotto, resultHero, resultSummary, slotStyle, squareAreaCells,
                 fanPage, fanSpread, fanLayout, fanPreviewID, fanPageCount, currentFanPage, fanCards, fanPreviewCard, showFanPreview, previewHand, changeFanPage, activateFanCard, navigateFan, selectedBattleCard,

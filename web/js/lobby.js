@@ -1,10 +1,28 @@
 (function () {
-  const { createApp, ref, computed, onMounted, onUnmounted } = Vue;
+  const { createApp, ref, computed, watch, onMounted, onUnmounted } = Vue;
   const UI = ArcaneUI,
     DS = ArcaneDecks;
   createApp({
     components: { PreconstructedPicker: ArcanePreconstructedPicker },
     setup() {
+      const modeNames = { multiplayer: '多人对战', solo: '单人模式', tutorial: '新手教程' };
+      function modeFromURL() {
+        const params = new URLSearchParams(location.search);
+        return Object.hasOwn(modeNames, params.get('mode')) ? params.get('mode') : params.has('room') ? 'multiplayer' : '';
+      }
+      const mode = ref(modeFromURL());
+      const modeTitle = computed(() => modeNames[mode.value]);
+      function openMode(next) {
+        if (busy.value || next && !Object.hasOwn(modeNames, next)) return;
+        const url = new URL(location.href);
+        if (next) url.searchParams.set('mode', next);
+        else { url.searchParams.delete('mode'); url.searchParams.delete('room'); }
+        history.pushState(null, '', url);
+        mode.value = next;
+        error.value = '';
+        window.scrollTo(0, 0);
+      }
+      function onPopState() { mode.value = modeFromURL(); error.value = ''; }
       const savedMatches = ref(ArcaneMatchSessions.list());
       const soloOpponents = Object.freeze([
         {
@@ -204,6 +222,17 @@
           busy.value = false;
         }
       }
+      async function startTutorial() {
+        if (busy.value) return;
+        busy.value = true;
+        error.value = '';
+        try {
+          saveName();
+          const room = await UI.request('/api/tutorial/create', {method:'POST'});
+          location.href = '/game.html?' + new URLSearchParams({room:room.room_id,player_id:room.player_id,player_name:playerName.value || '新旅法师',deck_code:room.deck_code});
+        } catch (e) { error.value = e.message; }
+        finally { busy.value = false; }
+      }
       async function refreshRooms() {
         if (loadingRooms.value) return;
         loadingRooms.value = true;
@@ -233,12 +262,13 @@
         }
       }
       onMounted(async () => {
-        refreshRooms();
+        if (mode.value === 'multiplayer') refreshRooms();
         timer = setInterval(() => {
-          if (!document.hidden) refreshRooms();
+          if (mode.value === 'multiplayer' && !document.hidden) refreshRooms();
         }, 10000);
         document.addEventListener("keydown", onKey);
         window.addEventListener("storage", onStorage);
+        window.addEventListener('popstate', onPopState);
         try {
           cards.value = await UI.request("/api/cards");
         } catch (e) {
@@ -249,8 +279,11 @@
         clearInterval(timer);
         document.removeEventListener("keydown", onKey);
         window.removeEventListener("storage", onStorage);
+        window.removeEventListener('popstate', onPopState);
       });
+      watch(mode, value => { if (value === 'multiplayer') refreshRooms(); });
       return {
+        mode, modeTitle, openMode,
         savedMatches, resumeMatch, forgetMatch,
         crest: UI.crest,
         image: UI.image,
@@ -280,6 +313,7 @@
         chooseDeck,
         usePreconstructed,
         createRoom,
+        startTutorial,
         joinRoom,
         refreshRooms,
       };

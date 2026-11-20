@@ -241,24 +241,30 @@
 .saved-matches { margin-bottom: 1rem; border-bottom: 1px solid var(--border, #63513a); padding-bottom: 1rem; }
 .saved-match { display: flex; gap: .5rem; align-items: center; margin: .4rem 0; flex-wrap: wrap; }
 .saved-match > span { flex: 1; }
-.solo-mode { margin: 24px 0 16px; }
-.solo-mode > summary.enter-match {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin: 0;
-  list-style: none;
-  cursor: pointer;
-}
-.solo-mode > summary::-webkit-details-marker { display: none; }
-.solo-mode > summary > span { transition: transform .15s; }
-.solo-mode[open] > summary > span { transform: rotate(180deg); }
-.solo-options {
-  padding: 16px;
-  border: 1px solid var(--arcane-line);
-  border-top: 0;
-  background: #0b1417;
-}
-.solo-options select { margin-bottom: 0; }
-.solo-start { width: 100%; }
 .solo-caption { font-size: 12px; line-height: 1.6; margin: 8px 0 14px; }
+.mode-home { max-width: 1500px; margin: auto; padding: 7vh 6vw 5vh; min-height: calc(100vh - 125px); }
+.mode-home > .eyebrow { letter-spacing: .5em; }
+.mode-home h1 { font: 600 62px var(--font-display); letter-spacing: .2em; margin: 10px 0 20px; text-shadow: 0 3px 30px #000; }
+.mode-choices { display: grid; gap: 16px; width: min(590px,100%); margin-top: 34px; }
+.mode-choice { position: relative; display: flex; align-items: center; gap: 24px; min-height: 118px; padding: 20px 28px; border: 1px solid #a487504f; border-left: 3px solid #a48750; background: linear-gradient(100deg,#171b18f5,#101b1cde); color: var(--arcane-text); text-align: left; box-shadow: 0 8px 28px #0003; cursor: pointer; transition: border-color .18s, background .18s, transform .18s; }
+.mode-choice::after { content: ''; position: absolute; width: 5px; height: 5px; border: 1px solid #b99b66; transform: rotate(45deg); right: -4px; top: calc(50% - 3px); background: #151c1b; }
+.mode-choice:hover, .mode-choice:focus-visible { border-color: #c8a56a; background: linear-gradient(100deg,#302a1deb,#172323ed); transform: translateX(4px); outline: 1px solid #c8a56a40; outline-offset: 3px; }
+.mode-number { font: 34px/1.4 Cinzel,serif; color: #a98e5d; width: 58px; border-right: 1px solid #b4975a40; flex-shrink: 0; }
+.mode-copy { display: grid; gap: 5px; }
+.mode-copy > small { font: 10px Cinzel,serif; letter-spacing: .23em; color: #a99b7e; }
+.mode-copy > strong { font: 500 26px/1.4 var(--font-display); letter-spacing: .12em; color: #e4cf9e; }
+.mode-copy > span { font-size: 12px; color: #b8b6a6; line-height: 1.6; }
+.mode-arrow { margin-left: auto; color: #b99b66; font: 25px serif; }
+.mode-back { display: block; margin: -12px 0 24px; padding: 0; border: 0; background: none; color: var(--arcane-gold); font: 13px var(--font-display); cursor: pointer; }
+.mode-back:hover { color: var(--arcane-gold-bright); }
+.solo-browser { align-self: start; margin-top: 128px; padding: 28px; }
+.solo-browser h2 { font: 25px var(--font-display); color: var(--arcane-gold-bright); margin: 12px 0 28px; }
+.solo-browser select { width: 100%; }
+.solo-description { min-height: 60px; font-size: 14px; line-height: 1.9; margin: 24px 0; color: #c6bc9f; }
+.lobby-layout--tutorial { grid-template-columns: minmax(390px,640px); }
+.tutorial-entry { padding: 28px; }
+.tutorial-entry h2 { font: 25px/1.5 var(--font-display); color: var(--arcane-gold-bright); margin: 12px 0 20px; }
+.tutorial-entry p { line-height: 1.9; font-size: 14px; }
+.tutorial-outline { margin: 26px 0; padding: 18px 18px 18px 40px; border-block: 1px solid var(--arcane-line); color: #d6c69f; font: 15px/2.3 var(--font-display); }
+@media (max-height:850px) { .mode-home { padding-top: 32px; } .mode-home h1 { font-size: 46px; } .mode-choices { margin-top: 24px; gap: 12px; } .mode-choice { min-height: 98px; padding-block: 14px; } .solo-browser { margin-top: 104px; } }
+@media (max-width:999px) { .lobby-page { min-width: 0; } .lobby-layout, .lobby-layout--tutorial { grid-template-columns: minmax(0,1fr); max-width: 700px; gap: 24px; } .room-browser, .solo-browser { margin-top: 0; max-height: none; } .mode-home { padding: 36px 7vw; } .mode-home h1 { font-size: 42px; } .mode-choice { gap: 16px; padding-inline: 18px; } .mode-number { width: 42px; font-size: 28px; } .mode-copy > strong { font-size: 23px; } }

@@ -10,6 +10,11 @@
     <link rel="stylesheet" href="css/battle.css">
     <link rel="stylesheet" href="css/battle-effects.css">
     <link rel="stylesheet" href="css/match-scenes.css">
+    <link rel="stylesheet" href="css/card-keywords.css">
+    <link rel="stylesheet" href="css/tutorial.css">
+    <script src="js/tutorial.js"></script>
+    <script src="assets/card-keyword-index.js"></script>
+    <script src="js/card-keywords.js"></script>
     <script src="assets/card-art-index.js"></script>
     <script src="js/arcane-ui.js"></script>
     <script src="js/deck-store.js"></script>
@@ -21,7 +26,7 @@
 </head>
 <body class="match-page">
     <div id="app" v-cloak>
-        <header class="match-status"><a href="/" class="brand" @click.prevent="returnToLobby"><span v-html="crest"></span><span><strong>奥术纪元</strong><small>ERA OF ARCANE</small></span></a><span>房间 {{ roomID }}<template v-if="gameState"> · 第 {{ gameState.turn_number }} 回合</template></span><span v-if="gameState && gameState.phase !== 'game_over'">回合：{{ isSpectator ? '玩家' + ((gameState.current_turn || 0) + 1) : isMyTurn ? '己方' : '对方' }}</span><strong>决策：{{ decisionOwnerLabel }}</strong><span class="connection-dot">{{ connected ? '已连接' : '已断线' }}</span><button class="mini-btn" data-open-settings aria-label="界面设置">⚙</button></header>
+        <header class="match-status"><a href="/" class="brand" @click.prevent="returnToLobby"><span v-html="crest"></span><span><strong>奥术纪元</strong><small>ERA OF ARCANE</small></span></a><span>房间 {{ roomID }}<template v-if="gameState"> · <template v-if="gameState.phase === 'mulligan'">起手准备</template><template v-else>第 {{ gameState.turn_number }} 回合</template></template></span><span v-if="gameState && gameState.phase !== 'game_over' && gameState.phase !== 'mulligan'">回合：{{ isSpectator ? '玩家' + ((gameState.current_turn || 0) + 1) : isMyTurn ? '己方' : '对方' }}</span><strong>决策：{{ decisionOwnerLabel }}</strong><span class="connection-dot">{{ connected ? '已连接' : '已断线' }}</span><button class="mini-btn" data-open-settings aria-label="界面设置">⚙</button></header>
 
         <!-- ═══ CONNECTION OVERLAY ═══ -->
         <div v-if="!connected" class="overlay connection-overlay" role="dialog" aria-modal="true" aria-labelledby="connection-title">
@@ -33,6 +38,7 @@
                 <p v-else>正在为你打开这场对决。</p>
                 <div v-if="error" class="error-msg">{{ error }}</div>
                 <div class="scene-actions"><button v-if="gameState" data-reconnect class="btn btn-primary" @click="reloadMatch">重连并同步</button><a href="/" class="btn">返回大厅</a></div>
+                <details v-if="tutorialUnusedSkills.length" class="tutorial-unused"><summary>本教程暂不用的技能（{{ tutorialUnusedSkills.length }} 张）</summary><button v-for="card in tutorialUnusedSkills" :key="card.instance_id" class="mini-btn" data-inspect @click="showCardDetail(card)">{{ card.name }} · 查看</button></details>
                 <p v-if="gameState" class="connection-footnote">刚才的行动不会自动重发。<br>连接恢复后，请先核对战场与当前决策。</p>
             </div>
         </div>
@@ -63,6 +69,7 @@
                 <div class="result-motto">{{ resultMotto }}</div>
                 <p v-if="gameState.bot_error" class="notice-error" role="alert">{{ gameState.bot_error }}</p>
                 <div class="result-stats"><div><strong>{{ String(gameState.turn_number || 0).padStart(2,'0') }}</strong><small>结束回合</small></div><div v-if="resultHero"><strong>{{ resultHero.current_life }} / {{ resultHero.max_life ?? resultHero.life }}</strong><small>{{ isSpectator ? (gameState.winner === -2 ? '玩家1人物生命' : '获胜人物生命') : '人物剩余生命' }}</small></div><div><strong>{{ roomID }}</strong><small>对局房间</small></div></div>
+                <div v-if="tutorial?.completed" class="tutorial-complete"><h3>教程完成</h3><p>你已亲手召唤、装备、学习技能、完成法术攻防与弃牌，并击败敌方人物。可以回到大厅，用预组开始单人练习。</p><button class="btn" @click="restartTutorial">再练一次</button></div>
                 <p class="result-summary">{{ resultSummary }}</p><p class="result-hero-name">{{ resultHero?.name }}</p>
                 <div class="scene-actions"><button class="btn" @click="resultDismissed=true;railTab='events'">查看战场与记录</button><a href="/" class="btn btn-primary">返回大厅 →</a></div>
             </div>
@@ -132,7 +139,9 @@
                         <h4>附属效果</h4>
                         <div v-for="effect in detailCard.attached_behaviors" :key="effect.id">{{ effect.name }}<span v-if="effect.data"> · {{ effect.data }}</span></div>
                     </div>
+                    <h4 v-if="detailCard.description" class="printed-effect-heading">卡牌效果</h4>
                     <div class="card-desc" v-html="descriptionHTML(detailCard.description)"></div>
+                    <card-keyword-notes :card="detailCard"></card-keyword-notes>
                 </div>
                 <button @click="detailCard = null" class="close-btn">✕</button>
             </div>
@@ -171,11 +180,12 @@
         <!-- ═══════════════════════════════════════ -->
         <!-- ═══       MAIN GAME LAYOUT         ═══ -->
         <!-- ═══════════════════════════════════════ -->
-        <nav v-if="gameState" class="mobile-jump"><a href="#arena">战场</a><a href="#hand">手牌</a><a href="#decision">当前决策</a></nav>
+        <nav v-if="gameState" class="mobile-jump"><a v-if="tutorial" href="#tutorial-guide">教学指引</a><a href="#arena">战场</a><a href="#hand">手牌</a><a href="#decision">当前决策</a></nav>
         <div v-if="gameState" class="game-layout" :data-mode="workspaceMode" :inert="!connected || (gameState.phase === 'game_over' && !resultDismissed)" @click.capture="guardInteraction" @keydown.capture="defenseKeydown">
 
             <!-- ── LEFT SIDEBAR ── -->
             <div class="sidebar-left">
+                <tutorial-guide v-if="tutorial && gameState.phase !== 'game_over'" :course="tutorial" :defense="tutorialDefenseHint" :busy="actionBusy" @continue="continueTutorial" @locate="locateTutorial" @restart="restartTutorial" @exit="returnToLobby"></tutorial-guide>
 
                 <!-- Opponent Panel -->
                 <div class="player-panel is-opponent">
@@ -545,7 +555,7 @@
                 <div class="skill-pool-panel" v-show="railTab === 'skills'" v-if="myState.skill_pool && myState.skill_pool.length">
                     <h3>技能池 ({{ myState.skill_pool.length }})</h3>
                     <div class="skill-pool-grid">
-                        <div v-for="card in myState.skill_pool" :key="card.instance_id" :data-card-number="card.number" class="sp-card" tabindex="0" @keydown.enter.prevent="$event.currentTarget.click()" @click="showCardContextMenu($event,card,'skill_pool')"
+                        <div v-for="card in tutorialPool" :key="card.instance_id" :data-card-number="card.number" :data-instance-id="card.instance_id" class="sp-card" tabindex="0" @keydown.enter.prevent="$event.currentTarget.click()" @click="showCardContextMenu($event,card,'skill_pool')"
                              :class="{ learnable: canLearnSkill(card), unaffordable: isMyTurn && gameState.phase === 'main' && !canLearnSkill(card) }"
                              @mouseenter="previewCard(card)"
                              @contextmenu.prevent="showCardContextMenu($event, card, 'skill_pool')"
@@ -596,7 +606,9 @@
                     <p>{{ activePreviewCard.type }} · {{ activePreviewCard.category }} <span v-if="activePreviewCard.current_life >= 0"> · 生命 {{ activePreviewCard.current_life }}</span></p>
                     <div class="inspector-costs"><p>{{ activePreviewCard.type === '技能' ? '学习费用' : '入场费用' }}<b>{{ costLabel(playCost(activePreviewCard)) }}</b></p><p v-if="activePreviewCard.type === '技能'">施放费用<b>{{ costLabel(activePreviewCard.elements_expense) }}</b></p><p v-if="hasGain(activePreviewCard)">负载<b>{{ costLabel(activePreviewCard.elements_gain) }}</b></p></div>
                     <p class="inspector-metadata"><span v-for="label in previewMetadata(activePreviewCard)" :key="label">{{ label }}</span></p>
+                    <h4 v-if="activePreviewCard.description" class="printed-effect-heading">卡牌效果</h4>
                     <div class="inspector-description" v-html="descriptionHTML(activePreviewCard.description)"></div>
+                    <card-keyword-notes :card="activePreviewCard"></card-keyword-notes>
                     <button class="btn" data-inspect @click="showCardDetail(activePreviewCard)">放大查看</button>
                 </div>
                 <p v-else>将鼠标移到可见卡牌上查看详情。</p>
@@ -673,8 +685,8 @@
                 </div>
                 </div>
                 <div class="mulligan-actions">
-                    <button @click="mulligan(true)" class="btn btn-success">保留手牌</button>
-                    <button @click="mulligan(false)" class="btn btn-warning">全部重抽</button>
+                    <button data-tutorial-keep :disabled="!tutorialAllows('mulligan') || actionBusy" @click="mulligan(true)" class="btn btn-success">保留手牌</button>
+                    <button :disabled="!!tutorial || actionBusy" @click="mulligan(false)" class="btn btn-warning">全部重抽</button>
                 </div>
             </div>
         </div>
@@ -686,12 +698,13 @@
                  @contextmenu.prevent="showInteractionCardContextMenu($event)">
                 <button class="defense-incoming" data-inspect @mouseenter="pendingSpellView?.skill && previewCard(pendingSpellView.skill)" @click="pendingSpellView?.skill && showCardDetail(pendingSpellView.skill)">来袭：{{ pendingSpellView?.skill?.name }} → {{ pendingSpellTargetLabel() }} · 威力 {{ pendingAttackPower() }}{{ pendingSpellExtraTargetLabels().length ? '；追加目标：'+pendingSpellExtraTargetLabels().join('、') : '' }} · 查看详情</button>
                 <nav class="defense-steps" aria-label="防御步骤">
-                    <button v-for="(label,index) in ['防御','强化','透支','付款']" :aria-current="defenseStep===index?'step':null" :disabled="index>0 && !defenseSelected.length && !defenseScrollSelected.length && !defenseReactionCard" @click="goDefenseStep(index)">{{ index+1 }} · {{ label }}</button>
+                    <button v-for="(label,index) in ['防御','强化','透支','付款']" :aria-current="defenseStep===index?'step':null" :disabled="(index>0 && !defenseSelected.length && !defenseScrollSelected.length && !defenseReactionCard) || (tutorialDefenseHint && index===3 && !tutorialDefenseHint.canReview)" @click="goDefenseStep(index)">{{ index+1 }} · {{ label }}</button>
                 </nav>
-                <p class="defense-instruction" aria-live="polite">{{ defenseStep===0?'选择主防御牌，或选择响应。':defenseStep===1?'选择强化，也可跳过。':defenseStep===2?'选择透支；不足时可返回重选防御。':'核对组合与实际支付。' }}</p>
                 <div class="decision-scroll">
+                <section v-if="tutorialDefenseHint" class="tutorial-defense-coach" aria-live="polite"><small>本教程 · 当前操作</small><h3>{{ tutorialDefenseHint.title }}</h3><p>{{ tutorialDefenseHint.text }}</p><button v-if="tutorialDefenseHint.cardId" class="btn tutorial-defense-choice" :disabled="actionBusy" @click="pickDefenseCard(tutorialDefenseHint.cardId)">{{ tutorialDefenseHint.choiceLabel }}</button></section>
+                <p v-else class="defense-instruction" aria-live="polite">{{ defenseStep===0?'选择主防御牌，或选择响应。':defenseStep===1?'选择强化，也可跳过。':defenseStep===2?'选择透支；不足时可返回重选防御。':'核对组合与实际支付。' }}</p>
                 <p v-if="defensePickMode!=='normal'">{{ defensePickMode==='reaction'?'当前选择响应牌，发动前仍需确认。':'当前选择可选祭献单位。' }} <button @click="defensePickMode='normal'">返回当前步骤</button></p>
-                <div class="defense-locators" v-if="defenseStep<3">
+                <div class="defense-locators" v-if="defenseStep<3 && !tutorialDefenseHint">
                     <button class="defense-locate-button" @click="locateDefenseCards()" :disabled="!defenseStepCandidates.length"><span aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="12" cy="12" r="6"></circle><path d="M12 2v5m0 10v5M2 12h5m10 0h5"></path><circle cx="12" cy="12" r="1.5"></circle></svg></span> 定位可选牌 <b>{{ defenseStepCandidates.length }}</b></button>
                     <button v-for="page in defenseHandPages" @click="locateDefenseCards(page)">手牌第 {{ page+1 }} 页有候选 · 定位</button>
                     <span v-if="!defenseStepCandidates.length">当前无可选牌</span>
@@ -707,7 +720,7 @@
                     <button v-if="defenseStep===0 && availableReactionSkills.length" @click="defensePickMode=defensePickMode==='reaction'?'normal':'reaction'">选择响应牌</button>
                     <button v-if="defenseStep===1 && defensePowerSacrificeCandidates.length" @click="defensePickMode='sacrifice'">可选祭献</button>
                     <button class="btn btn-primary step-advance" v-if="defenseStep===1" @click="goDefenseStep(2)">{{ defenseBoostSelected.length?'完成强化':'跳过强化' }} → 透支</button>
-                    <button class="btn btn-primary step-advance" v-if="defenseStep===2" @click="goDefenseStep(3)">核对付款 →</button>
+                    <button class="btn btn-primary step-advance" v-if="defenseStep===2" :disabled="tutorialDefenseHint && !tutorialDefenseHint.canReview" @click="goDefenseStep(3)">核对付款 →</button>
                     <button class="mini-btn step-back" v-if="defenseStep>0" @click="goDefenseStep(defenseStep-1)">← 返回</button>
                 </div>
                 </div>
@@ -733,8 +746,8 @@
 
 
                     <button type="button" class="btn btn-success" :disabled="!canSubmitDefense || !defensePaymentValid || actionBusy" v-if="defenseStep===3" data-defense-action="submit" @click="submitDefend">{{ defenseReactionCard?'确认响应':'确认防御' }}</button>
-                    <button class="btn" @click.stop="resetDefenseDraft">取消本地选择</button>
-                    <button type="button" class="btn btn-danger" data-defense-action="no_defend" @click="noDefend">不防御</button>
+                    <button v-if="!tutorialDefenseHint" class="btn" @click.stop="resetDefenseDraft">取消本地选择</button>
+                    <button v-if="!tutorialDefenseHint" type="button" class="btn btn-danger" data-defense-action="no_defend" :disabled="!tutorialAllows('no_defend') || actionBusy" @click="noDefend">不防御</button>
                 </div>
             </div>
         </div>
@@ -857,6 +870,7 @@
                 <div class="payment-cost">费用：{{ costLabel(paymentRequest.cost) }}</div><p v-if="paymentRequest.data.overexert_ids?.length">已选透支 {{ paymentRequest.data.overexert_ids.length }} 个单位，其负载已计入可选元素。优先扣除元素池，所有所选透支单位横置，多余负载不保留。</p>
                 <div class="payment-options">
                     <button v-for="elem in paymentElements()" :key="elem"
+                            :data-payment-element="elem"
                             class="payment-token"
                             :disabled="!canAddPayment(elem)"
                             @click="addPayment(elem)">
@@ -980,13 +994,13 @@
                     <div class="eyebrow">{{ isMyTurn ? '行动准备' : '等待交接' }}</div>
                     <h2>{{ guideKicker }}</h2><p>{{ currentHint }}</p>
                     <button v-if="selectedHandCard || selectedAttacker || selectedSkill" class="btn" @click="clearSelection">取消本地选择</button>
-                    <div v-if="selectedSkill" class="local-selection"><strong>{{ selectedSkill.name }}</strong><p>当前费用：{{ costLabel(attackActionCost(selectedSkill, selectedBoostSkills)) }}</p><p>已选强化 {{ selectedBoostSkills.length }} 项；可点击手牌或技能的强化按钮调整。</p><button v-if="!skillNeedsTarget(selectedSkill)" class="btn btn-success" @click="castSpellWithoutTarget">准备施放</button></div>
+                    <div v-if="selectedSkill" class="local-selection"><strong>{{ selectedSkill.name }}</strong><p>当前费用：{{ costLabel(attackActionCost(selectedSkill, selectedBoostSkills)) }}</p><p v-if="tutorial">本教程只使用这张主法术，当前不添加强化。</p><p v-else>已选强化 {{ selectedBoostSkills.length }} 项；可点击手牌或技能的强化按钮调整。</p><button v-if="!skillNeedsTarget(selectedSkill)" class="btn btn-success" @click="castSpellWithoutTarget">准备施放</button></div>
                     <button v-if="selectedHandCard && selectedHandCard.type === '道具' && !selectedHandCard.is_terrain" class="btn" @click="selectHandCard(selectedHandCard)">准备使用 {{ selectedHandCard.name }}</button>
 
                 </div>
             </aside>
             <div class="turn-actions">
-                <button v-if="isMyTurn && gameState.phase === 'main'" @click="endTurn" class="btn btn-primary btn-end-turn" :disabled="actionBusy || workspaceMode !== 'idle'">结束回合</button>
+                <button v-if="isMyTurn && gameState.phase === 'main'" @click="endTurn" class="btn btn-primary btn-end-turn" :disabled="actionBusy || workspaceMode !== 'idle' || !tutorialAllows('end_turn')">结束回合</button>
                 <div v-else class="turn-waiting">{{ decisionOwnerLabel }}</div>
                 <button class="mini-btn" data-inspect @click="railTab = railTab === 'events' ? 'hand' : 'events'">对局记录</button>
             </div>
@@ -999,6 +1013,7 @@
                     <button data-inspect @click="fanLayout = fanLayout === 'fan' ? 'flat' : 'fan'">{{ fanLayout === 'fan' ? '平铺' : '扇形' }}</button>
                     <label>间距<input data-inspect type="range" aria-label="手牌间距" min="60" max="125" v-model.number="fanSpread"></label>
                 </div>
+                <details v-if="tutorialArchivedHand.length" class="tutorial-unused"><summary>本教程暂不用的手牌（{{ tutorialArchivedHand.length }} 张）· 仍计入手牌数量</summary><button v-for="card in tutorialArchivedHand" :key="card.instance_id" class="mini-btn" data-inspect @click="showCardDetail(card)">{{ card.name }} · 查看</button></details>
                 <div v-if="isSpectator" class="waiting">观战：手牌不可见</div>
                 <div v-else-if="!myHand.length" class="empty-hand">暂无手牌</div>
                 <div v-else class="hand-cards">

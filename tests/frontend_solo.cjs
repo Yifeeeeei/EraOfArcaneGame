@@ -126,6 +126,7 @@ async function solo(browser, profile = 'royal-fire-aggro-v1') {
     localStorage.setItem('playerName', '练习旅法师');
   }, deck);
   await page.goto(base, { waitUntil: 'domcontentloaded' });
+  await page.locator('[data-solo-open]').click();
   const name = page.locator('#player-name');
   await name.fill('练习旅法师');
   await page.setViewportSize({ width: 1000, height: 900 });
@@ -134,14 +135,13 @@ async function solo(browser, profile = 'royal-fire-aggro-v1') {
   page.on('request', request => {
     if (request.url().endsWith('/api/solo/create')) soloRequests++;
   });
-  assert(!(await page.locator('[data-solo-start]').isVisible()), 'AI start should be inside single-player mode');
-  await page.locator('[data-solo-open]').click();
+  assert(await page.locator('.room-browser').count() === 0, 'single-player mode contains multiplayer rooms');
   assert(soloRequests === 0, 'opening single-player mode created a room');
   assert(await page.locator('#solo-opponent option').count() >= 2, 'both AI opponents must be available');
   await page.locator('#solo-opponent').selectOption(profile);
   assert((await page.locator('#solo-opponent option:checked').innerText()).includes(profile === 'royal-fire-aggro-v1' ? '快攻火' : '雷光气'), 'wrong selected AI');
-  await page.locator('[data-solo-open]').click();
-  assert(!(await page.locator('[data-solo-start]').isVisible()), 'single-player mode did not collapse');
+  await page.getByRole('button', {name:'← 返回大厅',exact:true}).click();
+  assert(!(await page.locator('[data-solo-start]').isVisible()), 'AI setup is visible on the home menu');
   await page.locator('[data-solo-open]').focus();
   await page.keyboard.press('Enter');
   await page.locator('[data-solo-start]').waitFor({ state: 'visible' });

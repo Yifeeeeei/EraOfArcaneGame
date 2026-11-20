@@ -41,6 +41,7 @@ Serving:
   - `/api/deck/validate`
   - `/api/room/create`
   - `/api/solo/create` (fixed-strategy AI practice; normal engine rules)
+  - `/api/tutorial/create` (private fixed-flow first lesson; no user deck required)
   - `/api/room/list`
   - `/api/room/info`
   - `/api/test-room/create`
@@ -59,6 +60,9 @@ Serving:
 - `server/bot/`: deterministic Royal Conflict fire-aggro and thunderlight-midrange policies with pinned official preconstructed decks. Profiles are registered in `profile.go`; thunderlight decisions live in `thunderlight*.go`. Both consume detached player-permitted observations; no LLM or AgentLab runtime dependency.
 - `server/game/decision_support.go`: pure decision queries and detached observations; never return the opponent's hidden zones or let queries spend resources.
 - `server/match/bot.go` and `server/api/solo.go`: reserved AI seat, normal action scheduling, disconnect pause and lifecycle cleanup.
+- `server/game/tutorial.go` and `tutorial_lesson_one.go`: engine-locked first-lesson steps, fixed legal decks/draw order, exact action/payment guards, and player-only progress. `server/match/tutorial.go` schedules the scripted opponent and pauses when the learner disconnects. Tutorial rooms reject spectators, stay out of the public lobby and are not test rooms. The lesson must reach normal spell-damage victory, not stop at the first end turn.
+- `data/card_keyword_glossary.json` and `server/internal/cardhelp/`: static printed-text help only. After changing card text or help definitions, run `go run ./cmd/generate-keyword-index` from `server/` to regenerate `web/assets/card-keyword-index.js`. Never use this offline display scanner to decide runtime effects. `web/js/card-keywords.js` renders the same separated help section in hover and full details; instance statuses do not change that glossary.
+- `tests/frontend_tutorial.cjs`: real lobby-to-victory lesson, opening/combat reload recovery, and matching keyword help in both inspection views. Uses the same Playwright environment as `frontend_solo.cjs` and writes screenshots/results under ignored `agent-data/frontend-tutorial/`.
 - `server/cmd/bot-match/`: local fixed-policy match diagnostics. Select opponents with `--profile-a` / `--profile-b` (`royal-fire-aggro-v1` or `royal-thunderlight-midrange-v1`). Write output under ignored `agent-data/bot-matches/`, record the tested commit with `--game-commit`, and fail on a stalled match. `tests/frontend_solo.cjs` covers both actual single-player opponents and the two-human Vue flow.
 - `server/cards/definitions_gen.go`: generated Go definitions for all currently supported cards across both packs.
 - `server/cards/interfaces.go` and `server/cards/category_markers_gen.go`: card category interfaces and generated marker methods for hero/companion/skill/item subtypes.
