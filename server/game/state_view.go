@@ -93,6 +93,7 @@ func (e *Engine) stateForPlayerLocked(playerID int) map[string]any {
 
 	return map[string]any{
 		"game_id":         state.GameID,
+		"tutorial":        e.tutorialInfo(playerID),
 		"revision":        e.revision,
 		"decision_player": e.decisionPlayer(),
 		"mulligan_done":   state.MulliganDone,

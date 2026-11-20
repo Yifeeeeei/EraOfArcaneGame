@@ -11,19 +11,20 @@ import (
 
 // Room represents a game room
 type Room struct {
-	ID         string                    `json:"id"`
-	Players    [2]*RoomPlayer            `json:"players"`
-	Spectators map[string]*RoomSpectator `json:"-"`
-	Engine     *game.Engine              `json:"-"`
-	IsStarted  bool                      `json:"is_started"`
-	TestMode   bool                      `json:"test_mode"`
-	Logger     *RoomLogger               `json:"-"`
-	isStarting bool
-	botCancel  func()
-	botDone    chan struct{}
-	botError   string
-	botProfile string
-	mu         sync.Mutex
+	ID               string                    `json:"id"`
+	Players          [2]*RoomPlayer            `json:"players"`
+	Spectators       map[string]*RoomSpectator `json:"-"`
+	Engine           *game.Engine              `json:"-"`
+	IsStarted        bool                      `json:"is_started"`
+	TestMode         bool                      `json:"test_mode"`
+	Logger           *RoomLogger               `json:"-"`
+	isStarting       bool
+	botCancel        func()
+	botDone          chan struct{}
+	botError         string
+	botProfile       string
+	tutorialPlayerID string
+	mu               sync.Mutex
 }
 
 // RoomPlayer represents a player in a room
@@ -69,6 +70,10 @@ func (rm *RoomManager) CreateTestRoom() *Room {
 }
 
 func (rm *RoomManager) createRoom(testMode bool) *Room {
+	return rm.createRoomWithTutorialOwner(testMode, "")
+}
+
+func (rm *RoomManager) createRoomWithTutorialOwner(testMode bool, owner string) *Room {
 	rm.mu.Lock()
 	defer rm.mu.Unlock()
 
@@ -79,9 +84,10 @@ func (rm *RoomManager) createRoom(testMode bool) *Room {
 	}
 
 	room := &Room{
-		ID:         id,
-		TestMode:   testMode,
-		Spectators: make(map[string]*RoomSpectator),
+		ID:               id,
+		TestMode:         testMode,
+		Spectators:       make(map[string]*RoomSpectator),
+		tutorialPlayerID: owner,
 	}
 	logger, err := newRoomLogger(id, testMode)
 	if err != nil {
@@ -99,6 +105,9 @@ func (rm *RoomManager) createRoom(testMode bool) *Room {
 func (r *Room) JoinSpectator(spectatorID, name string, sendFn func(game.GameEvent)) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.tutorialPlayerID != "" {
+		return fmt.Errorf("教学房间不开放观战")
+	}
 
 	if r.Spectators == nil {
 		r.Spectators = make(map[string]*RoomSpectator)
@@ -157,6 +166,12 @@ func (rm *RoomManager) ListRooms() []*Room {
 func (r *Room) JoinRoom(playerID, name string, deck *model.Deck, sendFn func(game.GameEvent)) (int, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	if r.tutorialPlayerID != "" {
+		if playerID != r.tutorialPlayerID {
+			return -1, fmt.Errorf("这是独立教学房间，请从大厅开始自己的教程")
+		}
+		deck, _ = game.TutorialDecks()
+	}
 	for _, player := range r.Players {
 		if player != nil && player.ID == playerID && player.IsBot {
 			return -1, fmt.Errorf("AI seat is reserved")
@@ -320,6 +335,7 @@ func (r *Room) StartGame() error {
 	}
 	player0 := r.Players[0]
 	player1 := r.Players[1]
+	isTutorial := r.tutorialPlayerID != ""
 	r.isStarting = true
 
 	// Create engine with event callback
@@ -330,11 +346,12 @@ func (r *Room) StartGame() error {
 
 	// Setup game
 	firstPlayer := rand.Intn(2)
-	err := engine.SetupGameWithFirstPlayer(
-		player0.Name, player0.Deck,
-		player1.Name, player1.Deck,
-		firstPlayer,
-	)
+	var err error
+	if isTutorial {
+		err = engine.SetupTutorialGame(player0.Name)
+	} else {
+		err = engine.SetupGameWithFirstPlayer(player0.Name, player0.Deck, player1.Name, player1.Deck, firstPlayer)
+	}
 	if err != nil {
 		r.mu.Lock()
 		r.isStarting = false
@@ -469,13 +486,18 @@ func (r *Room) RoomInfo() map[string]any {
 		"id":         r.ID,
 		"is_started": r.IsStarted,
 		"test_mode":  r.TestMode,
+		"tutorial":   r.tutorialPlayerID != "",
 	}
 
 	players := make([]any, 0)
 	for i := 0; i < 2; i++ {
 		if r.Players[i] != nil {
+			id := r.Players[i].ID
+			if r.tutorialPlayerID != "" {
+				id = ""
+			}
 			players = append(players, map[string]any{
-				"id":           r.Players[i].ID,
+				"id":           id,
 				"name":         r.Players[i].Name,
 				"slot":         i,
 				"is_connected": r.Players[i].IsConnected,
