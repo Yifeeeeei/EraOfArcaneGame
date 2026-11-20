@@ -9,6 +9,7 @@ import (
 
 // Engine manages a single game instance
 type Engine struct {
+	tutorial         *tutorialSession
 	effectSource     *fieldLifetime
 	revision         uint64
 	decisionSequence uint64
@@ -66,13 +67,26 @@ func (e *Engine) HandleActionWithRevision(playerID int, action ActionMessage) (r
 	if playerID < 0 || playerID > 1 || e.State == nil || e.State.Players[playerID] == nil {
 		return 0, false, fmt.Errorf("invalid player or game not started")
 	}
+	if err := e.validateTutorialAction(playerID, &action); err != nil {
+		return 0, false, err
+	}
 	switch action.Action {
 	case "mulligan", "summon", "consume", "cast_spell", "react_spell", "defend", "no_defend", "attack", "equip", "learn_skill", "use_item", "place_terrain", "use_ability", "resolve_action", "end_turn", "surrender", "offer_draw", "respond_draw_offer":
+	case "tutorial_continue":
+		if e.tutorial == nil {
+			return 0, false, fmt.Errorf("not a tutorial game")
+		}
 	default:
 		return 0, false, fmt.Errorf("unknown action: %s", action.Action)
 	}
 	executed = true
 	defer func() { e.revision++ }()
+	// Runs after resolution/choice defers, while the engine still owns its lock.
+	defer func() {
+		if actionErr == nil {
+			e.completeTutorialStep(playerID, action)
+		}
+	}()
 	e.actionSequence++
 	e.traceResolution("action_start", action.Action, nil)
 	defer func() {
@@ -92,6 +106,8 @@ func (e *Engine) HandleActionWithRevision(playerID int, action ActionMessage) (r
 
 	actionErr = func() error {
 		switch action.Action {
+		case "tutorial_continue":
+			return nil // The tutorial guard validated this reading acknowledgement.
 		case "mulligan":
 			return e.handleMulligan(playerID, action)
 		case "summon":

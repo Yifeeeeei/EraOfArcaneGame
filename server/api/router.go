@@ -19,6 +19,7 @@ func SetupRoutes(mux *http.ServeMux, rm *match.RoomManager) {
 	mux.HandleFunc("/api/deck/validate", handleValidateDeck)
 	mux.HandleFunc("/api/room/create", handleCreateRoom(rm))
 	mux.HandleFunc("/api/solo/create", handleCreateSoloRoom(rm))
+	mux.HandleFunc("/api/tutorial/create", handleCreateTutorialRoom(rm))
 	mux.HandleFunc("/api/room/list", handleListRooms(rm))
 	mux.HandleFunc("/api/room/info", handleRoomInfo(rm))
 	mux.HandleFunc("/api/test-room/create", handleCreateTestRoom(rm))
@@ -324,6 +325,9 @@ func handleListRooms(rm *match.RoomManager) http.HandlerFunc {
 		rooms := rm.ListRooms()
 		result := make([]map[string]any, 0, len(rooms))
 		for _, room := range rooms {
+			if room.IsTutorial() {
+				continue
+			}
 			result = append(result, room.RoomInfo())
 		}
 		w.Header().Set("Content-Type", "application/json")

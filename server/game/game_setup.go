@@ -19,6 +19,10 @@ func (e *Engine) SetupGameWithFirstPlayer(p1Name string, p1Deck *model.Deck, p2N
 }
 
 func (e *Engine) setupGameWithFirstPlayer(p1Name string, p1Deck *model.Deck, p2Name string, p2Deck *model.Deck, firstPlayer int) error {
+	return e.setupGameWithOrder(p1Name, p1Deck, p2Name, p2Deck, firstPlayer, false)
+}
+
+func (e *Engine) setupGameWithOrder(p1Name string, p1Deck *model.Deck, p2Name string, p2Deck *model.Deck, firstPlayer int, fixedOrder bool) error {
 	defer func() { e.revision++ }()
 	if firstPlayer < 0 || firstPlayer > 1 {
 		firstPlayer = 0
@@ -32,6 +36,12 @@ func (e *Engine) setupGameWithFirstPlayer(p1Name string, p1Deck *model.Deck, p2N
 	// Initialize cards
 	e.initPlayerCards(e.State.Players[0], 0)
 	e.initPlayerCards(e.State.Players[1], 0)
+	if fixedOrder {
+		// Only authored scenarios use declared draw order; normal setup is shuffled.
+		for _, ps := range e.State.Players {
+			arrangeScenarioDeck(ps)
+		}
+	}
 	e.triggerInitialHeroEnterEffects()
 	e.triggerGameStartEffects()
 	e.emit(GameEvent{

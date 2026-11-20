@@ -63,6 +63,10 @@ func (r *Room) PlayerStateView(player int) map[string]any {
 }
 
 func (r *Room) startBot() {
+	if r.IsTutorial() {
+		r.startTutorial()
+		return
+	}
 	r.mu.Lock()
 	if r.botCancel != nil || r.Engine == nil || r.Players[1] == nil || !r.Players[1].IsBot {
 		r.mu.Unlock()
